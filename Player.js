@@ -556,7 +556,8 @@ export class BotPlayer extends Player {
           else {
               // Hunt cílují DPS a Bruiseři na Supporty/Mágy v okolí 2000 unitů
               if (['Assassin', 'Marksman', 'Runner', 'Bruiser'].includes(this.className)) {
-                  let targets = aliveEnemies.filter(p => ['Healer', 'Acolyte', 'Mage', 'Summoner'].includes(p.className) && dist(this.pos, p.pos) < 2000);
+                      let aliveEnemies = game.players.filter(p => p.team !== this.team && p.alive);
+                      let targets = aliveEnemies.filter(p => ['Healer', 'Acolyte', 'Mage', 'Summoner'].includes(p.className) && dist(this.pos, p.pos) < 2000);
                   if (targets.length > 0) { this.huntTarget = targets[Math.floor(Math.random() * targets.length)]; this.strategy = 'HUNT'; }
               }
           }
