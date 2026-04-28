@@ -19,6 +19,10 @@ style.innerHTML = `
           position: absolute !important;
           right: 2vw !important;
           bottom: 2vh !important;
+          top: auto !important;
+          left: auto !important;
+          margin: 0 !important;
+          transform: none !important;
           border-radius: 50% !important;
       } 
   }
