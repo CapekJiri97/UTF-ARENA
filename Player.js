@@ -529,6 +529,8 @@ export class BotPlayer extends Player {
 
       if (!this.alive) return;
 
+      this.terrified = false; // Reset strachu na začátku úvahy
+
       // --- 0. Náhodné nálady (Urges) ---
       if (Math.random() < 0.05 && this.level >= 4) this.farmUrge = true;
       if (Math.random() < 0.1) this.farmUrge = false;
@@ -650,7 +652,8 @@ export class BotPlayer extends Player {
           let score = this.personalWeights.powerupScore - d;
           if (dist(game.powerup.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty;
           if (this.state === 'PICKUP' && this.objective && this.objective.type === 'powerup') score += this.personalWeights.objectiveHysteresis;
-          if (score > bestObjScore) { bestObjScore = score; bestObjective = { pos: game.powerup.pos, type: 'powerup', captureRadius: 70 }; bestState = 'PICKUP'; }
+          if (score > bestObjScore) { bestObjScore = ?
+            score; bestObjective = { pos: game.powerup.pos, type: 'powerup', captureRadius: 70 }; bestState = 'PICKUP'; }
       }
 
       // --- 2. Hodnocení Útoků (Combat) ---
@@ -666,10 +669,21 @@ export class BotPlayer extends Player {
               
               // ANALÝZA PŘESILY (Prevence sebevražedných 1v3)
               if (e.className && this.huntTarget !== e) {
-                  let alliesNear = game.players.filter(p => p.team === this.team && p.alive && dist(p.pos, e.pos) < 600).length;
-                  let enemiesNear = game.players.filter(p => p.team !== this.team && p.alive && dist(p.pos, e.pos) < 600).length;
-                  if (enemiesNear > alliesNear + 1) { // Pokud jsou v přesile (např 1v3, 2v4)
-                      score -= 15000 * (enemiesNear - alliesNear); // Obrovská penalizace za riziko
+                  let allyStrength = 0;
+                  let enemyStrength = 0;
+                  for (let p of game.players) {
+                      if (p.alive && dist(p.pos, e.pos) < 600) {
+                          let hpPct = Math.max(0, p.hp / (p.effectiveMaxHp || p.maxHp));
+                          if (p.team === this.team) allyStrength += hpPct;
+                          else enemyStrength += hpPct;
+                      }
+                  }
+                  
+                  // Hodnotí se reálná síla (HP) místo pouhého počtu těl. 
+                  // enemyStrength > allyStrength + 0.8 znamená, že mají o cca jeden plný HP bar víc
+                  if (enemyStrength > allyStrength + 0.8) { 
+                      score -= 30000; 
+                      if (d < 500) this.terrified = true; 
                   }
               }
 
@@ -742,11 +756,37 @@ export class BotPlayer extends Player {
           }
       }
 
+      // --- 2.7 Zbabělý útěk (Terrified) ---
+      if (this.terrified) {
+          bestObjScore = 35000; // Sníženo pro vyváženost
+          
+          let fleePos = spawnPoints[this.team];
+          let bestFleeDist = Infinity;
+          
+          // 1. Zkusíme utéct k nejbližší lékárničce
+          for (let h of game.heals) {
+              if (h.active) { let d = dist(this.pos, h.pos); if (d < bestFleeDist) { bestFleeDist = d; fleePos = h.pos; } }
+          }
+          
+          // 2. Pokud žádná není blízko (dál než 1500 unitů), běžíme k nejbližšímu spojenci
+          if (bestFleeDist > 1500) {
+              for (let p of game.players) {
+                  if (p.team === this.team && p.alive && p.id !== this.id) { let d = dist(this.pos, p.pos); if (d < bestFleeDist) { bestFleeDist = d; fleePos = p.pos; } }
+              }
+          }
+          
+          bestObjective = { pos: fleePos, type: 'flee', captureRadius: 200 };
+          bestState = 'PICKUP'; // Zneužijeme PUSH/PICKUP logiku pro prostý běh
+          bestTargetScore = -Infinity;
+          bestTarget = null;
+      }
+
       // --- 3. Rozhodnutí: Cíl vs Objektiv ---
       let shouldAttack = false;
       if (bestTarget) {
           let d = dist(this.pos, bestTarget.pos);
           let isLowHp = bestTarget.hp / (bestTarget.effectiveMaxHp || bestTarget.maxHp) < 0.3;
+          let isUnderAttack = this.recentAttackers && this.recentAttackers.has(bestTarget.id);
           
           // Pokud máme málo HP a jdeme si pro lékárničku, ignorujeme boj na dálku a jdeme se léčit
           let isDesperateForHeal = (bestState === 'PICKUP' && bestObjective && bestObjective.type === 'heal' && this.hp / this.effectiveMaxHp < 0.6);
@@ -756,11 +796,11 @@ export class BotPlayer extends Player {
           
           if (isDesperateForHeal) {
               if (d < 150) shouldAttack = true; // Bráníme se jen v sebeobraně nablízko
-          } else if (isDesperateForTower) {
+          } else if (isDesperateForTower && !isUnderAttack) {
               if (d < 150 || isLowHp) shouldAttack = true; // Sprintujeme do kruhu, bojujeme jen ve velké blízkosti
           } else {
-              // Útočíme, pokud je cíl blízko, má low HP, nic jiného nehoří (věže mají málo bodů), NEBO pokud běžíme na pomoc (bestTargetScore >= 20000)
-              if (d < 350 || isLowHp || bestObjScore < this.personalWeights.objectiveFocusThreshold || bestTargetScore >= 20000 || isDefendingTower) shouldAttack = true;
+              // Útočíme, pokud je cíl blízko, má low HP, nic jiného nehoří, běžíme na pomoc NEBO DO NÁS NĚKDO STŘÍLÍ
+              if (d < 400 || isLowHp || bestObjScore < this.personalWeights.objectiveFocusThreshold || bestTargetScore >= 20000 || isDefendingTower || isUnderAttack) shouldAttack = true;
           }
       }
 
@@ -941,6 +981,7 @@ export class BotPlayer extends Player {
 
       // --- NOVÁ LOGIKA POHYBU A ÚTOKU (STATE MACHINE) ---
       let dx = 0, dy = 0;
+      let isKiting = false; // Vlajka pro střelbu za běhu
 
       if (this.state === 'ATTACK') {
           if (this.target && (this.target.hp > 0 && (this.target.alive !== false && !this.target.dead))) {
@@ -1039,6 +1080,44 @@ export class BotPlayer extends Player {
           }
       }
 
+      // --- KITING BĚHEM ÚTĚKU / PŘESUNU ---
+      if (this.state !== 'ATTACK') {
+          let atkRange = this.range ? RANGED_ATTACK_RANGE : MELEE_ATTACK_RANGE + 20;
+          let kitingTarget = null;
+          let bestKDist = atkRange;
+          
+          for (let p of game.players) {
+              if (p.team !== this.team && p.alive) {
+                  let d = dist(this.pos, p.pos);
+                  if (d <= bestKDist) { bestKDist = d; kitingTarget = p; }
+              }
+          }
+          if (!kitingTarget) {
+              for (let m of game.minions) {
+                  if (m.team !== this.team && !m.dead) {
+                      let d = dist(this.pos, m.pos);
+                      if (d <= bestKDist) { bestKDist = d; kitingTarget = m; }
+                  }
+              }
+          }
+          if (kitingTarget) {
+              isKiting = true;
+              this.aimAngle = Math.atan2(kitingTarget.pos.y - this.pos.y, kitingTarget.pos.x - this.pos.x);
+              if (this.attackCooldown <= 0) { this.shoot(kitingTarget.pos.x, kitingTarget.pos.y); this.attackCooldown = this.attackDelay / this.attackSpeed; }
+              if (this.castingTimeRemaining <= 0) {
+                  let isMinion = !kitingTarget.className;
+                  if (this.spells.Q && this.spells.Q.cd <= 0 && !['dash', 'dash_def', 'buff_ms', 'heal_self', 'hana_q'].includes(this.spells.Q.type)) {
+                      let chance = (isMinion && this.spells.Q.type === 'aoe') ? 1.0 : 0.10;
+                      if (Math.random() < chance) this.castSpell('Q', kitingTarget.pos.x, kitingTarget.pos.y);
+                  }
+                  else if (this.spells.E && this.spells.E.cd <= 0 && !['dash', 'dash_def', 'buff_ms', 'heal_self', 'hana_q'].includes(this.spells.E.type)) {
+                      let chance = (isMinion && this.spells.E.type === 'aoe') ? 1.0 : 0.10;
+                      if (Math.random() < chance) this.castSpell('E', kitingTarget.pos.x, kitingTarget.pos.y);
+                  }
+              }
+          }
+      }
+
       const l = Math.hypot(dx, dy);
       let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? 0.6 : 1.0);
       if (this.attackPenaltyTimer > 0) moveSpeed *= 0.8;
@@ -1063,7 +1142,7 @@ export class BotPlayer extends Player {
           let finalL = Math.hypot(dx, dy);
           if (finalL > 0) { dx /= finalL; dy /= finalL; }
 
-          if (this.state !== 'ATTACK') this.aimAngle = Math.atan2(dy, dx);
+          if (this.state !== 'ATTACK' && !isKiting) this.aimAngle = Math.atan2(dy, dx);
           moveEntityWithCollision(this, dx * moveSpeed, dy * moveSpeed, dt); 
       }
     }

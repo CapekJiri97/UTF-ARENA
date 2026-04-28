@@ -35,6 +35,13 @@ style.innerHTML = `
 `;
 document.head.appendChild(style);
 
+if (!document.querySelector('meta[name="viewport"]')) {
+    const meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    document.head.appendChild(meta);
+}
+
 export function updateLobbyUI(playersData, roomName = "OFFLINE") {
   const rb = document.getElementById('roomBrowser'); if (rb) rb.style.display = 'none';
   const rl = document.getElementById('roomLobby'); if (rl) rl.style.display = 'block';
@@ -227,8 +234,11 @@ export function drawBackground(ctx){
 }
 
 export function draw(){ 
-  ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle = '#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.setTransform(camera.scale,0,0,camera.scale, -camera.x*camera.scale, -camera.y*camera.scale);
+  const cw = canvas.clientWidth; const ch = canvas.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle = '#000'; ctx.fillRect(0,0,cw,ch);
+  ctx.setTransform(camera.scale*dpr,0,0,camera.scale*dpr, -camera.x*camera.scale*dpr, -camera.y*camera.scale*dpr);
   if (game.shake > 0) { const mag = game.shake * 20; ctx.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag); }
   drawBackground(ctx);
   for(let h of game.heals) h.draw(ctx); if(game.powerup) game.powerup.draw(ctx);
@@ -276,7 +286,7 @@ export function draw(){
     ctx.restore();
   }
 
-  ctx.setTransform(1,0,0,1,0,0); 
+  ctx.setTransform(dpr,0,0,dpr,0,0); 
   
   // --- SCREEN FLASH EFFECTS ---
   if (game.screenDamageFlash > 0 || game.screenHealFlash > 0) {
@@ -290,11 +300,11 @@ export function draw(){
       for(let i=0; i<particleCount; i++) {
           let rx, ry;
           if (Math.random() > 0.5) {
-              rx = Math.random() * canvas.width;
-              ry = Math.random() > 0.5 ? Math.random() * 120 : canvas.height - Math.random() * 120;
+              rx = Math.random() * cw;
+              ry = Math.random() > 0.5 ? Math.random() * 120 : ch - Math.random() * 120;
           } else {
-              rx = Math.random() > 0.5 ? Math.random() * 120 : canvas.width - Math.random() * 120;
-              ry = Math.random() * canvas.height;
+              rx = Math.random() > 0.5 ? Math.random() * 120 : cw - Math.random() * 120;
+              ry = Math.random() * ch;
           }
           
           if (maxDmg > 0 && Math.random() < maxDmg) {
@@ -309,7 +319,7 @@ export function draw(){
   }
   
   drawMinimap();
-  if(game.startDelay > 0 && game.started) { ctx.font = '40px monospace'; ctx.fillStyle = '#ffcc00'; ctx.textAlign='center'; ctx.fillText(`MATCH STARTS IN ${Math.ceil(game.startDelay)}`, canvas.width/2, 100); }
+  if(game.startDelay > 0 && game.started) { ctx.font = '40px monospace'; ctx.fillStyle = '#ffcc00'; ctx.textAlign='center'; ctx.fillText(`MATCH STARTS IN ${Math.ceil(game.startDelay)}`, cw/2, 100); }
 
   if(game.started) {
     // --- TOP LEFT CONTROLS ---
@@ -320,7 +330,7 @@ export function draw(){
 
     // --- TOP CENTER SCORE ---
     let tBlue = game.towers.filter(t=>t.owner===0).length; let tRed = game.towers.filter(t=>t.owner===1).length;
-    let cxTop = canvas.width / 2;
+    let cxTop = cw / 2;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top'; 
     ctx.font = isMobile ? 'bold 18px monospace' : 'bold 28px monospace';
     ctx.fillStyle = '#fff'; ctx.fillText(' : ', cxTop, 20);
@@ -334,7 +344,7 @@ export function draw(){
 
     if (game.isSpectator) {
         ctx.textAlign = 'center'; ctx.fillStyle = '#ffcc00'; ctx.font = isMobile ? 'bold 14px monospace' : 'bold 20px monospace';
-        ctx.fillText('SPECTATOR MODE - WASD TO MOVE CAMERA', canvas.width / 2, isMobile ? 65 : 90);
+        ctx.fillText('SPECTATOR MODE - WASD TO MOVE CAMERA', cw / 2, isMobile ? 65 : 90);
     }
 
     // Kill Feed & Objectives
@@ -362,18 +372,18 @@ export function draw(){
           let allyBots = game.players.filter(p => p.team === player.team && p.id !== player.id); 
           let shiftY = isMobile ? 16 : 25;
           // Zajištění, aby spoluhráči byli nad minimapou
-          let startY = canvas.height - (isMobile ? (window.innerHeight * 0.35) : 330); 
-          ctx.fillStyle = '#aaa'; ctx.fillText('TEAMMATES', canvas.width - 20, startY - allyBots.length * shiftY - 10);
+          let startY = ch - (isMobile ? (window.innerHeight * 0.35) : 330); 
+          ctx.fillStyle = '#aaa'; ctx.fillText('TEAMMATES', cw - 20, startY - allyBots.length * shiftY - 10);
           for(let i=0; i<allyBots.length; i++) {
               let bot = allyBots[i]; let y = startY - (allyBots.length - 1 - i) * shiftY;
-              ctx.fillStyle = bot.alive ? '#fff' : '#666'; ctx.fillText(`${bot.className} LV${bot.level}`, canvas.width - 80, y);
+              ctx.fillStyle = bot.alive ? '#fff' : '#666'; ctx.fillText(`${bot.className} LV${bot.level}`, cw - 80, y);
               let maxBoxes = 5; let f = Math.max(0, Math.min(maxBoxes, Math.round((Math.max(0, bot.hp) / bot.maxHp) * maxBoxes) || 0));
-              let bar = '[' + '|'.repeat(f) + ' '.repeat(maxBoxes - f) + ']'; ctx.fillStyle = bot.alive ? (bot.team === 0 ? '#486FED' : '#FF4E4E') : '#444'; ctx.fillText(bar, canvas.width - 20, y); 
+              let bar = '[' + '|'.repeat(f) + ' '.repeat(maxBoxes - f) + ']'; ctx.fillStyle = bot.alive ? (bot.team === 0 ? '#486FED' : '#FF4E4E') : '#444'; ctx.fillText(bar, cw - 20, y); 
           }
       }
       
-      let anchorX = canvas.width / 2; const anchorY = canvas.height - (isMobile ? 10 : 65); 
-      if (!isMobile && anchorX + 300 > canvas.width - 320) anchorX = Math.max(300, canvas.width - 620); // Responzivní uhnutí minimapě
+      let anchorX = cw / 2; const anchorY = ch - (isMobile ? 10 : 65); 
+      if (!isMobile && anchorX + 300 > cw - 320) anchorX = Math.max(300, cw - 620); // Responzivní uhnutí minimapě
 
       ctx.save();
       // Výrazně čistší a větší měřítko středového HUDu pro mobily
@@ -482,15 +492,15 @@ export function draw(){
       ctx.restore();
     }
     if (keys['tab']) {
-        ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(100, 100, canvas.width - 200, canvas.height - 200); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(100, 100, canvas.width - 200, canvas.height - 200);
-        ctx.fillStyle = '#fff'; ctx.font = '24px monospace'; ctx.textAlign = 'center'; ctx.fillText('SCOREBOARD', canvas.width/2, 140); ctx.font = '16px monospace'; ctx.textAlign = 'left'; ctx.fillText('BLUE TEAM', 130, 180);
+        ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(100, 100, cw - 200, ch - 200); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(100, 100, cw - 200, ch - 200);
+        ctx.fillStyle = '#fff'; ctx.font = '24px monospace'; ctx.textAlign = 'center'; ctx.fillText('SCOREBOARD', cw/2, 140); ctx.font = '16px monospace'; ctx.textAlign = 'left'; ctx.fillText('BLUE TEAM', 130, 180);
         let blueTeam = game.players.filter(p => p.team === 0); for(let i=0; i<blueTeam.length; i++) { let p = blueTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = (player && p.id === player.id) ? '#0f0' : '#486FED'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, 130, 210 + i*25); }
-        ctx.fillStyle = '#fff'; ctx.fillText('RED TEAM', canvas.width/2 + 30, 180); let redTeam = game.players.filter(p => p.team === 1);
-        for(let i=0; i<redTeam.length; i++) { let p = redTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = '#FF4E4E'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, canvas.width/2 + 30, 210 + i*25); }
+        ctx.fillStyle = '#fff'; ctx.fillText('RED TEAM', cw/2 + 30, 180); let redTeam = game.players.filter(p => p.team === 1);
+        for(let i=0; i<redTeam.length; i++) { let p = redTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = '#FF4E4E'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, cw/2 + 30, 210 + i*25); }
     }
     
-    let vw = canvas.width / 100;
-    let vh = canvas.height / 100;
+    let vw = cw / 100;
+    let vh = ch / 100;
 
     if (keys['c'] && player) {
         ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, 30 * vw, 100 * vh);
@@ -559,7 +569,18 @@ export function draw(){
   }
 }
 
-export function drawMinimap(){ const mm = document.getElementById('minimap'); const w = mm.clientWidth, h = mm.clientHeight; const ctxm = mm._ctx || (function(){ const c = document.createElement('canvas'); c.width = w; c.height = h; mm.appendChild(c); mm._ctx = c.getContext('2d'); return mm._ctx; })(); ctxm.clearRect(0,0,w,h); ctxm.fillStyle='#222'; ctxm.fillRect(0,0,w,h);
+export function drawMinimap(){ 
+  const mm = document.getElementById('minimap'); const w = mm.clientWidth, h = mm.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  let c = mm.querySelector('canvas');
+  if (!c) { c = document.createElement('canvas'); mm.appendChild(c); }
+  if (c.width !== Math.floor(w * dpr) || c.height !== Math.floor(h * dpr)) {
+      c.width = Math.floor(w * dpr); c.height = Math.floor(h * dpr);
+      c.style.width = w + 'px'; c.style.height = h + 'px';
+      mm._ctx = c.getContext('2d'); mm._ctx.scale(dpr, dpr);
+  }
+  const ctxm = mm._ctx;
+  ctxm.clearRect(0,0,w,h);
   const scaleX = w / world.width; const scaleY = h / world.height; 
   ctxm.save(); ctxm.beginPath(); ctxm.arc(w/2, h/2, w/2, 0, Math.PI*2); ctxm.clip();
   ctxm.fillStyle='#111'; ctxm.fillRect(0,0,w,h);

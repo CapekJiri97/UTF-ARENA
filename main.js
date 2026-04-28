@@ -10,7 +10,13 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
 
   export const canvas = document.getElementById('gameCanvas');
   export const ctx = canvas.getContext('2d');
-  function resize(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  function resize(){ 
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr; 
+      canvas.height = window.innerHeight * dpr; 
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+  }
   window.addEventListener('resize', resize); resize();
 
   window.addEventListener('error', (e) => {
@@ -644,13 +650,13 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         if (keys['s']) camera.y += camSpeed;
         if (keys['a']) camera.x -= camSpeed;
         if (keys['d']) camera.x += camSpeed;
-        const viewW = canvas.width / camera.scale; 
-        const viewH = canvas.height / camera.scale;
+        const viewW = canvas.clientWidth / camera.scale; 
+        const viewH = canvas.clientHeight / camera.scale;
         camera.x = clamp(camera.x, 0, Math.max(0, world.width - viewW));
         camera.y = clamp(camera.y, 0, Math.max(0, world.height - viewH));
     } else if (player) {
-        const viewW = canvas.width / camera.scale; 
-        const viewH = canvas.height / camera.scale;
+        const viewW = canvas.clientWidth / camera.scale; 
+        const viewH = canvas.clientHeight / camera.scale;
         camera.x = clamp(player.pos.x - viewW/2, 0, Math.max(0, world.width - viewW));
         camera.y = clamp(player.pos.y - viewH/2, 0, Math.max(0, world.height - viewH));
     }
