@@ -39,6 +39,7 @@ export class Player{
     this.stats = { dmgDealt: 0, dmgTaken: 0, hpHealed: 0 };
     this.recentAttackers = new Map();
 
+    this.isDirty = true; // Příznak pro síťovou optimalizaci
     // progression
     this.level = 1; this.exp = 0; this.spellPoints = 0;
 
@@ -70,14 +71,15 @@ export class Player{
 
   computeSpellCooldown(spKey){ const sp = this.spells[spKey]; const base = sp.baseCooldown; const hasteFactor = Math.max(0, 1 - this.abilityHaste/100); const levelFactor = Math.pow(0.95, sp.level-1); return Math.max(0.4, base * hasteFactor * levelFactor); }
 
-  die(){ this.alive = false; this.hasPowerup = false; this.deaths++; this.respawnTimer = Math.max(3, 4 + Math.floor(this.level * 0.5)); console.log(`[DEBUG] ${this.id} died. Respawning in ${this.respawnTimer}s.`); if(this.id === player.id) { game.shake = 0.5; flashMessage('You died — respawning...'); } }
+  die(){ this.alive = false; this.hasPowerup = false; this.deaths++; this.respawnTimer = Math.max(3, 4 + Math.floor(this.level * 0.5)); console.log(`[DEBUG] ${this.id} died. Respawning in ${this.respawnTimer}s.`); if(player && this.id === player.id) { game.shake = 0.5; flashMessage('You died — respawning...'); } }
   revive(){ this.alive = true; this.hp = this.effectiveMaxHp; const sp = spawnPoints[this.team]; if(sp) { this.pos.x = sp.x; this.pos.y = sp.y; } this.respawnTimer = 0; console.log(`[DEBUG] ${this.id} revived.`); }
 
-  allocateSpellPoint(spKey){ if(this.spellPoints<=0) return; const sp = this.spells[spKey]; if(!sp) return; sp.level += 1; this.spellPoints -= 1; updateSpellLabels(); }
+  allocateSpellPoint(spKey){ if(this.spellPoints<=0) return; const sp = this.spells[spKey]; if(!sp) return; sp.level += 1; this.spellPoints -= 1; this.isDirty = true; updateSpellLabels(); }
 
   levelUp(){ 
     this.level += 1; this.spellPoints += 1; this.maxHp += 15; this.hp = Math.min(this.effectiveMaxHp, this.hp + 15); this.AD += 1; this.AP += 1; 
     this.levelUpTimer = 2.0;
+    this.isDirty = true;
     spawnParticles(this.pos.x, this.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0});
     console.log(`[DEBUG] ${this.id} leveled up to ${this.level}`);
   }
@@ -503,7 +505,7 @@ export class BotPlayer extends Player {
               }
           }
           if (itemToBuy) {
-              this.gold -= itemToBuy.cost; this.items.push(itemToBuy.id); itemToBuy.apply(this);
+              this.gold -= itemToBuy.cost; this.items.push(itemToBuy.id); itemToBuy.apply(this); this.isDirty = true;
           }
       }
 
@@ -734,6 +736,7 @@ export class BotPlayer extends Player {
           if(this.rallyTimer > 0) this.rallyTimer -= dt;
           if(this.slowTimer > 0) this.slowTimer -= dt;
           if(this.msBuffTimer > 0) this.msBuffTimer -= dt;
+          if(this.levelUpTimer > 0) this.levelUpTimer -= dt;
           if (this.knockbackTimer > 0) {
               this.knockbackTimer -= dt;
               moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);

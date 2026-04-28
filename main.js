@@ -43,23 +43,26 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         //netPlayer.hp = data.hp; // HP je nyní plně pod kontrolou Hosta
         netPlayer.aimAngle = data.aimAngle !== undefined ? data.aimAngle : netPlayer.aimAngle;
         // PŘIDÁNO: Přijímání statistik pro Scoreboard (TAB)
-        if (data.level && data.level > netPlayer.level) { netPlayer.levelUpTimer = 2.0; spawnParticles(netPlayer.pos.x, netPlayer.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
-        netPlayer.level = data.level || netPlayer.level; netPlayer.maxHp = data.maxHp || netPlayer.maxHp;
-        netPlayer.kills = data.kills || 0; netPlayer.deaths = data.deaths || 0; netPlayer.assists = data.assists || 0; 
-        netPlayer.totalGold = data.gold || 0; netPlayer.items.length = data.items || 0;
-        if (data.stats) { netPlayer.stats.dmgDealt = data.stats.dmgDealt; netPlayer.stats.dmgTaken = data.stats.dmgTaken; netPlayer.stats.hpHealed = data.stats.hpHealed; }
-        // PŘIDÁNO: Synchro bojových statů pro správný výpočet damage z cizích střel
-        netPlayer.AD = data.AD || netPlayer.AD; netPlayer.AP = data.AP || netPlayer.AP; netPlayer.armor = data.armor || netPlayer.armor;
-        netPlayer.mr = data.mr || netPlayer.mr; netPlayer.speed = data.speed || netPlayer.speed; netPlayer.attackSpeed = data.attackSpeed || netPlayer.attackSpeed; netPlayer.abilityHaste = data.abilityHaste || netPlayer.abilityHaste;
-        netPlayer.invulnerableTimer = data.invTimer || 0; netPlayer.defBuffTimer = data.defTimer || 0; // Ochrana proti lokálnímu falešnému damage
-        // PŘIDÁNO: Synchro spell levelů pro správný damage z jejich střel
-        if (netPlayer.spells) {
-            if (data.qLvl) netPlayer.spells.Q.level = data.qLvl;
-            if (data.eLvl) netPlayer.spells.E.level = data.eLvl;
-        }
-        netPlayer.summonerSpell = data.sumSpell || netPlayer.summonerSpell;
         netPlayer.slowTimer = data.slowT || 0;
         netPlayer.boostTimer = data.boostT || 0;
+
+        if (data.isFullUpdate) {
+          if (data.level && data.level > netPlayer.level) { netPlayer.levelUpTimer = 2.0; spawnParticles(netPlayer.pos.x, netPlayer.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
+          netPlayer.level = data.level || netPlayer.level; netPlayer.maxHp = data.maxHp || netPlayer.maxHp;
+          netPlayer.kills = data.kills || 0; netPlayer.deaths = data.deaths || 0; netPlayer.assists = data.assists || 0; 
+          netPlayer.totalGold = data.gold || 0; netPlayer.items.length = data.items || 0;
+          if (data.stats) { netPlayer.stats.dmgDealt = data.stats.dmgDealt; netPlayer.stats.dmgTaken = data.stats.dmgTaken; netPlayer.stats.hpHealed = data.stats.hpHealed; }
+          // PŘIDÁNO: Synchro bojových statů pro správný výpočet damage z cizích střel
+          netPlayer.AD = data.AD || netPlayer.AD; netPlayer.AP = data.AP || netPlayer.AP; netPlayer.armor = data.armor || netPlayer.armor;
+          netPlayer.mr = data.mr || netPlayer.mr; netPlayer.speed = data.speed || netPlayer.speed; netPlayer.attackSpeed = data.attackSpeed || netPlayer.attackSpeed; netPlayer.abilityHaste = data.abilityHaste || netPlayer.abilityHaste;
+          netPlayer.invulnerableTimer = data.invTimer || 0; netPlayer.defBuffTimer = data.defTimer || 0; // Ochrana proti lokálnímu falešnému damage
+          // PŘIDÁNO: Synchro spell levelů pro správný damage z jejich střel
+          if (netPlayer.spells) {
+              if (data.qLvl) netPlayer.spells.Q.level = data.qLvl;
+              if (data.eLvl) netPlayer.spells.E.level = data.eLvl;
+          }
+          netPlayer.summonerSpell = data.sumSpell || netPlayer.summonerSpell;
+        }
       }
     });
     
@@ -79,22 +82,24 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                   E: { ...cData.E, cd: bot.spells.E.cd, level: bData.eLvl || 1 }
               };
           }
-          bot.targetPos = { x: bData.x, y: bData.y }; bot.hp = bData.hp; bot.alive = bData.alive; bot.aimAngle = bData.aimAngle; }
-        if (bot) {
-          if (bData.level && bData.level > bot.level) { bot.levelUpTimer = 2.0; spawnParticles(bot.pos.x, bot.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
-          bot.level = bData.level || bot.level; bot.maxHp = bData.maxHp || bot.maxHp;
-          bot.kills = bData.kills || 0; bot.deaths = bData.deaths || 0; bot.assists = bData.assists || 0; bot.totalGold = bData.gold || 0;
-          if (bData.stats) { bot.stats.dmgDealt = bData.stats.dmgDealt; bot.stats.dmgTaken = bData.stats.dmgTaken; bot.stats.hpHealed = bData.stats.hpHealed; }
-          bot.AD = bData.AD || bot.AD; bot.AP = bData.AP || bot.AP; bot.armor = bData.armor || bot.armor;
-          bot.mr = bData.mr || bot.mr; bot.speed = bData.speed || bot.speed; bot.attackSpeed = bData.attackSpeed || bot.attackSpeed; bot.abilityHaste = bData.abilityHaste || bot.abilityHaste;
-          bot.invulnerableTimer = bData.invTimer || 0; bot.defBuffTimer = bData.defTimer || 0;
-          if (bot.spells) {
-              if (bData.qLvl) bot.spells.Q.level = bData.qLvl;
-              if (bData.eLvl) bot.spells.E.level = bData.eLvl;
-          }
-          bot.summonerSpell = bData.sumSpell || bot.summonerSpell;
+          bot.targetPos = { x: bData.x, y: bData.y }; bot.hp = bData.hp; bot.alive = bData.alive; bot.aimAngle = bData.aimAngle;
           bot.slowTimer = bData.slowT || 0;
           bot.boostTimer = bData.boostT || 0;
+
+          if (bData.isFullUpdate) {
+            if (bData.level && bData.level > bot.level) { bot.levelUpTimer = 2.0; spawnParticles(bot.pos.x, bot.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
+            bot.level = bData.level || bot.level; bot.maxHp = bData.maxHp || bot.maxHp;
+            bot.kills = bData.kills || 0; bot.deaths = bData.deaths || 0; bot.assists = bData.assists || 0; bot.totalGold = bData.gold || 0;
+            if (bData.stats) { bot.stats.dmgDealt = bData.stats.dmgDealt; bot.stats.dmgTaken = bData.stats.dmgTaken; bot.stats.hpHealed = bData.stats.hpHealed; }
+            bot.AD = bData.AD || bot.AD; bot.AP = bData.AP || bot.AP; bot.armor = bData.armor || bot.armor;
+            bot.mr = bData.mr || bot.mr; bot.speed = bData.speed || bot.speed; bot.attackSpeed = bData.attackSpeed || bot.attackSpeed; bot.abilityHaste = bData.abilityHaste || bot.abilityHaste;
+            bot.invulnerableTimer = bData.invTimer || 0; bot.defBuffTimer = bData.defTimer || 0;
+            if (bot.spells) {
+                if (bData.qLvl) bot.spells.Q.level = bData.qLvl;
+                if (bData.eLvl) bot.spells.E.level = bData.eLvl;
+            }
+            bot.summonerSpell = bData.sumSpell || bot.summonerSpell;
+          }
         }
       });
       
@@ -149,6 +154,11 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         let p = game.players.find(x => x.id === data.id); if (p) p.hp = data.hp;
       } else if (data.type === 'player_died') {
         let p = game.players.find(x => x.id === data.id); if (p && p.alive) { handlePlayerKill(p, data.killerId); }
+      } else if (data.type === 'show_damage') {
+        let t = game.players.find(p => p.id === data.targetId) || game.minions.find(m => m.id === data.targetId);
+        if (t) {
+            game.damageNumbers.push(new DamageNumber(t.pos.x, t.pos.y-6, data.amount));
+        }
       }
     });
     
@@ -258,7 +268,12 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
 
     const actualDamage = Math.round(amount * multiplier);
     target.hp -= actualDamage; target.flashTimer = 0.1;
-    if (actualDamage > 0) game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-6, actualDamage));
+    if (actualDamage > 0) {
+        if (!socket || game.isHost) {
+            game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-6, actualDamage));
+            if (socket) socket.emit('host_event', { type: 'show_damage', targetId: target.id, amount: actualDamage });
+        }
+    }
 
     // OPRAVA: Host je autorita a posílá všem informaci o změně HP hráče
     if (socket && game.isHost && target instanceof Player && !isNetwork) {
@@ -491,7 +506,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   let spawnTimer = 0; const spawnInterval = 12.0; const nexusDrainRate = 0.75; // Sníženo odečítání skóre (cca 30%)
 
   export function buyItem(id){ if(!player) return; const it = shopItems.find(x=>x.id===id); if(!it) return; const allyBaseDist = dist(player.pos, spawnPoints[player.team]); if (allyBaseDist > 250 && player.alive) { return flashMessage('Shop available only in your base!'); } 
-  if (player.items.length >= 25) { return flashMessage('Inventory is full! (Max 25)'); } if(player.gold < it.cost){ return flashMessage('Not enough gold'); } player.gold -= it.cost; player.items.push(it.id); it.apply(player); flashMessage('Bought '+it.name); updateInventory(); populateShop(); }
+  if (player.items.length >= 25) { return flashMessage('Inventory is full! (Max 25)'); } if(player.gold < it.cost){ return flashMessage('Not enough gold'); } player.gold -= it.cost; player.items.push(it.id); it.apply(player); player.isDirty = true; flashMessage('Bought '+it.name); updateInventory(); populateShop(); }
   export function flashMessage(txt){ const el = document.createElement('div'); el.style.position='fixed'; el.style.left='50%'; el.style.top='18px'; el.style.transform='translateX(-50%)'; el.style.background='rgba(255,255,255,0.06)'; el.style.padding='6px 10px'; el.style.borderRadius='6px'; el.style.zIndex=120; el.textContent = txt; document.body.appendChild(el); setTimeout(()=>el.remove(),1200); }
 
   function update(dt){ if(game.gameOver || !game.started) return;
@@ -579,15 +594,22 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
             game.syncTimer = (game.syncTimer || 0) + dt;
             if (game.syncTimer >= 0.05) {
                 game.syncTimer = 0;
-                socket.emit('player_update', { 
-                x: player.pos.x, y: player.pos.y, /*hp: player.hp,*/ alive: player.alive, aimAngle: player.aimAngle,
-                    level: player.level, maxHp: player.maxHp, kills: player.kills, deaths: player.deaths, assists: player.assists, gold: player.totalGold, items: player.items.length,
-                    AD: player.AD, AP: player.AP, armor: player.armor, mr: player.mr, speed: player.speed, attackSpeed: player.attackSpeed, abilityHaste: player.abilityHaste,
-                    invTimer: player.invulnerableTimer, defTimer: player.defBuffTimer,
-                    qLvl: player.spells.Q.level, eLvl: player.spells.E.level,
-                    stats: player.stats,
-                    sumSpell: player.summonerSpell, slowT: player.slowTimer, boostT: player.boostTimer
-                });
+                const minimalState = {
+                    id: player.id, x: player.pos.x, y: player.pos.y, alive: player.alive, aimAngle: player.aimAngle,
+                    slowT: player.slowTimer, boostT: player.boostTimer
+                };
+                if (player.isDirty) {
+                    player.isDirty = false;
+                    socket.emit('player_update', { ...minimalState, isFullUpdate: true,
+                        level: player.level, maxHp: player.effectiveMaxHp, kills: player.kills, deaths: player.deaths, assists: player.assists, gold: player.totalGold, items: player.items.length,
+                        AD: player.AD, AP: player.AP, armor: player.armor, mr: player.mr, speed: player.speed, attackSpeed: player.attackSpeed, abilityHaste: player.abilityHaste,
+                        invTimer: player.invulnerableTimer, defTimer: player.defBuffTimer,
+                        qLvl: player.spells.Q.level, eLvl: player.spells.E.level,
+                        stats: player.stats, sumSpell: player.summonerSpell
+                    });
+                } else {
+                    socket.emit('player_update', minimalState);
+                }
             }
         }
         
@@ -597,15 +619,17 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
             if (game.hostSyncTimer >= 0.1) {
                 game.hostSyncTimer = 0;
                 socket.emit('host_state', {
-                    bots: game.players.filter(p => p instanceof BotPlayer).map(b => ({
-                        id: b.id, className: b.className, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle,
-                        level: b.level, maxHp: b.maxHp, kills: b.kills, deaths: b.deaths, assists: b.assists, gold: b.totalGold,
-                        AD: b.AD, AP: b.AP, armor: b.armor, mr: b.mr, speed: b.speed, attackSpeed: b.attackSpeed, abilityHaste: b.abilityHaste,
-                        invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer,
-                        qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
-                        stats: b.stats,
-                        sumSpell: b.summonerSpell, slowT: b.slowTimer, boostT: b.boostTimer
-                    })),
+                    bots: game.players.filter(p => p instanceof BotPlayer).map(b => {
+                        const minimalState = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, slowT: b.slowTimer, boostT: b.boostTimer };
+                        if (b.isDirty) {
+                            b.isDirty = false;
+                            return { ...minimalState, isFullUpdate: true, className: b.className,
+                                level: b.level, maxHp: b.effectiveMaxHp, kills: b.kills, deaths: b.deaths, assists: b.assists, gold: b.totalGold,
+                                AD: b.AD, AP: b.AP, armor: b.armor, mr: b.mr, speed: b.speed, attackSpeed: b.attackSpeed, abilityHaste: b.abilityHaste,
+                                invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer, qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
+                                stats: b.stats, sumSpell: b.summonerSpell };
+                        } else { return minimalState; }
+                    }),
                     minions: game.minions.map(m => ({id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: m.dead, team: m.team, targetIndex: m.targetIndex})),
                     towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner})),
                     heals: game.heals.map(h => h.active),
@@ -622,7 +646,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     try {
       const now = performance.now(); const dtRaw = Math.min(0.05, (now-last)/1000); last = now; 
       
-      const steps = game.isSpectator ? 2 : 1;
+      const steps = 1; // Odebrán 2x speed pro Spectator mode
       for(let i=0; i<steps; i++) { update(dtRaw); }
       draw(); 
       requestAnimationFrame(loop); 
