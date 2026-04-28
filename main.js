@@ -144,7 +144,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         game.projectiles.push(new Projectile(data.x, data.y, data.vx, data.vy, 'tower', data.owner, {damage: data.damage, dmgType: 'physical', glyph: '♦', life: data.life}));
       } else if (data.type === 'heal_pickup') {
         let p = game.players.find(x => x.id === data.playerId);
-        if (p) { p.hp = data.hp; spawnParticles(game.heals[data.healIndex].pos.x, game.heals[data.healIndex].pos.y, 25, '#0f0', {speed: 150}); if(p === player) flashMessage("+50% HP!"); }
+        if (p) { p.hp = data.hp; spawnParticles(game.heals[data.healIndex].pos.x, game.heals[data.healIndex].pos.y, 25, '#0f0', {speed: 150}); if(p === player) { flashMessage("+50% HP!"); game.screenHealFlash = 0.5; } }
       } else if (data.type === 'powerup_pickup') {
         let p = game.players.find(x => x.id === data.playerId);
         if (p) { p.hasPowerup = true; p.powerupTimer = 120.0; spawnParticles(data.x, data.y, 40, '#ff0', {speed: 250}); if(p === player) flashMessage("POWER UP OBTAINED! (+20% STATS)"); }
@@ -261,6 +261,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     target.hp = Math.min(target.effectiveMaxHp || target.maxHp, target.hp + amount);
     let actualHeal = Math.round(target.hp - oldHp);
     if (actualHeal > 0) {
+          if (target === player) game.screenHealFlash = 0.5;
         if (!socket || game.isHost) {
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-15, '+' + actualHeal, '#00ff00'));
             if (socket) socket.emit('host_event', { type: 'show_heal', targetId: target.id, amount: actualHeal });
@@ -297,6 +298,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     const actualDamage = Math.round(amount * multiplier);
     target.hp -= actualDamage; target.flashTimer = 0.1;
     if (actualDamage > 0) {
+        if (target === player) game.screenDamageFlash = 0.5;
         let pCount = Math.min(30, Math.max(3, Math.floor(actualDamage / 10)));
         spawnParticles(target.pos.x, target.pos.y, pCount, '#f00', { speed: 100 + (actualDamage / 2) });
 
@@ -596,6 +598,8 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     }
 
     if (game.shake > 0) game.shake -= dt;
+    if (game.screenDamageFlash > 0) game.screenDamageFlash -= dt;
+    if (game.screenHealFlash > 0) game.screenHealFlash -= dt;
     game.passiveTimer = (game.passiveTimer || 0) + dt;
     if (game.startDelay <= 0 && game.passiveTimer >= 1.0) { game.passiveTimer -= 1.0; for(let p of game.players) { p.gold += 2; p.totalGold += 2; p.exp += 1; } }
 

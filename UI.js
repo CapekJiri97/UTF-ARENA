@@ -191,16 +191,49 @@ export function draw(){
     ctx.restore();
   }
 
-  ctx.setTransform(1,0,0,1,0,0); drawMinimap();
+  ctx.setTransform(1,0,0,1,0,0); 
+  
+  // --- SCREEN FLASH EFFECTS ---
+  if (game.screenDamageFlash > 0 || game.screenHealFlash > 0) {
+      let maxDmg = Math.max(0, game.screenDamageFlash) / 0.5;
+      let maxHeal = Math.max(0, game.screenHealFlash) / 0.5;
+      if (maxDmg > 0) {
+          let grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, Math.min(canvas.width, canvas.height)*0.2, canvas.width/2, canvas.height/2, Math.max(canvas.width, canvas.height)*0.7);
+          grad.addColorStop(0, 'rgba(255, 0, 0, 0)');
+          grad.addColorStop(1, `rgba(255, 0, 0, ${maxDmg * 0.5})`);
+          ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      if (maxHeal > 0) {
+          let grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, Math.min(canvas.width, canvas.height)*0.2, canvas.width/2, canvas.height/2, Math.max(canvas.width, canvas.height)*0.7);
+          grad.addColorStop(0, 'rgba(0, 255, 0, 0)');
+          grad.addColorStop(1, `rgba(0, 255, 0, ${maxHeal * 0.4})`);
+          ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+  }
+  
+  drawMinimap();
   if(game.startDelay > 0 && game.started) { ctx.font = '40px monospace'; ctx.fillStyle = '#ffcc00'; ctx.textAlign='center'; ctx.fillText(`MATCH STARTS IN ${Math.ceil(game.startDelay)}`, canvas.width/2, 100); }
 
   if(game.started) {
-    ctx.font = '16px monospace'; ctx.textAlign = 'left'; ctx.fillStyle = '#4da6ff'; ctx.fillText(`Blue Nexus: ${Math.floor(game.nexus[0])}`, 20, 30);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#ff6b6b'; ctx.fillText(`Red Nexus: ${Math.floor(game.nexus[1])}`, canvas.width - 20, 30);
+    // --- TOP LEFT CONTROLS ---
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = '12px monospace'; ctx.fillStyle = '#888';
+    ctx.fillText('B - SHOP', 20, 20); ctx.fillText('C - CHAR. INFO', 20, 36); ctx.fillText('M - GENERAL INFO', 20, 52);
+
+    // --- TOP CENTER SCORE ---
+    let tBlue = game.towers.filter(t=>t.owner===0).length; let tRed = game.towers.filter(t=>t.owner===1).length;
+    let cxTop = canvas.width / 2;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.font = 'bold 28px monospace';
+    ctx.fillStyle = '#fff'; ctx.fillText(' : ', cxTop, 20);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#4da6ff'; ctx.fillText(Math.floor(game.nexus[0]), cxTop - 15, 20);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#ff6b6b'; ctx.fillText(Math.floor(game.nexus[1]), cxTop + 15, 20);
     
+    ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(' X ', cxTop, 55);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#4da6ff'; ctx.fillText(`(${tBlue})`, cxTop - 15, 55);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#ff6b6b'; ctx.fillText(`(${tRed})`, cxTop + 15, 55);
+
     if (game.isSpectator) {
         ctx.textAlign = 'center'; ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 20px monospace';
-        ctx.fillText('SPECTATOR MODE - WASD TO MOVE CAMERA', canvas.width / 2, 30);
+        ctx.fillText('SPECTATOR MODE - WASD TO MOVE CAMERA', canvas.width / 2, 90);
     }
 
     // Kill Feed (Vpravo nahoře)
@@ -235,9 +268,10 @@ export function draw(){
               let bar = '[' + '|'.repeat(f) + ' '.repeat(maxBoxes - f) + ']'; ctx.fillStyle = bot.alive ? (bot.team === 0 ? '#4da6ff' : '#ff6b6b') : '#444'; ctx.fillText(bar, canvas.width - 20, y); 
           }
       }
-      const cx = canvas.width / 2; const cy = canvas.height; const w = 720, h = 90;
+      
+      const cx = canvas.width / 2; const cy = canvas.height - 65; 
       if (player.currentTarget && player.currentTarget.hp > 0 && !player.currentTarget.dead) {
-          const t = player.currentTarget; const tw = 260, th = 55; const tx = cx - tw/2, ty = cy - h - th - 10;
+          const t = player.currentTarget; const tw = 260, th = 55; const tx = cx - tw/2, ty = cy - 130;
           ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = t.team === player.team ? '#4da6ff' : '#ff6b6b'; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
           ctx.fillStyle = '#fff'; ctx.font = '14px monospace'; ctx.textAlign = 'left'; let tName = t.className || 'Minion'; ctx.fillText(`${tName} ${t.level ? 'LV'+t.level : ''}`, tx + 10, ty + 22);
           ctx.font = '12px monospace'; ctx.fillText(`HP: ${Math.floor(t.hp)}/${t.effectiveMaxHp || t.maxHp}`, tx + 10, ty + 42);
@@ -245,23 +279,60 @@ export function draw(){
           ctx.fillStyle = t.team===0 ? '#4da6ff' : '#ff6b6b'; ctx.fillText(hpBarStr, tx + 110, ty + 42);
           if (t.AD !== undefined) { ctx.fillStyle = '#aaa'; ctx.fillText(`AD:${Math.round(t.AD*(t.hasPowerup?1.2:1))} AP:${Math.round(t.AP*(t.hasPowerup?1.2:1))} ARM:${Math.round(t.armor*(t.hasPowerup?1.2:1))} MR:${Math.round(t.mr*(t.hasPowerup?1.2:1))}`, tx + 110, ty + 22); }
       }
-      ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.fillRect(cx - w/2, cy - h, w, h); ctx.strokeRect(cx - w/2, cy - h, w, h);
-      ctx.fillStyle = '#fff'; ctx.font = '16px monospace'; ctx.textAlign = 'left'; ctx.fillText(`LVL: ${player.level}${player.spellPoints>0 ? ' (SP:'+player.spellPoints+')' : ''}`, cx - w/2 + 20, cy - h + 25);
-      ctx.font = '12px monospace'; ctx.fillText(`EXP: ${Math.floor(player.exp)}/${expForLevel(player.level)}`, cx - w/2 + 20, cy - h + 45); ctx.fillStyle = '#ffcc00'; ctx.fillText(`GLD: ${Math.floor(player.gold)}`, cx - w/2 + 20, cy - h + 65);
-      let fP = Math.max(0, Math.min(15, Math.round((Math.max(0,player.hp)/player.effectiveMaxHp) * 15) || 0)); let hpBarStr = '[' + '='.repeat(fP) + ' '.repeat(15 - fP) + ']';
-      ctx.fillStyle = player.team===0 ? '#4da6ff' : '#ff6b6b'; ctx.font = '16px monospace'; ctx.fillText(`HP: ${Math.floor(player.hp)}/${player.effectiveMaxHp}`, cx - w/2 + 140, cy - h + 30); ctx.fillText(hpBarStr, cx - w/2 + 140, cy - h + 55);
-      if(!player.alive) { ctx.fillStyle='#f00'; ctx.fillText(`DEAD (${Math.ceil(player.respawnTimer)}s)`, cx - w/2 + 140, cy - h + 75); }
-      const qPct = player.spells.Q.cd>0 ? (player.spells.Q.cd / player.computeSpellCooldown('Q')) : 0; const ePct = player.spells.E.cd>0 ? (player.spells.E.cd / player.computeSpellCooldown('E')) : 0;
-      const qKeyStr = game.autoTarget ? 'J' : 'Q'; const eKeyStr = game.autoTarget ? 'K' : 'E';
-      ctx.fillStyle = qPct > 0 ? '#555' : '#fff'; ctx.fillText(`[${qKeyStr}] LV${player.spells.Q.level}`, cx - w/2 + 330, cy - h + 30); if(qPct>0) ctx.fillText(`${player.spells.Q.cd.toFixed(1)}s`, cx - w/2 + 330, cy - h + 55); else ctx.fillText(`READY`, cx - w/2 + 330, cy - h + 55);
-      ctx.fillStyle = ePct > 0 ? '#555' : '#fff'; ctx.fillText(`[${eKeyStr}] LV${player.spells.E.level}`, cx - w/2 + 420, cy - h + 30); if(ePct>0) ctx.fillText(`${player.spells.E.cd.toFixed(1)}s`, cx - w/2 + 420, cy - h + 55); else ctx.fillText(`READY`, cx - w/2 + 420, cy - h + 55);
-      const sumPct = player.summonerCooldown>0 ? (player.summonerCooldown / SUMMONER_SPELLS[player.summonerSpell].cd) : 0;
-      const sumKeyStr = game.autoTarget ? 'L' : 'F';
-      ctx.fillStyle = sumPct > 0 ? '#555' : '#ffcc00'; ctx.fillText(`[${sumKeyStr}] ${player.summonerSpell}`, cx - w/2 + 510, cy - h + 30);
-      if(sumPct>0) ctx.fillText(`${player.summonerCooldown.toFixed(1)}s`, cx - w/2 + 510, cy - h + 55); else ctx.fillText(`READY`, cx - w/2 + 510, cy - h + 55);
-      ctx.fillStyle = '#ffcc00'; ctx.font = '14px monospace'; ctx.fillText(`[B] SHOP | [C] INFO (Items: ${player.items.length})`, cx - w/2 + 620, cy - h + 20);
-      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(cx + w/2 - 200, cy - h + 28, 190, 56); ctx.fillStyle = '#ddd'; ctx.font = '11px monospace';
-      ctx.fillText(`AD:  ${Math.round(player.AD * (player.hasPowerup?1.2:1))}`, cx + w/2 - 190, cy - h + 43); ctx.fillText(`AP:  ${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + w/2 - 110, cy - h + 43); ctx.fillText(`ARM: ${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + w/2 - 190, cy - h + 58); ctx.fillText(`MR:  ${Math.round(player.mr * (player.hasPowerup?1.2:1))}`, cx + w/2 - 110, cy - h + 58); ctx.fillText(`SPD: ${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + w/2 - 190, cy - h + 73); ctx.fillText(`AS:  ${(player.attackDelay / player.attackSpeed).toFixed(2)}s`, cx + w/2 - 110, cy - h + 73);
+
+      ctx.textBaseline = 'middle';
+      // HP BAR
+      ctx.fillStyle = '#111'; ctx.fillRect(cx - 180, cy - 50, 470, 12);
+      let hpPct = Math.max(0, Math.min(1, player.hp / player.effectiveMaxHp));
+      ctx.fillStyle = player.team === 0 ? '#4da6ff' : '#ff6b6b'; ctx.fillRect(cx - 180, cy - 50, 470 * hpPct, 12);
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx - 180, cy - 50, 470, 12);
+      ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillText(`${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, cx + 55, cy - 44);
+
+      // EXP BAR
+      const expPct = player.exp / expForLevel(player.level);
+      ctx.fillStyle = '#111'; ctx.fillRect(cx - 180, cy - 5, 80, 10);
+      ctx.fillStyle = '#8a2be2'; ctx.fillRect(cx - 180, cy - 5, 80 * expPct, 10);
+      ctx.strokeStyle = '#555'; ctx.strokeRect(cx - 180, cy - 5, 80, 10);
+
+      // HERO CIRCLE
+      ctx.beginPath(); ctx.arc(cx - 50, cy, 35, 0, Math.PI*2);
+      ctx.fillStyle = '#111'; ctx.fill(); ctx.strokeStyle = '#777'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 36px monospace'; ctx.textAlign = 'center'; ctx.fillText(player.glyph, cx - 50, cy + 2);
+
+      // LEVEL CIRCLE
+      ctx.beginPath(); ctx.arc(cx - 78, cy - 25, 12, 0, Math.PI*2);
+      ctx.fillStyle = '#111'; ctx.fill(); ctx.strokeStyle = '#777'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace'; ctx.fillText(player.level, cx - 78, cy - 25);
+
+      // GOLD BOX
+      ctx.fillStyle = '#111'; ctx.fillRect(cx - 30, cy + 20, 60, 22);
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx - 30, cy + 20, 60, 22);
+      ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 12px monospace'; ctx.fillText(Math.floor(player.gold) + 'g', cx, cy + 31);
+
+      // SPELLS
+      const qKey = game.autoTarget ? 'J' : 'Q'; const eKey = game.autoTarget ? 'K' : 'E'; const sumKey = game.autoTarget ? 'L' : 'F';
+      const drawSpell = (x, y, key, lvl, cd, maxCd, isSum) => {
+          ctx.fillStyle = '#111'; ctx.fillRect(x, y, 40, 40); ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(x, y, 40, 40);
+          if (cd > 0) {
+              ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x, y, 40, 40);
+              ctx.fillStyle = '#888'; ctx.font = 'bold 16px monospace'; ctx.textAlign = 'center'; ctx.fillText(cd.toFixed(1), x+20, y+20);
+          } else { ctx.fillStyle = '#fff'; ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; ctx.fillText(key, x+20, y+20); }
+          ctx.fillStyle = '#888'; ctx.font = '10px monospace'; ctx.fillText(isSum ? 'S' : ('LV'+lvl), x+20, y+48);
+      };
+      drawSpell(cx + 10, cy - 20, qKey, player.spells.Q.level, player.spells.Q.cd, player.computeSpellCooldown('Q'), false);
+      drawSpell(cx + 60, cy - 20, eKey, player.spells.E.level, player.spells.E.cd, player.computeSpellCooldown('E'), false);
+      drawSpell(cx + 110, cy - 20, sumKey, 0, player.summonerCooldown, SUMMONER_SPELLS[player.summonerSpell].cd, true);
+
+      // STATS TABLE
+      ctx.fillStyle = '#111'; ctx.fillRect(cx + 170, cy - 25, 120, 60);
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 170, cy - 25, 120, 60);
+      ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(`AD:${Math.round(player.AD * (player.hasPowerup?1.2:1))}`, cx + 175, cy - 10);
+      ctx.fillText(`AR:${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + 175, cy + 10);
+      ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 175, cy + 30);
+      ctx.fillText(`AP:${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + 235, cy - 10);
+      ctx.fillText(`MR:${Math.round(player.mr * (player.hasPowerup?1.2:1))}`, cx + 235, cy + 10);
+      ctx.fillText(`AS:${(player.attackDelay / player.attackSpeed).toFixed(2)}`, cx + 235, cy + 30);
     }
     if (keys['tab']) {
         ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(100, 100, canvas.width - 200, canvas.height - 200); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(100, 100, canvas.width - 200, canvas.height - 200);
@@ -300,9 +371,9 @@ export function draw(){
   }
 }
 
-export function drawMinimap(){ const mm = document.getElementById('minimap'); const w = mm.clientWidth, h = mm.clientHeight; const ctxm = mm._ctx || (function(){ const c = document.createElement('canvas'); c.width = w; c.height = h; mm.appendChild(c); mm._ctx = c.getContext('2d'); return mm._ctx; })(); ctxm.clearRect(0,0,w,h); ctxm.fillStyle='#000'; ctxm.fillRect(0,0,w,h);
+export function drawMinimap(){ const mm = document.getElementById('minimap'); const w = mm.clientWidth, h = mm.clientHeight; const ctxm = mm._ctx || (function(){ const c = document.createElement('canvas'); c.width = w; c.height = h; mm.appendChild(c); mm._ctx = c.getContext('2d'); return mm._ctx; })(); ctxm.clearRect(0,0,w,h); ctxm.fillStyle='#222'; ctxm.fillRect(0,0,w,h);
   const scaleX = w / world.width; const scaleY = h / world.height; for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#4da6ff' : t.owner===1? '#ff6b6b' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
-  ctxm.beginPath(); ctxm.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY); for(let i=1; i<mapBoundary.length; i++) ctxm.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY); ctxm.closePath(); ctxm.strokeStyle = '#333'; ctxm.stroke();
+  ctxm.beginPath(); ctxm.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY); for(let i=1; i<mapBoundary.length; i++) ctxm.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY); ctxm.closePath(); ctxm.strokeStyle = '#555'; ctxm.stroke();
   ctxm.fillStyle = '#444'; ctxm.strokeStyle = '#444'; ctxm.lineJoin = 'round';
   for(let w of game.walls) { ctxm.beginPath(); ctxm.moveTo(w.pts[0].x * scaleX, w.pts[0].y * scaleY); for(let i=1; i<w.pts.length; i++) ctxm.lineTo(w.pts[i].x * scaleX, w.pts[i].y * scaleY); ctxm.closePath(); ctxm.fill(); ctxm.lineWidth = w.r * 2 * scaleX; ctxm.stroke(); }
   for(let m of game.minions){ const x = m.pos.x * scaleX; const y = m.pos.y * scaleY; ctxm.fillStyle = m.team===0? '#b3ffb3':'#ffb3b3'; ctxm.fillRect(x-1,y-1,2,2); }
@@ -311,8 +382,10 @@ export function drawMinimap(){ const mm = document.getElementById('minimap'); co
     if (!p.alive) continue;
     const x = p.pos.x * scaleX; const y = p.pos.y * scaleY; 
     ctxm.fillStyle = p.team === 0 ? '#4da6ff' : '#ff6b6b';
-    ctxm.beginPath(); ctxm.arc(x, y, p === player ? 4.5 : 3.5, 0, Math.PI*2); ctxm.fill();
-    if (p === player) { ctxm.strokeStyle = '#fff'; ctxm.lineWidth = 1.5; ctxm.stroke(); } else { ctxm.strokeStyle = '#000'; ctxm.lineWidth = 1; ctxm.stroke(); }
+    ctxm.font = (p === player ? 'bold 16px' : 'bold 12px') + ' monospace';
+    ctxm.textAlign = 'center'; ctxm.textBaseline = 'middle';
+    ctxm.fillText(p.glyph, x, y);
+    if (p === player) { ctxm.strokeStyle = '#fff'; ctxm.lineWidth = 0.5; ctxm.strokeText(p.glyph, x, y); }
   }
 }
 
