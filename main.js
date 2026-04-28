@@ -39,8 +39,8 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
       if (netPlayer && netPlayer !== player) { 
         netPlayer.targetPos = { x: data.x, y: data.y }; // Nastavení cílové pozice pro plynulý pohyb
         if (!netPlayer.alive && data.alive) netPlayer.revive(); // Pokud u nás byl mrtvý, ale už ožil
-        else if (netPlayer.alive && !data.alive) netPlayer.die(); // Pokud u nás žil, ale server říká že umřel
-        netPlayer.hp = data.hp; 
+        //else if (netPlayer.alive && !data.alive) netPlayer.die(); // Nahrazeno autoritativním 'player_died' eventem
+        //netPlayer.hp = data.hp; // HP je nyní plně pod kontrolou Hosta
         netPlayer.aimAngle = data.aimAngle !== undefined ? data.aimAngle : netPlayer.aimAngle;
         // PŘIDÁNO: Přijímání statistik pro Scoreboard (TAB)
         netPlayer.level = data.level || netPlayer.level; netPlayer.maxHp = data.maxHp || netPlayer.maxHp;
@@ -132,6 +132,12 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         if (p) { p.hasPowerup = true; p.powerupTimer = 120.0; spawnParticles(data.x, data.y, 40, '#ff0', {speed: 250}); if(p === player) flashMessage("POWER UP OBTAINED! (+20% STATS)"); }
       } else if (data.type === 'game_over') {
         game.gameOver = true; game.winner = data.winner; showEnd(game.winner);
+      }
+      // PŘIDÁNO: Host autoritativně mění HP hráčů
+      else if (data.type === 'player_hp_update') {
+        let p = game.players.find(x => x.id === data.id); if (p) p.hp = data.hp;
+      } else if (data.type === 'player_died') {
+        let p = game.players.find(x => x.id === data.id); if (p && p.alive) { p.die(); }
       }
     });
     
@@ -238,6 +244,11 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     const actualDamage = Math.round(amount * multiplier);
     target.hp -= actualDamage; target.flashTimer = 0.1;
     if (actualDamage > 0) game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-6, actualDamage));
+
+    // OPRAVA: Host je autorita a posílá všem informaci o změně HP hráče
+    if (socket && game.isHost && target instanceof Player && !isNetwork) {
+        socket.emit('host_event', { type: 'player_hp_update', id: target.id, hp: target.hp });
+    }
     
     // PŘIDÁNO: Centrální registrace mrtvých minionů pro prevenci "duchů" a falešných duplicitních zisků goldů
     if (target instanceof Minion && target.hp <= 0) {
@@ -257,28 +268,32 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   }
 
   export function handlePlayerKill(victim, killerId) {
-      victim.hp = 0; if (victim.die) victim.die(); else victim.dead = true;
-      let killer = game.players.find(p => p.id === killerId);
-      
-      let killerName = killer ? killer.className : (killerId === 'laser' ? 'Laser' : 'Minion');
-      let killerTeam = killer ? killer.team : -1;
-      if (game.killFeed) game.killFeed.push({ killer: killerName, victim: victim.className || 'Player', killerTeam: killerTeam, victimTeam: victim.team, timer: 5.0 });
-      
-      // SÍŤOVÁ SYNCHRONIZACE: Pošleme kill ostatním hráčům, aby ho viděli i ti na druhé straně mapy
-      if (socket && (victim === player || (game.isHost && victim instanceof BotPlayer))) {
-          socket.emit('broadcast_kill', { killer: killerName, victim: victim.className || 'Player', killerTeam: killerTeam, victimTeam: victim.team });
-      }
+      // OPRAVA: Pouze Host může autoritativně zabít hráče a rozdat odměny.
+      if (!socket || game.isHost) {
+        victim.hp = 0; victim.die();
+        
+        // Oznámení všem klientům, že hráč zemřel
+        if (socket) socket.emit('host_event', { type: 'player_died', id: victim.id, killerId: killerId });
 
-      if (killer) { killer.gold += 150; killer.totalGold += 150; killer.exp += 50; killer.kills++; }
-      let now = performance.now();
-      if (victim.recentAttackers) {
-          victim.recentAttackers.forEach((time, attackerId) => {
-              if (attackerId !== killerId && (now - time) < 10000) {
-                  let assister = game.players.find(p => p.id === attackerId);
-                  if (assister && assister.team !== victim.team) { assister.assists++; assister.gold += 50; assister.totalGold += 50; assister.exp += 25; }
-              }
-          });
-          victim.recentAttackers.clear();
+        let killer = game.players.find(p => p.id === killerId);
+        let killerName = killer ? killer.className : (killerId === 'laser' ? 'Laser' : 'Minion');
+        let killerTeam = killer ? killer.team : -1;
+        
+        const killData = { killer: killerName, victim: victim.className || 'Player', killerTeam: killerTeam, victimTeam: victim.team, timer: 5.0 };
+        if (game.killFeed) game.killFeed.push(killData);
+        if (socket) socket.emit('broadcast_kill', killData);
+
+        if (killer) { killer.gold += 150; killer.totalGold += 150; killer.exp += 50; killer.kills++; }
+        let now = performance.now();
+        if (victim.recentAttackers) {
+            victim.recentAttackers.forEach((time, attackerId) => {
+                if (attackerId !== killerId && (now - time) < 10000) {
+                    let assister = game.players.find(p => p.id === attackerId);
+                    if (assister && assister.team !== victim.team) { assister.assists++; assister.gold += 50; assister.totalGold += 50; assister.exp += 25; }
+                }
+            });
+            victim.recentAttackers.clear();
+        }
       }
   }
 
@@ -551,7 +566,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
             if (game.syncTimer >= 0.05) {
                 game.syncTimer = 0;
                 socket.emit('player_update', { 
-                    x: player.pos.x, y: player.pos.y, hp: player.hp, alive: player.alive, aimAngle: player.aimAngle,
+                x: player.pos.x, y: player.pos.y, /*hp: player.hp,*/ alive: player.alive, aimAngle: player.aimAngle,
                     level: player.level, maxHp: player.maxHp, kills: player.kills, deaths: player.deaths, assists: player.assists, gold: player.totalGold, items: player.items.length,
                     AD: player.AD, AP: player.AP, armor: player.armor, mr: player.mr, speed: player.speed, attackSpeed: player.attackSpeed, abilityHaste: player.abilityHaste,
                     invTimer: player.invulnerableTimer, defTimer: player.defBuffTimer,
