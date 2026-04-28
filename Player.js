@@ -478,6 +478,11 @@ export class BotPlayer extends Player {
       if (roamerClasses.includes(this.className)) this.role = 'ROAMER';
       else if (supportClasses.includes(this.className)) this.role = 'SUPPORT';
       else this.role = 'FIGHTER';
+
+      this.personalWeights = {};
+      for(let key in BOT_WEIGHTS) {
+          this.personalWeights[key] = BOT_WEIGHTS[key] * (0.9 + Math.random() * 0.2);
+      }
     }
     revive() {
       super.revive();
@@ -540,12 +545,12 @@ export class BotPlayer extends Player {
       for (let t of game.towers) {
           if (t.owner === this.team && ((this.team === 0 && t.control >= 100) || (this.team === 1 && t.control <= -100))) continue;
           
-          let score = BOT_WEIGHTS.towerBaseScore - dist(this.pos, t.pos);
-          if (dist(t.pos, enemyBase) < 300) score -= BOT_WEIGHTS.enemyBasePenalty; // Penalizace
+          let score = this.personalWeights.towerBaseScore - dist(this.pos, t.pos);
+          if (dist(t.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Penalizace
           let isTopTower = (t.index === 0 || t.index === 1 || t.index === 2);
           let isBotTower = (t.index === 3 || t.index === 4);
-          if (this.lane === 'top' && isTopTower) score += BOT_WEIGHTS.laneMatchScore;
-          if (this.lane === 'bottom' && isBotTower) score += BOT_WEIGHTS.laneMatchScore;
+          if (this.lane === 'top' && isTopTower) score += this.personalWeights.laneMatchScore;
+          if (this.lane === 'bottom' && isBotTower) score += this.personalWeights.laneMatchScore;
           
           if (this.role === 'ROAMER' && t.owner === 1 - this.team) score += 4600; // Zvýšeno o 15%
 
@@ -565,13 +570,13 @@ export class BotPlayer extends Player {
               if (alliedFighters) score += 6900; // Zvýšeno o 15%
           }
           
-          if (t.owner === -1) score += BOT_WEIGHTS.neutralTowerScore;
+          if (t.owner === -1) score += this.personalWeights.neutralTowerScore;
           
           let alliesOnTower = game.players.filter(p => p instanceof BotPlayer && p.team === this.team && p.objective === t && p.id !== this.id).length;
-          if (alliesOnTower >= this.maxGroupSize) score -= BOT_WEIGHTS.overcrowdedTowerPenalty;
-          else if (alliesOnTower === 0) score += BOT_WEIGHTS.emptyTowerScore;
+          if (alliesOnTower >= this.maxGroupSize) score -= this.personalWeights.overcrowdedTowerPenalty;
+          else if (alliesOnTower === 0) score += this.personalWeights.emptyTowerScore;
           
-          if (this.state === 'CAPTURE' && this.objective === t) score += BOT_WEIGHTS.objectiveHysteresis;
+          if (this.state === 'CAPTURE' && this.objective === t) score += this.personalWeights.objectiveHysteresis;
           if (score > bestObjScore) { bestObjScore = score; bestObjective = t; bestState = 'CAPTURE'; }
       }
 
@@ -589,9 +594,9 @@ export class BotPlayer extends Player {
               
               if (nearbyMinions >= 2 && nearbyAllies <= 1) {
                   let d = dist(this.pos, m.pos);
-                  let score = BOT_WEIGHTS.minionPushBaseScore - d;
-                  if (dist(m.pos, enemyBase) < 300) score -= BOT_WEIGHTS.enemyBasePenalty; // Nejdeme pro miniony do báze
-                  if (this.state === 'PUSH' && this.objective && this.objective.type === 'minions' && dist(this.objective.pos, m.pos) < 250) score += BOT_WEIGHTS.objectiveHysteresis;
+                  let score = this.personalWeights.minionPushBaseScore - d;
+                  if (dist(m.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Nejdeme pro miniony do báze
+                  if (this.state === 'PUSH' && this.objective && this.objective.type === 'minions' && dist(this.objective.pos, m.pos) < 250) score += this.personalWeights.objectiveHysteresis;
                   
                   if (score > bestObjScore) { bestObjScore = score; bestObjective = { pos: m.pos, type: 'minions', captureRadius: 160, index: 'MINIONS' }; bestState = 'PUSH'; }
               }
@@ -606,11 +611,11 @@ export class BotPlayer extends Player {
                   let missingHpPct = 1 - (this.hp / this.effectiveMaxHp);
                   
                   // Masivní bonus za chybějící HP (až +8000) a bonus +3000, pokud je heal blízko (např. v boji)
-                  let score = BOT_WEIGHTS.healScore + (missingHpPct * 8000) - d;
+                  let score = this.personalWeights.healScore + (missingHpPct * 8000) - d;
                   if (d < 600) score += 3000;
                   
-                  if (dist(h.pos, enemyBase) < 300) score -= BOT_WEIGHTS.enemyBasePenalty;
-                  if (this.state === 'PICKUP' && this.objective && this.objective.type === 'heal' && dist(this.objective.pos, h.pos) < 10) score += BOT_WEIGHTS.objectiveHysteresis;
+                  if (dist(h.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty;
+                  if (this.state === 'PICKUP' && this.objective && this.objective.type === 'heal' && dist(this.objective.pos, h.pos) < 10) score += this.personalWeights.objectiveHysteresis;
                   if (score > bestObjScore) { bestObjScore = score; bestObjective = { pos: h.pos, type: 'heal', captureRadius: 20 }; bestState = 'PICKUP'; }
               }
           }
@@ -621,9 +626,9 @@ export class BotPlayer extends Player {
       
       if (this.powerupUrge && game.powerup && game.powerup.active) {
           let d = dist(this.pos, game.powerup.pos);
-          let score = BOT_WEIGHTS.powerupScore - d;
-          if (dist(game.powerup.pos, enemyBase) < 300) score -= BOT_WEIGHTS.enemyBasePenalty;
-          if (this.state === 'PICKUP' && this.objective && this.objective.type === 'powerup') score += BOT_WEIGHTS.objectiveHysteresis;
+          let score = this.personalWeights.powerupScore - d;
+          if (dist(game.powerup.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty;
+          if (this.state === 'PICKUP' && this.objective && this.objective.type === 'powerup') score += this.personalWeights.objectiveHysteresis;
           if (score > bestObjScore) { bestObjScore = score; bestObjective = { pos: game.powerup.pos, type: 'powerup', captureRadius: 70 }; bestState = 'PICKUP'; }
       }
 
@@ -633,17 +638,22 @@ export class BotPlayer extends Player {
       const enemies = [...game.players.filter(p => p.team !== this.team && p.alive), ...game.minions.filter(m => m.team !== this.team && !m.dead)];
       for (let e of enemies) {
           let d = dist(e.pos, this.pos);
-          if (d < BOT_WEIGHTS.attackVisionRange) {
-              let score = BOT_WEIGHTS.enemyBaseScore - d;
-              if (dist(e.pos, enemyBase) < 300) score -= BOT_WEIGHTS.enemyBasePenalty; // Neútočíme dovnitř báze
+          if (d < this.personalWeights.attackVisionRange) {
+              let score = this.personalWeights.enemyBaseScore - d;
+              if (dist(e.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Neútočíme dovnitř báze
               if (e.className) {
-                  score += BOT_WEIGHTS.heroKillScore;
+                  score += this.personalWeights.heroKillScore;
                   if (this.huntTarget === e) score += 6800; // Sníženo o 15%
               } else {
                   if (this.farmUrge) score += 3400; // Sníženo o 15%
               }
-              if (e.hp / (e.effectiveMaxHp || e.maxHp) < 0.3 && !this.farmUrge) score += BOT_WEIGHTS.lowHpScore;
+              if (e.hp / (e.effectiveMaxHp || e.maxHp) < 0.3 && !this.farmUrge) score += this.personalWeights.lowHpScore;
               
+              if (this.recentAttackers && this.recentAttackers.has(e.id)) {
+                  let timeSince = performance.now() - this.recentAttackers.get(e.id);
+                  if (timeSince < 5000) score += 6000; // Silnější reakce na toho, kdo mě zasáhl
+              }
+
               // PŘIDÁNO: Snížení priority boje, pokud tým prohrává (soustředění na záchranu věží)
               if (isLosing) score -= 3450; // Posílena averze k boji o 15%
 
@@ -704,7 +714,7 @@ export class BotPlayer extends Player {
               if (d < 150 || isLowHp) shouldAttack = true; // Sprintujeme do kruhu, bojujeme jen ve velké blízkosti
           } else {
               // Útočíme, pokud je cíl blízko, má low HP, nic jiného nehoří (věže mají málo bodů), NEBO pokud běžíme na pomoc (bestTargetScore >= 20000)
-              if (d < 350 || isLowHp || bestObjScore < BOT_WEIGHTS.objectiveFocusThreshold || bestTargetScore >= 20000) shouldAttack = true;
+              if (d < 350 || isLowHp || bestObjScore < this.personalWeights.objectiveFocusThreshold || bestTargetScore >= 20000) shouldAttack = true;
           }
       }
 

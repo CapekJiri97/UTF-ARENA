@@ -7,7 +7,7 @@ import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollisi
 export class Projectile{
   constructor(x,y,vx,vy,ownerId,ownerTeam,opts={}){ this.pos={x,y}; this.vel={x:vx,y:vy}; 
     this.radius=opts.radius||4; this.life=opts.life||2.0; this.ownerId = ownerId; this.ownerTeam = ownerTeam; this.damage = opts.damage||25; this.dmgType = opts.dmgType||'physical'; this.glyph = opts.glyph||'*'; this.dead = false;
-    this.color = ownerTeam === 0 ? '#2213EE' : (ownerTeam === 1 ? '#FF3A3A' : '#fff'); }
+    this.color = ownerTeam === 0 ? '#3627FF' : (ownerTeam === 1 ? '#FF3A3A' : '#fff'); }
   update(dt){ if(this.dead) return; this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; if(this.life<=0) this.dead = true;
     if(!isPointInPoly(this.pos.x, this.pos.y, mapBoundary)) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; }
     for(let w of game.walls) { 

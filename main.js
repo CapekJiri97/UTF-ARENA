@@ -251,7 +251,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   export function drawHealthBar(ctx, hp, maxHp, x, y, team) {
     const boxes = 5; let f = Math.max(0, Math.min(boxes, Math.round((Math.max(0, hp) / maxHp) * boxes) || 0));
     let bar = '[' + '|'.repeat(f) + ' '.repeat(boxes - f) + ']';
-    ctx.font = '10px monospace'; ctx.fillStyle = team === 0 ? '#2213EE' : (team === 1 ? '#FF3A3A' : '#999');
+    ctx.font = '10px monospace'; ctx.fillStyle = team === 0 ? '#3627FF' : (team === 1 ? '#FF3A3A' : '#999');
     ctx.fillText(bar, x, y);
   }
 
@@ -261,7 +261,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     target.hp = Math.min(target.effectiveMaxHp || target.maxHp, target.hp + amount);
     let actualHeal = Math.round(target.hp - oldHp);
     if (actualHeal > 0) {
-          if (target === player) game.screenHealFlash = 0.5;
+          if (target === player) game.screenHealFlash = Math.min(1.0, (game.screenHealFlash || 0) + actualHeal / 450);
         if (!socket || game.isHost) {
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-15, '+' + actualHeal, '#00ff00'));
             if (socket) socket.emit('host_event', { type: 'show_heal', targetId: target.id, amount: actualHeal });
@@ -298,7 +298,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     const actualDamage = Math.round(amount * multiplier);
     target.hp -= actualDamage; target.flashTimer = 0.1;
     if (actualDamage > 0) {
-        if (target === player) game.screenDamageFlash = 0.5;
+        if (target === player) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + actualDamage / 450);
         let pCount = Math.min(30, Math.max(3, Math.floor(actualDamage / 10)));
         spawnParticles(target.pos.x, target.pos.y, pCount, '#f00', { speed: 100 + (actualDamage / 2) });
 
@@ -519,13 +519,13 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
       let sorted = scaledPts.slice().sort((a,b)=>Math.atan2(a.y-cy, a.x-cx) - Math.atan2(b.y-cy, b.x-cx));
       let minE = Infinity;
       for(let i=0; i<sorted.length; i++) minE = Math.min(minE, dist(sorted[i], sorted[(i+1)%sorted.length]));
-      let r = minE * 0.15;
+      let r = minE * 0.18;
       let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
       sorted.forEach(p=>{ minX=Math.min(minX, p.x); maxX=Math.max(maxX, p.x); minY=Math.min(minY, p.y); maxY=Math.max(maxY, p.y); });
       game.walls.push({ pts: sorted, r, bbox: {minX, maxX, minY, maxY} });
     };
     rawPolys.forEach(pts => {
-      let smoothed = smoothPolygon(pts, 2); // Vyhlazení rohů všech vnitřních zdí v aréně
+      let smoothed = smoothPolygon(pts, 3); // Vyhlazení rohů všech vnitřních zdí v aréně
       processPoly(smoothed);
       let mirrored = smoothed.map(p => ({ x: world.width - p.x, y: p.y }));
       processPoly(mirrored);
@@ -597,9 +597,24 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
       }
     }
 
+    // Minion collision resolution (anti-stacking)
+    for(let i=0; i<game.minions.length; i++){
+      for(let j=i+1; j<game.minions.length; j++){
+        let m1 = game.minions[i], m2 = game.minions[j];
+        if(m1.dead || m2.dead) continue;
+        let dx = m2.pos.x - m1.pos.x, dy = m2.pos.y - m1.pos.y, d = Math.hypot(dx,dy);
+        let minDist = m1.radius + m2.radius;
+        if(d < minDist) {
+          if (d === 0) { dx = Math.random()-0.5; dy = Math.random()-0.5; d = Math.hypot(dx, dy); }
+          let push = (minDist - d) / 2; let px = (dx/d)*push, py = (dy/d)*push;
+          m1.pos.x -= px; m1.pos.y -= py; m2.pos.x += px; m2.pos.y += py;
+        }
+      }
+    }
+
     if (game.shake > 0) game.shake -= dt;
-    if (game.screenDamageFlash > 0) game.screenDamageFlash -= dt;
-    if (game.screenHealFlash > 0) game.screenHealFlash -= dt;
+    if (game.screenDamageFlash > 0) game.screenDamageFlash -= dt * 0.8;
+    if (game.screenHealFlash > 0) game.screenHealFlash -= dt * 0.8;
     game.passiveTimer = (game.passiveTimer || 0) + dt;
     if (game.startDelay <= 0 && game.passiveTimer >= 1.0) { game.passiveTimer -= 1.0; for(let p of game.players) { p.gold += 2; p.totalGold += 2; p.exp += 1; } }
 
