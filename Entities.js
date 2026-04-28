@@ -2,7 +2,7 @@ import { dist, isPointInPoly, distToPoly } from './Utils.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { mapBoundary, spawnPoints } from './MapConfig.js';
 import { spawnParticles } from './Effects.js';
-import { socket, applyDamage, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player } from './main.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player } from './main.js';
 
 export class Projectile{
   constructor(x,y,vx,vy,ownerId,ownerTeam,opts={}){ this.pos={x,y}; this.vel={x:vx,y:vy}; 
@@ -169,7 +169,7 @@ export class HealPickup {
     if(!this.active) { this.respawnTimer -= dt; if(this.respawnTimer <= 0) this.active = true; return; }
     for(let p of game.players) {
       if(p.alive && this.active && dist(p.pos, this.pos) < this.radius + p.radius) {
-        p.hp = Math.min(p.effectiveMaxHp, p.hp + p.effectiveMaxHp * 0.5); this.active = false; this.respawnTimer = 45.0;
+        applyHeal(p, p.effectiveMaxHp * 0.5); this.active = false; this.respawnTimer = 45.0;
         spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); if (p === player) flashMessage("+50% HP!");
         if (socket && game.isHost) socket.emit('host_event', { type: 'heal_pickup', playerId: p.id, hp: p.hp, healIndex: game.heals.indexOf(this) });
       }

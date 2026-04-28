@@ -8,49 +8,66 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-let rooms = {
-  'Room 1': { players: {}, started: false },
-  'Room 2': { players: {}, started: false },
-  'Room 3': { players: {}, started: false }
-};
+let rooms = {};
 
 io.on('connection', (socket) => {
   console.log(`[SERVER] Nový hráč připojen! ID: ${socket.id}`);
 
-  // Výchozí stav nového hráče po připojení
-  let currentRoom = 'Room 1';
-  socket.join(currentRoom);
+  let currentRoom = null;
   
-  rooms[currentRoom].players[socket.id] = {
-    id: socket.id,
-    className: 'Bruiser',
-    summonerSpell: 'Heal',
-    team: 0,
-    x: 0,
-    y: 0
+  const sendRoomList = () => {
+      const rList = Object.keys(rooms).map(name => ({
+          name,
+          players: Object.keys(rooms[name].players).length,
+          started: rooms[name].started
+      }));
+      io.emit('room_list', rList);
   };
 
-  // Pošli aktualizovaný seznam všem v místnosti
-  io.to(currentRoom).emit('lobby_update', rooms[currentRoom].players);
+  // Pošli seznam aktivních roomek ihned po připojení (do browseru)
+  sendRoomList();
 
-  // Přepínání roomek z Lobby
-  socket.on('join_room', (roomName) => {
-    if (!rooms[roomName] || currentRoom === roomName) return;
-    // Odstranění ze staré roomky a aktualizace lobby pro ostatní
-    socket.leave(currentRoom);
-    let pData = rooms[currentRoom].players[socket.id];
-    delete rooms[currentRoom].players[socket.id];
-    io.to(currentRoom).emit('lobby_update', rooms[currentRoom].players);
-    
-    // Přidání do nové roomky
-    currentRoom = roomName;
-    socket.join(currentRoom);
-    rooms[currentRoom].players[socket.id] = pData;
-    io.to(currentRoom).emit('lobby_update', rooms[currentRoom].players);
+  socket.on('create_room', (roomName) => {
+      if (!roomName || roomName.trim() === '' || rooms[roomName]) return;
+      rooms[roomName] = { players: {}, started: false };
+      joinRoom(roomName);
+      sendRoomList();
   });
+
+  socket.on('join_room', (roomName) => {
+      if (!rooms[roomName]) return;
+      joinRoom(roomName);
+  });
+
+  socket.on('leave_room', () => {
+      leaveCurrentRoom();
+  });
+
+  function leaveCurrentRoom() {
+      if (currentRoom && rooms[currentRoom]) {
+          socket.leave(currentRoom);
+          delete rooms[currentRoom].players[socket.id];
+          io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: rooms[currentRoom].players });
+          
+          if (Object.keys(rooms[currentRoom].players).length === 0) {
+              delete rooms[currentRoom];
+          }
+          currentRoom = null;
+          sendRoomList();
+      }
+  }
+
+  function joinRoom(roomName) {
+      leaveCurrentRoom();
+      currentRoom = roomName;
+      socket.join(currentRoom);
+      rooms[currentRoom].players[socket.id] = { id: socket.id, className: 'Bruiser', summonerSpell: 'Heal', team: 0, x: 0, y: 0 };
+      io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: rooms[currentRoom].players });
+  }
 
   // Hráč si v menu vybral jinou postavu/tým
   socket.on('update_selection', (data) => {
+    if (!currentRoom || !rooms[currentRoom]) return;
     const room = rooms[currentRoom];
     if (!room || !room.players[socket.id]) return;
 
@@ -61,7 +78,7 @@ io.on('connection', (socket) => {
 
     if (newTeam === -1) { // Player chose to spectate
         player.team = -1;
-        io.to(currentRoom).emit('lobby_update', room.players);
+        io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players });
         return;
     }
 
@@ -95,35 +112,39 @@ io.on('connection', (socket) => {
     player.team = newTeam;
     player.summonerSpell = newSpell;
 
-    io.to(currentRoom).emit('lobby_update', room.players);
+    io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players });
   });
 
   // Někdo klikl na Start Game
   socket.on('start_game', () => {
+    if (!currentRoom || !rooms[currentRoom]) return;
     console.log(`[SERVER] Hra začíná v ${currentRoom}! Host: ${socket.id}`);
     rooms[currentRoom].started = true;
     io.to(currentRoom).emit('game_start', { players: rooms[currentRoom].players, hostId: socket.id }); 
+    sendRoomList(); // Updatne lidem venku v prohlížeči informaci "[IN GAME]"
   });
 
   // Během hry: Hráč posílá svou lokální pozici
   socket.on('player_update', (data) => {
-    if(rooms[currentRoom].players[socket.id]) {
+    if(currentRoom && rooms[currentRoom] && rooms[currentRoom].players[socket.id]) {
       Object.assign(rooms[currentRoom].players[socket.id], data);
       socket.broadcast.to(currentRoom).emit('network_player_update', rooms[currentRoom].players[socket.id]);
     }
   });
 
   // Zprostředkování útoků a kouzel (Aby to viděli ostatní)
-  socket.on('player_action', (data) => socket.broadcast.to(currentRoom).emit('network_player_action', data));
-  socket.on('host_state', (data) => socket.broadcast.to(currentRoom).emit('network_host_state', data));
-  socket.on('host_event', (data) => socket.broadcast.to(currentRoom).emit('network_host_event', data));
-  socket.on('broadcast_kill', (data) => socket.broadcast.to(currentRoom).emit('network_kill_feed', data));
+  socket.on('player_action', (data) => { if (currentRoom) socket.broadcast.to(currentRoom).emit('network_player_action', data); });
+  socket.on('host_state', (data) => { if (currentRoom) socket.broadcast.to(currentRoom).emit('network_host_state', data); });
+  socket.on('host_event', (data) => { if (currentRoom) socket.broadcast.to(currentRoom).emit('network_host_event', data); });
+  socket.on('broadcast_kill', (data) => { if (currentRoom) socket.broadcast.to(currentRoom).emit('network_kill_feed', data); });
 
   socket.on('disconnect', () => {
     console.log(`[SERVER] Hráč odpojen: ${socket.id}`);
-    delete rooms[currentRoom].players[socket.id];
-    io.to(currentRoom).emit('lobby_update', rooms[currentRoom].players);
-    io.to(currentRoom).emit('player_disconnected', socket.id);
+    const tempRoom = currentRoom;
+    leaveCurrentRoom();
+    if (tempRoom) {
+        io.to(tempRoom).emit('player_disconnected', socket.id);
+    }
   });
 });
 

@@ -31,7 +31,25 @@ export function spawnParticles(x, y, count, color, opts={}) {
   for(let i=0; i<count; i++) game.particles.push(new Particle(x, y, color, opts));
 }
 
-export class DamageNumber{ constructor(x,y,val){ this.pos={x,y}; this.val=val; this.life=0.8; } update(dt){ this.pos.y -= 20*dt; this.life -= dt; } draw(ctx){ ctx.fillStyle='rgba(255,200,60,'+Math.max(0,this.life/0.8)+')'; ctx.font='12px monospace'; ctx.textAlign='center'; ctx.fillText(this.val, this.pos.x, this.pos.y); } }
+export class DamageNumber { 
+    constructor(x, y, val, color = '#ffc83c') { 
+        this.pos = { x, y }; 
+        this.val = val; 
+        this.life = 0.8; 
+        this.color = color;
+        let num = parseFloat(val.toString().replace('+', ''));
+        this.size = isNaN(num) ? 14 : Math.min(36, Math.max(12, 10 + (num / 15)));
+    } 
+    update(dt) { this.pos.y -= 20 * dt; this.life -= dt; } 
+    draw(ctx) { 
+        ctx.save(); ctx.globalAlpha = Math.max(0, this.life / 0.8); 
+        ctx.fillStyle = this.color; ctx.font = `bold ${Math.round(this.size)}px monospace`; ctx.textAlign = 'center'; 
+        ctx.shadowColor = '#000'; ctx.shadowBlur = 2; ctx.lineWidth = 2; ctx.strokeStyle = '#000'; 
+        ctx.strokeText(this.val, this.pos.x, this.pos.y); 
+        ctx.fillText(this.val, this.pos.x, this.pos.y); 
+        ctx.restore(); 
+    } 
+}
 
 export class EffectText {
   constructor(x, y, text, color, opts = {}) {

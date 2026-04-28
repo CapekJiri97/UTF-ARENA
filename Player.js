@@ -5,7 +5,7 @@ import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANG
 import { spawnPoints, mapBoundary } from './MapConfig.js';
 import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
-import { socket, applyDamage, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem } from './main.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem } from './main.js';
 import { updateSpellLabels } from './UI.js';
 
 export class Player{
@@ -305,13 +305,13 @@ export class Player{
       game.effectTexts.push(new EffectText(this.pos.x, this.pos.y - 30, this.summonerSpell, '#ffcc00'));
 
       switch(this.summonerSpell) {
-          case 'Heal': this.hp = Math.min(this.effectiveMaxHp, this.hp + 150 + this.level * 20); spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); break;
+          case 'Heal': applyHeal(this, 150 + this.level * 20); spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); break;
           case 'Ghost': this.msBuffTimer = 5.0; this.msBuffAmount = 0.4; spawnParticles(this.pos.x, this.pos.y, 25, '#0ff', {speed: 150}); break;
           case 'Boost': this.boostTimer = 5.0; spawnParticles(this.pos.x, this.pos.y, 25, '#ff0', {speed: 150}); break;
           case 'Rally': this.rallyTimer = 5.0; spawnParticles(this.pos.x, this.pos.y, 25, '#f80', {speed: 150}); 
               for(let m of game.minions) {
                   if(m.team === this.team && !m.dead && dist(this.pos, m.pos) <= 400) {
-                      m.hp = Math.min(m.maxHp, m.hp + 150); m.attackDamage += 10; m.speed += 20; spawnParticles(m.pos.x, m.pos.y, 5, '#f80');
+                      applyHeal(m, 150); m.attackDamage += 10; m.speed += 20; spawnParticles(m.pos.x, m.pos.y, 5, '#f80');
                   }
               } break;
           case 'Revive': this.revive(); spawnParticles(this.pos.x, this.pos.y, 40, '#fff', {speed: 200}); break;
@@ -401,15 +401,14 @@ export class Player{
       for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } 
       spawnParticles(this.pos.x, this.pos.y, 10, '#ccf');
     } else if (sp.type === 'heal_self') {
-      let oldHp = this.hp;
       let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*10);
-      this.hp = Math.min(this.effectiveMaxHp, this.hp + healAmount); 
-      if(this.stats) this.stats.hpHealed += (this.hp - oldHp);
+      let healed = applyHeal(this, healAmount); 
+      if(this.stats) this.stats.hpHealed += healed;
       spawnParticles(this.pos.x, this.pos.y, 8, '#0f0');
     } else if (sp.type === 'heal_aoe') {
       let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*10);
       game.particles.push(new Particle(this.pos.x, this.pos.y, '#0f0', {shape: 'ring', radius: sp.radius, life: 0.4, speed: 0, lineWidth: 4}));
-      for(let p of game.players){ if(p.team === this.team && p.alive && dist(this.pos, p.pos) <= sp.radius){ let oldHp = p.hp; p.hp = Math.min(p.effectiveMaxHp, p.hp + healAmount); if(this.stats) this.stats.hpHealed += (p.hp - oldHp); spawnParticles(p.pos.x, p.pos.y, 6, '#0f0'); } }
+      for(let p of game.players){ if(p.team === this.team && p.alive && dist(this.pos, p.pos) <= sp.radius){ let healed = applyHeal(p, healAmount); if(this.stats) this.stats.hpHealed += healed; spawnParticles(p.pos.x, p.pos.y, 6, '#0f0'); } }
     } else if (sp.type === 'aoe_knockback') {
       const range = sp.radius; 
       game.particles.push(new Particle(this.pos.x, this.pos.y, '#f55', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));

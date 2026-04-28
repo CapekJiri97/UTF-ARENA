@@ -13,7 +13,13 @@ style.innerHTML = `
 `;
 document.head.appendChild(style);
 
-export function updateLobbyUI(playersData) {
+export function updateLobbyUI(playersData, roomName = "OFFLINE") {
+  const rb = document.getElementById('roomBrowser'); if (rb) rb.style.display = 'none';
+  const rl = document.getElementById('roomLobby'); if (rl) rl.style.display = 'block';
+  
+  const title = document.getElementById('lobbyTitle');
+  if (title) title.textContent = `ROOM: ${roomName}`;
+
   const list = document.getElementById('lobbyList'); if(!list) return;
   list.innerHTML = '';
   
@@ -60,6 +66,33 @@ export function updateLobbyUI(playersData) {
           btn.style.borderColor = '#444';
       }
   });
+}
+
+export function updateRoomListUI(rooms) {
+    const list = document.getElementById('roomList');
+    if (!list) return;
+    list.innerHTML = '';
+    if (rooms.length === 0) {
+        list.innerHTML = '<li style="color:#666;">No active rooms. Create one above!</li>';
+        return;
+    }
+    rooms.forEach(r => {
+        const li = document.createElement('li');
+        li.style.display = 'flex'; li.style.justifyContent = 'space-between'; li.style.alignItems = 'center'; li.style.marginBottom = '8px'; li.style.paddingBottom = '8px'; li.style.borderBottom = '1px solid #222';
+        
+        const info = document.createElement('span');
+        info.textContent = `${r.name} - ${r.players} Player(s) ${r.started ? '[IN GAME]' : ''}`;
+        info.style.color = r.started ? '#888' : '#fff';
+        
+        const btn = document.createElement('button');
+        btn.textContent = 'JOIN';
+        btn.style.padding = '4px 12px'; btn.style.background = '#000'; btn.style.color = r.started ? '#666' : '#0f0'; btn.style.border = '1px solid ' + (r.started ? '#666' : '#0f0'); btn.style.cursor = r.started ? 'not-allowed' : 'pointer';
+        btn.disabled = r.started;
+        btn.onclick = () => { if(socket) socket.emit('join_room', r.name); };
+        
+        li.appendChild(info); li.appendChild(btn);
+        list.appendChild(li);
+    });
 }
 
 export function openShop(){ populateShop(); document.getElementById('shopOverlay').classList.remove('hidden'); }
@@ -307,13 +340,24 @@ export function buildMenu() {
   m.style.position = 'fixed'; m.style.top = '0'; m.style.left = '0'; m.style.width = '100%'; m.style.height = '100%'; m.style.zIndex = '9999'; m.style.display = 'flex'; m.style.justifyContent = 'center'; m.style.alignItems = 'center'; m.style.background = 'rgba(0,0,0,0.85)';
   let selectedClass = 'Bruiser'; let selectedTeam = 0; let selectedSpell = 'Heal'; let isSpectator = false;
   m.innerHTML = `
-    <div style="background:#111; padding:30px; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 1000px;">
-      <div id="roomSelector" style="margin-bottom: 15px; display:flex; justify-content: center; gap: 10px;">
-          <button class="roomBtn" data-room="Room 1" style="padding:8px 20px; cursor:pointer; font-weight:bold; background:#000; color:#fff; border:2px solid #0f0;">Room 1</button>
-          <button class="roomBtn" data-room="Room 2" style="padding:8px 20px; cursor:pointer; font-weight:bold; background:#000; color:#fff; border:2px solid #444;">Room 2</button>
-          <button class="roomBtn" data-room="Room 3" style="padding:8px 20px; cursor:pointer; font-weight:bold; background:#000; color:#fff; border:2px solid #444;">Room 3</button>
+      <div id="roomBrowser" style="background:#111; padding:30px; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 600px; display: ${socket ? 'block' : 'none'};">
+          <h1 style="margin-top:0;">UTF Arena - BROWSE GAMES</h1>
+          <div style="margin-bottom: 20px; display:flex; gap:10px; justify-content:center;">
+              <input type="text" id="newRoomInput" placeholder="Enter Room Name..." style="padding:10px; font-size:16px; background:#000; color:#fff; border:1px solid #444; width: 60%;">
+              <button id="createRoomBtn" style="padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background:#222; color:#0f0; border:2px solid #0f0;">CREATE ROOM</button>
+          </div>
+          <div style="text-align:left; background:#000; padding:15px; border:1px solid #333; border-radius:4px; min-height: 200px; max-height: 300px; overflow-y:auto;">
+              <h3 style="margin-top:0; color:#aaa; border-bottom:1px solid #444; padding-bottom:10px;">Active Rooms:</h3>
+              <ul id="roomList" style="list-style:none; padding:0; margin:0; font-family:monospace; font-size:16px;">
+                  <li>Loading rooms...</li>
+              </ul>
+          </div>
       </div>
-      <h1 style="margin-top:0;">UTF Arena - MULTIPLAYER LOBBY</h1>
+    <div id="roomLobby" style="display: ${socket ? 'none' : 'block'}; background:#111; padding:30px; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 1000px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 15px;">
+          <h1 id="lobbyTitle" style="margin:0;">OFFLINE MODE</h1>
+          <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:8px 16px; cursor:pointer; background:#300; color:#ff6b6b; border:1px solid #ff6b6b; font-weight:bold; border-radius:4px;">LEAVE ROOM</button>
+      </div>
       <div style="display:flex; justify-content: space-between; margin-top: 20px;">
         <div style="width: 70%; text-align: left;">
           <p style="color:#aaa; margin-bottom: 5px;">1. Select Team:</p>
@@ -329,20 +373,26 @@ export function buildMenu() {
         </div>
         <div style="width: 28%; text-align: left; background:#000; padding: 15px; border:1px solid #333; border-radius: 4px;">
           <h3 style="margin-top:0; color:#aaa; border-bottom:1px solid #444; padding-bottom:10px;">Players in Room:</h3>
-          <ul id="lobbyList" style="list-style: none; padding: 0; margin: 0; font-family: monospace;"><li>Connecting to Server...</li></ul>
+          <ul id="lobbyList" style="list-style: none; padding: 0; margin: 0; font-family: monospace;"><li>Offline or Connecting...</li></ul>
         </div>
       </div>
       <button id="startBtn" style="margin-top:25px; padding:15px 24px; width: 100%; font-size:18px; font-weight:bold; cursor:pointer; background:#222; color:#0f0; border:2px solid #0f0;">START MATCH (Everyone)</button>
     </div>`;
     
-  const roomBtns = m.querySelectorAll('.roomBtn');
-  roomBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-          roomBtns.forEach(b => b.style.borderColor = '#444');
-          e.target.style.borderColor = '#0f0';
-          if(socket) socket.emit('join_room', e.target.getAttribute('data-room'));
-      });
-  });
+  const createRoomBtn = document.getElementById('createRoomBtn');
+  const newRoomInput = document.getElementById('newRoomInput');
+  if (createRoomBtn) createRoomBtn.onclick = () => {
+      if (socket && newRoomInput.value.trim() !== '') { socket.emit('create_room', newRoomInput.value.trim()); newRoomInput.value = ''; }
+  };
+
+  const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+  if (leaveRoomBtn) leaveRoomBtn.onclick = () => {
+      if (socket) {
+          socket.emit('leave_room');
+          document.getElementById('roomLobby').style.display = 'none';
+          document.getElementById('roomBrowser').style.display = 'block';
+      }
+  };
 
   const btnBlue = document.getElementById('btnBlue'), btnRed = document.getElementById('btnRed'), btnSpec = document.getElementById('btnSpec');
   const teamBtns = [btnBlue, btnRed, btnSpec];
