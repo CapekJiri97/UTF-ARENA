@@ -14,17 +14,23 @@ export class Projectile{
       let info = distToPoly(this.pos.x, this.pos.y, w.pts);
       if(info.inside || info.minDist < w.r) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; }
     }
-    // OPRAVA: Pouze Host kontroluje zásahy projektilů
-    if (!socket || game.isHost) {
-      for(let m of game.minions){ 
-        if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){ 
-          applyDamage(m, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00'); this.dead = true; 
-          if(m.hp<=0){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ owner.gold += 10; owner.totalGold += 10; owner.exp += 15; } } break; 
-        } 
-      }
-      if (this.dead) return; // Pokud jsme trefili miniona, už nezkoušíme trefit hráče
-      for(let p of game.players){ if(p.id !== this.ownerId && p.team !== this.ownerTeam && p.alive && dist(this.pos, p.pos) < this.radius + p.radius){ applyDamage(p, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00'); this.dead = true; if(p.hp<=0){ handlePlayerKill(p, this.ownerId); } break; } }
+    
+    let hit = false;
+    for(let m of game.minions){ 
+      if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){ 
+        hit = true; applyDamage(m, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00'); 
+        if(m.hp<=0){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ owner.gold += 10; owner.totalGold += 10; owner.exp += 15; } } break; 
+      } 
     }
+    if (hit) { this.dead = true; return; }
+    
+    for(let p of game.players){ 
+      if(p.id !== this.ownerId && p.team !== this.ownerTeam && p.alive && dist(this.pos, p.pos) < this.radius + p.radius){ 
+        hit = true; applyDamage(p, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00'); 
+        if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.ownerId); } break; 
+      } 
+    }
+    if (hit) { this.dead = true; }
   }
   draw(ctx){ 
     ctx.fillStyle = this.color; ctx.font=`bold ${Math.round(this.radius * 4.5)}px monospace`; ctx.textAlign='center'; ctx.textBaseline='middle'; 

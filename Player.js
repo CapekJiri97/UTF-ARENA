@@ -127,10 +127,8 @@ export class Player{
         if (this.dashTimer <= 0 && this.dashEndExplosion) {
            const expl = this.dashEndExplosion; const range = expl.radius;
            game.particles.push(new Particle(this.pos.x, this.pos.y, '#f80', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
-           if (!socket || game.isHost) {
-             for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage, expl.dmgType, expl.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } }
-             for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0){ handlePlayerKill(p, expl.id); } } }
-           }
+           for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage, expl.dmgType, expl.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } }
+           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, expl.id); } } }
            spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
            this.dashEndExplosion = null;
         }
@@ -286,21 +284,16 @@ export class Player{
       const angle = Math.atan2(ty-this.pos.y, tx-this.pos.x); const speed = 1000; const range = RANGED_ATTACK_RANGE; const life = range / speed; const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed; const damage = Math.round(CLASSES[this.className].baseAtk + (this.dmgType === 'magical' ? pAP*0.2 : pAD*0.2)); const p = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:'-' , life:life, radius: 12}); game.projectiles.push(p);
     } else { // melee basic
       const meleeRange = MELEE_ATTACK_RANGE; const damage = Math.round(CLASSES[this.className].baseAtk + (this.dmgType === 'magical' ? pAP*0.2 : pAD*0.2));
-      // OPRAVA: Pouze Host kontroluje zásahy nablízko
-      if (!socket || game.isHost) {
-        if (this.className === 'Hana') {
-            spawnParticles(this.pos.x, this.pos.y, 2, '#f0f', { shape: 'ring', radius: meleeRange, life: 0.2, speed: 0, lineWidth: 2 });
-            for(let m of game.minions){ if(!m.dead && m.team !== this.team){ if(dist(this.pos, m.pos) <= meleeRange){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } } }
-            for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ if(dist(this.pos, p.pos) <= meleeRange){ applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 2, '#fff'); if(p.hp<=0){ handlePlayerKill(p, this.id); } } } }
-        } else {
-            // hit minions in cone
-            const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = Math.PI/2; // 90deg
-            spawnParticles(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, 1, '#fff', { angle: ang, speed: 400, life: 0.15, glyph: ')))', size: 24, rotate: true });
-            for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } } }
-            }
-            for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 2, '#fff'); if(p.hp<=0){ handlePlayerKill(p, this.id); } } } }
-            }
-        }
+      if (this.className === 'Hana') {
+          spawnParticles(this.pos.x, this.pos.y, 2, '#f0f', { shape: 'ring', radius: meleeRange, life: 0.2, speed: 0, lineWidth: 2 });
+          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ if(dist(this.pos, m.pos) <= meleeRange){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } } }
+          for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ if(dist(this.pos, p.pos) <= meleeRange){ applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 2, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } }
+      } else {
+          // hit minions in cone
+          const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = Math.PI/2; // 90deg
+          spawnParticles(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, 1, '#fff', { angle: ang, speed: 400, life: 0.15, glyph: ')))', size: 24, rotate: true });
+          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } } } }
+          for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 2, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } } }
       }
     } }
 
@@ -347,11 +340,9 @@ export class Player{
     } else if (sp.type === 'aoe') {
       const range = sp.radius; 
       game.particles.push(new Particle(this.pos.x, this.pos.y, '#ccf', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
-      if (!socket || game.isHost) {
-        for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } } 
-        for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, m.pos) <= range){ applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0){ handlePlayerKill(p, this.id); } } } 
-        spawnParticles(this.pos.x, this.pos.y, 10, '#ccf');
-      }
+      for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } } 
+      for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } 
+      spawnParticles(this.pos.x, this.pos.y, 10, '#ccf');
     } else if (sp.type === 'heal_self') {
       let oldHp = this.hp;
       let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*10);
@@ -365,21 +356,19 @@ export class Player{
     } else if (sp.type === 'aoe_knockback') {
       const range = sp.radius; 
       game.particles.push(new Particle(this.pos.x, this.pos.y, '#f55', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
-      if (!socket || game.isHost) {
-        for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ 
-            applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); 
-            let angle = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
-            moveEntityWithCollision(m, Math.cos(angle)*1500, Math.sin(angle)*1500, 0.1);
-            if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } 
-        } } 
-        for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ 
-            applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); 
-            let angle = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
-            moveEntityWithCollision(p, Math.cos(angle)*1500, Math.sin(angle)*1500, 0.1);
-            if(p.hp<=0){ handlePlayerKill(p, this.id); } 
-        } } 
-        spawnParticles(this.pos.x, this.pos.y, 10, '#f55');
-      }
+      for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ 
+          applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); 
+          let angle = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
+          moveEntityWithCollision(m, Math.cos(angle)*1500, Math.sin(angle)*1500, 0.1);
+          if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } 
+      } } 
+      for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ 
+          applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); 
+          let angle = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
+          moveEntityWithCollision(p, Math.cos(angle)*1500, Math.sin(angle)*1500, 0.1);
+          if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } 
+      } } 
+      spawnParticles(this.pos.x, this.pos.y, 10, '#f55');
     } else if (sp.type === 'hana_q') {
       this.invulnerableTimer = 1.0; this.regenBuffTimer = 6.0; this.regenBuffAmount = 15 + (pAP * 0.2) + sp.level * 5; 
       spawnParticles(this.pos.x, this.pos.y, 15, '#0f0', {speed: 150});
@@ -747,11 +736,9 @@ export class BotPlayer extends Player {
           if (this.dashTimer <= 0 && this.dashEndExplosion) {
              const expl = this.dashEndExplosion; const range = expl.radius;
              game.particles.push(new Particle(this.pos.x, this.pos.y, '#f80', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
-             if (!socket || game.isHost) {
-                for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage, expl.dmgType, expl.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } }
-                for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, m.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0){ handlePlayerKill(p, expl.id); } } }
-                spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
-             }
+             for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage, expl.dmgType, expl.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } }
+             for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, expl.id); } } }
+             spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
              this.dashEndExplosion = null;
           }
           return;
