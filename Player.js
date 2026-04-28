@@ -556,7 +556,7 @@ export class BotPlayer extends Player {
       // Zkontrolujeme, jestli jsme zrovna nezabrali věž
       if (this.state === 'CAPTURE' && this.objective && this.objective.owner === this.team) {
           let enemyBots = game.players.filter(p => p.team !== this.team && p.alive && dist(p.pos, this.pos) < 1000);
-          if (enemyBots.length > 0 && Math.random() < 0.5) {
+          if (enemyBots.length > 0 && Math.random() < 0.90) { // Zvýšeno na 90 %
               this.guardData = { tower: this.objective, timer: 2.0 + Math.random() * 8.0, radius: 1000 };
           }
       }
@@ -572,8 +572,17 @@ export class BotPlayer extends Player {
       const isLosing = myTowersCount < enemyTowersCount;
 
       for (let t of game.towers) {
-          if (t.owner === this.team && ((this.team === 0 && t.control >= 100) || (this.team === 1 && t.control <= -100))) continue;
-          
+          let isUnderAttack = false;
+          for (let p of game.players) { if (p.team !== this.team && p.alive && dist(p.pos, t.pos) <= t.captureRadius) { isUnderAttack = true; break; } }
+
+          // Proaktivní obrana - pokud plně vlastníme věž, ale někdo v ní stojí nebo už nám klesá control, musíme reagovat
+          if (t.owner === this.team) {
+              let fullyControlled = (this.team === 0 && t.control >= 100) || (this.team === 1 && t.control <= -100);
+              if (fullyControlled && !isUnderAttack) {
+                  continue; // Věž je bezpečná
+              }
+          }
+
           let score = this.personalWeights.towerBaseScore - dist(this.pos, t.pos);
           if (dist(t.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Penalizace
           let isTopTower = (t.index === 0 || t.index === 1 || t.index === 2);
@@ -582,6 +591,11 @@ export class BotPlayer extends Player {
           if (this.lane === 'bottom' && isBotTower) score += this.personalWeights.laneMatchScore;
           
           if (this.role === 'ROAMER' && t.owner === 1 - this.team) score += 4600; // Zvýšeno o 15%
+          
+          // Obrovská priorita bránit vlastní napadenou věž
+          if (t.owner === this.team && (isUnderAttack || Math.abs(t.control) < 100)) {
+              score += 18000; 
+          }
 
           // PŘIDÁNO: Masivní bonus, pokud je bot blízko neutrální nebo nepřátelské věže (< 1000 units)
           if (t.owner !== this.team && dist(this.pos, t.pos) < 1000) {
@@ -605,7 +619,12 @@ export class BotPlayer extends Player {
           if (alliesOnTower >= this.maxGroupSize) score -= this.personalWeights.overcrowdedTowerPenalty;
           else if (alliesOnTower === 0) score += this.personalWeights.emptyTowerScore;
           
-          if (this.state === 'CAPTURE' && this.objective === t) score += this.personalWeights.objectiveHysteresis;
+          if (this.state === 'CAPTURE' && this.objective === t) {
+              score += this.personalWeights.objectiveHysteresis;
+              // PROGRES BONUS: Neodchází, když už to skoro má!
+              let progressVal = (this.team === 0) ? (t.control + 100)/200 : (100 - t.control)/200; // 0 až 1
+              if (progressVal > 0) score += progressVal * 20000; 
+          }
           if (score > bestObjScore) { bestObjScore = score; bestObjective = t; bestState = 'CAPTURE'; }
       }
 
@@ -658,7 +677,11 @@ export class BotPlayer extends Player {
           let score = this.personalWeights.powerupScore - d; 
           
           if (powerupUrge) score += 10000; // Silný bonus z nálady
-          if (d < game.powerup.radius + 20) score += 30000; // Pokud už v něm bot stojí nebo běží těsně kolem, neodejde!
+          
+          if (this.state === 'PICKUP' && this.objective && this.objective.type === 'powerup') {
+              score += this.personalWeights.objectiveHysteresis;
+              score += (game.powerup.captureTimer / 10.0) * 20000; // Neodchází, když ho už skoro má (až +20k bodů)
+          }
 
           if (dist(game.powerup.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty;
           if (this.state === 'PICKUP' && this.objective && this.objective.type === 'powerup') score += this.personalWeights.objectiveHysteresis;
@@ -703,7 +726,7 @@ export class BotPlayer extends Player {
                   if (farmUrge) score += 1500; // Zvýšeno, aby farmařil více
                   // Masivní priorita POUZE pro miniony, kteří překážejí v obsazování/obraně věže
                   if ((this.state === 'CAPTURE' || this.state === 'DEFEND') && this.objective && this.objective.pos) {
-                      if (dist(e.pos, this.objective.pos) < 300) score += 8000;
+                      if (dist(e.pos, this.objective.pos) < 120) score += 15000; // Okamžitá poprava překážejících minionů
                   }
               }
               if (e.hp / (e.effectiveMaxHp || e.maxHp) < 0.3 && !farmUrge) score += this.personalWeights.lowHpScore;
@@ -728,6 +751,17 @@ export class BotPlayer extends Player {
 
               if (score > bestTargetScore) { bestTargetScore = score; bestTarget = e; }
           }
+      }
+
+      // --- 2.4 Pud sebezáchovy (Kritické HP) ---
+      let myHpPct = this.hp / this.effectiveMaxHp;
+      if (myHpPct < 0.15) {
+          let almostDone = false;
+          if (bestState === 'CAPTURE' && bestObjective && bestObjective.control !== undefined) {
+              let progressVal = (this.team === 0) ? (bestObjective.control + 100)/200 : (100 - bestObjective.control)/200;
+              if (progressVal > 0.85) almostDone = true; // Riskne to a zkusí to dotáhnout
+          }
+          if (!almostDone) this.terrified = true; // Zpanikaří a utíká se zachránit
       }
 
       // --- 2.5 Hodnocení Volání o pomoc (Help Urge) ---
@@ -941,7 +975,10 @@ export class BotPlayer extends Player {
           this.guardData.timer -= dt;
           this.guardData.radius -= 100 * dt;
           let enemyInRadius = game.players.some(p => p.team !== this.team && p.alive && dist(p.pos, this.guardData.tower.pos) < this.guardData.radius);
-          if (this.guardData.timer <= 0 || !enemyInRadius) {
+          if (enemyInRadius) {
+              this.guardData.timer = 3.0; // Resetujeme timer, dokud je tu nepřítel!
+              this.guardData.radius = 1000;
+          } else if (this.guardData.timer <= 0) {
               this.guardData = null;
           }
       }
@@ -1037,21 +1074,17 @@ export class BotPlayer extends Player {
                   let ody = fightObjective.pos.y - this.pos.y;
                   let odist = Math.hypot(odx, ody);
                   let isCapturing = (fightObjective.owner !== undefined && fightObjective.owner !== this.team);
+                  let isDefending = (this.state === 'DEFEND');
                   let cRad = fightObjective.captureRadius || 80;
                   
-                  if (isCapturing && odist > cRad - 15) {
-                      let isUnderPressure = (this.hp / this.effectiveMaxHp < 0.5);
-                      if (this.recentAttackers) {
-                          let now = performance.now();
-                          for (let atkData of this.recentAttackers.values()) {
-                              if (now - (atkData.time || atkData) < 3000) { isUnderPressure = true; break; }
-                          }
-                      }
-                      // OPRAVA: Magnet se vypne, pokud bot schytává rány nebo má málo HP, aby mohl volně kitovat
-                      if (!isUnderPressure) {
-                          let pullStr = Math.max(120, d * 1.5); 
-                          dx += (odx/odist) * pullStr; 
-                          dy += (ody/odist) * pullStr;
+                  if (this.state === 'CAPTURE' || this.state === 'DEFEND') {
+                      if (odist < cRad - 10) {
+                          // Jsme uvnitř - plynulé strafování (kroužení kolem věže)
+                          let strafeAngle = Math.atan2(ody, odx) + Math.PI/2 * (this.id.charCodeAt(this.id.length-1) % 2 === 0 ? 1 : -1);
+                          dx += Math.cos(strafeAngle) * 50; dy += Math.sin(strafeAngle) * 50;
+                      } else if (odist >= cRad - 15) {
+                          // Těsně u okraje - Absolutní zákaz opuštění kruhu (tvrdý magnet do středu)
+                          dx = (odx/odist) * 500; dy = (ody/odist) * 500;
                       }
                   } else if (odist > 50 && odist < 600) { 
                       let pullStr = Math.max(10, d * 0.6);
