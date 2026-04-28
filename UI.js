@@ -322,11 +322,13 @@ export function draw(){
   if(game.startDelay > 0 && game.started) { ctx.font = '40px monospace'; ctx.fillStyle = '#ffcc00'; ctx.textAlign='center'; ctx.fillText(`MATCH STARTS IN ${Math.ceil(game.startDelay)}`, cw/2, 100); }
 
   if(game.started) {
-    // --- TOP LEFT CONTROLS ---
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = '12px monospace'; ctx.fillStyle = '#888';
-    ctx.fillText('B - SHOP', 20, 20); ctx.fillText('C - CHAR. INFO', 20, 36); ctx.fillText('M - GENERAL INFO', 20, 52);
-
     const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    // --- TOP LEFT CONTROLS ---
+    if (!isMobile) {
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = '12px monospace'; ctx.fillStyle = '#888';
+        ctx.fillText('B - SHOP', 20, 20); ctx.fillText('C - CHAR. INFO', 20, 36); ctx.fillText('M - GENERAL INFO', 20, 52);
+    }
 
     // --- TOP CENTER SCORE ---
     let tBlue = game.towers.filter(t=>t.owner===0).length; let tRed = game.towers.filter(t=>t.owner===1).length;
@@ -368,21 +370,23 @@ export function draw(){
 
     if(player) {
       if (!keys['tab']) {
-          ctx.textAlign = 'right'; ctx.font = isMobile ? '10px monospace' : '14px monospace'; 
           let allyBots = game.players.filter(p => p.team === player.team && p.id !== player.id); 
           let shiftY = isMobile ? 16 : 25;
-          // Zajištění, aby spoluhráči byli nad minimapou
-          let startY = ch - (isMobile ? (window.innerHeight * 0.35) : 330); 
-          ctx.fillStyle = '#aaa'; ctx.fillText('TEAMMATES', cw - 20, startY - allyBots.length * shiftY - 10);
+          // Na mobilu je přesuneme doleva nahoru, na PC zůstávají vpravo
+          let startY = isMobile ? 30 + allyBots.length * shiftY : ch - 330; 
+          let startX = isMobile ? 20 : cw - 20;
+          ctx.textAlign = isMobile ? 'left' : 'right'; ctx.font = isMobile ? '10px monospace' : '14px monospace'; 
+          ctx.fillStyle = '#aaa'; ctx.fillText('TEAMMATES', startX, startY - allyBots.length * shiftY - 10);
           for(let i=0; i<allyBots.length; i++) {
               let bot = allyBots[i]; let y = startY - (allyBots.length - 1 - i) * shiftY;
-              ctx.fillStyle = bot.alive ? '#fff' : '#666'; ctx.fillText(`${bot.className} LV${bot.level}`, cw - 80, y);
+              ctx.fillStyle = bot.alive ? '#fff' : '#666'; ctx.fillText(`${bot.className} LV${bot.level}`, isMobile ? startX : cw - 80, y);
               let maxBoxes = 5; let f = Math.max(0, Math.min(maxBoxes, Math.round((Math.max(0, bot.hp) / bot.maxHp) * maxBoxes) || 0));
               let bar = '[' + '|'.repeat(f) + ' '.repeat(maxBoxes - f) + ']'; ctx.fillStyle = bot.alive ? (bot.team === 0 ? '#486FED' : '#FF4E4E') : '#444'; ctx.fillText(bar, cw - 20, y); 
+              if (isMobile) ctx.fillText(bar, startX + 90, y); else ctx.fillText(bar, cw - 20, y); 
           }
       }
       
-      let anchorX = cw / 2; const anchorY = ch - (isMobile ? 10 : 65); 
+      let anchorX = cw / 2; const anchorY = ch - (isMobile ? 25 : 65); 
       if (!isMobile && anchorX + 300 > cw - 320) anchorX = Math.max(300, cw - 620); // Responzivní uhnutí minimapě
 
       ctx.save();
@@ -766,56 +770,54 @@ export function initMobileUI() {
     const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (!isMobile) return;
     
-    // Zásadní oddálení kamery na mobilu (původně 1.52, teď 0.5 pro masivní rozhled)
-    camera.scale = 0.5;
+    // Oddálení kamery na mobilu o 100% (z původních 0.5 zpět na 1.0)
+    camera.scale = 1.0;
     
     const mc = document.createElement('div');
     mc.id = 'mobileControls';
     mc.style.position = 'fixed'; mc.style.top = '0'; mc.style.left = '0'; mc.style.width = '100%'; mc.style.height = '100%';
     mc.style.pointerEvents = 'none'; mc.style.zIndex = '5000'; mc.style.display = 'none';
     
-    // OBŘÍ D-PAD
+    // OBŘÍ D-PAD (Zvětšeno o 25%)
     const dpad = document.createElement('div');
     dpad.style.position = 'absolute'; dpad.style.left = '4vw'; dpad.style.bottom = '8vh';
-    dpad.style.width = '45vh'; dpad.style.height = '45vh'; 
+    dpad.style.width = '56vh'; dpad.style.height = '56vh'; 
     dpad.style.background = 'rgba(255,255,255,0.1)';
     dpad.style.borderRadius = '50%'; dpad.style.pointerEvents = 'auto';
     dpad.innerHTML = '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:rgba(255,255,255,0.2); font-family:monospace; font-size:4vh; font-weight:bold; pointer-events:none;">MOVE</div>';
     
-    // TLAČÍTKA KOUZEL (vpravo nahoře nad minimapou)
-    const btns = document.createElement('div');
-    btns.style.position = 'absolute'; btns.style.right = '2vw'; btns.style.bottom = '38vh'; 
-    btns.style.display = 'flex'; btns.style.gap = '15px'; btns.style.pointerEvents = 'auto';
-    
     const triggerKey = (keyStr, shift = false) => { window.dispatchEvent(new KeyboardEvent('keydown', { key: keyStr, shiftKey: shift, bubbles: true })); };
     const releaseKey = (keyStr, shift = false) => { window.dispatchEvent(new KeyboardEvent('keyup', { key: keyStr, shiftKey: shift, bubbles: true })); };
     
-    const createBtn = (keyStr, label, shift = false, size = '12vh', fontSize = '4vh') => {
+    const createBtn = (keyStr, label, shift = false, size = '15vh', fontSize = '5vh') => {
         const b = document.createElement('div');
         b.style.width = size; b.style.height = size; b.style.background = 'rgba(255,255,255,0.15)';
         b.style.borderRadius = '50%'; b.style.display = 'flex'; b.style.justifyContent = 'center'; b.style.alignItems = 'center';
         b.style.color = 'rgba(255,255,255,0.8)'; b.style.fontSize = fontSize; b.style.fontWeight = 'bold'; b.style.fontFamily = 'monospace';
+        b.style.position = 'absolute'; b.style.pointerEvents = 'auto';
         b.textContent = label;
         b.addEventListener('touchstart', (e) => { e.preventDefault(); b.style.background = 'rgba(255,255,255,0.4)'; triggerKey(keyStr, shift); }, {passive:false});
         b.addEventListener('touchend', (e) => { e.preventDefault(); b.style.background = 'rgba(255,255,255,0.15)'; releaseKey(keyStr, shift); }, {passive:false});
         return b;
     };
     
-    btns.appendChild(createBtn('j', 'Q'));
-    btns.appendChild(createBtn('k', 'E'));
-    btns.appendChild(createBtn('l', 'S')); 
+    // TLAČÍTKA KOUZEL (Diagonálně nad minimapou vpravo)
+    const btnQ = createBtn('j', 'Q'); btnQ.style.right = '35vh'; btnQ.style.bottom = '32vh';
+    const btnE = createBtn('k', 'E'); btnE.style.right = '18vh'; btnE.style.bottom = '46vh';
+    const btnS = createBtn('l', 'S'); btnS.style.right = '2vw'; btnS.style.bottom = '60vh';
     
-    // TLAČÍTKA VEDLE MINIMAPY (SHOP, INFO, AUTOPLAY)
+    // TLAČÍTKA VEDLE MINIMAPY -> PŘESUNUTO VPRAVO NAHORU (SHOP, INFO, AUTOPLAY)
     const sideBtns = document.createElement('div');
-    sideBtns.style.position = 'absolute'; sideBtns.style.right = '34vh'; // Nalevo od 30vh minimapy
-    sideBtns.style.bottom = '2vh';
+    sideBtns.style.position = 'absolute'; sideBtns.style.right = '2vw'; 
+    sideBtns.style.top = '10vh';
     sideBtns.style.display = 'flex'; sideBtns.style.flexDirection = 'column'; sideBtns.style.gap = '10px'; sideBtns.style.pointerEvents = 'auto';
 
     sideBtns.appendChild(createBtn('b', 'SHOP', false, '8vh', '2vh'));
     sideBtns.appendChild(createBtn('c', 'INFO', false, '8vh', '2vh'));
     sideBtns.appendChild(createBtn('i', 'AUTO', true, '8vh', '2vh')); // Shift+I zapíná/vypíná autoplay
+    Array.from(sideBtns.children).forEach(b => b.style.position = 'relative'); // Vracíme na relative kvůli flex layoutu
     
-    mc.appendChild(dpad); mc.appendChild(btns); mc.appendChild(sideBtns); document.body.appendChild(mc);
+    mc.appendChild(dpad); mc.appendChild(btnQ); mc.appendChild(btnE); mc.appendChild(btnS); mc.appendChild(sideBtns); document.body.appendChild(mc);
 
     let activeDirs = { w:false, a:false, s:false, d:false };
     const updateDirs = (nw, na, ns, nd) => {
