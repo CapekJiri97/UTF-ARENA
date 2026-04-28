@@ -544,13 +544,21 @@ export class BotPlayer extends Player {
 
       // Výběr jedné Makro-Strategie
       this.strategy = 'NORMAL';
-      if (Math.random() < 0.15) { // 15% šance na odchylku od běžného hlídání linek
+      if (Math.random() < 0.20) { // Zvýšeno na 20% šanci
           const r = Math.random();
           if (r < 0.33 && this.level >= 4) this.strategy = 'FARM';
-          else if (r < 0.66) this.strategy = 'POWERUP';
+          else if (r < 0.66) {
+              // PowerUp sbírají cíleně spíše dmg dealeři a roameři
+              if (['Assassin', 'Marksman', 'Runner', 'Mage', 'Summoner', 'Bruiser', 'Vanguard'].includes(this.className) && game.powerup && game.powerup.active && !this.hasPowerup) {
+                  this.strategy = 'POWERUP';
+              }
+          }
           else {
-              let squishies = game.players.filter(p => p.team !== this.team && p.alive && ['Mage', 'Healer', 'Marksman', 'Acolyte', 'Summoner'].includes(p.className));
-              if (squishies.length > 0) { this.huntTarget = squishies[Math.floor(Math.random() * squishies.length)]; this.strategy = 'HUNT'; }
+              // Hunt cílují DPS a Bruiseři na Supporty/Mágy v okolí 2000 unitů
+              if (['Assassin', 'Marksman', 'Runner', 'Bruiser'].includes(this.className)) {
+                  let targets = aliveEnemies.filter(p => ['Healer', 'Acolyte', 'Mage', 'Summoner'].includes(p.className) && dist(this.pos, p.pos) < 2000);
+                  if (targets.length > 0) { this.huntTarget = targets[Math.floor(Math.random() * targets.length)]; this.strategy = 'HUNT'; }
+              }
           }
       }
       if (this.strategy !== 'HUNT' || (this.huntTarget && !this.huntTarget.alive)) this.huntTarget = null;
@@ -613,8 +621,14 @@ export class BotPlayer extends Player {
           if (dist(t.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Penalizace
           let isTopTower = (t.index === 0 || t.index === 1 || t.index === 2);
           let isBotTower = (t.index === 3 || t.index === 4);
-          if (this.lane === 'top' && isTopTower) score += this.personalWeights.laneMatchScore;
-          if (this.lane === 'bottom' && isBotTower) score += this.personalWeights.laneMatchScore;
+          
+          // DYNAMICKÁ LANING FÁZE: V průběhu hry se vazba na původní linku vytrácí
+          let laneMultiplier = 1.0;
+          if (this.level >= 3) laneMultiplier = 0.5; // Od levelu 3 (Mid-game) slábne vliv linek na polovinu
+          if (this.level >= 5) laneMultiplier = 0.0; // Od levelu 5 (Late-game) linky úplně mizí a boti rotují volně
+          
+          if (this.lane === 'top' && isTopTower) score += this.personalWeights.laneMatchScore * laneMultiplier;
+          if (this.lane === 'bottom' && isBotTower) score += this.personalWeights.laneMatchScore * laneMultiplier;
           
           if (this.role === 'ROAMER' && t.owner === 1 - this.team) score += 4600; // Zvýšeno o 15%
           
@@ -724,7 +738,7 @@ export class BotPlayer extends Player {
           let d = dist(this.pos, game.powerup.pos);
           let score = this.personalWeights.powerupScore - d; 
           
-          if (powerupUrge) score += 10000; // Silný bonus z nálady
+          if (powerupUrge) score += 25000; // Extrémní bonus z nálady, bot pro to prostě dojde
           
           if (this.state === 'PICKUP' && this.objective && this.objective.type === 'powerup') {
               score += this.personalWeights.objectiveHysteresis;
