@@ -58,8 +58,24 @@ export class Tower{
       this.control = Math.max(-100, Math.min(100, this.control)); 
       if (this.owner === 0 && this.control < 0) { this.owner = -1; }
       if (this.owner === 1 && this.control > 0) { this.owner = -1; }
-      if (this.control >= 100 && this.owner !== 0){ this.owner = 0; this.control = 100; game.shake = 0.3; } 
-      if (this.control <= -100 && this.owner !== 1){ this.owner = 1; this.control = -100; game.shake = 0.3; }
+      if (this.control >= 100 && this.owner !== 0){ 
+          this.owner = 0; this.control = 100; game.shake = 0.3; 
+          if(!socket || game.isHost) {
+              let caps = game.players.filter(p => p.alive && p.team === 0 && dist(p.pos, this.pos) <= this.captureRadius);
+              let kName = caps.length > 0 ? caps[0].className : 'Blue Team';
+              let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 0, victimTeam: -1, isCapture: true };
+              if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
+          }
+      } 
+      if (this.control <= -100 && this.owner !== 1){ 
+          this.owner = 1; this.control = -100; game.shake = 0.3; 
+          if(!socket || game.isHost) {
+              let caps = game.players.filter(p => p.alive && p.team === 1 && dist(p.pos, this.pos) <= this.captureRadius);
+              let kName = caps.length > 0 ? caps[0].className : 'Red Team';
+              let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 1, victimTeam: -1, isCapture: true };
+              if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
+          }
+      }
     }
     if (this.owner >= 0) {
       if (this.attackCooldown > 0) this.attackCooldown -= dt;

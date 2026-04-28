@@ -236,23 +236,21 @@ export function draw(){
         ctx.fillText('SPECTATOR MODE - WASD TO MOVE CAMERA', canvas.width / 2, 90);
     }
 
-    // Kill Feed (Vpravo nahoře)
+    // Kill Feed & Objectives (Uprostřed pod skóre)
     if (game.killFeed && game.killFeed.length > 0) {
-        let kfY = 60;
+        let kfY = 85;
         ctx.font = 'bold 13px monospace';
         for (let kf of game.killFeed) {
-            let x = canvas.width - 20;
+            let kStr = kf.killer; let vStr = kf.victim; let mStr = kf.isCapture ? ' 🚩 ' : ' ⚔ ';
+            let wK = ctx.measureText(kStr).width; let wM = ctx.measureText(mStr).width; let wV = ctx.measureText(vStr).width;
+            let totalW = wK + wM + wV; let startX = cxTop - totalW/2;
             
-            ctx.textAlign = 'right';
-            ctx.fillStyle = kf.victimTeam === 0 ? '#4da6ff' : (kf.victimTeam === 1 ? '#ff6b6b' : '#aaa');
-            ctx.fillText(kf.victim, x, kfY);
-            x -= ctx.measureText(kf.victim).width + 5;
-            
-            ctx.fillStyle = '#fff'; ctx.fillText(' ⚔ ', x, kfY);
-            x -= ctx.measureText(' ⚔ ').width + 5;
-            
+            ctx.textAlign = 'left';
             ctx.fillStyle = kf.killerTeam === 0 ? '#4da6ff' : (kf.killerTeam === 1 ? '#ff6b6b' : '#aaa');
-            ctx.fillText(kf.killer, x, kfY);
+            ctx.fillText(kStr, startX, kfY);
+            ctx.fillStyle = '#fff'; ctx.fillText(mStr, startX + wK, kfY);
+            ctx.fillStyle = kf.victimTeam === 0 ? '#4da6ff' : (kf.victimTeam === 1 ? '#ff6b6b' : '#aaa');
+            ctx.fillText(vStr, startX + wK + wM, kfY);
             kfY += 22;
         }
     }
@@ -269,7 +267,9 @@ export function draw(){
           }
       }
       
-      const cx = canvas.width / 2; const cy = canvas.height - 65; 
+      let cx = canvas.width / 2; const cy = canvas.height - 65; 
+      if (cx + 300 > canvas.width - 320) cx = Math.max(300, canvas.width - 620); // Responzivní uhnutí minimapě
+
       if (player.currentTarget && player.currentTarget.hp > 0 && !player.currentTarget.dead) {
           const t = player.currentTarget; const tw = 260, th = 55; const tx = cx - tw/2, ty = cy - 130;
           ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = t.team === player.team ? '#4da6ff' : '#ff6b6b'; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
@@ -281,18 +281,25 @@ export function draw(){
       }
 
       ctx.textBaseline = 'middle';
-      // HP BAR
-      ctx.fillStyle = '#111'; ctx.fillRect(cx - 180, cy - 50, 470, 12);
-      let hpPct = Math.max(0, Math.min(1, player.hp / player.effectiveMaxHp));
-      ctx.fillStyle = player.team === 0 ? '#4da6ff' : '#ff6b6b'; ctx.fillRect(cx - 180, cy - 50, 470 * hpPct, 12);
-      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx - 180, cy - 50, 470, 12);
-      ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillText(`${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, cx + 55, cy - 44);
+      // ASCII HP BAR
+      ctx.fillStyle = player.team === 0 ? '#4da6ff' : '#ff6b6b';
+      ctx.font = 'bold 16px monospace'; ctx.textAlign = 'center';
+      let maxHpBoxes = 30; let filledHp = Math.max(0, Math.min(maxHpBoxes, Math.round((player.hp / player.effectiveMaxHp) * maxHpBoxes) || 0));
+      let hpStr = '[' + '|'.repeat(filledHp) + '-'.repeat(maxHpBoxes - filledHp) + ']';
+      ctx.fillText(hpStr, cx + 55, cy - 45);
+      ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.fillText(`${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, cx + 55, cy - 25);
 
-      // EXP BAR
+      // ASCII VERTICAL EXP BAR
+      ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
+      let maxExpBoxes = 8;
       const expPct = player.exp / expForLevel(player.level);
-      ctx.fillStyle = '#111'; ctx.fillRect(cx - 180, cy - 5, 80, 10);
-      ctx.fillStyle = '#8a2be2'; ctx.fillRect(cx - 180, cy - 5, 80 * expPct, 10);
-      ctx.strokeStyle = '#555'; ctx.strokeRect(cx - 180, cy - 5, 80, 10);
+      let filledExp = Math.max(0, Math.min(maxExpBoxes, Math.round(expPct * maxExpBoxes) || 0));
+      for(let i=0; i<maxExpBoxes; i++) {
+          let isFilled = (maxExpBoxes - 1 - i) < filledExp;
+          ctx.fillStyle = isFilled ? '#8a2be2' : '#555';
+          ctx.fillText(isFilled ? '=' : '|', cx - 115, cy - 25 + i * 10);
+      }
+      ctx.fillStyle = '#aaa'; ctx.font = '9px monospace'; ctx.fillText('XP', cx - 115, cy + 65);
 
       // HERO CIRCLE
       ctx.beginPath(); ctx.arc(cx - 50, cy, 35, 0, Math.PI*2);
@@ -311,7 +318,9 @@ export function draw(){
 
       // SPELLS
       const qKey = game.autoTarget ? 'J' : 'Q'; const eKey = game.autoTarget ? 'K' : 'E'; const sumKey = game.autoTarget ? 'L' : 'F';
-      const drawSpell = (x, y, key, lvl, cd, maxCd, isSum) => {
+      const getTypeLabel = (type) => { if(!type) return 'Spell'; if(type.includes('heal')) return 'Heal'; if(type.includes('dash')) return 'Dash'; if(type.includes('buff')) return 'Buff'; if(type.includes('summon')) return 'Summon'; if(type.includes('knockback')) return 'Knock'; return 'Dmg'; };
+      const drawSpell = (x, y, key, lvl, cd, maxCd, isSum, typeLabel) => {
+          ctx.fillStyle = '#aaa'; ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillText(typeLabel, x+20, y - 8);
           ctx.fillStyle = '#111'; ctx.fillRect(x, y, 40, 40); ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(x, y, 40, 40);
           if (cd > 0) {
               ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x, y, 40, 40);
@@ -319,20 +328,20 @@ export function draw(){
           } else { ctx.fillStyle = '#fff'; ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; ctx.fillText(key, x+20, y+20); }
           ctx.fillStyle = '#888'; ctx.font = '10px monospace'; ctx.fillText(isSum ? 'S' : ('LV'+lvl), x+20, y+48);
       };
-      drawSpell(cx + 10, cy - 20, qKey, player.spells.Q.level, player.spells.Q.cd, player.computeSpellCooldown('Q'), false);
-      drawSpell(cx + 60, cy - 20, eKey, player.spells.E.level, player.spells.E.cd, player.computeSpellCooldown('E'), false);
-      drawSpell(cx + 110, cy - 20, sumKey, 0, player.summonerCooldown, SUMMONER_SPELLS[player.summonerSpell].cd, true);
+      drawSpell(cx + 10, cy - 20, qKey, player.spells.Q.level, player.spells.Q.cd, player.computeSpellCooldown('Q'), false, getTypeLabel(player.spells.Q.type));
+      drawSpell(cx + 60, cy - 20, eKey, player.spells.E.level, player.spells.E.cd, player.computeSpellCooldown('E'), false, getTypeLabel(player.spells.E.type));
+      drawSpell(cx + 110, cy - 20, sumKey, 0, player.summonerCooldown, SUMMONER_SPELLS[player.summonerSpell].cd, true, player.summonerSpell);
 
       // STATS TABLE
-      ctx.fillStyle = '#111'; ctx.fillRect(cx + 170, cy - 25, 120, 60);
-      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 170, cy - 25, 120, 60);
+      ctx.fillStyle = '#111'; ctx.fillRect(cx + 170, cy - 35, 140, 70);
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 170, cy - 35, 140, 70);
       ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(`AD:${Math.round(player.AD * (player.hasPowerup?1.2:1))}`, cx + 175, cy - 10);
-      ctx.fillText(`AR:${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + 175, cy + 10);
-      ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 175, cy + 30);
-      ctx.fillText(`AP:${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + 235, cy - 10);
-      ctx.fillText(`MR:${Math.round(player.mr * (player.hasPowerup?1.2:1))}`, cx + 235, cy + 10);
-      ctx.fillText(`AS:${(player.attackDelay / player.attackSpeed).toFixed(2)}`, cx + 235, cy + 30);
+      ctx.fillText(`AD:${Math.round(player.AD * (player.hasPowerup?1.2:1))}`, cx + 175, cy - 20);
+      ctx.fillText(`AR:${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + 175, cy + 0);
+      ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 175, cy + 20);
+      ctx.fillText(`AP:${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + 245, cy - 20);
+      ctx.fillText(`MR:${Math.round(player.mr * (player.hasPowerup?1.2:1))}`, cx + 245, cy + 0);
+      ctx.fillText(`AS:${(player.attackDelay / player.attackSpeed).toFixed(2)}`, cx + 245, cy + 20);
     }
     if (keys['tab']) {
         ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(100, 100, canvas.width - 200, canvas.height - 200); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(100, 100, canvas.width - 200, canvas.height - 200);
@@ -348,10 +357,10 @@ export function draw(){
     if (keys['c'] && player) {
         ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, 30 * vw, 100 * vh);
         ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, 30 * vw, 100 * vh);
-        ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(16, 2 * vw)}px monospace`; ctx.textAlign = 'left';
+        ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(13, 1.6 * vw)}px monospace`; ctx.textAlign = 'left';
         ctx.fillText('CHARACTER INFO', 2 * vw, 5 * vh);
         
-        ctx.font = `${Math.max(12, 1.2 * vw)}px monospace`;
+        ctx.font = `${Math.max(10, 0.96 * vw)}px monospace`;
         ctx.fillText(`Class: ${player.className}`, 2 * vw, 10 * vh);
         ctx.fillText(`Level: ${player.level} (${Math.floor(player.exp)}/${expForLevel(player.level)} XP)`, 2 * vw, 13 * vh);
         ctx.fillText(`HP: ${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, 2 * vw, 16 * vh);
@@ -388,10 +397,10 @@ export function draw(){
     if (keys['m']) {
         ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, 30 * vw, 100 * vh);
         ctx.strokeStyle = '#4da6ff'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, 30 * vw, 100 * vh);
-        ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(16, 2 * vw)}px monospace`; ctx.textAlign = 'left';
+        ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(13, 1.6 * vw)}px monospace`; ctx.textAlign = 'left';
         ctx.fillText('GENERAL INFO', 2 * vw, 5 * vh);
         
-        ctx.font = `${Math.max(12, 1.2 * vw)}px monospace`;
+        ctx.font = `${Math.max(10, 0.96 * vw)}px monospace`;
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`CONTROLS`, 2 * vw, 12 * vh); 
         ctx.fillStyle = '#fff';
         ctx.fillText(`[W,A,S,D]     : Move`, 2 * vw, 16 * vh);
@@ -414,8 +423,17 @@ export function draw(){
 export function drawMinimap(){ const mm = document.getElementById('minimap'); const w = mm.clientWidth, h = mm.clientHeight; const ctxm = mm._ctx || (function(){ const c = document.createElement('canvas'); c.width = w; c.height = h; mm.appendChild(c); mm._ctx = c.getContext('2d'); return mm._ctx; })(); ctxm.clearRect(0,0,w,h); ctxm.fillStyle='#222'; ctxm.fillRect(0,0,w,h);
   const scaleX = w / world.width; const scaleY = h / world.height; for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#4da6ff' : t.owner===1? '#ff6b6b' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
   ctxm.beginPath(); ctxm.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY); for(let i=1; i<mapBoundary.length; i++) ctxm.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY); ctxm.closePath(); ctxm.strokeStyle = '#555'; ctxm.stroke();
-  ctxm.fillStyle = '#444'; ctxm.strokeStyle = '#444'; ctxm.lineJoin = 'round';
-  for(let w of game.walls) { ctxm.beginPath(); ctxm.moveTo(w.pts[0].x * scaleX, w.pts[0].y * scaleY); for(let i=1; i<w.pts.length; i++) ctxm.lineTo(w.pts[i].x * scaleX, w.pts[i].y * scaleY); ctxm.closePath(); ctxm.fill(); ctxm.lineWidth = w.r * 2 * scaleX; ctxm.stroke(); }
+  ctxm.fillStyle = '#555'; ctxm.font = '10px monospace'; ctxm.textAlign='center'; ctxm.textBaseline='middle';
+  for(let w of game.walls) {
+      let startX = Math.floor((w.bbox.minX - w.r)/60)*60, endX = Math.ceil((w.bbox.maxX + w.r)/60)*60;
+      let startY = Math.floor((w.bbox.minY - w.r)/60)*60, endY = Math.ceil((w.bbox.maxY + w.r)/60)*60;
+      for (let wx = startX; wx <= endX; wx += 60) {
+          for (let wy = startY; wy <= endY; wy += 60) {
+              let info = distToPoly(wx, wy, w.pts);
+              if (info.inside || info.minDist <= w.r) { ctxm.fillText('#', wx * scaleX, wy * scaleY); }
+          }
+      }
+  }
   for(let m of game.minions){ const x = m.pos.x * scaleX; const y = m.pos.y * scaleY; ctxm.fillStyle = m.team===0? '#b3ffb3':'#ffb3b3'; ctxm.fillRect(x-1,y-1,2,2); }
   
   for(let p of game.players){ 

@@ -201,12 +201,12 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   // =========================================================================
 
   export const keys = {};
-  window.addEventListener('keydown', e=>{ keys[e.key.toLowerCase()] = true; if(['w','a','s','d','tab','c','j','k','arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault(); });
-  window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()] = false; });
+  window.addEventListener('keydown', e=>{ if(e.target.tagName === 'INPUT') return; keys[e.key.toLowerCase()] = true; if(['w','a','s','d','tab','c','m','j','k','arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault(); });
+  window.addEventListener('keyup', e=>{ if(e.target.tagName === 'INPUT') return; keys[e.key.toLowerCase()] = false; });
 
   // action keys (non-repeat)
   window.addEventListener('keydown', e=>{
-    if(e.repeat) return;
+    if(e.target.tagName === 'INPUT' || e.repeat) return;
     const k = e.key.toLowerCase();
     const qKey = game.autoTarget ? 'j' : 'q';
     const eKey = game.autoTarget ? 'k' : 'e';
