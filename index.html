@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>UTF Arena - MVP</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="menu" class="overlay">
+    <h1>Načítání enginu...</h1>
+    <p style="color: #ffcc00; margin-top: 20px;">Pokud se hra nenačte, pravděpodobně jsi ji otevřel pouze dvojklikem na soubor (file://).</p>
+    <p>Kvůli ES Modulům musíš hru spustit přes <b>node server.js</b> a do adresního řádku zadat <b>http://localhost:3000</b></p>
+  </div>
+
+  <div id="hud">
+    <div id="info">
+      <span id="hp">HP: 100</span>
+      <span id="level">LV: 1</span>
+      <span id="gold">Gold: 0</span>
+      <span id="exp">EXP: 0</span>
+      <span id="respawn"></span>
+    </div>
+    <div id="spells">
+      <div class="spell" id="q"><div class="label">Q <span id="qlv">1</span> <span id="qcd" style="margin-left:6px;font-size:11px;opacity:0.9"></span></div><div class="bar" id="qbar"></div></div>
+      <div class="spell" id="e"><div class="label">E <span id="elv">1</span> <span id="ecd" style="margin-left:6px;font-size:11px;opacity:0.9"></span></div><div class="bar" id="ebar"></div></div>
+    </div>
+    <div id="nexus">
+      <span id="nexusBlue">Blue Nexus: 100</span>
+      <span id="nexusRed">Red Nexus: 100</span>
+    </div>
+    <div id="inventory"></div>
+  </div>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="minimap"></div>
+
+  <div id="endOverlay" class="overlay hidden">
+    <h2 id="endText"></h2>
+    <button id="restartBtn">Restart</button>
+  </div>
+
+  <div id="shopOverlay" class="overlay hidden">
+    <h2>Shop</h2>
+    <div id="shopList"></div>
+    <div style="margin-top:12px">
+      <button id="closeShop">Close (B)</button>
+    </div>
+    <p style="font-size:12px;margin-top:8px;opacity:0.8">Buy items with gold. Press <strong>B</strong> to toggle shop. Press <strong>Shift+Q</strong> / <strong>Shift+E</strong> to put skill points into Q/E.</p>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

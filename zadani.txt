@@ -1,0 +1,108 @@
+OK TAKŽE prostě jak bych chtěl aby vypadala hra:
+
+5V5 arena, 5 věži do kruhu, ktere se obsazují, chodící minioni ktere se spawnou u obsazene veže a jdou proti nepřatelske veži (sousední) -> minioni svymi utoky take mohou "poškodit"/obsadit věž,
+hrači získavají exp a goldy, expy konstatně + za kill + za miniony, goldy to same
+movement je wsad, každa postava ma 2 kouzla ->Q/E, utok je myší, range/meelee fungují "stejně" jen range vysíla projektily a meelee maltí v nějakem "cone" utoku
+postavy se vyberou před hrou ->simple ui menu
+pokud tym vlastní víc věži než protihrač -> odpočítavají se body 
+nakup itemu bude jednoduchy, jen za goldy, simple itemy, max 10
+postavy mají atributy ktere se zvětšují levelem a nakupy -> AD/AP, Attack speed, ability haste ,movement speed, armor, magic ressist
+
++ feature minimapa samozřejmě
+přidat nějake věci na mapu jako healy, movementspeed buff a bushe na neviditelnost
+level up system ->za expy, max třeba 8 levelu přičemž mužu davat levlel up do spellu ktere nějak jednoduše scalují
+revive system
+combat system ->při vyílaní utoku se postava zpomalí (jako ve Smite MOBA hře třeba) aby nešlo "nekonečně kaitovat" 
+
+UI a Feedback (Zpětná vazba): Hráč musí vědět, co se děje. Chybí ti healthbary nad hlavami postav i minionů, ukazatele cooldownů pro Q a E, vyskakující čísla poškození (damage numbers) a indikace zásahu (např. válec blikne červeně, když dostane damage).
+
+Game State Management (Průběh zápasu): Co přesně se stane, když body klesnou na nulu? Potřebuješ logiku pro obrazovku "Victory/Defeat", ukončení zápasu, zničení minionů a návrat zpět do lobby nebo character selectu.
+
+Kolizní vrstvy (Physics Layers): Budeš muset nastavit, že tvůj projektil ignoruje tvé spojence, ale zasáhne nepřítele. Že postavy neprojdou skrz věž, ale projektily možná ano (nebo ne?).
+premyslim že bych zjednodušil "Grafiku" a bylo by to vše na černem pozadí pomocí UTF8 znaku a zakladnich barev , mohlo by to vypadat o to zajímavějc
+
+Nápad je to vizuálně fantastický. Hry inspirované ASCII grafikou (jako Dwarf Fortress nebo Stone Story RPG) mají jedinečný styl. Ale musím k tobě být naprosto upřímný ohledně toho, co to reálně udělá s hratelností a vývojem. Nechci, abys měl přehnaná očekávání.
+
+Změnit grafiku na UTF-8 znaky přináší dva zásadní problémy pro rychlou, real-time MOBA hru:
+
+1. Vizuální chaos (Čitelnost)
+Když se na jedné obrazovce potká 5 hráčů (třeba znak @), 10 minionů (znak m) a do toho začnou létat projektily (*, -), stane se z toho absolutně nečitelná textová polévka. I jednoduchá 3D geometrie (válce a koule) dává mozku mnohem lepší prostorový přehled a jasně odděluje, co je postava a co letící kouzlo.
+
+2. Past jménem „Terminál“ (Pohyb a míření)
+Pokud bys to chtěl programovat v reálném příkazovém řádku (konzoli/terminálu), narazíš na obrovský problém s ovládáním. Terminál je striktní mřížka.
+
+Plynulý WASD pohyb neexistuje, postava by "skákala" po políčkách.
+
+Míření myší a střelba v úhlech (např. vystřelit projektil pod úhlem 45 stupňů) je v textové mřížce bez enginu noční můra.
+
+Jak to implementovat chytře (Fake ASCII)
+Pokud tento styl opravdu chceš a chceš zachovat plynulý combat, nedělej to jako textovou aplikaci.
+
+Uděláš to stále v herním enginu (Unity nebo Godot), ale projekt založíš jako čisté 2D.
+
+Pozadí nastavíš na černou barvu.
+
+Místo 3D modelů vytvoříš jednoduché 2D objekty, které budou mít místo obrázku vložený Textový komponent (např. barevný znak X).
+
+Díky enginu ti bude normálně fungovat plynulá 2D fyzika, plynulý pohyb po pixelech a přesné míření myší, i když to na pohled bude vypadat jako textovka.
+
+Verdikt vývoje
+Přesun do 2D (ať už použiješ barevné kruhy nebo UTF-8 znaky) ti výrazně usnadní práci. Ve 2D odpadá osa Z, takže kolize, pohyb i míření jsou matematicky mnohem jednodušší než ve 3D. Jen musíš ohlídat, aby to bylo k přečtení.
+
+Máme tedy plány upravit na 2D Top-Down hru a chceš, abychom začali s prvním skriptem pro plynulý pohyb tvého 2D znaku po obrazovce?
+
+Hele kdybych chtěl hru jako multiplayer jenom přes LAN, nezjednodusuje to hosting problémy?
+
+Krátká odpověď zní: Ano, masivně. Pokud se rozhodneš pro LAN (Local Area Network), zbavíš se těch největších „infarktových“ stavů, které trápí nezávislé vývojáře při vydávání online her. Hostingové problémy se v podstatě smrsknou na nulu.
+
+Zde je upřímný rozbor toho, co se tím zjednoduší a co naopak zůstává stejně těžké.
+
+Co se díky LAN zjednodušuje (Tyto starosti odpadají)
+Nulové náklady na servery: Nemusíš platit měsíční poplatky za Amazon AWS, Google Cloud nebo dedikované herní servery. Serverem je prostě počítač tvého kamaráda v obýváku.
+
+Žádný NAT Traversal a Port Forwarding: Veřejný internet je plný firewallů a routerů, které blokují spojení. Propojit dva lidi přes internet je věda. Na LAN se zařízení v rámci jedné sítě uvidí (většinou) okamžitě.
+
+Minimální latence (Lag): Na LANu máš ping 1–5 ms. Nemusíš tedy programovat extrémně složité systémy pro „předpovídání pohybu“ (Client-side prediction), které jsou nutné, když má někdo ping 150 ms přes půl Evropy.
+
+Bezpečnost a účty: Nemusíš řešit přihlašování, databáze hesel, anticheat nebo ochranu proti DDOS útokům.
+
+Co zůstává stejně složité (Kódování sítě)
+Tady je ta „upřímná“ část: To, že se hraje přes LAN, neznamená, že nemusíš psát síťový kód. I pro LAN musíš v Unity nebo Godotu použít síťovou knihovnu (např. Netcode for GameObjects). Logika hry musí být stále rozdělena na:
+
+Server (Host): Ten, kdo hru založil. On jediný má pravdu o tom, kolik má věž HP a jestli projektil někoho trefil.
+
+Klient (Hráč): Ten, kdo se připojil. Jen posílá serveru info „zmáčkl jsem W“ a čeká, až mu server řekne „ok, tvoje postava se pohnula“.
+
+Jak by vypadal tvůj „Hosting“ v praxi?
+Použil bys model Listen Server.
+
+V menu hry by bylo tlačítko „Host Game“. To by z tvého počítače udělalo server i hráčského klienta zároveň.
+
+Kamarád by v menu klikl na „Join Game“, zadal by tvou lokální IP adresu (např. 192.168.1.15) a byl by tam.
+
+Funkce	Globální Multiplayer	LAN Multiplayer
+Cena za provoz	Vysoká (servery/relays)	Nulová
+Složitost kódu	10/10	7/10
+Nutnost lag-kompenzace	Kritická	Minimální
+Hratelnost s kýmkoliv	Ano	Jen v jedné budově / přes VPN
+Verdikt a doporučení
+Pokud chceš hru pro kamarády na intru nebo na LAN párty, je to nejlepší cesta. Navíc existují nástroje jako Hamachi nebo Radmin VPN, které „obelstí“ počítač a vytvoří virtuální LAN přes internet. Takže byste mohli hrát „po LANu“, i když by každý seděl u sebe doma, a ty bys stále nemusel řešit žádné servery ani hosting.
+
+Je to pro tebe přijatelný kompromis, že by si hráči museli posílat IP adresy nebo používat programy jako Hamachi, výměnou za to, že to budeš mít mnohem snazší na vývoj?
+
+Jak moc blbej nápad je udělat simlle verzi v js pro html prohlížeče?
+
+Upřímně? Není to vůbec blbej nápad. Pro tvůj konkrétní záměr (jednoduchá geometrická grafika, rychlý prototyp) je to dokonce jedna z nejlepších cest. Pokud umíš aspoň trochu JavaScript (nebo se ho chceš učit), má to obrovské výhody, ale i pár "háčků".
+
+Tady je upřímný rozbor toho, co by tě čekalo:
+
+Proč je JS/HTML skvělá volba
+Okamžitý přístup: Nemusíš nikoho nutit stahovat .exe soubor z pochybného zdroje. Pošleš kamarádům odkaz, oni ho otevřou v prohlížeči a hrajete. To je pro multiplayer hru k nezaplacení.
+
+Networking (Socket.io): Pro JavaScript existuje knihovna Socket.io. Je to "svatý grál" pro jednoduché online hry. Nastavení komunikace mezi serverem a hráči je v JS často mnohem přímočařejší a pochopitelnější než v obřích enginech jako Unity.
+
+Hosting: Existují služby jako Vercel, Netlify nebo Render, kde můžeš mít webovku i se serverem pro pár lidí úplně zdarma.
+
+Iterace: Změníš řádek v kódu, zmáčkneš F5 v prohlížeči a vidíš výsledek. Žádné dlouhé "buildování" nebo načítání enginu.
+-------------
+jsi schopen prosím  prosím postupně se mnou přidavat jednotlive vcěci abychom vytvořili .js .html mvp produkt? zatím bez LAN mutliplayeru ale s tim že tam bude nkdy v budoucnu

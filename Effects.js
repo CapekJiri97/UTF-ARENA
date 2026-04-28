@@ -1,0 +1,34 @@
+import { game } from './State.js';
+
+export class Particle {
+  constructor(x, y, color, opts={}) {
+    this.pos = {x, y};
+    this.angle = opts.angle !== undefined ? opts.angle : Math.random() * Math.PI * 2; 
+    const spd = opts.speed !== undefined ? opts.speed : 50 + Math.random() * 100;
+    this.vel = {x: Math.cos(this.angle)*spd, y: Math.sin(this.angle)*spd};
+    this.life = opts.life || (0.3 + Math.random() * 0.3); this.maxLife = this.life; this.color = color;
+    this.glyph = opts.glyph || '.'; this.size = opts.size || 10;
+    this.rotate = opts.rotate || false;
+    this.shape = opts.shape || 'text';
+    this.radius = opts.radius || 0;
+    this.lineWidth = opts.lineWidth || 2;
+  }
+  update(dt) { this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; }
+  draw(ctx) { 
+    ctx.save(); ctx.globalAlpha = Math.max(0, this.life/this.maxLife); 
+    if(this.shape === 'ring') {
+      ctx.strokeStyle = this.color; ctx.lineWidth = this.lineWidth;
+      ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI*2); ctx.stroke();
+    } else {
+      ctx.fillStyle = this.color; ctx.font = this.size+'px monospace'; 
+      if(this.rotate) { ctx.translate(this.pos.x, this.pos.y); ctx.rotate(this.angle); ctx.fillText(this.glyph, 0, 0); } else { ctx.fillText(this.glyph, this.pos.x, this.pos.y); } 
+    }
+    ctx.restore(); 
+  }
+}
+
+export function spawnParticles(x, y, count, color, opts={}) {
+  for(let i=0; i<count; i++) game.particles.push(new Particle(x, y, color, opts));
+}
+
+export class DamageNumber{ constructor(x,y,val){ this.pos={x,y}; this.val=val; this.life=0.8; } update(dt){ this.pos.y -= 20*dt; this.life -= dt; } draw(ctx){ ctx.fillStyle='rgba(255,200,60,'+Math.max(0,this.life/0.8)+')'; ctx.font='12px monospace'; ctx.textAlign='center'; ctx.fillText(this.val, this.pos.x, this.pos.y); } }
