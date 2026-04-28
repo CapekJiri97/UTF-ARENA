@@ -652,8 +652,7 @@ export class BotPlayer extends Player {
           let score = this.personalWeights.powerupScore - d;
           if (dist(game.powerup.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty;
           if (this.state === 'PICKUP' && this.objective && this.objective.type === 'powerup') score += this.personalWeights.objectiveHysteresis;
-          if (score > bestObjScore) { bestObjScore = ?
-            score; bestObjective = { pos: game.powerup.pos, type: 'powerup', captureRadius: 70 }; bestState = 'PICKUP'; }
+          if (score > bestObjScore) { bestObjScore = score; bestObjective = { pos: game.powerup.pos, type: 'powerup', captureRadius: 70 }; bestState = 'PICKUP'; }
       }
 
       // --- 2. Hodnocení Útoků (Combat) ---
