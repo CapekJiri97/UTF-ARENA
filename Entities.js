@@ -44,8 +44,9 @@ export class Tower{
   constructor(x,y,index){ this.pos={x,y}; this.index = index; this.radius=20; this.captureRadius = 80; this.owner = -1; this.control = 0; this.attackCooldown = 0; this.attackRange = 320; this.attackDamage = 45; }
   update(dt){ if(game.gameOver) return; 
     if (!socket || game.isHost) {
-      const counts = [0,0]; for(let p of game.players){ if(p.alive && dist(p.pos, this.pos) <= this.captureRadius) counts[p.team]++; } 
-      const presenceDelta = counts[0] - counts[1];
+      const counts = [0,0]; let rallyBonus = [0,0];
+      for(let p of game.players){ if(p.alive && dist(p.pos, this.pos) <= this.captureRadius) { counts[p.team]++; if(p.rallyTimer > 0) rallyBonus[p.team] += 2; } } 
+      const presenceDelta = (counts[0] + rallyBonus[0]) - (counts[1] + rallyBonus[1]);
       if(presenceDelta !== 0){ 
         const rate = Math.sign(presenceDelta) * (25 + (Math.abs(presenceDelta) - 1) * 5);
         this.control += rate * dt; 

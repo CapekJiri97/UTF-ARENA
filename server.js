@@ -24,6 +24,7 @@ io.on('connection', (socket) => {
   rooms[currentRoom].players[socket.id] = {
     id: socket.id,
     className: 'Bruiser',
+    summonerSpell: 'Heal',
     team: 0,
     x: 0,
     y: 0
@@ -50,11 +51,45 @@ io.on('connection', (socket) => {
 
   // Hráč si v menu vybral jinou postavu/tým
   socket.on('update_selection', (data) => {
-    if(rooms[currentRoom].players[socket.id]) {
-      rooms[currentRoom].players[socket.id].className = data.className;
-      rooms[currentRoom].players[socket.id].team = data.team;
-      io.to(currentRoom).emit('lobby_update', rooms[currentRoom].players); // Rozešli pouze dané roomce
+    const room = rooms[currentRoom];
+    if (!room || !room.players[socket.id]) return;
+
+    const player = room.players[socket.id];
+    const newTeam = data.team;
+    let newClass = data.className;
+    let newSpell = data.summonerSpell || 'Heal';
+
+    // --- LOGIKA PROTI DUPLIKÁTŮM ---
+    const teamPlayers = Object.values(room.players).filter(p => p.team === newTeam && p.id !== socket.id);
+    const isClassTakenOnNewTeam = (cls) => teamPlayers.some(p => p.className === cls);
+
+    // Případ 1: Hráč mění tým. Musíme zkontrolovat, jestli jeho postava není v novém týmu už zabraná.
+    if (newTeam !== player.team) {
+        if (isClassTakenOnNewTeam(player.className)) {
+            // Postava je zabraná, najdeme první volnou.
+            const allClassNames = Object.keys(require('./classes.js').CLASSES);
+            const takenClassNames = teamPlayers.map(p => p.className);
+            const availableClass = allClassNames.find(cls => !takenClassNames.includes(cls));
+            newClass = availableClass || player.className; // Fallback, kdyby nebylo nic volného
+        } else {
+            // Postava je volná, může si ji nechat.
+            newClass = player.className;
+        }
     }
+    // Případ 2: Hráč mění postavu ve stejném týmu.
+    else {
+        if (isClassTakenOnNewTeam(newClass)) {
+            // Požadovaná postava je zabraná, změnu neprovedeme.
+            newClass = player.className;
+        }
+    }
+    
+    // Aplikujeme změny
+    player.className = newClass;
+    player.team = newTeam;
+    player.summonerSpell = newSpell;
+
+    io.to(currentRoom).emit('lobby_update', room.players);
   });
 
   // Někdo klikl na Start Game
@@ -84,6 +119,10 @@ io.on('connection', (socket) => {
     io.to(currentRoom).emit('lobby_update', rooms[currentRoom].players);
     io.to(currentRoom).emit('player_disconnected', socket.id);
   });
+});
+
+app.get('/classes.js', (req, res) => {
+  res.sendFile(__dirname + '/classes.js');
 });
 
 const PORT = process.env.PORT || 3000;

@@ -1,5 +1,5 @@
 import { dist, distToPoly, expForLevel } from './Utils.js';
-import { CLASSES } from './classes.js';
+import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { shopItems } from './items.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 import { spawnPoints, mapBoundary } from './MapConfig.js';
@@ -24,6 +24,12 @@ export class Player{
     
     // economy & stats
     this.gold = 600; this.totalGold = 600; this.kills = 0; this.deaths = 0; this.assists = 0;
+
+    this.summonerSpell = opts.summonerSpell || 'Heal';
+    this.summonerCooldown = 0;
+    this.boostTimer = 0;
+    this.rallyTimer = 0;
+    this.slowTimer = 0;
     
     this.invulnerableTimer = 0;
     this.regenBuffTimer = 0;
@@ -82,6 +88,11 @@ export class Player{
     
     if(this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if(this.defBuffTimer > 0) this.defBuffTimer -= dt;
+    if(this.summonerCooldown > 0) this.summonerCooldown -= dt;
+    if(this.boostTimer > 0) this.boostTimer -= dt;
+    if(this.rallyTimer > 0) this.rallyTimer -= dt;
+    if(this.slowTimer > 0) this.slowTimer -= dt;
+
     if(this.regenBuffTimer > 0) {
         this.regenBuffTimer -= dt;
         if (this === player || (!socket || game.isHost)) { this.hp = Math.min(this.effectiveMaxHp, this.hp + this.regenBuffAmount * dt); }
@@ -143,7 +154,7 @@ export class Player{
     } else {
         if (this === player) { // PŘIDÁNO: Zabráníme aplikaci lokálních WASD na cizí hráče
             if(keys['w']) dy-=1; if(keys['s']) dy+=1; if(keys['a']) dx-=1; if(keys['d']) dx+=1; l = Math.hypot(dx,dy);
-            let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0);
+            let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? 0.6 : 1.0);
             if(this.castingTimeRemaining > 0) moveSpeed *= 0.5;
             if(this.attackPenaltyTimer > 0) moveSpeed *= 0.8;
             if(l>0){ dx/=l; dy/=l; this.vel.x = dx*moveSpeed; this.vel.y = dy*moveSpeed; } else { this.vel.x = 0; this.vel.y = 0; }
@@ -276,6 +287,39 @@ export class Player{
     }
   }
 
+  castSummonerSpell(isNetwork = false) {
+      if (this.summonerSpell !== 'Revive' && !this.alive) return;
+      if (this.summonerSpell === 'Revive' && this.alive) return;
+      if (!isNetwork && this.summonerCooldown > 0) return;
+
+      if (socket && !isNetwork) {
+          if (this === player || (game.isHost && this instanceof BotPlayer)) {
+              socket.emit('player_action', { type: 'summoner', id: this.id });
+          }
+      }
+
+      if (!isNetwork) { this.summonerCooldown = SUMMONER_SPELLS[this.summonerSpell].cd; }
+
+      switch(this.summonerSpell) {
+          case 'Heal': this.hp = Math.min(this.effectiveMaxHp, this.hp + 150 + this.level * 20); spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); break;
+          case 'Ghost': this.msBuffTimer = 5.0; this.msBuffAmount = 0.4; spawnParticles(this.pos.x, this.pos.y, 25, '#0ff', {speed: 150}); break;
+          case 'Boost': this.boostTimer = 5.0; spawnParticles(this.pos.x, this.pos.y, 25, '#ff0', {speed: 150}); break;
+          case 'Rally': this.rallyTimer = 5.0; spawnParticles(this.pos.x, this.pos.y, 25, '#f80', {speed: 150}); 
+              for(let m of game.minions) {
+                  if(m.team === this.team && !m.dead && dist(this.pos, m.pos) <= 400) {
+                      m.hp = Math.min(m.maxHp, m.hp + 150); m.attackDamage += 10; m.speed += 20; spawnParticles(m.pos.x, m.pos.y, 5, '#f80');
+                  }
+              } break;
+          case 'Revive': this.revive(); spawnParticles(this.pos.x, this.pos.y, 40, '#fff', {speed: 200}); break;
+          case 'Exhaust': game.particles.push(new Particle(this.pos.x, this.pos.y, '#f00', {shape: 'ring', radius: 300, life: 0.5, lineWidth: 6}));
+              for(let p of game.players) {
+                  if (p.team !== this.team && p.alive && dist(p.pos, this.pos) <= 300) {
+                      p.slowTimer = 2.0; spawnParticles(p.pos.x, p.pos.y, 10, '#f00');
+                  }
+              } break;
+      }
+  }
+
   shoot(tx,ty, isNetwork = false){ 
     if(!this.alive) return; 
     this.attackPenaltyTimer = 0.5; 
@@ -287,11 +331,12 @@ export class Player{
       }
     }
 
-    const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0); const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0);
+    const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0); const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0);
+    const aaScale = this.dmgType === 'magical' ? (this.className === 'Hana' ? 0.4 : 0.15) : 0.6;
     if(this.range){ // ranged - projectile with limited range
-      const angle = Math.atan2(ty-this.pos.y, tx-this.pos.x); const speed = 1000; const range = RANGED_ATTACK_RANGE; const life = range / speed; const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed; const damage = Math.round(CLASSES[this.className].baseAtk + (this.dmgType === 'magical' ? pAP*0.2 : pAD*0.2)); const p = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:'-' , life:life, radius: 12}); game.projectiles.push(p);
+      const angle = Math.atan2(ty-this.pos.y, tx-this.pos.x); const speed = 800; const range = RANGED_ATTACK_RANGE; const life = range / speed; const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed; const damage = Math.round(CLASSES[this.className].baseAtk + (this.dmgType === 'magical' ? pAP*aaScale : pAD*aaScale)); const p = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:'-' , life:life, radius: 8}); game.projectiles.push(p);
     } else { // melee basic
-      const meleeRange = MELEE_ATTACK_RANGE; const damage = Math.round(CLASSES[this.className].baseAtk + (this.dmgType === 'magical' ? pAP*0.2 : pAD*0.2));
+      const meleeRange = MELEE_ATTACK_RANGE; const damage = Math.round(CLASSES[this.className].baseAtk + (this.dmgType === 'magical' ? pAP*aaScale : pAD*aaScale));
       if (this.className === 'Hana') {
           spawnParticles(this.pos.x, this.pos.y, 2, '#f0f', { shape: 'ring', radius: meleeRange, life: 0.2, speed: 0, lineWidth: 2 });
           for(let m of game.minions){ if(!m.dead && m.team !== this.team){ if(dist(this.pos, m.pos) <= meleeRange){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } } }
@@ -334,7 +379,7 @@ export class Player{
 
     if(!isNetwork) { sp.cd = this.computeSpellCooldown(spKey); this.castingTimeRemaining = sp.castTime; }
 
-    const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0); const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0);
+    const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0); const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0);
     const damage = Math.round(sp.baseDamage + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*8);
     
     if (sp.type === 'projectile') {
@@ -684,6 +729,10 @@ export class BotPlayer extends Player {
           if(this.castingTimeRemaining > 0) this.castingTimeRemaining -= dt;
           for(let k of Object.keys(this.spells)){ if(this.spells[k].cd>0) this.spells[k].cd -= dt; }
           if(this.hasPowerup){ this.powerupTimer -= dt; if(this.powerupTimer <= 0) this.hasPowerup = false; }
+          if(this.summonerCooldown > 0) this.summonerCooldown -= dt;
+          if(this.boostTimer > 0) this.boostTimer -= dt;
+          if(this.rallyTimer > 0) this.rallyTimer -= dt;
+          if(this.slowTimer > 0) this.slowTimer -= dt;
           if(this.msBuffTimer > 0) this.msBuffTimer -= dt;
           if (this.knockbackTimer > 0) {
               this.knockbackTimer -= dt;
@@ -699,6 +748,7 @@ export class BotPlayer extends Player {
       if(game.gameOver) return;
       if(game.startDelay > 0) return; // Boti čekají na start hry
       if(!this.alive){ 
+          if (this.summonerSpell === 'Revive' && this.summonerCooldown <= 0) { this.castSummonerSpell(); return; }
           this.respawnTimer -= dt; if(this.respawnTimer <= 0) this.revive(); 
           this.thinkTimer -= dt; if(this.thinkTimer <= 0) { this.thinkTimer = 0.5; this.think(); } // Může nakupovat
           return; 
@@ -715,6 +765,22 @@ export class BotPlayer extends Player {
       if(this.flashTimer > 0) this.flashTimer -= dt;
       if(this.attackCooldown > 0) this.attackCooldown -= dt;
       if(this.attackPenaltyTimer > 0) this.attackPenaltyTimer -= dt;
+      if(this.summonerCooldown > 0) this.summonerCooldown -= dt;
+      if(this.boostTimer > 0) this.boostTimer -= dt;
+      if(this.rallyTimer > 0) this.rallyTimer -= dt;
+      if(this.slowTimer > 0) this.slowTimer -= dt;
+
+      if (this.summonerCooldown <= 0 && (!socket || game.isHost)) { 
+          let castSumm = false;
+          switch(this.summonerSpell) {
+              case 'Heal': if(this.hp / this.effectiveMaxHp < 0.3) castSumm = true; break;
+              case 'Ghost': if(this.state === 'ATTACK' && this.target && dist(this.pos, this.target.pos) > 400 && this.target.hp / this.target.effectiveMaxHp < 0.5) castSumm = true; break;
+              case 'Boost': if(this.state === 'ATTACK' && this.target && dist(this.pos, this.target.pos) < 300) castSumm = true; break;
+              case 'Rally': if(this.state === 'CAPTURE' && this.objective && dist(this.pos, this.objective.pos) < 80) castSumm = true; break;
+              case 'Exhaust': if(this.state === 'ATTACK' && this.target && dist(this.pos, this.target.pos) < 250) castSumm = true; break;
+          }
+          if (castSumm) this.castSummonerSpell();
+      }
 
       if(this.hasPowerup) {
           this.powerupTimer -= dt;
@@ -884,7 +950,7 @@ export class BotPlayer extends Player {
       }
 
       const l = Math.hypot(dx, dy);
-      let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0);
+      let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? 0.6 : 1.0);
       if (this.attackPenaltyTimer > 0) moveSpeed *= 0.8;
       if (l > 0) { 
           dx /= l; dy /= l; 

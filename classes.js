@@ -1,3 +1,12 @@
+export const SUMMONER_SPELLS = {
+  Heal: { name: 'Heal', desc: 'Léčí 150 HP + 20 za level.', cd: 120 },
+  Ghost: { name: 'Ghost', desc: 'Zvýší rychlost o +40% na 5s.', cd: 90 },
+  Boost: { name: 'Boost', desc: 'Zvýší staty (+10%) na 5s.', cd: 90 },
+  Rally: { name: 'Rally', desc: 'Zrychlí obsazování, léčí a posílí okolní miniony.', cd: 120 },
+  Revive: { name: 'Revive', desc: 'Okamžité oživení při smrti.', cd: 180 },
+  Exhaust: { name: 'Exhaust', desc: 'Zpomalí nepřátele (300 unitů) o 40% na 2s.', cd: 90 }
+};
+
 export const CLASSES = {
   Mage: { glyph: 'M', range: true, dmgType: 'magical', hp: 650, speed: 112, attackDelay: 1.4, baseAtk: 35, baseAD: 0, baseAP: 85, baseArmor: 15, baseMR: 30,
     Q: { baseCooldown: 3.5, castTime: 0.2, baseDamage: 105, scaleAP: 0.75, scaleAD: 0, type: 'projectile', pGlyph: 'O', pSpeed: 750, desc: 'Vystřelí silnou magickou kouli.' },

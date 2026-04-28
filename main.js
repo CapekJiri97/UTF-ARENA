@@ -1,6 +1,6 @@
 import { clamp, dist, isPointInPoly, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
 import { shopItems } from './items.js';
-import { CLASSES } from './classes.js';
+import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 import { world, spawnPoints, rawPolys, mapBoundary } from './MapConfig.js';
 import { Particle, spawnParticles, DamageNumber } from './Effects.js';
@@ -57,6 +57,9 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
             if (data.qLvl) netPlayer.spells.Q.level = data.qLvl;
             if (data.eLvl) netPlayer.spells.E.level = data.eLvl;
         }
+        netPlayer.summonerSpell = data.sumSpell || netPlayer.summonerSpell;
+        netPlayer.slowTimer = data.slowT || 0;
+        netPlayer.boostTimer = data.boostT || 0;
       }
     });
     
@@ -89,6 +92,9 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
               if (bData.qLvl) bot.spells.Q.level = bData.qLvl;
               if (bData.eLvl) bot.spells.E.level = bData.eLvl;
           }
+          bot.summonerSpell = bData.sumSpell || bot.summonerSpell;
+          bot.slowTimer = bData.slowT || 0;
+          bot.boostTimer = bData.boostT || 0;
         }
       });
       
@@ -152,6 +158,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
       if (netPlayer && netPlayer !== player) {
         if (data.type === 'shoot') netPlayer.shoot(data.tx, data.ty, true);
         else if (data.type === 'cast') netPlayer.castSpell(data.spKey, data.tx, data.ty, true);
+        else if (data.type === 'summoner') netPlayer.castSummonerSpell(true);
       }
     });
 
@@ -182,9 +189,11 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     const k = e.key.toLowerCase();
     const qKey = game.autoTarget ? 'j' : 'q';
     const eKey = game.autoTarget ? 'k' : 'e';
+    const sumKey = game.autoTarget ? 'l' : 'f';
     
     if(k === qKey) { if(keys['shift']) { player && player.allocateSpellPoint && player.allocateSpellPoint('Q'); } else { player && player.castSpell && player.castSpell('Q'); } }
     if(k === eKey) { if(keys['shift']) { player && player.allocateSpellPoint && player.allocateSpellPoint('E'); } else { player && player.castSpell && player.castSpell('E'); } }
+    if(k === sumKey) { player && player.castSummonerSpell && player.castSummonerSpell(); }
     if(k === 'b') toggleShop();
     if(k === 'u' && keys['shift']) { game.autoTarget = !game.autoTarget; flashMessage('Auto Target: ' + (game.autoTarget ? 'ON' : 'OFF')); }
     if(k === 'i' && keys['shift']) { game.autoPlay = !game.autoPlay; flashMessage('Auto Play: ' + (game.autoPlay ? 'ON' : 'OFF')); }
@@ -234,6 +243,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     let multiplier = 1;
     let arm = target.armor || 0; let mr = target.mr || 0;
     if(target.hasPowerup) { arm *= 1.2; mr *= 1.2; }
+    if(target.boostTimer > 0) { arm *= 1.1; mr *= 1.1; }
     if(target.defBuffTimer > 0) { arm += 50; mr += 50; }
     if (type === 'physical') multiplier = 100 / (100 + arm);
     else if (type === 'magical') multiplier = 100 / (100 + mr);
@@ -350,12 +360,14 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     
     let blueClasses = shuffle(classKeys);
     let redClasses = shuffle(classKeys);
+    const spellsArray = Object.keys(SUMMONER_SPELLS);
     
     if (!isSpectator) {
         if (playerTeam === 0) blueClasses = blueClasses.filter(c => c !== playerClass);
         else redClasses = redClasses.filter(c => c !== playerClass);
 
         player = new Player(spawnPoints[playerTeam].x, spawnPoints[playerTeam].y, { team: playerTeam, id:'player0', className: playerClass });
+        // summonerSpell has been synced in server, assuming default is 'Heal' if not specified
         game.players.push(player);
     } else {
         player = null;
@@ -368,13 +380,13 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     let blueBotCount = (!isSpectator && playerTeam === 0) ? 4 : 5;
     for (let i = 1; i <= blueBotCount; i++) {
         const c = blueClasses.pop();
-        let bot = new BotPlayer(spawnPoints[0].x + Math.random()*50, spawnPoints[0].y + Math.random()*50, {team:0, id:'bot0_'+i, className: c, lane: getBotLane(i)});
+        let bot = new BotPlayer(spawnPoints[0].x + Math.random()*50, spawnPoints[0].y + Math.random()*50, {team:0, id:'bot0_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
         game.players.push(bot);
     }
     let redBotCount = (!isSpectator && playerTeam === 1) ? 4 : 5;
     for (let i = 1; i <= redBotCount; i++) {
         const c = redClasses.pop();
-        let bot = new BotPlayer(spawnPoints[1].x + Math.random()*50, spawnPoints[1].y + Math.random()*50, {team:1, id:'bot1_'+i, className: c, lane: getBotLane(i)});
+        let bot = new BotPlayer(spawnPoints[1].x + Math.random()*50, spawnPoints[1].y + Math.random()*50, {team:1, id:'bot1_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
         game.players.push(bot);
     }
 
@@ -397,11 +409,12 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     const classKeys = Object.keys(CLASSES);
     function shuffle(arr) { let a=arr.slice(); for(let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
     let blueClasses = shuffle(classKeys); let redClasses = shuffle(classKeys);
+    const spellsArray = Object.keys(SUMMONER_SPELLS);
     
     let humansBlue = 0; let humansRed = 0;
 
     Object.values(playersData).forEach(pData => {
-        let p = new Player(spawnPoints[pData.team].x, spawnPoints[pData.team].y, { team: pData.team, id: pData.id, className: pData.className });
+        let p = new Player(spawnPoints[pData.team].x, spawnPoints[pData.team].y, { team: pData.team, id: pData.id, className: pData.className, summonerSpell: pData.summonerSpell });
         game.players.push(p);
         if (pData.team === 0) { humansBlue++; blueClasses = blueClasses.filter(c => c !== pData.className); }
         else { humansRed++; redClasses = redClasses.filter(c => c !== pData.className); }
@@ -412,12 +425,12 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
 
     let blueBotCount = Math.max(0, 5 - humansBlue);
     for (let i = 1; i <= blueBotCount; i++) {
-        let bot = new BotPlayer(spawnPoints[0].x + Math.random()*50, spawnPoints[0].y + Math.random()*50, {team:0, id:'bot0_'+i, className: blueClasses.pop(), lane: getBotLane(i)});
+        let bot = new BotPlayer(spawnPoints[0].x + Math.random()*50, spawnPoints[0].y + Math.random()*50, {team:0, id:'bot0_'+i, className: blueClasses.pop(), lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
         game.players.push(bot);
     }
     let redBotCount = Math.max(0, 5 - humansRed);
     for (let i = 1; i <= redBotCount; i++) {
-        let bot = new BotPlayer(spawnPoints[1].x + Math.random()*50, spawnPoints[1].y + Math.random()*50, {team:1, id:'bot1_'+i, className: redClasses.pop(), lane: getBotLane(i)});
+        let bot = new BotPlayer(spawnPoints[1].x + Math.random()*50, spawnPoints[1].y + Math.random()*50, {team:1, id:'bot1_'+i, className: redClasses.pop(), lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
         game.players.push(bot);
     }
 
@@ -572,7 +585,8 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                     AD: player.AD, AP: player.AP, armor: player.armor, mr: player.mr, speed: player.speed, attackSpeed: player.attackSpeed, abilityHaste: player.abilityHaste,
                     invTimer: player.invulnerableTimer, defTimer: player.defBuffTimer,
                     qLvl: player.spells.Q.level, eLvl: player.spells.E.level,
-                    stats: player.stats
+                    stats: player.stats,
+                    sumSpell: player.summonerSpell, slowT: player.slowTimer, boostT: player.boostTimer
                 });
             }
         }
@@ -589,7 +603,8 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                         AD: b.AD, AP: b.AP, armor: b.armor, mr: b.mr, speed: b.speed, attackSpeed: b.attackSpeed, abilityHaste: b.abilityHaste,
                         invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer,
                         qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
-                        stats: b.stats
+                        stats: b.stats,
+                        sumSpell: b.summonerSpell, slowT: b.slowTimer, boostT: b.boostTimer
                     })),
                     minions: game.minions.map(m => ({id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: m.dead, team: m.team, targetIndex: m.targetIndex})),
                     towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner})),
