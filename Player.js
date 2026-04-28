@@ -489,6 +489,7 @@ export class BotPlayer extends Player {
       for(let key in BOT_WEIGHTS) {
           this.personalWeights[key] = BOT_WEIGHTS[key] * (0.9 + Math.random() * 0.2);
       }
+      this.guardData = null;
     }
     revive() {
       super.revive();
@@ -536,13 +537,27 @@ export class BotPlayer extends Player {
           let squishies = game.players.filter(p => p.team !== this.team && p.alive && ['Mage', 'Healer', 'Marksman', 'Acolyte', 'Summoner'].includes(p.className));
           if (squishies.length > 0) this.huntTarget = squishies[Math.floor(Math.random() * squishies.length)];
       }
-      if (this.huntTarget && (!this.huntTarget.alive || Math.random() < 0.1)) this.huntTarget = null;
+      if (this.huntTarget && (!this.huntTarget.alive || Math.random() < 0.01)) this.huntTarget = null;
 
       // --- 1. Hodnocení Objektivů (Věže a Minioni) ---
       let bestObjective = null;
       let bestObjScore = -Infinity;
       let bestState = 'SEARCHING';
       const enemyBase = spawnPoints[1 - this.team]; // Zóna nepřátelské základny
+
+      // Zkontrolujeme, jestli jsme zrovna nezabrali věž
+      if (this.state === 'CAPTURE' && this.objective && this.objective.owner === this.team) {
+          let enemyBots = game.players.filter(p => p.team !== this.team && p.alive && dist(p.pos, this.pos) < 1000);
+          if (enemyBots.length > 0 && Math.random() < 0.5) {
+              this.guardData = { tower: this.objective, timer: 2.0 + Math.random() * 8.0, radius: 1000 };
+          }
+      }
+
+      if (this.guardData) {
+          bestObjScore = 30000;
+          bestObjective = this.guardData.tower;
+          bestState = 'DEFEND';
+      }
 
       const myTowersCount = game.towers.filter(t => t.owner === this.team).length;
       const enemyTowersCount = game.towers.filter(t => t.owner === 1 - this.team).length;
@@ -649,19 +664,29 @@ export class BotPlayer extends Player {
               if (dist(e.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Neútočíme dovnitř báze
               if (e.className) {
                   score += this.personalWeights.heroKillScore;
-                  if (this.huntTarget === e) score += 6800; // Sníženo o 15%
+                  if (this.huntTarget === e) score += 8000; // Masivní priorita lovené oběti
               } else {
                   if (this.farmUrge) score += 3400; // Sníženo o 15%
               }
               if (e.hp / (e.effectiveMaxHp || e.maxHp) < 0.3 && !this.farmUrge) score += this.personalWeights.lowHpScore;
               
               if (this.recentAttackers && this.recentAttackers.has(e.id)) {
-                  let timeSince = performance.now() - this.recentAttackers.get(e.id);
-                  if (timeSince < 5000) score += 6000; // Silnější reakce na toho, kdo mě zasáhl
+                  let atkData = this.recentAttackers.get(e.id);
+                  let timeSince = performance.now() - (atkData.time || atkData);
+                  let hits = atkData.count || 1;
+                  if (timeSince < 5000) {
+                      score += 6000 + (hits * 1500); // Silnější reakce na toho, kdo mě zasáhl (roste s hity)
+                      if (!e.className) score += 8000 + (hits * 3500); // Pokud je to minion, zvedni aggro drasticky s každým hitem
+                  }
               }
 
               // PŘIDÁNO: Snížení priority boje, pokud tým prohrává (soustředění na záchranu věží)
               if (isLosing) score -= 3450; // Posílena averze k boji o 15%
+
+              // PŘIDÁNO: Ztráta priority, pokud ho bot dlouho nahání ale nedal mu dmg
+              if (this.target === e && this.chaseTimer > 1.0) {
+                  score -= 20000; // Po vteřině neúspěšného stíhání cíl těžce ztratí na prioritě
+              }
 
               if (score > bestTargetScore) { bestTargetScore = score; bestTarget = e; }
           }
@@ -829,6 +854,15 @@ export class BotPlayer extends Player {
           if(this.helpUrgeTimer <= 0) this.helpUrgeTarget = null;
       }
 
+      if(this.guardData) {
+          this.guardData.timer -= dt;
+          this.guardData.radius -= 100 * dt;
+          let enemyInRadius = game.players.some(p => p.team !== this.team && p.alive && dist(p.pos, this.guardData.tower.pos) < this.guardData.radius);
+          if (this.guardData.timer <= 0 || !enemyInRadius) {
+              this.guardData = null;
+          }
+      }
+
       if (this.dashTimer > 0) {
           this.dashTimer -= dt;
           moveEntityWithCollision(this, this.dashVel.x, this.dashVel.y, dt);
@@ -859,7 +893,7 @@ export class BotPlayer extends Player {
       this.posCheckTimer = (this.posCheckTimer || 0) + dt;
       if (this.posCheckTimer >= 1.0) {
           this.posCheckTimer = 0;
-          if (this.lastPosCheck && dist(this.pos, this.lastPosCheck) < 5) {
+          if (this.lastPosCheck && dist(this.pos, this.lastPosCheck) < 10) {
                   let nearWall = false;
                   for (let w of game.walls) {
                       let info = distToPoly(this.pos.x, this.pos.y, w.pts);
@@ -901,6 +935,12 @@ export class BotPlayer extends Player {
               let d = dist(this.pos, this.target.pos);
               let atkRange = this.range ? RANGED_ATTACK_RANGE - 50 : MELEE_ATTACK_RANGE - 20;
               
+              if (d > atkRange + 20) {
+                  this.chaseTimer = (this.chaseTimer || 0) + dt;
+              } else {
+                  this.chaseTimer = 0; // Jsem u cíle, timer se nuluje
+              }
+
               // Movement Logic
               if (d > atkRange) { dx = tx - this.pos.x; dy = ty - this.pos.y; } // Chasing
               else if (this.range && d < atkRange - 150) { dx = this.pos.x - tx; dy = this.pos.y - ty; } // Kiting pro střelce
@@ -964,9 +1004,10 @@ export class BotPlayer extends Player {
               this.state = 'SEARCHING';
           }
       } 
-      else if ((this.state === 'CAPTURE' || this.state === 'PUSH' || this.state === 'PICKUP') && this.objective) {
+      else if ((this.state === 'CAPTURE' || this.state === 'DEFEND' || this.state === 'PUSH' || this.state === 'PICKUP') && this.objective) {
           let dToObj = dist(this.pos, this.objective.pos);
           let stopRadius = this.objective.captureRadius !== undefined ? this.objective.captureRadius - 10 : 80;
+          if (this.state === 'DEFEND') stopRadius = 120; // Při obraně nechodí úplně na střed, hlídkuje kolem
           if (dToObj > stopRadius) { // Zastavíme u cíle (u věže nebo u minionů)
               dx = this.objective.pos.x - this.pos.x;
               dy = this.objective.pos.y - this.pos.y;

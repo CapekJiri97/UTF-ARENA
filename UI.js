@@ -12,9 +12,17 @@ style.innerHTML = `
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 50% !important; overflow: hidden !important; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
   #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 350px !important; height: 100vh !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; }
   #shopOverlay.hidden { transform: translateX(100%) !important; }
-  @media (max-width: 800px) { #minimap { width: 25vw !important; height: 25vw !important; } }
+  @media (max-height: 600px), (max-width: 900px) { #minimap { width: 30vh !important; height: 30vh !important; } }
   .shop-col { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
   .shop-col-title { font-weight: bold; color: #ffcc00; margin-bottom: 5px; border-bottom: 1px solid #444; padding-bottom: 3px; }
+  @media (max-height: 600px) {
+      #roomLobby, #roomBrowser { padding: 2vh !important; }
+      #roomLobby h1, #roomBrowser h1 { font-size: 4vh !important; margin-bottom: 1vh !important; }
+      #roomLobby p, #roomLobby li, #roomBrowser li, #roomLobby button, #roomBrowser button { font-size: 3vh !important; padding: 1vh 2vh !important; }
+      #roomLobby h3 { font-size: 3vh !important; margin-bottom: 1vh !important; }
+      #classBtns button, #spellBtns button { padding: 1.5vh !important; font-size: 2.5vh !important; }
+      .shop-col { margin-bottom: 5px !important; }
+  }
 `;
 document.head.appendChild(style);
 
@@ -348,11 +356,11 @@ export function draw(){
       }
       
       const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      let anchorX = canvas.width / 2; const anchorY = canvas.height - (isMobile ? 25 : 65); 
+      let anchorX = canvas.width / 2; const anchorY = canvas.height - (isMobile ? 10 : 65); 
       if (!isMobile && anchorX + 300 > canvas.width - 320) anchorX = Math.max(300, canvas.width - 620); // Responzivní uhnutí minimapě
 
       ctx.save();
-      let uiScale = isMobile ? Math.min(0.65, canvas.width / 800) : 1;
+      let uiScale = isMobile ? Math.min(0.35, canvas.height / 800) : 1;
       ctx.translate(anchorX, anchorY);
       ctx.scale(uiScale, uiScale);
       
@@ -592,7 +600,7 @@ export function buildMenu() {
   m.style.position = 'fixed'; m.style.top = '0'; m.style.left = '0'; m.style.width = '100%'; m.style.height = '100%'; m.style.zIndex = '9999'; m.style.display = 'flex'; m.style.justifyContent = 'center'; m.style.alignItems = 'center'; m.style.background = 'rgba(0,0,0,0.85)';
   let selectedClass = 'Bruiser'; let selectedTeam = 0; let selectedSpell = 'Heal'; let isSpectator = false;
   m.innerHTML = `
-      <div id="roomBrowser" style="background:#111; padding:30px; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 600px; display: ${socket ? 'block' : 'none'};">
+      <div id="roomBrowser" style="background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 90vw; max-width: 600px; max-height: 95vh; overflow-y:auto; box-sizing:border-box; display: ${socket ? 'block' : 'none'};">
           <h1 style="margin-top:0;">UTF Arena - BROWSE GAMES</h1>
           <div style="margin-bottom: 20px; display:flex; gap:10px; justify-content:center;">
               <input type="text" id="newRoomInput" placeholder="Enter Room Name..." style="padding:10px; font-size:16px; background:#000; color:#fff; border:1px solid #444; width: 60%;">
@@ -605,13 +613,13 @@ export function buildMenu() {
               </ul>
           </div>
       </div>
-    <div id="roomLobby" style="display: ${socket ? 'none' : 'block'}; background:#111; padding:30px; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 1000px;">
+    <div id="roomLobby" style="display: ${socket ? 'none' : 'block'}; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1000px; max-height: 95vh; overflow-y:auto; box-sizing:border-box;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 15px;">
           <h1 id="lobbyTitle" style="margin:0;">OFFLINE MODE</h1>
           <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:8px 16px; cursor:pointer; background:#300; color:#ff6b6b; border:1px solid #ff6b6b; font-weight:bold; border-radius:4px;">LEAVE ROOM</button>
       </div>
-      <div style="display:flex; justify-content: space-between; margin-top: 20px;">
-        <div style="width: 70%; text-align: left;">
+      <div style="display:flex; flex-wrap:wrap; justify-content: space-between; margin-top: 10px; gap: 10px;">
+        <div style="flex: 1 1 60%; min-width:300px; text-align: left;">
           <p style="color:#aaa; margin-bottom: 5px;">1. Select Team:</p>
           <div style="display:flex; gap: 5px; margin-bottom:15px;">
             <button id="btnBlue" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#486FED; border:2px solid #486FED;">BLUE TEAM</button>
@@ -623,7 +631,7 @@ export function buildMenu() {
           <p style="color:#aaa; margin-bottom: 5px;">3. Select Summoner Spell:</p>
           <div id="spellBtns" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
         </div>
-        <div style="width: 28%; text-align: left; background:#000; padding: 15px; border:1px solid #333; border-radius: 4px;">
+        <div style="flex: 1 1 30%; min-width:200px; text-align: left; background:#000; padding: 15px; border:1px solid #333; border-radius: 4px; box-sizing:border-box;">
           <h3 style="margin-top:0; color:#aaa; border-bottom:1px solid #444; padding-bottom:10px;">Players in Room:</h3>
           <ul id="lobbyList" style="list-style: none; padding: 0; margin: 0; font-family: monospace;"><li>Offline or Connecting...</li></ul>
         </div>
@@ -726,14 +734,14 @@ export function initMobileUI() {
     mc.style.pointerEvents = 'none'; mc.style.zIndex = '5000'; mc.style.display = 'none';
     
     const dpad = document.createElement('div');
-    dpad.style.position = 'absolute'; dpad.style.left = '20px'; dpad.style.bottom = '40px';
-    dpad.style.width = '160px'; dpad.style.height = '160px';
+    dpad.style.position = 'absolute'; dpad.style.left = '5vw'; dpad.style.bottom = '5vh';
+    dpad.style.width = '30vh'; dpad.style.height = '30vh';
     dpad.style.background = 'rgba(255,255,255,0.1)';
     dpad.style.borderRadius = '50%'; dpad.style.pointerEvents = 'auto';
-    dpad.innerHTML = '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:rgba(255,255,255,0.2); font-family:monospace; font-size:24px; font-weight:bold; pointer-events:none;">MOVE</div>';
+    dpad.innerHTML = '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:rgba(255,255,255,0.2); font-family:monospace; font-size:3vh; font-weight:bold; pointer-events:none;">MOVE</div>';
     
     const btns = document.createElement('div');
-    btns.style.position = 'absolute'; btns.style.right = '20px'; btns.style.bottom = '350px';
+    btns.style.position = 'absolute'; btns.style.right = '2vw'; btns.style.bottom = '35vh';
     btns.style.display = 'flex'; btns.style.gap = '15px'; btns.style.pointerEvents = 'auto';
     
     const triggerKey = (keyStr) => { window.dispatchEvent(new KeyboardEvent('keydown', { key: keyStr, bubbles: true })); };
@@ -741,9 +749,9 @@ export function initMobileUI() {
     
     const createBtn = (keyStr, label) => {
         const b = document.createElement('div');
-        b.style.width = '65px'; b.style.height = '65px'; b.style.background = 'rgba(255,255,255,0.1)';
+        b.style.width = '12vh'; b.style.height = '12vh'; b.style.background = 'rgba(255,255,255,0.1)';
         b.style.borderRadius = '50%'; b.style.display = 'flex'; b.style.justifyContent = 'center'; b.style.alignItems = 'center';
-        b.style.color = 'rgba(255,255,255,0.5)'; b.style.fontSize = '24px'; b.style.fontWeight = 'bold'; b.style.fontFamily = 'monospace';
+        b.style.color = 'rgba(255,255,255,0.5)'; b.style.fontSize = '4vh'; b.style.fontWeight = 'bold'; b.style.fontFamily = 'monospace';
         b.textContent = label;
         b.addEventListener('touchstart', (e) => { e.preventDefault(); b.style.background = 'rgba(255,255,255,0.3)'; triggerKey(keyStr); }, {passive:false});
         b.addEventListener('touchend', (e) => { e.preventDefault(); b.style.background = 'rgba(255,255,255,0.1)'; releaseKey(keyStr); }, {passive:false});
@@ -768,11 +776,12 @@ export function initMobileUI() {
         e.preventDefault(); const rect = dpad.getBoundingClientRect(); let touch = null;
         for(let i=0; i<e.touches.length; i++) {
             const tx = e.touches[i].clientX - rect.left; const ty = e.touches[i].clientY - rect.top;
-            if (tx > -50 && tx < 210 && ty > -50 && ty < 210) { touch = {x: tx, y: ty}; break; }
+            if (tx > -20 && tx < rect.width + 20 && ty > -20 && ty < rect.height + 20) { touch = {x: tx, y: ty}; break; }
         }
         if (touch) {
-            const dx = touch.x - 80; const dy = touch.y - 80; let nw=false, na=false, ns=false, nd=false;
-            if (Math.hypot(dx, dy) > 20) { let angle = Math.atan2(dy, dx); if (angle > -Math.PI*0.875 && angle < -Math.PI*0.125) nw = true; if (angle > Math.PI*0.125 && angle < Math.PI*0.875) ns = true; if (Math.abs(angle) > Math.PI*0.625) na = true; if (Math.abs(angle) < Math.PI*0.375) nd = true; }
+            const cx = rect.width / 2; const cy = rect.height / 2;
+            const dx = touch.x - cx; const dy = touch.y - cy; let nw=false, na=false, ns=false, nd=false;
+            if (Math.hypot(dx, dy) > rect.width * 0.1) { let angle = Math.atan2(dy, dx); if (angle > -Math.PI*0.875 && angle < -Math.PI*0.125) nw = true; if (angle > Math.PI*0.125 && angle < Math.PI*0.875) ns = true; if (Math.abs(angle) > Math.PI*0.625) na = true; if (Math.abs(angle) < Math.PI*0.375) nd = true; }
             updateDirs(nw, na, ns, nd);
         } else { updateDirs(false, false, false, false); }
     };

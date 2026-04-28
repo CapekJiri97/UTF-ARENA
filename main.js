@@ -314,7 +314,8 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     if (sourceEntity && sourceEntity.stats) sourceEntity.stats.dmgDealt += actualDamage;
     if (target.stats) target.stats.dmgTaken += actualDamage;
     if (target instanceof Player && sourceEntity && sourceEntity.team !== target.team) {
-        target.recentAttackers.set(sourceId, performance.now());
+        let existing = target.recentAttackers.get(sourceId);
+        target.recentAttackers.set(sourceId, { time: performance.now(), count: existing ? existing.count + 1 : 1 });
     }
 
     return actualDamage;
@@ -336,8 +337,9 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
       if (killer) { killer.gold += 150; killer.totalGold += 150; killer.exp += 50; killer.kills++; }
       let now = performance.now();
       if (victim.recentAttackers) {
-          victim.recentAttackers.forEach((time, attackerId) => {
-              if (attackerId !== killerId && (now - time) < 10000) {
+          victim.recentAttackers.forEach((data, attackerId) => {
+              let t = data.time || data;
+              if (attackerId !== killerId && (now - t) < 10000) {
                   let assister = game.players.find(p => p.id === attackerId);
                   if (assister && assister.team !== victim.team) { assister.assists++; assister.gold += 50; assister.totalGold += 50; assister.exp += 25; }
               }
