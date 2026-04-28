@@ -92,6 +92,7 @@ export class Minion{
     this.id = 'm_' + Math.random().toString(36).substr(2,9); 
     this.pos={x,y}; this.team = team; this.radius=8; this.glyph='m'; this.speed = 80; this.maxHp = 250; this.hp = 250; this.dead = false; this.targetIndex = targetIndex; this.atTarget = false; this.linger = 3.5; this.attackCooldown = 0; this.attackDamage = 25; this.flashTimer = 0; 
     this.thinkTimer = Math.random() * 0.5; this.state = 'PUSH'; this.currentTarget = null;
+    this.knockbackTimer = 0; this.knockbackVel = {x:0, y:0};
   }
   think() {
     if (this.atTarget || (this.currentTarget && (this.currentTarget.dead || this.currentTarget.hp <= 0 || dist(this.pos, this.currentTarget.pos) > 200))) {
@@ -107,6 +108,11 @@ export class Minion{
   update(dt){ 
     if (socket && !game.isHost) {
         if(this.flashTimer > 0) this.flashTimer -= dt;
+        if (this.knockbackTimer > 0) {
+            this.knockbackTimer -= dt;
+            moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);
+            return;
+        }
         if (this.targetPos) { if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; } else { this.pos.x += (this.targetPos.x - this.pos.x) * 15 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 15 * dt; } }
         return; 
     }
@@ -116,6 +122,13 @@ export class Minion{
     if(dist(this.pos, spawnPoints[1-this.team]) < 200) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) { this.dead=true; return; } }
     if(this.flashTimer > 0) this.flashTimer -= dt;
     if(this.attackCooldown>0) this.attackCooldown -= dt;
+    
+    if (this.knockbackTimer > 0) {
+        this.knockbackTimer -= dt;
+        moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);
+        return;
+    }
+    
     this.thinkTimer -= dt; if (this.thinkTimer <= 0) { this.thinkTimer = 0.4 + Math.random() * 0.2; this.think(); }
     let dx = 0, dy = 0;
     if (this.state === 'ATTACK' && this.currentTarget) {

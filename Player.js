@@ -43,9 +43,14 @@ export class Player{
       E: { ...cData.E, cd: 0, level: 1 }
     };
 
+    
     this.castingTimeRemaining = 0;
     this.dashTimer = 0; this.dashVel = {x:0, y:0}; this.dashEndExplosion = null;
+    this.knockbackTimer = 0; this.knockbackVel = {x:0, y:0};
     this.msBuffTimer = 0; this.msBuffAmount = 0;
+
+    // basic attack
+
 
     // basic attack
     this.attackCooldown = 0; this.attackDelay = cData.attackDelay; this.range = cData.range;
@@ -132,6 +137,9 @@ export class Player{
            spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
            this.dashEndExplosion = null;
         }
+    } else if (this.knockbackTimer > 0) {
+        this.knockbackTimer -= dt;
+        moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);
     } else {
         if (this === player) { // PŘIDÁNO: Zabráníme aplikaci lokálních WASD na cizí hráče
             if(keys['w']) dy-=1; if(keys['s']) dy+=1; if(keys['a']) dx-=1; if(keys['d']) dx+=1; l = Math.hypot(dx,dy);
@@ -359,13 +367,13 @@ export class Player{
       for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ 
           applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); 
           let angle = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
-          moveEntityWithCollision(m, Math.cos(angle)*1500, Math.sin(angle)*1500, 0.1);
+          m.knockbackTimer = 0.2; m.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
           if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } 
       } } 
       for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ 
           applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); 
           let angle = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
-          moveEntityWithCollision(p, Math.cos(angle)*1500, Math.sin(angle)*1500, 0.1);
+          p.knockbackTimer = 0.2; p.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
           if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } 
       } } 
       spawnParticles(this.pos.x, this.pos.y, 10, '#f55');
@@ -677,6 +685,11 @@ export class BotPlayer extends Player {
           for(let k of Object.keys(this.spells)){ if(this.spells[k].cd>0) this.spells[k].cd -= dt; }
           if(this.hasPowerup){ this.powerupTimer -= dt; if(this.powerupTimer <= 0) this.hasPowerup = false; }
           if(this.msBuffTimer > 0) this.msBuffTimer -= dt;
+          if (this.knockbackTimer > 0) {
+              this.knockbackTimer -= dt;
+              moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);
+              return;
+          }
           if (this.targetPos) {
               if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; }
               else { this.pos.x += (this.targetPos.x - this.pos.x) * 15 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 15 * dt; }
@@ -741,6 +754,12 @@ export class BotPlayer extends Player {
              spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
              this.dashEndExplosion = null;
           }
+          return;
+      }
+
+      if (this.knockbackTimer > 0) {
+          this.knockbackTimer -= dt;
+          moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);
           return;
       }
 

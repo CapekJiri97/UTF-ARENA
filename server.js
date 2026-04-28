@@ -8,13 +8,20 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-let players = {}; // Uložíme si stav všech hráčů v lobby a ve hře
+let rooms = {
+  'Room 1': { players: {}, started: false },
+  'Room 2': { players: {}, started: false },
+  'Room 3': { players: {}, started: false }
+};
 
 io.on('connection', (socket) => {
   console.log(`[SERVER] Nový hráč připojen! ID: ${socket.id}`);
 
   // Výchozí stav nového hráče po připojení
-  players[socket.id] = {
+  let currentRoom = 'Room 1';
+  socket.join(currentRoom);
+  
+  rooms[currentRoom].players[socket.id] = {
     id: socket.id,
     className: 'Bruiser',
     team: 0,
@@ -23,57 +30,59 @@ io.on('connection', (socket) => {
   };
 
   // Pošli aktualizovaný seznam všem v místnosti
-  io.emit('lobby_update', players);
+  io.to(currentRoom).emit('lobby_update', rooms[currentRoom].players);
+
+  // Přepínání roomek z Lobby
+  socket.on('join_room', (roomName) => {
+    if (!rooms[roomName] || currentRoom === roomName) return;
+    // Odstranění ze staré roomky a aktualizace lobby pro ostatní
+    socket.leave(currentRoom);
+    let pData = rooms[currentRoom].players[socket.id];
+    delete rooms[currentRoom].players[socket.id];
+    io.to(currentRoom).emit('lobby_update', rooms[currentRoom].players);
+    
+    // Přidání do nové roomky
+    currentRoom = roomName;
+    socket.join(currentRoom);
+    rooms[currentRoom].players[socket.id] = pData;
+    io.to(currentRoom).emit('lobby_update', rooms[currentRoom].players);
+  });
 
   // Hráč si v menu vybral jinou postavu/tým
   socket.on('update_selection', (data) => {
-    if(players[socket.id]) {
-      players[socket.id].className = data.className;
-      players[socket.id].team = data.team;
-      io.emit('lobby_update', players); // Rozešli všem změnu
+    if(rooms[currentRoom].players[socket.id]) {
+      rooms[currentRoom].players[socket.id].className = data.className;
+      rooms[currentRoom].players[socket.id].team = data.team;
+      io.to(currentRoom).emit('lobby_update', rooms[currentRoom].players); // Rozešli pouze dané roomce
     }
   });
 
   // Někdo klikl na Start Game
   socket.on('start_game', () => {
-    console.log(`[SERVER] Hra začíná! Host určuje AI: ${socket.id}`);
-    io.emit('game_start', { players: players, hostId: socket.id }); // Přidán hostId
+    console.log(`[SERVER] Hra začíná v ${currentRoom}! Host: ${socket.id}`);
+    rooms[currentRoom].started = true;
+    io.to(currentRoom).emit('game_start', { players: rooms[currentRoom].players, hostId: socket.id }); 
   });
 
   // Během hry: Hráč posílá svou lokální pozici
   socket.on('player_update', (data) => {
-    if(players[socket.id]) {
-      Object.assign(players[socket.id], data); // Dynamicky zkopíruje i level, killy, goldy atd.
-      // Přepošleme všem OSTATNÍM hráčům (broadcast)
-      socket.broadcast.emit('network_player_update', players[socket.id]);
+    if(rooms[currentRoom].players[socket.id]) {
+      Object.assign(rooms[currentRoom].players[socket.id], data);
+      socket.broadcast.to(currentRoom).emit('network_player_update', rooms[currentRoom].players[socket.id]);
     }
   });
 
   // Zprostředkování útoků a kouzel (Aby to viděli ostatní)
-  socket.on('player_action', (data) => {
-    socket.broadcast.emit('network_player_action', data);
-  });
-
-  // Host posílá stav botů, minionů a věží (Authoritative mode pro LAN)
-  socket.on('host_state', (data) => {
-    socket.broadcast.emit('network_host_state', data);
-  });
-
-  // Zprostředkování jednorázových událostí od Hosta (střely věží, poškození, konec hry)
-  socket.on('host_event', (data) => {
-    socket.broadcast.emit('network_host_event', data);
-  });
-
-  // Globální Kill Feed
-  socket.on('broadcast_kill', (data) => {
-    socket.broadcast.emit('network_kill_feed', data);
-  });
+  socket.on('player_action', (data) => socket.broadcast.to(currentRoom).emit('network_player_action', data));
+  socket.on('host_state', (data) => socket.broadcast.to(currentRoom).emit('network_host_state', data));
+  socket.on('host_event', (data) => socket.broadcast.to(currentRoom).emit('network_host_event', data));
+  socket.on('broadcast_kill', (data) => socket.broadcast.to(currentRoom).emit('network_kill_feed', data));
 
   socket.on('disconnect', () => {
     console.log(`[SERVER] Hráč odpojen: ${socket.id}`);
-    delete players[socket.id];
-    io.emit('lobby_update', players);
-    io.emit('player_disconnected', socket.id); // Odstraní ho z mapy, pokud se odpojil během hry
+    delete rooms[currentRoom].players[socket.id];
+    io.to(currentRoom).emit('lobby_update', rooms[currentRoom].players);
+    io.to(currentRoom).emit('player_disconnected', socket.id);
   });
 });
 

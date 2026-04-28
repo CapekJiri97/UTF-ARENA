@@ -249,7 +249,12 @@ export function buildMenu() {
   let selectedClass = 'Bruiser'; let selectedTeam = 0;
   m.innerHTML = `
     <div style="background:#111; padding:30px; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 700px;">
-      <h1>UTF Arena - MULTIPLAYER LOBBY</h1>
+      <div id="roomSelector" style="margin-bottom: 15px; display:flex; justify-content: center; gap: 10px;">
+          <button class="roomBtn" data-room="Room 1" style="padding:8px 20px; cursor:pointer; font-weight:bold; background:#000; color:#fff; border:2px solid #0f0;">Room 1</button>
+          <button class="roomBtn" data-room="Room 2" style="padding:8px 20px; cursor:pointer; font-weight:bold; background:#000; color:#fff; border:2px solid #444;">Room 2</button>
+          <button class="roomBtn" data-room="Room 3" style="padding:8px 20px; cursor:pointer; font-weight:bold; background:#000; color:#fff; border:2px solid #444;">Room 3</button>
+      </div>
+      <h1 style="margin-top:0;">UTF Arena - MULTIPLAYER LOBBY</h1>
       <div style="display:flex; justify-content: space-between; margin-top: 20px;">
         <div style="width: 55%; text-align: left;">
           <p style="color:#aaa; margin-bottom: 5px;">1. Select Team:</p>
@@ -267,6 +272,15 @@ export function buildMenu() {
       <button id="spectateBtn" style="margin-top:10px; padding:10px 24px; width: 100%; font-size:16px; font-weight:bold; cursor:pointer; background:#222; color:#fff; border:2px solid #888;">SPECTATE BOTS (2x SPEED)</button>
     </div>`;
     
+  const roomBtns = m.querySelectorAll('.roomBtn');
+  roomBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+          roomBtns.forEach(b => b.style.borderColor = '#444');
+          e.target.style.borderColor = '#0f0';
+          if(socket) socket.emit('join_room', e.target.getAttribute('data-room'));
+      });
+  });
+
   document.getElementById('btnBlue').onclick = (e) => { selectedTeam = 0; e.target.style.border = '2px solid #4da6ff'; document.getElementById('btnRed').style.border = '2px solid #444'; notifyServer(); };
   document.getElementById('btnRed').onclick = (e) => { selectedTeam = 1; e.target.style.border = '2px solid #ff6b6b'; document.getElementById('btnBlue').style.border = '2px solid #444'; notifyServer(); };
   const cBtns = document.getElementById('classBtns');
