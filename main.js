@@ -251,7 +251,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   export function drawHealthBar(ctx, hp, maxHp, x, y, team) {
     const boxes = 5; let f = Math.max(0, Math.min(boxes, Math.round((Math.max(0, hp) / maxHp) * boxes) || 0));
     let bar = '[' + '|'.repeat(f) + ' '.repeat(boxes - f) + ']';
-    ctx.font = '10px monospace'; ctx.fillStyle = team === 0 ? '#4da6ff' : (team === 1 ? '#ff6b6b' : '#999');
+    ctx.font = '10px monospace'; ctx.fillStyle = team === 0 ? '#2213EE' : (team === 1 ? '#FF3A3A' : '#999');
     ctx.fillText(bar, x, y);
   }
 

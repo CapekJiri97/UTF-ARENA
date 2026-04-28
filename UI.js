@@ -10,6 +10,10 @@ style.innerHTML = `
   #hud, #hp, #gold, #exp, #level, #respawn, #nexusBlue, #nexusRed { display: none !important; }
   #qbar, #ebar, #qlv, #elv, #qcd, #ecd, .cooldown-container { display: none !important; }
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 4px; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
+  #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 350px !important; height: 100vh !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; }
+  #shopOverlay.hidden { transform: translateX(100%) !important; }
+  .shop-col { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .shop-col-title { font-weight: bold; color: #ffcc00; margin-bottom: 5px; border-bottom: 1px solid #444; padding-bottom: 3px; }
 `;
 document.head.appendChild(style);
 
@@ -29,7 +33,7 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE") {
   const redTaken = new Set();
 
   Object.values(playersData).forEach(p => {
-      const tColor = p.team === 0 ? '#4da6ff' : '#ff6b6b'; 
+      const tColor = p.team === 0 ? '#2213EE' : '#FF3A3A'; 
       const isMe = (socket && p.id === socket.id);
       if (isMe) {
           myTeam = p.team;
@@ -99,7 +103,31 @@ export function openShop(){ populateShop(); document.getElementById('shopOverlay
 export function closeShop(){ document.getElementById('shopOverlay').classList.add('hidden'); }
 export function toggleShop(){ const o = document.getElementById('shopOverlay'); if(o.classList.contains('hidden')) openShop(); else closeShop(); }
 
-export function populateShop(){ const list = document.getElementById('shopList'); if(!list) return; list.innerHTML=''; for(const it of shopItems){ let count = 0; if(player && player.items) count = player.items.filter(id=>id===it.id).length; const title = count > 0 ? `${it.name} (${count}x)` : it.name; const div = document.createElement('div'); div.className='shopItem'; div.innerHTML = `<h4>${title}</h4><div>${it.desc}</div><div class="cost">${it.cost} gold</div>`; const btn = document.createElement('button'); btn.textContent='Buy'; btn.addEventListener('click', ()=> buyItem(it.id)); div.appendChild(btn); list.appendChild(div); } }
+export function populateShop() { 
+  const overlay = document.getElementById('shopOverlay'); 
+  if(!overlay) return; 
+  overlay.innerHTML = '<h2 style="color:#fff; text-align:center; border-bottom:1px solid #444; padding-bottom:10px; margin-top:0;">SHOP</h2><div id="shopList"></div><button id="closeShopBtn" style="width:100%; padding:10px; margin-top:20px; background:#444; color:#fff; border:none; cursor:pointer; font-weight:bold;">CLOSE</button>'; 
+  document.getElementById('closeShopBtn').onclick = closeShop; 
+
+  const list = document.getElementById('shopList'); 
+  const cats = { 'DMG': ['ad', 'ap'], 'ARMOR': ['armor', 'mr', 'hp'], 'SPEED': ['boots', 'as', 'ah'] }; 
+
+  for(let catName in cats) { 
+      let col = document.createElement('div'); col.className = 'shop-col'; 
+      let title = document.createElement('div'); title.className = 'shop-col-title'; title.textContent = catName; 
+      col.appendChild(title); 
+
+      for(let id of cats[catName]) { 
+          const it = shopItems.find(x => x.id === id); 
+          if(!it) continue; 
+          let count = 0; if(player && player.items) count = player.items.filter(i=>i===it.id).length; 
+          const div = document.createElement('div'); div.style.background = '#111'; div.style.border = '1px solid #333'; div.style.padding = '8px'; div.style.display = 'flex'; div.style.justifyContent = 'space-between'; div.style.alignItems = 'center'; 
+          div.innerHTML = `<div style="flex-grow:1;"><b>${it.name}</b> ${count>0?`<span style="color:#0f0;">(${count}x)</span>`:''}<br><span style="font-size:10px; color:#aaa;">${it.desc}</span><br><span style="color:#ffcc00; font-size:12px;">${it.cost}g</span></div>`; 
+          const btn = document.createElement('button'); btn.textContent='Buy'; btn.style.background='#222'; btn.style.color='#0f0'; btn.style.border='1px solid #0f0'; btn.style.padding='4px 8px'; btn.style.cursor='pointer'; 
+          btn.addEventListener('click', ()=> buyItem(it.id)); div.appendChild(btn); col.appendChild(div); 
+      } list.appendChild(col); 
+  } 
+}
 
 export function updateInventory(){ if(!player) return; const inv = document.getElementById('inventory'); inv.innerHTML = ''; for(const id of player.items){ const it = shopItems.find(s=>s.id===id); const slot = document.createElement('div'); slot.className='invSlot'; slot.textContent = it? it.name : id; inv.appendChild(slot); } }
 
@@ -108,11 +136,17 @@ export function drawBackground(ctx){
   if (!game.boundaryVisuals) {
       game.boundaryVisuals = []; let sb = smoothPolygon(mapBoundary, 3);
       for(let i=0; i<sb.length; i++) { let p1 = sb[i], p2 = sb[(i+1)%sb.length]; let d = Math.hypot(p2.x-p1.x, p2.y-p1.y);
-          for(let step=0; step<d; step+=10) { game.boundaryVisuals.push({ x: p1.x + (p2.x-p1.x)*(step/d), y: p1.y + (p2.y-p1.y)*(step/d) }); }
+          let nx = -(p2.y - p1.y) / d, ny = (p2.x - p1.x) / d;
+          for(let step=0; step<d; step+=15) { 
+              let bx = p1.x + (p2.x-p1.x)*(step/d); let by = p1.y + (p2.y-p1.y)*(step/d);
+              for(let w = -20; w <= 20; w+=15) {
+                  game.boundaryVisuals.push({ x: bx + nx*w, y: by + ny*w, char: Math.random() > 0.2 ? '#' : 'L' });
+              }
+          }
       }
   }
   ctx.fillStyle = '#555'; ctx.font = '16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  for(let p of game.boundaryVisuals) { ctx.fillText('#', p.x, p.y); }
+  for(let p of game.boundaryVisuals) { ctx.fillText(p.char, p.x, p.y); }
   for(let sp of spawnPoints){
     ctx.fillStyle = 'rgba(255,255,255,0.2)';
     ctx.font = '16px monospace';
@@ -161,7 +195,7 @@ export function draw(){
       ctx.beginPath(); ctx.moveTo(w.pts[0].x, w.pts[0].y);
       for(let i=1; i<w.pts.length; i++) ctx.lineTo(w.pts[i].x, w.pts[i].y);
       ctx.closePath();
-      ctx.strokeStyle = 'rgba(255, 0, 0, 0.25)';
+      ctx.strokeStyle = p.team === 0 ? 'rgba(34, 19, 238, 0.5)' : 'rgba(255, 58, 58, 0.5)';
       ctx.lineWidth = (w.r + 60) * 2; 
       ctx.stroke();
       
@@ -183,7 +217,7 @@ export function draw(){
     // 3. Čáry cílů botů (Kam se zrovna snaží jít)
     for (let p of game.players) {
       if (p.alive && p.objective && p.objective.pos) {
-        ctx.strokeStyle = p.team === 0 ? 'rgba(77, 166, 255, 0.5)' : 'rgba(255, 107, 107, 0.5)';
+        ctx.strokeStyle = p.team === 0 ? 'rgba(34, 19, 238, 0.5)' : 'rgba(255, 58, 58, 0.5)';
         ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
         ctx.beginPath(); ctx.moveTo(p.pos.x, p.pos.y); ctx.lineTo(p.objective.pos.x, p.objective.pos.y); ctx.stroke();
         ctx.setLineDash([]);
@@ -198,11 +232,12 @@ export function draw(){
   if (game.screenDamageFlash > 0 || game.screenHealFlash > 0) {
       let maxDmg = Math.max(0, game.screenDamageFlash) / 0.5;
       let maxHeal = Math.max(0, game.screenHealFlash) / 0.5;
+      let particleCount = 150 + (maxDmg * 250) + (maxHeal * 250);
       
       ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       let chars = ['#', '%', '&', ',', '"', '!'];
       
-      for(let i=0; i<120; i++) {
+      for(let i=0; i<particleCount; i++) {
           let rx, ry;
           if (Math.random() > 0.5) {
               rx = Math.random() * canvas.width;
@@ -212,12 +247,12 @@ export function draw(){
               ry = Math.random() * canvas.height;
           }
           
-          if (maxDmg > 0 && Math.random() < maxDmg) {
-              ctx.fillStyle = `rgba(255, 0, 0, ${Math.random() * 0.3 * maxDmg})`;
+          if (maxDmg > 0 && Math.random() < maxDmg * 3) {
+              ctx.fillStyle = `rgba(255, 0, 0, ${Math.random() * 0.9 * maxDmg})`;
               ctx.fillText(chars[Math.floor(Math.random() * chars.length)], rx, ry);
           }
-          if (maxHeal > 0 && Math.random() < maxHeal) {
-              ctx.fillStyle = `rgba(0, 255, 0, ${Math.random() * 0.25 * maxHeal})`;
+          if (maxHeal > 0 && Math.random() < maxHeal * 3) {
+              ctx.fillStyle = `rgba(0, 255, 0, ${Math.random() * 0.7 * maxHeal})`;
               ctx.fillText(chars[Math.floor(Math.random() * chars.length)], rx, ry);
           }
       }
@@ -236,12 +271,12 @@ export function draw(){
     let cxTop = canvas.width / 2;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.font = 'bold 28px monospace';
     ctx.fillStyle = '#fff'; ctx.fillText(' : ', cxTop, 20);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#4da6ff'; ctx.fillText(Math.floor(game.nexus[0]), cxTop - 15, 20);
-    ctx.textAlign = 'left'; ctx.fillStyle = '#ff6b6b'; ctx.fillText(Math.floor(game.nexus[1]), cxTop + 15, 20);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#2213EE'; ctx.fillText(Math.floor(game.nexus[0]), cxTop - 15, 20);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#FF3A3A'; ctx.fillText(Math.floor(game.nexus[1]), cxTop + 15, 20);
     
     ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(' X ', cxTop, 55);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#4da6ff'; ctx.fillText(`(${tBlue})`, cxTop - 15, 55);
-    ctx.textAlign = 'left'; ctx.fillStyle = '#ff6b6b'; ctx.fillText(`(${tRed})`, cxTop + 15, 55);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#2213EE'; ctx.fillText(`(${tBlue})`, cxTop - 15, 55);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#FF3A3A'; ctx.fillText(`(${tRed})`, cxTop + 15, 55);
 
     if (game.isSpectator) {
         ctx.textAlign = 'center'; ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 20px monospace';
@@ -258,10 +293,10 @@ export function draw(){
             let totalW = wK + wM + wV; let startX = cxTop - totalW/2;
             
             ctx.textAlign = 'left';
-            ctx.fillStyle = kf.killerTeam === 0 ? '#4da6ff' : (kf.killerTeam === 1 ? '#ff6b6b' : '#aaa');
+            ctx.fillStyle = kf.killerTeam === 0 ? '#2213EE' : (kf.killerTeam === 1 ? '#FF3A3A' : '#aaa');
             ctx.fillText(kStr, startX, kfY);
             ctx.fillStyle = '#fff'; ctx.fillText(mStr, startX + wK, kfY);
-            ctx.fillStyle = kf.victimTeam === 0 ? '#4da6ff' : (kf.victimTeam === 1 ? '#ff6b6b' : '#aaa');
+            ctx.fillStyle = kf.victimTeam === 0 ? '#2213EE' : (kf.victimTeam === 1 ? '#FF3A3A' : '#aaa');
             ctx.fillText(vStr, startX + wK + wM, kfY);
             kfY += 22;
         }
@@ -275,7 +310,7 @@ export function draw(){
               let bot = allyBots[i]; let y = startY - (allyBots.length - 1 - i)*25;
               ctx.fillStyle = bot.alive ? '#fff' : '#666'; ctx.fillText(`${bot.className} LV${bot.level}`, canvas.width - 80, y);
               let maxBoxes = 5; let f = Math.max(0, Math.min(maxBoxes, Math.round((Math.max(0, bot.hp) / bot.maxHp) * maxBoxes) || 0));
-              let bar = '[' + '|'.repeat(f) + ' '.repeat(maxBoxes - f) + ']'; ctx.fillStyle = bot.alive ? (bot.team === 0 ? '#4da6ff' : '#ff6b6b') : '#444'; ctx.fillText(bar, canvas.width - 20, y); 
+              let bar = '[' + '|'.repeat(f) + ' '.repeat(maxBoxes - f) + ']'; ctx.fillStyle = bot.alive ? (bot.team === 0 ? '#2213EE' : '#FF3A3A') : '#444'; ctx.fillText(bar, canvas.width - 20, y); 
           }
       }
       
@@ -283,23 +318,27 @@ export function draw(){
       if (cx + 300 > canvas.width - 320) cx = Math.max(300, canvas.width - 620); // Responzivní uhnutí minimapě
 
       if (player.currentTarget && player.currentTarget.hp > 0 && !player.currentTarget.dead) {
-          const t = player.currentTarget; const tw = 260, th = 55; const tx = cx - tw/2, ty = cy - 130;
-          ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = t.team === player.team ? '#4da6ff' : '#ff6b6b'; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
+          const t = player.currentTarget; const tw = 280, th = 85; const tx = cx - tw/2, ty = cy - 180;
+          ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = t.team === player.team ? '#2213EE' : '#FF3A3A'; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
           ctx.fillStyle = '#fff'; ctx.font = '14px monospace'; ctx.textAlign = 'left'; let tName = t.className || 'Minion'; ctx.fillText(`${tName} ${t.level ? 'LV'+t.level : ''}`, tx + 10, ty + 22);
-          ctx.font = '12px monospace'; ctx.fillText(`HP: ${Math.floor(t.hp)}/${t.effectiveMaxHp || t.maxHp}`, tx + 10, ty + 42);
+          
           let fT = Math.max(0, Math.min(15, Math.round((Math.max(0,t.hp)/(t.effectiveMaxHp || t.maxHp)) * 15) || 0)); let hpBarStr = '[' + '='.repeat(fT) + ' '.repeat(15 - fT) + ']';
-          ctx.fillStyle = t.team===0 ? '#4da6ff' : '#ff6b6b'; ctx.fillText(hpBarStr, tx + 110, ty + 42);
+          ctx.fillStyle = t.team===0 ? '#2213EE' : '#FF3A3A'; ctx.fillText(hpBarStr, tx + 130, ty + 22);
+          ctx.fillStyle = '#fff'; ctx.font = '12px monospace'; ctx.fillText(`${Math.floor(t.hp)}/${t.effectiveMaxHp || t.maxHp}`, tx + 130, ty + 37);
           if (t.AD !== undefined) { ctx.fillStyle = '#aaa'; ctx.fillText(`AD:${Math.round(t.AD*(t.hasPowerup?1.2:1))} AP:${Math.round(t.AP*(t.hasPowerup?1.2:1))} ARM:${Math.round(t.armor*(t.hasPowerup?1.2:1))} MR:${Math.round(t.mr*(t.hasPowerup?1.2:1))}`, tx + 110, ty + 22); }
+          if (t.AD !== undefined) { ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; ctx.fillText(`AD:${Math.round(t.AD*(t.hasPowerup?1.2:1))}  AP:${Math.round(t.AP*(t.hasPowerup?1.2:1))}`, tx + 10, ty + 47); ctx.fillText(`AR:${Math.round(t.armor*(t.hasPowerup?1.2:1))}  MR:${Math.round(t.mr*(t.hasPowerup?1.2:1))}`, tx + 10, ty + 62); }
       }
 
       ctx.textBaseline = 'middle';
       // ASCII HP BAR
-      ctx.fillStyle = player.team === 0 ? '#4da6ff' : '#ff6b6b';
-      ctx.font = 'bold 16px monospace'; ctx.textAlign = 'center';
+      ctx.fillStyle = player.team === 0 ? '#2213EE' : '#FF3A3A';
+      ctx.font = 'bold 16px monospace'; ctx.textAlign = 'left';
       let maxHpBoxes = 30; let filledHp = Math.max(0, Math.min(maxHpBoxes, Math.round((player.hp / player.effectiveMaxHp) * maxHpBoxes) || 0));
       let hpStr = '[' + '|'.repeat(filledHp) + '-'.repeat(maxHpBoxes - filledHp) + ']';
-      ctx.fillText(hpStr, cx + 55, cy - 45);
-      ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.fillText(`${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, cx + 55, cy - 25);
+      let hpBarW = ctx.measureText(hpStr).width;
+      ctx.fillText(hpStr, cx - hpBarW/2 - 20, cy - 70);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace'; 
+      ctx.fillText(`${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, cx + hpBarW/2 - 10, cy - 72);
 
       // ASCII VERTICAL EXP BAR
       ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
@@ -309,9 +348,9 @@ export function draw(){
       for(let i=0; i<maxExpBoxes; i++) {
           let isFilled = (maxExpBoxes - 1 - i) < filledExp;
           ctx.fillStyle = isFilled ? '#8a2be2' : '#555';
-          ctx.fillText(isFilled ? '=' : '|', cx - 115, cy - 25 + i * 10);
+          ctx.fillText(isFilled ? '=' : '|', cx - 115, cy - 55 + i * 10);
       }
-      ctx.fillStyle = '#aaa'; ctx.font = '9px monospace'; ctx.fillText('XP', cx - 115, cy + 65);
+      ctx.fillStyle = '#aaa'; ctx.font = '9px monospace'; ctx.fillText('XP', cx - 115, cy + 35);
 
       // HERO CIRCLE
       ctx.beginPath(); ctx.arc(cx - 50, cy, 35, 0, Math.PI*2);
@@ -353,22 +392,24 @@ export function draw(){
       }
 
       // STATS TABLE
-      ctx.fillStyle = '#111'; ctx.fillRect(cx + 170, cy - 35, 140, 70);
-      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 170, cy - 35, 140, 70);
+      ctx.fillStyle = '#111'; ctx.fillRect(cx + 160, cy - 40, 180, 75);
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 160, cy - 40, 180, 75);
       ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(`AD:${Math.round(player.AD * (player.hasPowerup?1.2:1))}`, cx + 175, cy - 20);
-      ctx.fillText(`AR:${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + 175, cy + 0);
-      ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 175, cy + 20);
-      ctx.fillText(`AP:${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + 245, cy - 20);
-      ctx.fillText(`MR:${Math.round(player.mr * (player.hasPowerup?1.2:1))}`, cx + 245, cy + 0);
-      ctx.fillText(`AS:${(player.attackDelay / player.attackSpeed).toFixed(2)}`, cx + 245, cy + 20);
+      ctx.fillText(`AD:${Math.round(player.AD * (player.hasPowerup?1.2:1))}`, cx + 165, cy - 25);
+      ctx.fillText(`AP:${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + 165, cy - 5);
+      ctx.fillText(`AR:${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + 225, cy - 25);
+      ctx.fillText(`MR:${Math.round(player.mr * (player.hasPowerup?1.2:1))}`, cx + 225, cy - 5);
+      ctx.fillText(`HP:${player.effectiveMaxHp}`, cx + 225, cy + 15);
+      ctx.fillText(`AS:${(player.attackDelay / player.attackSpeed).toFixed(2)}`, cx + 285, cy - 25);
+      ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 285, cy - 5);
+      ctx.fillText(`AH:${player.abilityHaste}`, cx + 285, cy + 15);
     }
     if (keys['tab']) {
         ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(100, 100, canvas.width - 200, canvas.height - 200); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(100, 100, canvas.width - 200, canvas.height - 200);
         ctx.fillStyle = '#fff'; ctx.font = '24px monospace'; ctx.textAlign = 'center'; ctx.fillText('SCOREBOARD', canvas.width/2, 140); ctx.font = '16px monospace'; ctx.textAlign = 'left'; ctx.fillText('BLUE TEAM', 130, 180);
-        let blueTeam = game.players.filter(p => p.team === 0); for(let i=0; i<blueTeam.length; i++) { let p = blueTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = (player && p.id === player.id) ? '#0f0' : '#4da6ff'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, 130, 210 + i*25); }
+        let blueTeam = game.players.filter(p => p.team === 0); for(let i=0; i<blueTeam.length; i++) { let p = blueTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = (player && p.id === player.id) ? '#0f0' : '#2213EE'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, 130, 210 + i*25); }
         ctx.fillStyle = '#fff'; ctx.fillText('RED TEAM', canvas.width/2 + 30, 180); let redTeam = game.players.filter(p => p.team === 1);
-        for(let i=0; i<redTeam.length; i++) { let p = redTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = '#ff6b6b'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, canvas.width/2 + 30, 210 + i*25); }
+        for(let i=0; i<redTeam.length; i++) { let p = redTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = '#FF3A3A'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, canvas.width/2 + 30, 210 + i*25); }
     }
     
     let vw = canvas.width / 100;
@@ -416,7 +457,7 @@ export function draw(){
 
     if (keys['m']) {
         ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, 30 * vw, 100 * vh);
-        ctx.strokeStyle = '#4da6ff'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, 30 * vw, 100 * vh);
+        ctx.strokeStyle = '#2213EE'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, 30 * vw, 100 * vh);
         ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(13, 1.6 * vw)}px monospace`; ctx.textAlign = 'left';
         ctx.fillText('GENERAL INFO', 2 * vw, 5 * vh);
         
@@ -441,7 +482,7 @@ export function draw(){
 }
 
 export function drawMinimap(){ const mm = document.getElementById('minimap'); const w = mm.clientWidth, h = mm.clientHeight; const ctxm = mm._ctx || (function(){ const c = document.createElement('canvas'); c.width = w; c.height = h; mm.appendChild(c); mm._ctx = c.getContext('2d'); return mm._ctx; })(); ctxm.clearRect(0,0,w,h); ctxm.fillStyle='#222'; ctxm.fillRect(0,0,w,h);
-  const scaleX = w / world.width; const scaleY = h / world.height; for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#4da6ff' : t.owner===1? '#ff6b6b' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
+  const scaleX = w / world.width; const scaleY = h / world.height; for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#2213EE' : t.owner===1? '#FF3A3A' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
   ctxm.beginPath(); ctxm.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY); for(let i=1; i<mapBoundary.length; i++) ctxm.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY); ctxm.closePath(); ctxm.strokeStyle = '#555'; ctxm.stroke();
   ctxm.fillStyle = '#555'; ctxm.font = '10px monospace'; ctxm.textAlign='center'; ctxm.textBaseline='middle';
   for(let w of game.walls) {
@@ -459,7 +500,7 @@ export function drawMinimap(){ const mm = document.getElementById('minimap'); co
   for(let p of game.players){ 
     if (!p.alive) continue;
     const x = p.pos.x * scaleX; const y = p.pos.y * scaleY; 
-    ctxm.fillStyle = p.team === 0 ? '#4da6ff' : '#ff6b6b';
+    ctxm.fillStyle = p.team === 0 ? '#2213EE' : '#FF3A3A';
     ctxm.font = (p === player ? 'bold 16px' : 'bold 12px') + ' monospace';
     ctxm.textAlign = 'center'; ctxm.textBaseline = 'middle';
     ctxm.fillText(p.glyph, x, y);
@@ -479,7 +520,7 @@ export function showEnd(winner){
       let html = '<table style="width:100%; border-collapse: collapse;">'; html += '<tr style="border-bottom:1px solid #444;"><th>Hero</th><th>K/D/A</th><th>Dmg Dealt</th><th>Dmg Taken</th><th>Healed</th><th>Gold</th></tr>';
       let sorted = [...game.players].sort((a,b)=>(b.kills*2+b.assists)-(a.kills*2+a.assists));
       for(let p of sorted) {
-          let color = p.team === 0 ? '#4da6ff' : '#ff6b6b'; if (p === player) color = '#0f0';
+          let color = p.team === 0 ? '#2213EE' : '#FF3A3A'; if (p === player) color = '#0f0';
           html += `<tr style="color:${color}; text-align:center;"><td style="text-align:left; padding:4px;">${p.className}</td><td>${p.kills}/${p.deaths}/${p.assists}</td><td>${p.stats.dmgDealt}</td><td>${p.stats.dmgTaken}</td><td>${Math.round(p.stats.hpHealed)}</td><td>${Math.floor(p.totalGold)}</td></tr>`;
       }
       html += '</table>'; statsDiv.innerHTML = html; overlay.classList.remove('hidden'); 
@@ -513,8 +554,8 @@ export function buildMenu() {
         <div style="width: 70%; text-align: left;">
           <p style="color:#aaa; margin-bottom: 5px;">1. Select Team:</p>
           <div style="display:flex; gap: 5px; margin-bottom:15px;">
-            <button id="btnBlue" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#4da6ff; border:2px solid #4da6ff;">BLUE TEAM</button>
-            <button id="btnRed" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#ff6b6b; border:2px solid #444;">RED TEAM</button>
+            <button id="btnBlue" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#2213EE; border:2px solid #2213EE;">BLUE TEAM</button>
+            <button id="btnRed" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#FF3A3A; border:2px solid #444;">RED TEAM</button>
             <button id="btnSpec" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#aaa; border:2px solid #444;">SPECTATE</button>
           </div>
           <p style="color:#aaa; margin-bottom: 5px;">2. Select Class:</p>
@@ -550,8 +591,8 @@ export function buildMenu() {
   const selectionDivs = [document.getElementById('classBtns'), document.getElementById('spellBtns')];
   const startBtn = document.getElementById('startBtn');
 
-  btnBlue.onclick = (e) => { selectedTeam = 0; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#4da6ff'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
-  btnRed.onclick = (e) => { selectedTeam = 1; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#ff6b6b'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
+  btnBlue.onclick = (e) => { selectedTeam = 0; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#2213EE'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
+  btnRed.onclick = (e) => { selectedTeam = 1; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#FF3A3A'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
   btnSpec.onclick = (e) => { selectedTeam = -1; isSpectator = true; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#aaa'; selectionDivs.forEach(d=>d.style.opacity=0.3); startBtn.disabled = true; startBtn.style.opacity = 0.3; notifyServer(); };
 
   const cBtns = document.getElementById('classBtns');

@@ -44,8 +44,6 @@ export class DamageNumber {
     draw(ctx) { 
         ctx.save(); ctx.globalAlpha = Math.max(0, this.life / 0.8); 
         ctx.fillStyle = this.color; ctx.font = `bold ${Math.round(this.size)}px monospace`; ctx.textAlign = 'center'; 
-        ctx.shadowColor = '#000'; ctx.shadowBlur = 2; ctx.lineWidth = 2; ctx.strokeStyle = '#000'; 
-        ctx.strokeText(this.val, this.pos.x, this.pos.y); 
         ctx.fillText(this.val, this.pos.x, this.pos.y); 
         ctx.restore(); 
     } 

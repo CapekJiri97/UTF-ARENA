@@ -5,5 +5,6 @@ export const shopItems = [
   { id:'armor', name:'Cloth Armor', desc:'+15 Armor', cost:300, apply: (pl)=>{ pl.armor += 15 } },
   { id:'mr', name:'Null-Magic Mantle', desc:'+15 Magic Resist', cost:300, apply: (pl)=>{ pl.mr += 15 } },
   { id:'hp', name:'Ruby Crystal', desc:'+110 HP, +1.5 HP Regen', cost:300, apply: (pl)=>{ pl.maxHp += 110; pl.hp += 110; pl.hpRegen += 1.5; } },
-  { id:'boots', name:'Boots of Speed', desc:'+40 Speed (Unique)', cost:300, apply: (pl)=>{ pl.speed += 40; pl.hasBoots = true; } }
+  { id:'boots', name:'Boots of Speed', desc:'+40 Speed (Unique)', cost:300, apply: (pl)=>{ pl.speed += 40; pl.hasBoots = true; } },
+  { id:'ah', name:'Fiendish Codex', desc:'+15 Ability Haste', cost:300, apply: (pl)=>{ pl.abilityHaste += 15; } }
 ];
