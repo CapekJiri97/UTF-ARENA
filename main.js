@@ -226,32 +226,12 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   window.addEventListener('mousedown', ()=> mouse.down = true);
   window.addEventListener('mouseup', ()=> mouse.down = false);
 
-  // 🛠️ DEV TOOL: Získání souřadnic kliknutím (SHIFT + Levý klik) s popiskem
-  window.savedMapCoords = [];
-  canvas.addEventListener('mousedown', (e)=>{
-    if(keys['shift']) {
-      const mw = screenToWorld(mouse.sx, mouse.sy);
-      const rx = Math.round(mw.x);
-      const ry = Math.round(mw.y);
-      setTimeout(() => {
-        const desc = prompt(`Bod zaměřen na X: ${rx}, Y: ${ry}\nZadej popis pro tento bod (ESC pro zrušení):`);
-        if (desc !== null) {
-          window.savedMapCoords.push({ label: desc, x: rx, y: ry });
-          console.clear();
-          console.log("👇 ZKOPÍRUJ TENTO TEXT A POŠLI MI HO 👇");
-          console.log(JSON.stringify(window.savedMapCoords, null, 2));
-          flashMessage(`Uloženo: ${desc}`);
-        }
-      }, 10); // setTimeout aby prompt nezasekl animaci kliknutí
-    }
-  });
-
   export function screenToWorld(sx, sy){ return { x: camera.x + sx / camera.scale, y: camera.y + sy / camera.scale }; }
 
   export function drawHealthBar(ctx, hp, maxHp, x, y, team) {
     const boxes = 5; let f = Math.max(0, Math.min(boxes, Math.round((Math.max(0, hp) / maxHp) * boxes) || 0));
     let bar = '[' + '|'.repeat(f) + ' '.repeat(boxes - f) + ']';
-    ctx.font = '10px monospace'; ctx.fillStyle = team === 0 ? '#3627FF' : (team === 1 ? '#FF3A3A' : '#999');
+    ctx.font = '10px monospace'; ctx.fillStyle = team === 0 ? '#486FED' : (team === 1 ? '#FF4E4E' : '#999');
     ctx.fillText(bar, x, y);
   }
 

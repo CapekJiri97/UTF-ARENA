@@ -7,7 +7,7 @@ import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollisi
 export class Projectile{
   constructor(x,y,vx,vy,ownerId,ownerTeam,opts={}){ this.pos={x,y}; this.vel={x:vx,y:vy}; 
     this.radius=opts.radius||4; this.life=opts.life||2.0; this.ownerId = ownerId; this.ownerTeam = ownerTeam; this.damage = opts.damage||25; this.dmgType = opts.dmgType||'physical'; this.glyph = opts.glyph||'*'; this.dead = false;
-    this.color = ownerTeam === 0 ? '#3627FF' : (ownerTeam === 1 ? '#FF3A3A' : '#fff'); }
+    this.color = ownerTeam === 0 ? '#486FED' : (ownerTeam === 1 ? '#FF4E4E' : '#fff'); }
   update(dt){ if(this.dead) return; this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; if(this.life<=0) this.dead = true;
     if(!isPointInPoly(this.pos.x, this.pos.y, mapBoundary)) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; }
     for(let w of game.walls) { 
@@ -96,11 +96,15 @@ export class Tower{
     }
   }
   draw(ctx){ ctx.font='20px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; const color = this.owner>=0 ? TEAM_COLOR[this.owner] : NEUTRAL_COLOR; ctx.fillStyle = color; ctx.fillText('T', this.pos.x, this.pos.y);
-    const totalBoxes = 8; let pct = Math.max(0, Math.min(1, Math.abs(this.control) / 100)); let filled = Math.round(pct * totalBoxes) || 0;
-    let bar = '[' + '='.repeat(filled) + ' '.repeat(totalBoxes - filled) + ']';
-    ctx.font='10px monospace'; ctx.fillText(bar, this.pos.x, this.pos.y + 18);
-    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    for(let a=0; a<Math.PI*2; a+=0.4){ ctx.fillText('.', this.pos.x + Math.cos(a)*this.captureRadius, this.pos.y + Math.sin(a)*this.captureRadius); }
+    let pct = Math.max(0, Math.min(1, Math.abs(this.control) / 100));
+    let progressAngle = -Math.PI/2 + pct * Math.PI*2;
+    ctx.font='10px monospace';
+    for(let a = -Math.PI/2; a < Math.PI*1.5; a += 0.2) {
+        let isCaptured = pct > 0 && a <= progressAngle;
+        let char = isCaptured ? '#' : '.';
+        ctx.fillStyle = isCaptured ? ((this.control > 0 || this.owner === 0) ? TEAM_COLOR[0] : TEAM_COLOR[1]) : 'rgba(255,255,255,0.2)';
+        ctx.fillText(char, this.pos.x + Math.cos(a)*this.captureRadius, this.pos.y + Math.sin(a)*this.captureRadius);
+    }
   }
 }
 

@@ -707,6 +707,7 @@ export class BotPlayer extends Player {
           let isDesperateForHeal = (bestState === 'PICKUP' && bestObjective && bestObjective.type === 'heal' && this.hp / this.effectiveMaxHp < 0.6);
           // PŘIDÁNO: Pokud běžíme zabrat blízkou věž, ignorujeme boj do doby, než vlezeme do kruhu
           let isDesperateForTower = (bestState === 'CAPTURE' && bestObjective && bestObjective.owner !== this.team && dist(this.pos, bestObjective.pos) > (bestObjective.captureRadius || 80));
+          let isDefendingTower = ((bestState === 'CAPTURE' || bestState === 'DEFEND') && bestObjective && dist(this.pos, bestObjective.pos) < 200 && d < 400);
           
           if (isDesperateForHeal) {
               if (d < 150) shouldAttack = true; // Bráníme se jen v sebeobraně nablízko
@@ -714,7 +715,7 @@ export class BotPlayer extends Player {
               if (d < 150 || isLowHp) shouldAttack = true; // Sprintujeme do kruhu, bojujeme jen ve velké blízkosti
           } else {
               // Útočíme, pokud je cíl blízko, má low HP, nic jiného nehoří (věže mají málo bodů), NEBO pokud běžíme na pomoc (bestTargetScore >= 20000)
-              if (d < 350 || isLowHp || bestObjScore < this.personalWeights.objectiveFocusThreshold || bestTargetScore >= 20000) shouldAttack = true;
+              if (d < 350 || isLowHp || bestObjScore < this.personalWeights.objectiveFocusThreshold || bestTargetScore >= 20000 || isDefendingTower) shouldAttack = true;
           }
       }
 

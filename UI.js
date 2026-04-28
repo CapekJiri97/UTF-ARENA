@@ -33,7 +33,7 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE") {
   const redTaken = new Set();
 
   Object.values(playersData).forEach(p => {
-      const tColor = p.team === 0 ? '#3627FF' : '#FF3A3A'; 
+      const tColor = p.team === 0 ? '#486FED' : '#FF4E4E'; 
       const isMe = (socket && p.id === socket.id);
       if (isMe) {
           myTeam = p.team;
@@ -136,12 +136,9 @@ export function drawBackground(ctx){
   if (!game.boundaryVisuals) {
       game.boundaryVisuals = []; let sb = smoothPolygon(mapBoundary, 3);
       for(let i=0; i<sb.length; i++) { let p1 = sb[i], p2 = sb[(i+1)%sb.length]; let d = Math.hypot(p2.x-p1.x, p2.y-p1.y);
-          let nx = -(p2.y - p1.y) / d, ny = (p2.x - p1.x) / d;
-          for(let step=0; step<d; step+=30) { 
+          for(let step=0; step<d; step+=25) { 
               let bx = p1.x + (p2.x-p1.x)*(step/d); let by = p1.y + (p2.y-p1.y)*(step/d);
-              for(let w = -30; w <= 30; w+=30) {
-                  game.boundaryVisuals.push({ x: bx + nx*w, y: by + ny*w, char: Math.random() > 0.2 ? '#' : 'L' });
-              }
+              game.boundaryVisuals.push({ x: bx, y: by, char: '#' });
           }
       }
   }
@@ -217,7 +214,7 @@ export function draw(){
     // 3. Čáry cílů botů (Kam se zrovna snaží jít)
     for (let p of game.players) {
       if (p.alive && p.objective && p.objective.pos) {
-        ctx.strokeStyle = p.team === 0 ? 'rgba(54, 39, 255, 0.5)' : 'rgba(255, 58, 58, 0.5)';
+        ctx.strokeStyle = p.team === 0 ? 'rgba(72, 111, 237, 0.5)' : 'rgba(255, 78, 78, 0.5)';
         ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
         ctx.beginPath(); ctx.moveTo(p.pos.x, p.pos.y); ctx.lineTo(p.objective.pos.x, p.objective.pos.y); ctx.stroke();
         ctx.setLineDash([]);
@@ -271,12 +268,12 @@ export function draw(){
     let cxTop = canvas.width / 2;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.font = 'bold 28px monospace';
     ctx.fillStyle = '#fff'; ctx.fillText(' : ', cxTop, 20);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#3627FF'; ctx.fillText(Math.floor(game.nexus[0]), cxTop - 15, 20);
-    ctx.textAlign = 'left'; ctx.fillStyle = '#FF3A3A'; ctx.fillText(Math.floor(game.nexus[1]), cxTop + 15, 20);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#486FED'; ctx.fillText(Math.floor(game.nexus[0]), cxTop - 15, 20);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#FF4E4E'; ctx.fillText(Math.floor(game.nexus[1]), cxTop + 15, 20);
     
     ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(' X ', cxTop, 55);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#3627FF'; ctx.fillText(`(${tBlue})`, cxTop - 15, 55);
-    ctx.textAlign = 'left'; ctx.fillStyle = '#FF3A3A'; ctx.fillText(`(${tRed})`, cxTop + 15, 55);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#486FED'; ctx.fillText(`(${tBlue})`, cxTop - 15, 55);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#FF4E4E'; ctx.fillText(`(${tRed})`, cxTop + 15, 55);
 
     if (game.isSpectator) {
         ctx.textAlign = 'center'; ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 20px monospace';
@@ -293,10 +290,10 @@ export function draw(){
             let totalW = wK + wM + wV; let startX = cxTop - totalW/2;
             
             ctx.textAlign = 'left';
-            ctx.fillStyle = kf.killerTeam === 0 ? '#3627FF' : (kf.killerTeam === 1 ? '#FF3A3A' : '#aaa');
+            ctx.fillStyle = kf.killerTeam === 0 ? '#486FED' : (kf.killerTeam === 1 ? '#FF4E4E' : '#aaa');
             ctx.fillText(kStr, startX, kfY);
             ctx.fillStyle = '#fff'; ctx.fillText(mStr, startX + wK, kfY);
-            ctx.fillStyle = kf.victimTeam === 0 ? '#3627FF' : (kf.victimTeam === 1 ? '#FF3A3A' : '#aaa');
+            ctx.fillStyle = kf.victimTeam === 0 ? '#486FED' : (kf.victimTeam === 1 ? '#FF4E4E' : '#aaa');
             ctx.fillText(vStr, startX + wK + wM, kfY);
             kfY += 22;
         }
@@ -310,7 +307,7 @@ export function draw(){
               let bot = allyBots[i]; let y = startY - (allyBots.length - 1 - i)*25;
               ctx.fillStyle = bot.alive ? '#fff' : '#666'; ctx.fillText(`${bot.className} LV${bot.level}`, canvas.width - 80, y);
               let maxBoxes = 5; let f = Math.max(0, Math.min(maxBoxes, Math.round((Math.max(0, bot.hp) / bot.maxHp) * maxBoxes) || 0));
-              let bar = '[' + '|'.repeat(f) + ' '.repeat(maxBoxes - f) + ']'; ctx.fillStyle = bot.alive ? (bot.team === 0 ? '#3627FF' : '#FF3A3A') : '#444'; ctx.fillText(bar, canvas.width - 20, y); 
+              let bar = '[' + '|'.repeat(f) + ' '.repeat(maxBoxes - f) + ']'; ctx.fillStyle = bot.alive ? (bot.team === 0 ? '#486FED' : '#FF4E4E') : '#444'; ctx.fillText(bar, canvas.width - 20, y); 
           }
       }
       
@@ -319,12 +316,12 @@ export function draw(){
 
       if (player.currentTarget && player.currentTarget.hp > 0 && !player.currentTarget.dead) {
           const t = player.currentTarget; const tw = 280, th = 85; const tx = cx - tw/2, ty = cy - 180;
-          ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = t.team === player.team ? '#3627FF' : '#FF3A3A'; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
+          ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = (t.team >= 0) ? TEAM_COLOR[t.team] : NEUTRAL_COLOR; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
           
           ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left'; let tName = t.className || 'Minion'; ctx.fillText(`${tName} ${t.level ? 'LV'+t.level : ''}`, tx + 15, ty + 25);
 
-          let fT = Math.max(0, Math.min(15, Math.round((Math.max(0,t.hp)/(t.effectiveMaxHp || t.maxHp)) * 15) || 0)); let hpBarStr = '[' + '='.repeat(fT) + ' '.repeat(15 - fT) + ']';
-          ctx.fillStyle = t.team===0 ? '#3627FF' : '#FF3A3A'; ctx.font = 'bold 14px monospace'; ctx.fillText(hpBarStr, tx + 15, ty + 48);
+          let fT = Math.max(0, Math.min(15, Math.round((Math.max(0,t.hp)/(t.effectiveMaxHp || t.maxHp)) * 15) || 0)); let hpBarStr = '[' + '#'.repeat(fT) + '-'.repeat(15 - fT) + ']';
+          ctx.fillStyle = (t.team >= 0) ? TEAM_COLOR[t.team] : NEUTRAL_COLOR; ctx.font = 'bold 14px monospace'; ctx.fillText(hpBarStr, tx + 15, ty + 48);
           ctx.fillStyle = '#fff'; ctx.font = '12px monospace'; ctx.fillText(`${Math.floor(t.hp)}/${t.effectiveMaxHp || t.maxHp}`, tx + 15, ty + 68);
           
           if (t.AD !== undefined) { 
@@ -340,10 +337,10 @@ export function draw(){
 
       ctx.textBaseline = 'middle';
       // ASCII HP BAR
-      ctx.fillStyle = player.team === 0 ? '#3627FF' : '#FF3A3A';
+      ctx.fillStyle = player.team === 0 ? '#486FED' : '#FF4E4E';
       ctx.font = 'bold 16px monospace'; ctx.textAlign = 'left';
       let maxHpBoxes = 30; let filledHp = Math.max(0, Math.min(maxHpBoxes, Math.round((player.hp / player.effectiveMaxHp) * maxHpBoxes) || 0));
-      let hpStr = '[' + '|'.repeat(filledHp) + '-'.repeat(maxHpBoxes - filledHp) + ']';
+      let hpStr = '[' + '#'.repeat(filledHp) + '-'.repeat(maxHpBoxes - filledHp) + ']';
       let hpBarW = ctx.measureText(hpStr).width;
       ctx.fillText(hpStr, cx - hpBarW/2 - 20, cy - 70);
       ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace'; 
@@ -396,8 +393,8 @@ export function draw(){
       if (player.spellPoints > 0) {
           ctx.fillStyle = (performance.now() % 1000 > 500) ? '#fff' : '#888'; 
           ctx.font = 'bold 18px monospace';
-          ctx.fillText('+', cx + 30, cy - 30);
-          ctx.fillText('+', cx + 80, cy - 30);
+          ctx.fillText('+', cx + 30, cy - 45);
+          ctx.fillText('+', cx + 80, cy - 45);
       }
 
       // STATS TABLE
@@ -416,9 +413,9 @@ export function draw(){
     if (keys['tab']) {
         ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(100, 100, canvas.width - 200, canvas.height - 200); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(100, 100, canvas.width - 200, canvas.height - 200);
         ctx.fillStyle = '#fff'; ctx.font = '24px monospace'; ctx.textAlign = 'center'; ctx.fillText('SCOREBOARD', canvas.width/2, 140); ctx.font = '16px monospace'; ctx.textAlign = 'left'; ctx.fillText('BLUE TEAM', 130, 180);
-        let blueTeam = game.players.filter(p => p.team === 0); for(let i=0; i<blueTeam.length; i++) { let p = blueTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = (player && p.id === player.id) ? '#0f0' : '#3627FF'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, 130, 210 + i*25); }
+        let blueTeam = game.players.filter(p => p.team === 0); for(let i=0; i<blueTeam.length; i++) { let p = blueTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = (player && p.id === player.id) ? '#0f0' : '#486FED'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, 130, 210 + i*25); }
         ctx.fillStyle = '#fff'; ctx.fillText('RED TEAM', canvas.width/2 + 30, 180); let redTeam = game.players.filter(p => p.team === 1);
-        for(let i=0; i<redTeam.length; i++) { let p = redTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = '#FF3A3A'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, canvas.width/2 + 30, 210 + i*25); }
+        for(let i=0; i<redTeam.length; i++) { let p = redTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = '#FF4E4E'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, canvas.width/2 + 30, 210 + i*25); }
     }
     
     let vw = canvas.width / 100;
@@ -466,7 +463,7 @@ export function draw(){
 
     if (keys['m']) {
         ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, 30 * vw, 100 * vh);
-        ctx.strokeStyle = '#3627FF'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, 30 * vw, 100 * vh);
+        ctx.strokeStyle = '#486FED'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, 30 * vw, 100 * vh);
         ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(13, 1.6 * vw)}px monospace`; ctx.textAlign = 'left';
         ctx.fillText('GENERAL INFO', 2 * vw, 5 * vh);
         
@@ -493,9 +490,9 @@ export function draw(){
 export function drawMinimap(){ const mm = document.getElementById('minimap'); const w = mm.clientWidth, h = mm.clientHeight; const ctxm = mm._ctx || (function(){ const c = document.createElement('canvas'); c.width = w; c.height = h; mm.appendChild(c); mm._ctx = c.getContext('2d'); return mm._ctx; })(); ctxm.clearRect(0,0,w,h); ctxm.fillStyle='#222'; ctxm.fillRect(0,0,w,h);
   const scaleX = w / world.width; const scaleY = h / world.height; 
   ctxm.save(); ctxm.beginPath(); ctxm.arc(w/2, h/2, w/2, 0, Math.PI*2); ctxm.clip();
-  ctxm.fillStyle='#222'; ctxm.fillRect(0,0,w,h);
+  ctxm.fillStyle='#111'; ctxm.fillRect(0,0,w,h);
   
-  for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#3627FF' : t.owner===1? '#FF3A3A' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
+  for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#486FED' : t.owner===1? '#FF4E4E' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
   ctxm.beginPath(); ctxm.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY); for(let i=1; i<mapBoundary.length; i++) ctxm.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY); ctxm.closePath(); ctxm.strokeStyle = '#555'; ctxm.stroke();
   ctxm.fillStyle = '#555'; ctxm.font = '10px monospace'; ctxm.textAlign='center'; ctxm.textBaseline='middle';
   for(let w of game.walls) {
@@ -513,12 +510,15 @@ export function drawMinimap(){ const mm = document.getElementById('minimap'); co
   for(let p of game.players){ 
     if (!p.alive) continue;
     const x = p.pos.x * scaleX; const y = p.pos.y * scaleY; 
-    ctxm.fillStyle = p.team === 0 ? '#3627FF' : '#FF3A3A';
+    ctxm.fillStyle = p.team === 0 ? '#486FED' : '#FF4E4E';
     ctxm.font = (p === player ? 'bold 16px' : 'bold 12px') + ' monospace';
     ctxm.textAlign = 'center'; ctxm.textBaseline = 'middle';
     ctxm.fillText(p.glyph, x, y);
     if (p === player) { ctxm.strokeStyle = '#fff'; ctxm.lineWidth = 0.5; ctxm.strokeText(p.glyph, x, y); }
   }
+  
+  ctxm.lineWidth = 15; ctxm.strokeStyle = 'rgba(0,0,0,0.8)';
+  ctxm.beginPath(); ctxm.arc(w/2, h/2, w/2, 0, Math.PI*2); ctxm.stroke();
   ctxm.restore();
 }
 
@@ -534,7 +534,7 @@ export function showEnd(winner){
       let html = '<table style="width:100%; border-collapse: collapse;">'; html += '<tr style="border-bottom:1px solid #444;"><th>Hero</th><th>K/D/A</th><th>Dmg Dealt</th><th>Dmg Taken</th><th>Healed</th><th>Gold</th></tr>';
       let sorted = [...game.players].sort((a,b)=>(b.kills*2+b.assists)-(a.kills*2+a.assists));
       for(let p of sorted) {
-          let color = p.team === 0 ? '#3627FF' : '#FF3A3A'; if (p === player) color = '#0f0';
+          let color = p.team === 0 ? '#486FED' : '#FF4E4E'; if (p === player) color = '#0f0';
           html += `<tr style="color:${color}; text-align:center;"><td style="text-align:left; padding:4px;">${p.className}</td><td>${p.kills}/${p.deaths}/${p.assists}</td><td>${p.stats.dmgDealt}</td><td>${p.stats.dmgTaken}</td><td>${Math.round(p.stats.hpHealed)}</td><td>${Math.floor(p.totalGold)}</td></tr>`;
       }
       html += '</table>'; statsDiv.innerHTML = html; overlay.classList.remove('hidden'); 
@@ -568,8 +568,8 @@ export function buildMenu() {
         <div style="width: 70%; text-align: left;">
           <p style="color:#aaa; margin-bottom: 5px;">1. Select Team:</p>
           <div style="display:flex; gap: 5px; margin-bottom:15px;">
-            <button id="btnBlue" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#3627FF; border:2px solid #3627FF;">BLUE TEAM</button>
-            <button id="btnRed" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#FF3A3A; border:2px solid #444;">RED TEAM</button>
+            <button id="btnBlue" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#486FED; border:2px solid #486FED;">BLUE TEAM</button>
+            <button id="btnRed" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#FF4E4E; border:2px solid #444;">RED TEAM</button>
             <button id="btnSpec" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#aaa; border:2px solid #444;">SPECTATE</button>
           </div>
           <p style="color:#aaa; margin-bottom: 5px;">2. Select Class:</p>
@@ -605,9 +605,9 @@ export function buildMenu() {
   const selectionDivs = [document.getElementById('classBtns'), document.getElementById('spellBtns')];
   const startBtn = document.getElementById('startBtn');
 
-  btnBlue.onclick = (e) => { selectedTeam = 0; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#3627FF'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
-  btnRed.onclick = (e) => { selectedTeam = 1; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#FF3A3A'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
-  btnSpec.onclick = (e) => { selectedTeam = -1; isSpectator = true; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#aaa'; selectionDivs.forEach(d=>d.style.opacity=0.3); startBtn.disabled = true; startBtn.style.opacity = 0.3; notifyServer(); };
+  btnBlue.onclick = (e) => { selectedTeam = 0; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#486FED'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
+  btnRed.onclick = (e) => { selectedTeam = 1; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#FF4E4E'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
+  btnSpec.onclick = (e) => { selectedTeam = -1; isSpectator = true; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#aaa'; selectionDivs.forEach(d=>d.style.opacity=0.3); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
 
   const cBtns = document.getElementById('classBtns');
   const catGroups = { 
