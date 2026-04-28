@@ -341,32 +341,72 @@ export function draw(){
         ctx.fillStyle = '#fff'; ctx.fillText('RED TEAM', canvas.width/2 + 30, 180); let redTeam = game.players.filter(p => p.team === 1);
         for(let i=0; i<redTeam.length; i++) { let p = redTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = '#ff6b6b'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, canvas.width/2 + 30, 210 + i*25); }
     }
+    
+    let vw = canvas.width / 100;
+    let vh = canvas.height / 100;
+
     if (keys['c'] && player) {
-        ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(100, 100, canvas.width - 200, canvas.height - 200); ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.strokeRect(100, 100, canvas.width - 200, canvas.height - 200);
-        ctx.fillStyle = '#fff'; ctx.font = '24px monospace'; ctx.textAlign = 'center'; ctx.fillText('CHARACTER INFO', canvas.width/2, 140); ctx.font = '18px monospace'; ctx.textAlign = 'left';
-        ctx.fillText(`Class: ${player.className}`, 150, 200); ctx.fillText(`Level: ${player.level} (${Math.floor(player.exp)}/${expForLevel(player.level)} XP)`, 150, 230); ctx.fillText(`HP: ${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, 150, 260); ctx.fillText(`Gold: ${Math.floor(player.gold)}`, 150, 290); ctx.fillText(`Kills: ${player.kills} | Deaths: ${player.deaths}`, 150, 320);
-        ctx.fillText(`ATTRIBUTES`, 150, 370); ctx.fillText(`AD (Attack Dmg): ${Math.round(player.AD*(player.hasPowerup?1.2:1))}`, 150, 400); ctx.fillText(`Armor: ${Math.round(player.armor*(player.hasPowerup?1.2:1))}`, 150, 430); ctx.fillText(`Attack Speed: ${player.attackSpeed.toFixed(2)}`, 150, 460); ctx.fillText(`Movement Speed: ${Math.round(player.speed*(player.hasPowerup?1.2:1))}`, 150, 490); ctx.fillText(`Ability Haste: ${player.abilityHaste}`, 150, 520);
-        ctx.fillText(`SPELLS`, 450, 200); const q = player.spells.Q, e = player.spells.E; ctx.fillText(`[Q] Level ${q.level} - Cooldown: ${player.computeSpellCooldown('Q').toFixed(1)}s`, 450, 230); 
-        ctx.fillStyle = '#aaa'; ctx.fillText(`    ${q.desc}`, 450, 250); ctx.fillStyle = '#fff'; let qTotal = q.type.includes('heal') ? Math.round((q.amount||0) + (player.AP * (q.scaleAP||0)) + (player.AD * (q.scaleAD||0)) + q.level*10) : Math.round((q.baseDamage||0) + (player.AP * (q.scaleAP||0)) + (player.AD * (q.scaleAD||0)) + q.level*8);
-        ctx.fillText(`    Dmg: Base ${q.baseDamage||q.amount||0} + (${(q.scaleAD||0)*100}% AD) + (${(q.scaleAP||0)*100}% AP) = ${qTotal}`, 450, 270);
-        ctx.fillText(`[E] Level ${e.level} - Cooldown: ${player.computeSpellCooldown('E').toFixed(1)}s`, 450, 310); ctx.fillStyle = '#aaa'; ctx.fillText(`    ${e.desc}`, 450, 330); ctx.fillStyle = '#fff';
-        let eTotal = e.type.includes('heal') ? Math.round((e.amount||0) + (player.AP * (e.scaleAP||0)) + (player.AD * (e.scaleAD||0)) + e.level*10) : Math.round((e.baseDamage||0) + (player.AP * (e.scaleAP||0)) + (player.AD * (e.scaleAD||0)) + e.level*8); ctx.fillText(`    Dmg: Base ${e.baseDamage||e.amount||0} + (${(e.scaleAD||0)*100}% AD) + (${(e.scaleAP||0)*100}% AP) = ${eTotal}`, 450, 350);
-        let baScale = player.dmgType === 'magical' ? (player.className === 'Hana' ? 0.4 : 0.15) : 0.6;
-        let baDmg = Math.round(CLASSES[player.className].baseAtk + (player.dmgType === 'magical' ? player.AP*baScale : player.AD*baScale)); ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, 150, 560);
+        ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, 30 * vw, 100 * vh);
+        ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, 30 * vw, 100 * vh);
+        ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(16, 2 * vw)}px monospace`; ctx.textAlign = 'left';
+        ctx.fillText('CHARACTER INFO', 2 * vw, 5 * vh);
         
-        ctx.fillStyle = '#ffcc00'; ctx.font = '18px monospace'; ctx.fillText(`CONTROLS`, 450, 400); 
-        ctx.fillStyle = '#fff'; ctx.font = '14px monospace';
-        ctx.fillText(`[W,A,S,D]     : Move`, 450, 425);
-        ctx.fillText(`[ARROWS]      : Manual Aim`, 450, 445);
-        ctx.fillText(`[SPACE]       : Basic Attack`, 450, 465);
-        ctx.fillText(`[Q] / [E]     : Cast Spells (J/K if AutoTarget ON)`, 450, 485);
-        ctx.fillText(`[F] / [L]     : Summoner Spell`, 450, 505);
-        ctx.fillText(`[SHIFT + Q/E] : Level Up Spell`, 450, 525);
-        ctx.fillText(`[B] : Shop  |  [TAB] : Scoreboard  |  [C] : Info`, 450, 545);
+        ctx.font = `${Math.max(12, 1.2 * vw)}px monospace`;
+        ctx.fillText(`Class: ${player.className}`, 2 * vw, 10 * vh);
+        ctx.fillText(`Level: ${player.level} (${Math.floor(player.exp)}/${expForLevel(player.level)} XP)`, 2 * vw, 13 * vh);
+        ctx.fillText(`HP: ${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, 2 * vw, 16 * vh);
+        ctx.fillText(`Gold: ${Math.floor(player.gold)}`, 2 * vw, 19 * vh);
+        ctx.fillText(`Kills: ${player.kills} | Deaths: ${player.deaths}`, 2 * vw, 22 * vh);
+        
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`ATTRIBUTES`, 2 * vw, 28 * vh);
         ctx.fillStyle = '#aaa';
-        ctx.fillText(`[SHIFT + U]   : Toggle Auto-Target Aim Assist`, 450, 575);
-        ctx.fillText(`[SHIFT + I]   : Toggle Auto-Play (Bot Mode)`, 450, 595);
-        ctx.fillText(`[SHIFT + V]   : Toggle Debug Visuals`, 450, 615);
+        ctx.fillText(`AD: ${Math.round(player.AD*(player.hasPowerup?1.2:1))}`, 2 * vw, 31 * vh);
+        ctx.fillText(`AP: ${Math.round(player.AP*(player.hasPowerup?1.2:1))}`, 15 * vw, 31 * vh);
+        ctx.fillText(`Armor: ${Math.round(player.armor*(player.hasPowerup?1.2:1))}`, 2 * vw, 34 * vh);
+        ctx.fillText(`MR: ${Math.round(player.mr*(player.hasPowerup?1.2:1))}`, 15 * vw, 34 * vh);
+        ctx.fillText(`Attack Speed: ${player.attackSpeed.toFixed(2)}`, 2 * vw, 37 * vh);
+        ctx.fillText(`Move Speed: ${Math.round(player.speed*(player.hasPowerup?1.2:1))}`, 15 * vw, 37 * vh);
+        ctx.fillText(`Ability Haste: ${player.abilityHaste}`, 2 * vw, 40 * vh);
+        
+        let baScale = player.dmgType === 'magical' ? (player.className === 'Hana' ? 0.4 : 0.15) : 0.6;
+        let baDmg = Math.round(CLASSES[player.className].baseAtk + (player.dmgType === 'magical' ? player.AP*baScale : player.AD*baScale)); 
+        ctx.fillStyle = '#fff'; ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, 2 * vw, 44 * vh);
+        
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`SPELLS`, 2 * vw, 50 * vh);
+        const q = player.spells.Q, e = player.spells.E;
+        ctx.fillStyle = '#fff'; ctx.fillText(`[Q] Level ${q.level} - Cooldown: ${player.computeSpellCooldown('Q').toFixed(1)}s`, 2 * vw, 54 * vh); 
+        ctx.fillStyle = '#aaa'; ctx.fillText(`    ${q.desc}`, 2 * vw, 57 * vh); ctx.fillStyle = '#fff';
+        let qTotal = q.type.includes('heal') ? Math.round((q.amount||0) + (player.AP * (q.scaleAP||0)) + (player.AD * (q.scaleAD||0)) + q.level*10) : Math.round((q.baseDamage||0) + (player.AP * (q.scaleAP||0)) + (player.AD * (q.scaleAD||0)) + q.level*8);
+        ctx.fillText(`    Dmg: Base ${q.baseDamage||q.amount||0} + (${(q.scaleAD||0)*100}% AD) + (${(q.scaleAP||0)*100}% AP) = ${qTotal}`, 2 * vw, 60 * vh);
+        
+        ctx.fillText(`[E] Level ${e.level} - Cooldown: ${player.computeSpellCooldown('E').toFixed(1)}s`, 2 * vw, 65 * vh);
+        ctx.fillStyle = '#aaa'; ctx.fillText(`    ${e.desc}`, 2 * vw, 68 * vh); ctx.fillStyle = '#fff';
+        let eTotal = e.type.includes('heal') ? Math.round((e.amount||0) + (player.AP * (e.scaleAP||0)) + (player.AD * (e.scaleAD||0)) + e.level*10) : Math.round((e.baseDamage||0) + (player.AP * (e.scaleAP||0)) + (player.AD * (e.scaleAD||0)) + e.level*8);
+        ctx.fillText(`    Dmg: Base ${e.baseDamage||e.amount||0} + (${(e.scaleAD||0)*100}% AD) + (${(e.scaleAP||0)*100}% AP) = ${eTotal}`, 2 * vw, 71 * vh);
+    }
+
+    if (keys['m']) {
+        ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, 30 * vw, 100 * vh);
+        ctx.strokeStyle = '#4da6ff'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, 30 * vw, 100 * vh);
+        ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(16, 2 * vw)}px monospace`; ctx.textAlign = 'left';
+        ctx.fillText('GENERAL INFO', 2 * vw, 5 * vh);
+        
+        ctx.font = `${Math.max(12, 1.2 * vw)}px monospace`;
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`CONTROLS`, 2 * vw, 12 * vh); 
+        ctx.fillStyle = '#fff';
+        ctx.fillText(`[W,A,S,D]     : Move`, 2 * vw, 16 * vh);
+        ctx.fillText(`[ARROWS]      : Manual Aim`, 2 * vw, 19 * vh);
+        ctx.fillText(`[SPACE]       : Basic Attack`, 2 * vw, 22 * vh);
+        ctx.fillText(`[Q] / [E]     : Cast Spells`, 2 * vw, 25 * vh);
+        ctx.fillText(`[F] / [L]     : Summoner Spell`, 2 * vw, 28 * vh);
+        ctx.fillText(`[SHIFT + Q/E] : Level Up Spell`, 2 * vw, 31 * vh);
+        ctx.fillText(`[B] : Shop | [TAB] : Scoreboard`, 2 * vw, 34 * vh);
+        
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`DEBUG & SETTINGS`, 2 * vw, 42 * vh);
+        ctx.fillStyle = '#aaa';
+        ctx.fillText(`[SHIFT + U]   : Toggle Auto-Target Aim Assist`, 2 * vw, 46 * vh);
+        ctx.fillText(`[SHIFT + I]   : Toggle Auto-Play (Bot Mode)`, 2 * vw, 49 * vh);
+        ctx.fillText(`[SHIFT + V]   : Toggle Debug Visuals`, 2 * vw, 52 * vh);
     }
   }
 }
