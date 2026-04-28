@@ -149,7 +149,13 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         let p = game.players.find(x => x.id === data.playerId);
         if (p) { p.hasPowerup = true; p.powerupTimer = 120.0; spawnParticles(data.x, data.y, 40, '#ff0', {speed: 250}); if(p === player) flashMessage("POWER UP OBTAINED! (+20% STATS)"); }
       } else if (data.type === 'game_over') {
-        game.gameOver = true; game.winner = data.winner; showEnd(game.winner);
+        if (data.finalStats) {
+            data.finalStats.forEach(fs => {
+                let p = game.players.find(x => x.id === fs.id);
+                if (p) { p.stats = fs.stats; p.kills = fs.kills; p.deaths = fs.deaths; p.assists = fs.assists; p.totalGold = fs.totalGold; }
+            });
+        }
+        game.gameOver = true; game.winner = data.winner; showEnd(game.winner); 
       }
       // PŘIDÁNO: Host autoritativně mění HP hráčů
       else if (data.type === 'player_hp_update') {
@@ -218,6 +224,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     if(k === 'b') toggleShop();
     if(k === 'u' && keys['shift']) { game.autoTarget = !game.autoTarget; flashMessage('Auto Target: ' + (game.autoTarget ? 'ON' : 'OFF')); }
     if(k === 'i' && keys['shift']) { game.autoPlay = !game.autoPlay; flashMessage('Auto Play: ' + (game.autoPlay ? 'ON' : 'OFF')); }
+    if(k === 'o' && keys['shift']) { game.mouseTarget = !game.mouseTarget; flashMessage('Mouse Target: ' + (game.mouseTarget ? 'ON' : 'OFF')); }
     if(k === 'v' && keys['shift']) { game.showDebug = !game.showDebug; flashMessage('Debug View: ' + (game.showDebug ? 'ON' : 'OFF')); }
   });
 
@@ -621,8 +628,8 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     if (!socket || game.isHost) {
       const owned0 = game.towers.filter(t=>t.owner===0).length; const owned1 = game.towers.filter(t=>t.owner===1).length; const diff = owned0 - owned1; if(game.startDelay <= 0 && diff>0){ game.nexus[1] -= nexusDrainRate * diff * dt; } else if(game.startDelay <= 0 && diff<0){ game.nexus[0] -= nexusDrainRate * (-diff) * dt; }
       game.nexus[0] = Math.max(0, game.nexus[0]); game.nexus[1] = Math.max(0, game.nexus[1]);
-      if(game.nexus[0] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 1; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 1}); }
-      if(game.nexus[1] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 0; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 0}); }
+      if(game.nexus[0] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 1; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 1, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold}))}); }
+      if(game.nexus[1] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 0; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 0, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold}))}); }
     }
 
     // update camera to follow player or spectate

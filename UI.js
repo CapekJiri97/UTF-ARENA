@@ -142,7 +142,7 @@ export function drawBackground(ctx){
           }
       }
   }
-  ctx.fillStyle = '#555'; ctx.font = '16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.font = '16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
   for(let p of game.boundaryVisuals) { ctx.fillText(p.char, p.x, p.y); }
   for(let sp of spawnPoints){
     ctx.fillStyle = 'rgba(255,255,255,0.2)';
@@ -482,7 +482,8 @@ export function draw(){
         ctx.fillStyle = '#aaa';
         ctx.fillText(`[SHIFT + U]   : Toggle Auto-Target Aim Assist`, 2 * vw, 46 * vh);
         ctx.fillText(`[SHIFT + I]   : Toggle Auto-Play (Bot Mode)`, 2 * vw, 49 * vh);
-        ctx.fillText(`[SHIFT + V]   : Toggle Debug Visuals`, 2 * vw, 52 * vh);
+        ctx.fillText(`[SHIFT + O]   : Toggle Mouse Target`, 2 * vw, 52 * vh);
+        ctx.fillText(`[SHIFT + V]   : Toggle Debug Visuals`, 2 * vw, 55 * vh);
     }
   }
 }
@@ -514,7 +515,6 @@ export function drawMinimap(){ const mm = document.getElementById('minimap'); co
     ctxm.font = (p === player ? 'bold 16px' : 'bold 12px') + ' monospace';
     ctxm.textAlign = 'center'; ctxm.textBaseline = 'middle';
     ctxm.fillText(p.glyph, x, y);
-    if (p === player) { ctxm.strokeStyle = '#fff'; ctxm.lineWidth = 0.5; ctxm.strokeText(p.glyph, x, y); }
   }
   
   ctxm.lineWidth = 15; ctxm.strokeStyle = 'rgba(0,0,0,0.8)';

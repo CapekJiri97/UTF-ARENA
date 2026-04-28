@@ -5,7 +5,7 @@ import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANG
 import { spawnPoints, mapBoundary } from './MapConfig.js';
 import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
-import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem } from './main.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse } from './main.js';
 import { updateSpellLabels } from './UI.js';
 
 export class Player{
@@ -185,11 +185,12 @@ export class Player{
     if (this === player) {
         let ax=0, ay=0; if(keys['arrowup']) ay-=1; if(keys['arrowdown']) ay+=1; if(keys['arrowleft']) ax-=1; if(keys['arrowright']) ax+=1;
         if(ax!==0 || ay!==0) { intendedAngle = Math.atan2(ay, ax); isManualAim = true; } // Míření šipkami
+        else if (game.mouseTarget) { intendedAngle = Math.atan2(mouse.wy - this.pos.y, mouse.wx - this.pos.x); isManualAim = true; }
         else if(l>0) intendedAngle = Math.atan2(dy, dx); // Pokud nedrží šipky, míří tam, kam jde
     }
 
     // --- Aim Assist (Auto-Targeting with Player Priority) ---
-    if (this === player) {
+    if (this === player && !game.mouseTarget) {
       let bestTarget = null;
       const maxD = this.range ? RANGED_ATTACK_RANGE : MELEE_ATTACK_RANGE + 100;
       const use360 = game.autoTarget;
@@ -243,6 +244,7 @@ export class Player{
     // basic attack
     if(this.attackCooldown>0) this.attackCooldown -= dt;
     let wantAttack = keys[' '];
+    if (this === player && game.mouseTarget && mouse.down) wantAttack = true;
     if (this === player && game.autoPlay && this.currentTarget && this.currentTarget.hp > 0 && !this.currentTarget.dead) {
         const d = dist(this.pos, this.currentTarget.pos);
         const atkRange = this.range ? RANGED_ATTACK_RANGE : MELEE_ATTACK_RANGE + 20;
