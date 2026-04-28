@@ -135,11 +135,14 @@ export function drawBackground(ctx){
   ctx.fillStyle = '#070707'; ctx.fillRect(0,0,world.width, world.height);
   if (!game.boundaryVisuals) {
       game.boundaryVisuals = []; let sb = smoothPolygon(mapBoundary, 3);
+      let accumDist = 0; const spacing = 45;
       for(let i=0; i<sb.length; i++) { let p1 = sb[i], p2 = sb[(i+1)%sb.length]; let d = Math.hypot(p2.x-p1.x, p2.y-p1.y);
-          for(let step=0; step<d; step+=25) { 
-              let bx = p1.x + (p2.x-p1.x)*(step/d); let by = p1.y + (p2.y-p1.y)*(step/d);
+          while(accumDist <= d) {
+              let bx = p1.x + (p2.x-p1.x)*(accumDist/d); let by = p1.y + (p2.y-p1.y)*(accumDist/d);
               game.boundaryVisuals.push({ x: bx, y: by, char: '#' });
+              accumDist += spacing;
           }
+          accumDist -= d;
       }
   }
   ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.font = '16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -655,3 +658,67 @@ export function updateSpellLabels() {}
 
 const restartBtn = document.getElementById('restartBtn'); if(restartBtn) restartBtn.addEventListener('click', ()=>{ location.reload(); });
 const closeShopBtn = document.getElementById('closeShop'); if(closeShopBtn) closeShopBtn.addEventListener('click', ()=> closeShop());
+
+export function initMobileUI() {
+    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (!isMobile) return;
+    
+    const mc = document.createElement('div');
+    mc.id = 'mobileControls';
+    mc.style.position = 'fixed'; mc.style.top = '0'; mc.style.left = '0'; mc.style.width = '100%'; mc.style.height = '100%';
+    mc.style.pointerEvents = 'none'; mc.style.zIndex = '5000'; mc.style.display = 'none';
+    
+    const dpad = document.createElement('div');
+    dpad.style.position = 'absolute'; dpad.style.left = '20px'; dpad.style.bottom = '40px';
+    dpad.style.width = '160px'; dpad.style.height = '160px';
+    dpad.style.background = 'rgba(255,255,255,0.1)';
+    dpad.style.borderRadius = '50%'; dpad.style.pointerEvents = 'auto';
+    dpad.innerHTML = '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:rgba(255,255,255,0.2); font-family:monospace; font-size:24px; font-weight:bold; pointer-events:none;">MOVE</div>';
+    
+    const btns = document.createElement('div');
+    btns.style.position = 'absolute'; btns.style.right = '20px'; btns.style.bottom = '350px';
+    btns.style.display = 'flex'; btns.style.gap = '15px'; btns.style.pointerEvents = 'auto';
+    
+    const triggerKey = (keyStr) => { window.dispatchEvent(new KeyboardEvent('keydown', { key: keyStr, bubbles: true })); };
+    const releaseKey = (keyStr) => { window.dispatchEvent(new KeyboardEvent('keyup', { key: keyStr, bubbles: true })); };
+    
+    const createBtn = (keyStr, label) => {
+        const b = document.createElement('div');
+        b.style.width = '65px'; b.style.height = '65px'; b.style.background = 'rgba(255,255,255,0.1)';
+        b.style.borderRadius = '50%'; b.style.display = 'flex'; b.style.justifyContent = 'center'; b.style.alignItems = 'center';
+        b.style.color = 'rgba(255,255,255,0.5)'; b.style.fontSize = '24px'; b.style.fontWeight = 'bold'; b.style.fontFamily = 'monospace';
+        b.textContent = label;
+        b.addEventListener('touchstart', (e) => { e.preventDefault(); b.style.background = 'rgba(255,255,255,0.3)'; triggerKey(keyStr); }, {passive:false});
+        b.addEventListener('touchend', (e) => { e.preventDefault(); b.style.background = 'rgba(255,255,255,0.1)'; releaseKey(keyStr); }, {passive:false});
+        return b;
+    };
+    
+    btns.appendChild(createBtn('j', 'Q'));
+    btns.appendChild(createBtn('k', 'E'));
+    btns.appendChild(createBtn('l', 'S')); // Summoner spell
+    
+    mc.appendChild(dpad); mc.appendChild(btns); document.body.appendChild(mc);
+
+    let activeDirs = { w:false, a:false, s:false, d:false };
+    const updateDirs = (nw, na, ns, nd) => {
+        if(nw !== activeDirs.w) { window.dispatchEvent(new KeyboardEvent(nw?'keydown':'keyup', {key:'w', bubbles:true})); activeDirs.w = nw; }
+        if(na !== activeDirs.a) { window.dispatchEvent(new KeyboardEvent(na?'keydown':'keyup', {key:'a', bubbles:true})); activeDirs.a = na; }
+        if(ns !== activeDirs.s) { window.dispatchEvent(new KeyboardEvent(ns?'keydown':'keyup', {key:'s', bubbles:true})); activeDirs.s = ns; }
+        if(nd !== activeDirs.d) { window.dispatchEvent(new KeyboardEvent(nd?'keydown':'keyup', {key:'d', bubbles:true})); activeDirs.d = nd; }
+    };
+
+    const handleTouch = (e) => {
+        e.preventDefault(); const rect = dpad.getBoundingClientRect(); let touch = null;
+        for(let i=0; i<e.touches.length; i++) {
+            const tx = e.touches[i].clientX - rect.left; const ty = e.touches[i].clientY - rect.top;
+            if (tx > -50 && tx < 210 && ty > -50 && ty < 210) { touch = {x: tx, y: ty}; break; }
+        }
+        if (touch) {
+            const dx = touch.x - 80; const dy = touch.y - 80; let nw=false, na=false, ns=false, nd=false;
+            if (Math.hypot(dx, dy) > 20) { let angle = Math.atan2(dy, dx); if (angle > -Math.PI*0.875 && angle < -Math.PI*0.125) nw = true; if (angle > Math.PI*0.125 && angle < Math.PI*0.875) ns = true; if (Math.abs(angle) > Math.PI*0.625) na = true; if (Math.abs(angle) < Math.PI*0.375) nd = true; }
+            updateDirs(nw, na, ns, nd);
+        } else { updateDirs(false, false, false, false); }
+    };
+    dpad.addEventListener('touchstart', handleTouch, {passive:false}); dpad.addEventListener('touchmove', handleTouch, {passive:false}); dpad.addEventListener('touchend', (e) => { e.preventDefault(); updateDirs(false, false, false, false); }, {passive:false});
+}
+initMobileUI();

@@ -226,8 +226,12 @@ export class Player{
           intendedAngle = Math.atan2(bestTarget.pos.y - this.pos.y, bestTarget.pos.x - this.pos.x);
       }
       this.currentTarget = bestTarget; // Uložení pro vykreslení HUD
+    } else if (this === player && game.mouseTarget) {
+      this.currentTarget = null;
+    }
 
-      // Aplikujeme plynulé otáčení (pokud nemíří manuálně šipkami)
+    if (this === player) {
+      // Aplikujeme plynulé otáčení (nebo okamžité při manuálním míření šipkami/myší)
       if (isManualAim) {
           this.aimAngle = intendedAngle;
       } else {
@@ -856,23 +860,33 @@ export class BotPlayer extends Player {
       if (this.posCheckTimer >= 1.0) {
           this.posCheckTimer = 0;
           if (this.lastPosCheck && dist(this.pos, this.lastPosCheck) < 5) {
-              let tgtPos = (this.objective && this.objective.pos) ? this.objective.pos : (this.target ? this.target.pos : {x: world.width/2, y: world.height/2});
-              let objAng = Math.atan2(tgtPos.y - this.pos.y, tgtPos.x - this.pos.x);
-              let dir = Math.random() > 0.5 ? 1 : -1;
-              let ang = objAng + dir * Math.PI / 2;
-
-              let dashed = false;
-              for (let key of ['Q', 'E']) {
-                  let sp = this.spells[key];
-                  if (sp && sp.cd <= 0 && (sp.type === 'dash' || sp.type === 'dash_def')) {
-                      this.castSpell(key, this.pos.x + Math.cos(ang)*200, this.pos.y + Math.sin(ang)*200);
-                      dashed = true; break;
+                  let nearWall = false;
+                  for (let w of game.walls) {
+                      let info = distToPoly(this.pos.x, this.pos.y, w.pts);
+                      if (info.minDist <= w.r + 10 || info.inside) {
+                          nearWall = true; break;
+                      }
                   }
-              }
-              if (!dashed) {
-                  this.dashTimer = 0.4;
-                  this.dashVel = { x: Math.cos(ang)*500, y: Math.sin(ang)*500 }; // 500 * 0.4 = 200 units
-              }
+                  
+                  if (nearWall) {
+                      let tgtPos = (this.objective && this.objective.pos) ? this.objective.pos : (this.target ? this.target.pos : {x: world.width/2, y: world.height/2});
+                      let objAng = Math.atan2(tgtPos.y - this.pos.y, tgtPos.x - this.pos.x);
+                      let dir = Math.random() > 0.5 ? 1 : -1;
+                      let ang = objAng + dir * Math.PI / 2;
+
+                      let dashed = false;
+                      for (let key of ['Q', 'E']) {
+                          let sp = this.spells[key];
+                          if (sp && sp.cd <= 0 && (sp.type === 'dash' || sp.type === 'dash_def')) {
+                              this.castSpell(key, this.pos.x + Math.cos(ang)*200, this.pos.y + Math.sin(ang)*200);
+                              dashed = true; break;
+                          }
+                      }
+                      if (!dashed) {
+                          this.dashTimer = 0.4;
+                          this.dashVel = { x: Math.cos(ang)*500, y: Math.sin(ang)*500 }; // 500 * 0.4 = 200 units
+                      }
+                  }
           }
           this.lastPosCheck = { x: this.pos.x, y: this.pos.y };
       }

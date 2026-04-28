@@ -155,7 +155,7 @@ export class Minion{
     if (this.state === 'ATTACK' && this.currentTarget) {
         const d = dist(this.pos, this.currentTarget.pos);
         if (this.attackCooldown <= 0 && d <= 55) {
-            applyDamage(this.currentTarget, this.attackDamage, 'physical', 'minion'); this.attackCooldown = 1.2;
+            applyDamage(this.currentTarget, this.attackDamage, 'physical', this.id); this.attackCooldown = 1.2;
             if (this.currentTarget.hp <= 0) { if (this.currentTarget.die) this.currentTarget.die(); else this.currentTarget.dead = true; this.currentTarget = null; this.state = 'PUSH'; }
         }
         if (this.currentTarget && d > 45) { dx = this.currentTarget.pos.x - this.pos.x; dy = this.currentTarget.pos.y - this.pos.y; }

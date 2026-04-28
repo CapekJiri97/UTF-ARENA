@@ -277,7 +277,8 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     
     // OPRAVA: Host posílá striktní zprávu o poškození minionů pouze proti lidským hráčům (Boti se posílají rovnou celí přes host_state prevence zdvojení).
     if (socket && game.isHost && !isNetwork) {
-      if (sourceId === 'minion' && target instanceof Player && !(target instanceof BotPlayer)) {
+      let isMinion = game.minions.some(m => m.id === sourceId);
+      if (isMinion && target instanceof Player && !(target instanceof BotPlayer)) {
          socket.emit('host_event', { type: 'damage', targetId: target.id, amount: amount, dmgType: type, sourceId: sourceId });
       }
     }
@@ -309,10 +310,10 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     }
 
     // TRACKOVÁNÍ STATISTIK A ASISTENCÍ
-    let sourcePlayer = game.players.find(p => p.id === sourceId);
-    if (sourcePlayer && sourcePlayer.stats) sourcePlayer.stats.dmgDealt += actualDamage;
+    let sourceEntity = game.players.find(p => p.id === sourceId) || game.minions.find(m => m.id === sourceId);
+    if (sourceEntity && sourceEntity.stats) sourceEntity.stats.dmgDealt += actualDamage;
     if (target.stats) target.stats.dmgTaken += actualDamage;
-    if (target instanceof Player && sourcePlayer && sourcePlayer.team !== target.team) {
+    if (target instanceof Player && sourceEntity && sourceEntity.team !== target.team) {
         target.recentAttackers.set(sourceId, performance.now());
     }
 
@@ -430,6 +431,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     game.started = true;
     updateSpellLabels();
 
+    const mc = document.getElementById('mobileControls'); if (mc) mc.style.display = 'block';
     game.heals = [
         new HealPickup(1079, 2870), new HealPickup(2811, 2860), new HealPickup(3438, 1144),
         new HealPickup(1994, 152), new HealPickup(481, 1110), new HealPickup(1272, 1816),
@@ -488,6 +490,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     }
 
     game.started = true; updateSpellLabels();
+    const mc = document.getElementById('mobileControls'); if (mc) mc.style.display = 'block';
     game.heals = [ new HealPickup(1079, 2870), new HealPickup(2811, 2860), new HealPickup(3438, 1144), new HealPickup(1994, 152), new HealPickup(481, 1110), new HealPickup(1272, 1816), new HealPickup(2061, 2204), new HealPickup(2713, 1785), new HealPickup(2014, 1151) ];
     game.powerup = new PowerUp(1993, 1567);
   }
