@@ -61,7 +61,7 @@ io.on('connection', (socket) => {
       leaveCurrentRoom();
       currentRoom = roomName;
       socket.join(currentRoom);
-      rooms[currentRoom].players[socket.id] = { id: socket.id, className: 'Bruiser', summonerSpell: 'Heal', team: 0, x: 0, y: 0 };
+      rooms[currentRoom].players[socket.id] = { id: socket.id, className: 'Bruiser', summonerSpell: 'Heal', team: 0, x: 0, y: 0, ready: false };
       io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: rooms[currentRoom].players });
   }
 
@@ -111,8 +111,18 @@ io.on('connection', (socket) => {
     player.className = newClass;
     player.team = newTeam;
     player.summonerSpell = newSpell;
+    player.ready = false;
 
     io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players });
+  });
+
+  socket.on('toggle_ready', (isReady) => {
+    if (!currentRoom || !rooms[currentRoom]) return;
+    const room = rooms[currentRoom];
+    if (room.players[socket.id]) {
+        room.players[socket.id].ready = isReady;
+        io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players });
+    }
   });
 
   // Někdo klikl na Start Game

@@ -179,7 +179,7 @@ export class Minion{
         const l = Math.hypot(dx, dy); if (l > 0) { moveEntityWithCollision(this, (dx / l) * this.speed, (dy / l) * this.speed, dt); }
     }
   }
-  draw(ctx){ ctx.font='14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = this.flashTimer > 0 ? '#fff' : (this.team===0? '#b3ffb3' : '#ffb3b3'); ctx.fillText(this.glyph, this.pos.x, this.pos.y); drawHealthBar(ctx, this.hp, this.maxHp, this.pos.x, this.pos.y+12, this.team); }
+  draw(ctx){ ctx.font='14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = this.flashTimer > 0 ? '#fff' : (this.team===0? '#aaddff' : '#ffb3b3'); ctx.fillText(this.glyph, this.pos.x, this.pos.y); drawHealthBar(ctx, this.hp, this.maxHp, this.pos.x, this.pos.y+12, this.team); }
 }
 
 export class HealPickup {

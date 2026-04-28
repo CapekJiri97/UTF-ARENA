@@ -12,6 +12,7 @@ style.innerHTML = `
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 50% !important; overflow: hidden !important; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
   #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 350px !important; height: 100vh !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; }
   #shopOverlay.hidden { transform: translateX(100%) !important; }
+  @media (max-width: 800px) { #minimap { width: 25vw !important; height: 25vw !important; } }
   .shop-col { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
   .shop-col-title { font-weight: bold; color: #ffcc00; margin-bottom: 5px; border-bottom: 1px solid #444; padding-bottom: 3px; }
 `;
@@ -29,25 +30,34 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE") {
   
   let myTeam = -1;
   let myClass = '';
+  let myReady = false;
+  let allReady = true;
+  let playerCount = 0;
   const blueTaken = new Set();
   const redTaken = new Set();
 
   Object.values(playersData).forEach(p => {
+      playerCount++;
       const tColor = p.team === 0 ? '#486FED' : '#FF4E4E'; 
       const isMe = (socket && p.id === socket.id);
       if (isMe) {
           myTeam = p.team;
           myClass = p.className;
+          myReady = p.ready;
       }
       
+      const readyText = p.ready ? '<span style="color:#0f0;">[READY]</span>' : '<span style="color:#888;">[WAITING]</span>';
+      
       if (p.team === -1) {
-          list.innerHTML += `<li style="color:#aaa; margin-bottom:6px; font-size:16px;">[SPECTATOR] ${p.id.substring(0,4)}... ${isMe ? ' (TY)' : ''}</li>`;
+          list.innerHTML += `<li style="color:#aaa; margin-bottom:6px; font-size:16px;">[SPECTATOR] ${p.id.substring(0,4)}... ${isMe ? ' (TY)' : ''} ${readyText}</li>`;
       } else {
-          list.innerHTML += `<li style="color:${tColor}; margin-bottom:6px; font-size:16px;">[${p.className} | ${p.summonerSpell}] ${p.id.substring(0,4)}... ${isMe ? ' (TY)' : ''}</li>`;
+          list.innerHTML += `<li style="color:${tColor}; margin-bottom:6px; font-size:16px;">[${p.className} | ${p.summonerSpell}] ${p.id.substring(0,4)}... ${isMe ? ' (TY)' : ''} ${readyText}</li>`;
       }
       
       if (p.team === 0) blueTaken.add(p.className);
       else redTaken.add(p.className);
+
+      if (!p.ready) allReady = false;
   });
 
   const myTeamTakenByOthers = myTeam === 0 ? blueTaken : redTaken;
@@ -70,6 +80,29 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE") {
           btn.style.borderColor = '#444';
       }
   });
+
+  const startBtn = document.getElementById('startBtn');
+  const readyBtn = document.getElementById('readyBtn');
+  if (socket) {
+      if (readyBtn) {
+          readyBtn.style.borderColor = myReady ? '#0f0' : '#555';
+          readyBtn.style.color = myReady ? '#0f0' : '#fff';
+          readyBtn.textContent = myReady ? 'READY!' : 'READY';
+      }
+      if (startBtn) {
+          if (playerCount === 0 || !allReady) {
+              startBtn.disabled = true;
+              startBtn.style.opacity = '0.3';
+              startBtn.style.cursor = 'not-allowed';
+              startBtn.textContent = 'WAITING FOR READY';
+          } else {
+              startBtn.disabled = false;
+              startBtn.style.opacity = '1';
+              startBtn.style.cursor = 'pointer';
+              startBtn.textContent = 'START MATCH (Everyone)';
+          }
+      }
+  }
 }
 
 export function updateRoomListUI(rooms) {
@@ -314,8 +347,16 @@ export function draw(){
           }
       }
       
-      let cx = canvas.width / 2; const cy = canvas.height - 65; 
-      if (cx + 300 > canvas.width - 320) cx = Math.max(300, canvas.width - 620); // Responzivní uhnutí minimapě
+      const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      let anchorX = canvas.width / 2; const anchorY = canvas.height - (isMobile ? 25 : 65); 
+      if (!isMobile && anchorX + 300 > canvas.width - 320) anchorX = Math.max(300, canvas.width - 620); // Responzivní uhnutí minimapě
+
+      ctx.save();
+      let uiScale = isMobile ? Math.min(0.65, canvas.width / 800) : 1;
+      ctx.translate(anchorX, anchorY);
+      ctx.scale(uiScale, uiScale);
+      
+      let cx = 0; const cy = 0; 
 
       if (player.currentTarget && player.currentTarget.hp > 0 && !player.currentTarget.dead) {
           const t = player.currentTarget; const tw = 280, th = 85; const tx = cx - tw/2, ty = cy - 180;
@@ -377,7 +418,7 @@ export function draw(){
       ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 12px monospace'; ctx.fillText(Math.floor(player.gold) + 'g', cx, cy + 31);
 
       // SPELLS
-      const qKey = game.autoTarget ? 'J' : 'Q'; const eKey = game.autoTarget ? 'K' : 'E'; const sumKey = game.autoTarget ? 'L' : 'F';
+      const qKey = (game.autoTarget && !game.mouseTarget) ? 'J' : 'Q'; const eKey = (game.autoTarget && !game.mouseTarget) ? 'K' : 'E'; const sumKey = (game.autoTarget && !game.mouseTarget) ? 'L' : 'F';
       const getTypeLabel = (type) => { if(!type) return 'Spell'; if(type.includes('heal')) return 'Heal'; if(type.includes('dash')) return 'Dash'; if(type.includes('buff')) return 'Buff'; if(type.includes('summon')) return 'Summon'; if(type.includes('knockback')) return 'Knock'; return 'Dmg'; };
       const drawSpell = (x, y, key, lvl, cd, maxCd, isSum, typeLabel) => {
           ctx.fillStyle = '#aaa'; ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillText(typeLabel, x+20, y - 8);
@@ -412,6 +453,8 @@ export function draw(){
       ctx.fillText(`AS:${(player.attackDelay / player.attackSpeed).toFixed(2)}`, cx + 285, cy - 25);
       ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 285, cy - 5);
       ctx.fillText(`AH:${player.abilityHaste}`, cx + 285, cy + 15);
+      
+      ctx.restore();
     }
     if (keys['tab']) {
         ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(100, 100, canvas.width - 200, canvas.height - 200); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(100, 100, canvas.width - 200, canvas.height - 200);
@@ -509,7 +552,7 @@ export function drawMinimap(){ const mm = document.getElementById('minimap'); co
           }
       }
   }
-  for(let m of game.minions){ const x = m.pos.x * scaleX; const y = m.pos.y * scaleY; ctxm.fillStyle = m.team===0? '#b3ffb3':'#ffb3b3'; ctxm.fillRect(x-1,y-1,2,2); }
+  for(let m of game.minions){ const x = m.pos.x * scaleX; const y = m.pos.y * scaleY; ctxm.fillStyle = m.team===0? '#aaddff':'#ffb3b3'; ctxm.fillRect(x-1,y-1,2,2); }
   
   for(let p of game.players){ 
     if (!p.alive) continue;
@@ -585,7 +628,10 @@ export function buildMenu() {
           <ul id="lobbyList" style="list-style: none; padding: 0; margin: 0; font-family: monospace;"><li>Offline or Connecting...</li></ul>
         </div>
       </div>
-      <button id="startBtn" style="margin-top:25px; padding:15px 24px; width: 100%; font-size:18px; font-weight:bold; cursor:pointer; background:#222; color:#0f0; border:2px solid #0f0;">START MATCH (Everyone)</button>
+      <div style="display:flex; gap:10px; margin-top:25px;">
+         <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:15px 24px; flex-grow:1; font-size:18px; font-weight:bold; cursor:pointer; background:#222; color:#fff; border:2px solid #555;">READY</button>
+         <button id="startBtn" style="padding:15px 24px; flex-grow:1; width: 100%; font-size:18px; font-weight:bold; cursor:pointer; background:#222; color:#0f0; border:2px solid #0f0;">START MATCH</button>
+      </div>
     </div>`;
     
   const createRoomBtn = document.getElementById('createRoomBtn');
@@ -603,14 +649,25 @@ export function buildMenu() {
       }
   };
 
+  const readyBtn = document.getElementById('readyBtn');
+  let myReady = false;
+  if (readyBtn) {
+      readyBtn.onclick = () => {
+          if (socket) {
+              myReady = !myReady;
+              socket.emit('toggle_ready', myReady);
+          }
+      };
+  }
+
   const btnBlue = document.getElementById('btnBlue'), btnRed = document.getElementById('btnRed'), btnSpec = document.getElementById('btnSpec');
   const teamBtns = [btnBlue, btnRed, btnSpec];
   const selectionDivs = [document.getElementById('classBtns'), document.getElementById('spellBtns')];
   const startBtn = document.getElementById('startBtn');
 
-  btnBlue.onclick = (e) => { selectedTeam = 0; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#486FED'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
-  btnRed.onclick = (e) => { selectedTeam = 1; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#FF4E4E'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
-  btnSpec.onclick = (e) => { selectedTeam = -1; isSpectator = true; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#aaa'; selectionDivs.forEach(d=>d.style.opacity=0.3); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
+  btnBlue.onclick = (e) => { selectedTeam = 0; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#486FED'; selectionDivs.forEach(d=>d.style.opacity=1); if(!socket){ startBtn.disabled = false; startBtn.style.opacity = 1; } notifyServer(); };
+  btnRed.onclick = (e) => { selectedTeam = 1; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#FF4E4E'; selectionDivs.forEach(d=>d.style.opacity=1); if(!socket){ startBtn.disabled = false; startBtn.style.opacity = 1; } notifyServer(); };
+  btnSpec.onclick = (e) => { selectedTeam = -1; isSpectator = true; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#aaa'; selectionDivs.forEach(d=>d.style.opacity=0.3); if(!socket){ startBtn.disabled = false; startBtn.style.opacity = 1; } notifyServer(); };
 
   const cBtns = document.getElementById('classBtns');
   const catGroups = { 

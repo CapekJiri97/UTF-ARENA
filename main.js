@@ -214,9 +214,9 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   window.addEventListener('keydown', e=>{
     if(e.target.tagName === 'INPUT' || e.repeat) return;
     const k = e.key.toLowerCase();
-    const qKey = game.autoTarget ? 'j' : 'q';
-    const eKey = game.autoTarget ? 'k' : 'e';
-    const sumKey = game.autoTarget ? 'l' : 'f';
+    const qKey = (game.autoTarget && !game.mouseTarget) ? 'j' : 'q';
+    const eKey = (game.autoTarget && !game.mouseTarget) ? 'k' : 'e';
+    const sumKey = (game.autoTarget && !game.mouseTarget) ? 'l' : 'f';
     
     if(k === qKey) { if(keys['shift']) { player && player.allocateSpellPoint && player.allocateSpellPoint('Q'); } else { player && player.castSpell && player.castSpell('Q'); } }
     if(k === eKey) { if(keys['shift']) { player && player.allocateSpellPoint && player.allocateSpellPoint('E'); } else { player && player.castSpell && player.castSpell('E'); } }
