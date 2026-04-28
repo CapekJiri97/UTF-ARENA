@@ -210,8 +210,22 @@ export class PowerUp {
     } else { if(this.captureTimer > 0) this.captureTimer = Math.max(0, this.captureTimer - dt); }
   }
   draw(ctx) {
-    if(!this.active) return; ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 24px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('PP', this.pos.x, this.pos.y);
-    ctx.strokeStyle = 'rgba(255, 204, 0, 0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI*2); ctx.stroke();
-    if(this.captureTimer > 0) { ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius + 8, -Math.PI/2, -Math.PI/2 + (this.captureTimer / 10.0) * Math.PI*2); ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 6; ctx.stroke(); ctx.font = '16px monospace'; ctx.fillStyle = '#ffcc00'; ctx.fillText((10 - this.captureTimer).toFixed(1) + 's', this.pos.x, this.pos.y + 25); }
+    if(!this.active) return; 
+    ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 24px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; 
+    ctx.fillText('PP', this.pos.x, this.pos.y);
+    
+    ctx.font = '12px monospace';
+    let progressAngle = -Math.PI/2 + (this.captureTimer / 10.0) * Math.PI*2;
+    for(let a = -Math.PI/2; a < Math.PI*1.5; a += 0.2) {
+        let isCaptured = this.captureTimer > 0 && a <= progressAngle;
+        ctx.fillStyle = isCaptured ? '#ffcc00' : 'rgba(255, 204, 0, 0.3)';
+        let char = isCaptured ? '#' : '.';
+        ctx.fillText(char, this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius);
+    }
+    
+    if(this.captureTimer > 0) { 
+        ctx.font = '16px monospace'; ctx.fillStyle = '#ffcc00'; 
+        ctx.fillText((10 - this.captureTimer).toFixed(1) + 's', this.pos.x, this.pos.y + 35); 
+    }
   }
 }

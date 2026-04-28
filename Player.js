@@ -842,19 +842,23 @@ export class BotPlayer extends Player {
       this.posCheckTimer = (this.posCheckTimer || 0) + dt;
       if (this.posCheckTimer >= 1.0) {
           this.posCheckTimer = 0;
-          if (this.lastPosCheck && dist(this.pos, this.lastPosCheck) < 3) {
-              let ang = Math.random() * Math.PI * 2;
+          if (this.lastPosCheck && dist(this.pos, this.lastPosCheck) < 5) {
+              let tgtPos = (this.objective && this.objective.pos) ? this.objective.pos : (this.target ? this.target.pos : {x: world.width/2, y: world.height/2});
+              let objAng = Math.atan2(tgtPos.y - this.pos.y, tgtPos.x - this.pos.x);
+              let dir = Math.random() > 0.5 ? 1 : -1;
+              let ang = objAng + dir * Math.PI / 2;
+
               let dashed = false;
               for (let key of ['Q', 'E']) {
                   let sp = this.spells[key];
                   if (sp && sp.cd <= 0 && (sp.type === 'dash' || sp.type === 'dash_def')) {
-                      this.castSpell(key, this.pos.x + Math.cos(ang)*100, this.pos.y + Math.sin(ang)*100);
+                      this.castSpell(key, this.pos.x + Math.cos(ang)*200, this.pos.y + Math.sin(ang)*200);
                       dashed = true; break;
                   }
               }
               if (!dashed) {
-                  this.dashTimer = 0.2;
-                  this.dashVel = { x: Math.cos(ang)*250, y: Math.sin(ang)*250 }; // 250 * 0.2 = 50 units
+                  this.dashTimer = 0.4;
+                  this.dashVel = { x: Math.cos(ang)*500, y: Math.sin(ang)*500 }; // 500 * 0.4 = 200 units
               }
           }
           this.lastPosCheck = { x: this.pos.x, y: this.pos.y };

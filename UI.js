@@ -105,8 +105,6 @@ export function updateInventory(){ if(!player) return; const inv = document.getE
 
 export function drawBackground(ctx){ 
   ctx.fillStyle = '#070707'; ctx.fillRect(0,0,world.width, world.height);
-  ctx.beginPath(); ctx.ellipse(world.width/2, world.height/2, 1250, 1150, 0, 0, Math.PI*2);
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 100; ctx.stroke();
   if (!game.boundaryVisuals) {
       game.boundaryVisuals = []; let sb = smoothPolygon(mapBoundary, 3);
       for(let i=0; i<sb.length; i++) { let p1 = sb[i], p2 = sb[(i+1)%sb.length]; let d = Math.hypot(p2.x-p1.x, p2.y-p1.y);
@@ -116,8 +114,11 @@ export function drawBackground(ctx){
   ctx.fillStyle = '#555'; ctx.font = '16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
   for(let p of game.boundaryVisuals) { ctx.fillText('#', p.x, p.y); }
   for(let sp of spawnPoints){
-    ctx.beginPath(); ctx.arc(sp.x, sp.y, 200, 0, Math.PI*2); ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2; ctx.stroke(); ctx.font = '20px monospace'; ctx.fillStyle = '#fff'; ctx.textAlign='center'; ctx.fillText('SPAWN', sp.x, sp.y);
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.font = '16px monospace';
+    for(let a=0; a<Math.PI*2; a+=0.15){
+        ctx.fillText('#', sp.x + Math.cos(a)*200, sp.y + Math.sin(a)*200);
+    }
   }
   ctx.strokeStyle = 'rgba(255,255,255,0.02)'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.font = '14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
   if (game.towers && game.towers.length > 0) {
@@ -197,17 +198,28 @@ export function draw(){
   if (game.screenDamageFlash > 0 || game.screenHealFlash > 0) {
       let maxDmg = Math.max(0, game.screenDamageFlash) / 0.5;
       let maxHeal = Math.max(0, game.screenHealFlash) / 0.5;
-      if (maxDmg > 0) {
-          let grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, Math.min(canvas.width, canvas.height)*0.2, canvas.width/2, canvas.height/2, Math.max(canvas.width, canvas.height)*0.7);
-          grad.addColorStop(0, 'rgba(255, 0, 0, 0)');
-          grad.addColorStop(1, `rgba(255, 0, 0, ${maxDmg * 0.5})`);
-          ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-      if (maxHeal > 0) {
-          let grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, Math.min(canvas.width, canvas.height)*0.2, canvas.width/2, canvas.height/2, Math.max(canvas.width, canvas.height)*0.7);
-          grad.addColorStop(0, 'rgba(0, 255, 0, 0)');
-          grad.addColorStop(1, `rgba(0, 255, 0, ${maxHeal * 0.4})`);
-          ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      let chars = ['#', '%', '&', ',', '"', '!'];
+      
+      for(let i=0; i<120; i++) {
+          let rx, ry;
+          if (Math.random() > 0.5) {
+              rx = Math.random() * canvas.width;
+              ry = Math.random() > 0.5 ? Math.random() * 100 : canvas.height - Math.random() * 100;
+          } else {
+              rx = Math.random() > 0.5 ? Math.random() * 100 : canvas.width - Math.random() * 100;
+              ry = Math.random() * canvas.height;
+          }
+          
+          if (maxDmg > 0 && Math.random() < maxDmg) {
+              ctx.fillStyle = `rgba(255, 0, 0, ${Math.random() * 0.3 * maxDmg})`;
+              ctx.fillText(chars[Math.floor(Math.random() * chars.length)], rx, ry);
+          }
+          if (maxHeal > 0 && Math.random() < maxHeal) {
+              ctx.fillStyle = `rgba(0, 255, 0, ${Math.random() * 0.25 * maxHeal})`;
+              ctx.fillText(chars[Math.floor(Math.random() * chars.length)], rx, ry);
+          }
       }
   }
   
@@ -331,6 +343,14 @@ export function draw(){
       drawSpell(cx + 10, cy - 20, qKey, player.spells.Q.level, player.spells.Q.cd, player.computeSpellCooldown('Q'), false, getTypeLabel(player.spells.Q.type));
       drawSpell(cx + 60, cy - 20, eKey, player.spells.E.level, player.spells.E.cd, player.computeSpellCooldown('E'), false, getTypeLabel(player.spells.E.type));
       drawSpell(cx + 110, cy - 20, sumKey, 0, player.summonerCooldown, SUMMONER_SPELLS[player.summonerSpell].cd, true, player.summonerSpell);
+
+      // Lvl Up indikátor (+)
+      if (player.spellPoints > 0) {
+          ctx.fillStyle = (performance.now() % 1000 > 500) ? '#fff' : '#888'; 
+          ctx.font = 'bold 18px monospace';
+          ctx.fillText('+', cx + 30, cy - 30);
+          ctx.fillText('+', cx + 80, cy - 30);
+      }
 
       // STATS TABLE
       ctx.fillStyle = '#111'; ctx.fillRect(cx + 170, cy - 35, 140, 70);
