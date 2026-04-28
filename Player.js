@@ -3,7 +3,7 @@ import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { shopItems } from './items.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 import { spawnPoints, mapBoundary } from './MapConfig.js';
-import { Particle, spawnParticles } from './Effects.js';
+import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
 import { socket, applyDamage, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem } from './main.js';
 import { updateSpellLabels } from './UI.js';
@@ -301,6 +301,8 @@ export class Player{
       }
 
       if (!isNetwork) { this.summonerCooldown = SUMMONER_SPELLS[this.summonerSpell].cd; }
+
+      game.effectTexts.push(new EffectText(this.pos.x, this.pos.y - 30, this.summonerSpell, '#ffcc00'));
 
       switch(this.summonerSpell) {
           case 'Heal': this.hp = Math.min(this.effectiveMaxHp, this.hp + 150 + this.level * 20); spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); break;

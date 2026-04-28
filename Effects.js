@@ -32,3 +32,25 @@ export function spawnParticles(x, y, count, color, opts={}) {
 }
 
 export class DamageNumber{ constructor(x,y,val){ this.pos={x,y}; this.val=val; this.life=0.8; } update(dt){ this.pos.y -= 20*dt; this.life -= dt; } draw(ctx){ ctx.fillStyle='rgba(255,200,60,'+Math.max(0,this.life/0.8)+')'; ctx.font='12px monospace'; ctx.textAlign='center'; ctx.fillText(this.val, this.pos.x, this.pos.y); } }
+
+export class EffectText {
+  constructor(x, y, text, color, opts = {}) {
+    this.pos = { x, y };
+    this.text = text;
+    this.life = opts.life || 1.5;
+    this.maxLife = this.life;
+    this.color = color || '#ffcc00';
+    this.size = opts.size || 20;
+  }
+  update(dt) {
+    this.pos.y -= 25 * dt;
+    this.life -= dt;
+  }
+  draw(ctx) {
+    ctx.save();
+    const alpha = Math.sin(Math.max(0, this.life / this.maxLife) * Math.PI); // Fade in and out smoothly
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = this.color; ctx.font = `bold ${this.size}px monospace`; ctx.textAlign = 'center'; ctx.shadowColor = '#000'; ctx.shadowBlur = 5;
+    ctx.fillText(this.text, this.pos.x, this.pos.y); ctx.restore();
+  }
+}

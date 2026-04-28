@@ -30,7 +30,11 @@ export function updateLobbyUI(playersData) {
           myClass = p.className;
       }
       
-      list.innerHTML += `<li style="color:${tColor}; margin-bottom:6px; font-size:16px;">[${p.className} | ${p.summonerSpell}] ${p.id.substring(0,4)}... ${isMe ? ' (TY)' : ''}</li>`;
+      if (p.team === -1) {
+          list.innerHTML += `<li style="color:#aaa; margin-bottom:6px; font-size:16px;">[SPECTATOR] ${p.id.substring(0,4)}... ${isMe ? ' (TY)' : ''}</li>`;
+      } else {
+          list.innerHTML += `<li style="color:${tColor}; margin-bottom:6px; font-size:16px;">[${p.className} | ${p.summonerSpell}] ${p.id.substring(0,4)}... ${isMe ? ' (TY)' : ''}</li>`;
+      }
       
       if (p.team === 0) blueTaken.add(p.className);
       else redTaken.add(p.className);
@@ -163,7 +167,7 @@ export function draw(){
     
     if (game.isSpectator) {
         ctx.textAlign = 'center'; ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 20px monospace';
-        ctx.fillText('SPECTATOR MODE (2x SPEED) - WASD TO MOVE', canvas.width / 2, 30);
+        ctx.fillText('SPECTATOR MODE - WASD TO MOVE CAMERA', canvas.width / 2, 30);
     }
 
     // Kill Feed (Vpravo nahoře)
@@ -222,14 +226,14 @@ export function draw(){
       const sumKeyStr = game.autoTarget ? 'L' : 'F';
       ctx.fillStyle = sumPct > 0 ? '#555' : '#ffcc00'; ctx.fillText(`[${sumKeyStr}] ${player.summonerSpell}`, cx - w/2 + 510, cy - h + 30);
       if(sumPct>0) ctx.fillText(`${player.summonerCooldown.toFixed(1)}s`, cx - w/2 + 510, cy - h + 55); else ctx.fillText(`READY`, cx - w/2 + 510, cy - h + 55);
-      ctx.fillStyle = '#ffcc00'; ctx.font = '14px monospace'; ctx.fillText(`[B] SHOP | [C] INFO (Items: ${player.items.length})`, cx - w/2 + 600, cy - h + 20);
+      ctx.fillStyle = '#ffcc00'; ctx.font = '14px monospace'; ctx.fillText(`[B] SHOP | [C] INFO (Items: ${player.items.length})`, cx - w/2 + 620, cy - h + 20);
       ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(cx + w/2 - 200, cy - h + 28, 190, 56); ctx.fillStyle = '#ddd'; ctx.font = '11px monospace';
       ctx.fillText(`AD:  ${Math.round(player.AD * (player.hasPowerup?1.2:1))}`, cx + w/2 - 190, cy - h + 43); ctx.fillText(`AP:  ${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + w/2 - 110, cy - h + 43); ctx.fillText(`ARM: ${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + w/2 - 190, cy - h + 58); ctx.fillText(`MR:  ${Math.round(player.mr * (player.hasPowerup?1.2:1))}`, cx + w/2 - 110, cy - h + 58); ctx.fillText(`SPD: ${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + w/2 - 190, cy - h + 73); ctx.fillText(`AS:  ${(player.attackDelay / player.attackSpeed).toFixed(2)}s`, cx + w/2 - 110, cy - h + 73);
     }
     if (keys['tab']) {
         ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(100, 100, canvas.width - 200, canvas.height - 200); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(100, 100, canvas.width - 200, canvas.height - 200);
         ctx.fillStyle = '#fff'; ctx.font = '24px monospace'; ctx.textAlign = 'center'; ctx.fillText('SCOREBOARD', canvas.width/2, 140); ctx.font = '16px monospace'; ctx.textAlign = 'left'; ctx.fillText('BLUE TEAM', 130, 180);
-        let blueTeam = game.players.filter(p => p.team === 0); for(let i=0; i<blueTeam.length; i++) { let p = blueTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = p.id === (player?player.id:null) ? '#0f0' : '#4da6ff'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, 130, 210 + i*25); }
+        let blueTeam = game.players.filter(p => p.team === 0); for(let i=0; i<blueTeam.length; i++) { let p = blueTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = (player && p.id === player.id) ? '#0f0' : '#4da6ff'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, 130, 210 + i*25); }
         ctx.fillStyle = '#fff'; ctx.fillText('RED TEAM', canvas.width/2 + 30, 180); let redTeam = game.players.filter(p => p.team === 1);
         for(let i=0; i<redTeam.length; i++) { let p = redTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = '#ff6b6b'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, canvas.width/2 + 30, 210 + i*25); }
     }
@@ -301,9 +305,9 @@ export function showEnd(winner){
 export function buildMenu() {
   let m = document.getElementById('menu'); if(!m) { m = document.createElement('div'); m.id = 'menu'; document.body.appendChild(m); }
   m.style.position = 'fixed'; m.style.top = '0'; m.style.left = '0'; m.style.width = '100%'; m.style.height = '100%'; m.style.zIndex = '9999'; m.style.display = 'flex'; m.style.justifyContent = 'center'; m.style.alignItems = 'center'; m.style.background = 'rgba(0,0,0,0.85)';
-  let selectedClass = 'Bruiser'; let selectedTeam = 0; let selectedSpell = 'Heal';
+  let selectedClass = 'Bruiser'; let selectedTeam = 0; let selectedSpell = 'Heal'; let isSpectator = false;
   m.innerHTML = `
-    <div style="background:#111; padding:30px; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 850px;">
+    <div style="background:#111; padding:30px; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 1000px;">
       <div id="roomSelector" style="margin-bottom: 15px; display:flex; justify-content: center; gap: 10px;">
           <button class="roomBtn" data-room="Room 1" style="padding:8px 20px; cursor:pointer; font-weight:bold; background:#000; color:#fff; border:2px solid #0f0;">Room 1</button>
           <button class="roomBtn" data-room="Room 2" style="padding:8px 20px; cursor:pointer; font-weight:bold; background:#000; color:#fff; border:2px solid #444;">Room 2</button>
@@ -311,22 +315,24 @@ export function buildMenu() {
       </div>
       <h1 style="margin-top:0;">UTF Arena - MULTIPLAYER LOBBY</h1>
       <div style="display:flex; justify-content: space-between; margin-top: 20px;">
-        <div style="width: 65%; text-align: left;">
+        <div style="width: 70%; text-align: left;">
           <p style="color:#aaa; margin-bottom: 5px;">1. Select Team:</p>
-          <button id="btnBlue" style="padding:10px; width:100%; margin-bottom:5px; cursor:pointer; font-weight:bold; background:#000; color:#4da6ff; border:2px solid #4da6ff;">BLUE TEAM</button>
-          <button id="btnRed" style="padding:10px; width:100%; margin-bottom:15px; cursor:pointer; font-weight:bold; background:#000; color:#ff6b6b; border:2px solid #444;">RED TEAM</button>
+          <div style="display:flex; gap: 5px; margin-bottom:15px;">
+            <button id="btnBlue" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#4da6ff; border:2px solid #4da6ff;">BLUE TEAM</button>
+            <button id="btnRed" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#ff6b6b; border:2px solid #444;">RED TEAM</button>
+            <button id="btnSpec" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#aaa; border:2px solid #444;">SPECTATE</button>
+          </div>
           <p style="color:#aaa; margin-bottom: 5px;">2. Select Class:</p>
           <div id="classBtns" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:15px;"></div>
           <p style="color:#aaa; margin-bottom: 5px;">3. Select Summoner Spell:</p>
           <div id="spellBtns" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
         </div>
-        <div style="width: 32%; text-align: left; background:#000; padding: 15px; border:1px solid #333; border-radius: 4px;">
+        <div style="width: 28%; text-align: left; background:#000; padding: 15px; border:1px solid #333; border-radius: 4px;">
           <h3 style="margin-top:0; color:#aaa; border-bottom:1px solid #444; padding-bottom:10px;">Players in Room:</h3>
           <ul id="lobbyList" style="list-style: none; padding: 0; margin: 0; font-family: monospace;"><li>Connecting to Server...</li></ul>
         </div>
       </div>
       <button id="startBtn" style="margin-top:25px; padding:15px 24px; width: 100%; font-size:18px; font-weight:bold; cursor:pointer; background:#222; color:#0f0; border:2px solid #0f0;">START MATCH (Everyone)</button>
-      <button id="spectateBtn" style="margin-top:10px; padding:10px 24px; width: 100%; font-size:16px; font-weight:bold; cursor:pointer; background:#222; color:#fff; border:2px solid #888;">SPECTATE BOTS (2x SPEED)</button>
     </div>`;
     
   const roomBtns = m.querySelectorAll('.roomBtn');
@@ -338,8 +344,15 @@ export function buildMenu() {
       });
   });
 
-  document.getElementById('btnBlue').onclick = (e) => { selectedTeam = 0; e.target.style.border = '2px solid #4da6ff'; document.getElementById('btnRed').style.border = '2px solid #444'; notifyServer(); };
-  document.getElementById('btnRed').onclick = (e) => { selectedTeam = 1; e.target.style.border = '2px solid #ff6b6b'; document.getElementById('btnBlue').style.border = '2px solid #444'; notifyServer(); };
+  const btnBlue = document.getElementById('btnBlue'), btnRed = document.getElementById('btnRed'), btnSpec = document.getElementById('btnSpec');
+  const teamBtns = [btnBlue, btnRed, btnSpec];
+  const selectionDivs = [document.getElementById('classBtns'), document.getElementById('spellBtns')];
+  const startBtn = document.getElementById('startBtn');
+
+  btnBlue.onclick = (e) => { selectedTeam = 0; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#4da6ff'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
+  btnRed.onclick = (e) => { selectedTeam = 1; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#ff6b6b'; selectionDivs.forEach(d=>d.style.opacity=1); startBtn.disabled = false; startBtn.style.opacity = 1; notifyServer(); };
+  btnSpec.onclick = (e) => { selectedTeam = -1; isSpectator = true; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#aaa'; selectionDivs.forEach(d=>d.style.opacity=0.3); startBtn.disabled = true; startBtn.style.opacity = 0.3; notifyServer(); };
+
   const cBtns = document.getElementById('classBtns');
   const catGroups = { 
       'FIGHTER': ['Bruiser', 'Vanguard', 'Jirina'], 
@@ -356,24 +369,30 @@ export function buildMenu() {
       catGroups[cat].forEach(c => {
           const classInfo = CLASSES[c]; if(!classInfo) return;
           const type = classInfo.dmgType === 'physical' ? 'AD' : 'AP';
-          let btn = document.createElement('button'); btn.textContent = `${c} (${type})`; btn.dataset.className = c; btn.style.padding = '6px 10px'; btn.style.background = '#000'; btn.style.color = '#fff'; btn.style.border = '1px solid #444'; btn.style.cursor = 'pointer';
+          let btn = document.createElement('button'); btn.textContent = `${c} (${type})`; btn.dataset.className = c; btn.style.padding = '8px 10px'; btn.style.background = '#000'; btn.style.color = '#fff'; btn.style.border = '1px solid #444'; btn.style.cursor = 'pointer';
           btn.onclick = () => { selectedClass = c; notifyServer(); }; 
           col.appendChild(btn); allBtns.push(btn);
       });
       cBtns.appendChild(col);
-  } setTimeout(() => { let b = allBtns.find(x => x.textContent === 'Bruiser'); if(b) b.click(); }, 50); // Default Bruiser
+  } setTimeout(() => { let b = allBtns.find(x => x.dataset.className === 'Bruiser'); if(b) b.click(); }, 50); // Default Bruiser
 
   const sBtns = document.getElementById('spellBtns');
   const allSpells = [];
+  const tooltip = document.createElement('div');
+  tooltip.style.position = 'fixed'; tooltip.style.background = 'rgba(0,0,0,0.9)'; tooltip.style.border = '1px solid #888'; tooltip.style.color = '#fff'; tooltip.style.padding = '8px'; tooltip.style.borderRadius = '4px'; tooltip.style.display = 'none'; tooltip.style.pointerEvents = 'none'; tooltip.style.fontSize = '12px';
+  document.body.appendChild(tooltip);
+
   for (let s in SUMMONER_SPELLS) {
-      let btn = document.createElement('button'); btn.textContent = s; btn.dataset.spell = s; btn.style.padding = '6px 10px'; btn.style.background = '#000'; btn.style.color = '#fff'; btn.style.border = '1px solid #444'; btn.style.cursor = 'pointer';
+      let btn = document.createElement('button'); btn.textContent = s; btn.dataset.spell = s; btn.style.padding = '8px 10px'; btn.style.background = '#000'; btn.style.color = '#fff'; btn.style.border = '1px solid #444'; btn.style.cursor = 'pointer'; btn.style.flexGrow = '1';
       btn.onclick = () => { selectedSpell = s; allSpells.forEach(b => b.style.borderColor = '#444'); btn.style.borderColor = '#0f0'; notifyServer(); };
+      btn.onmouseover = (e) => { const spell = SUMMONER_SPELLS[s]; tooltip.innerHTML = `<b>${spell.name}</b><br>${spell.desc}<br><i>Cooldown: ${spell.cd}s</i>`; tooltip.style.display = 'block'; };
+      btn.onmousemove = (e) => { tooltip.style.left = (e.clientX + 15) + 'px'; tooltip.style.top = (e.clientY + 15) + 'px'; };
+      btn.onmouseout = () => { tooltip.style.display = 'none'; };
       sBtns.appendChild(btn); allSpells.push(btn);
   } setTimeout(() => { let b = allSpells.find(x => x.textContent === 'Heal'); if(b) b.click(); }, 50);
 
   function notifyServer() { if(socket) socket.emit('update_selection', { className: selectedClass, team: selectedTeam, summonerSpell: selectedSpell }); }
-  document.getElementById('startBtn').addEventListener('click', () => { if(socket) socket.emit('start_game'); else { m.style.display = 'none'; startGame(selectedClass, selectedTeam); } });
-  document.getElementById('spectateBtn').addEventListener('click', () => { if(socket) socket.disconnect(); m.style.display = 'none'; startGame(selectedClass, selectedTeam, true); });
+  startBtn.addEventListener('click', () => { if(socket) socket.emit('start_game'); else { m.style.display = 'none'; startGame(selectedClass, selectedTeam, isSpectator); } });
 }
 
 export function updateSpellLabels() {}

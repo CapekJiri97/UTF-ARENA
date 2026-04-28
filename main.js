@@ -3,7 +3,7 @@ import { shopItems } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 import { world, spawnPoints, rawPolys, mapBoundary } from './MapConfig.js';
-import { Particle, spawnParticles, DamageNumber } from './Effects.js';
+import { Particle, spawnParticles, DamageNumber, EffectText } from './Effects.js';
 import { Projectile, Tower, Minion, HealPickup, PowerUp } from './Entities.js';
 import { Player, BotPlayer } from './Player.js';
 import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, updateSpellLabels, updateInventory } from './UI.js';
@@ -421,6 +421,15 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   function startGameNetworked(playersData) {
     game.players = []; game.minions = []; game.projectiles = [];
 
+    let isSpectator = true;
+    if (socket) {
+        const myData = playersData[socket.id];
+        if (myData && myData.team !== -1) {
+            isSpectator = false;
+        }
+    }
+    game.isSpectator = isSpectator;
+
     const classKeys = Object.keys(CLASSES);
     function shuffle(arr) { let a=arr.slice(); for(let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
     let blueClasses = shuffle(classKeys); let redClasses = shuffle(classKeys);
@@ -429,12 +438,19 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     let humansBlue = 0; let humansRed = 0;
 
     Object.values(playersData).forEach(pData => {
+        if (pData.team === -1) return; // Skip spectators
         let p = new Player(spawnPoints[pData.team].x, spawnPoints[pData.team].y, { team: pData.team, id: pData.id, className: pData.className, summonerSpell: pData.summonerSpell });
         game.players.push(p);
         if (pData.team === 0) { humansBlue++; blueClasses = blueClasses.filter(c => c !== pData.className); }
         else { humansRed++; redClasses = redClasses.filter(c => c !== pData.className); }
         if (socket && pData.id === socket.id) { player = p; }
     });
+
+    if (isSpectator) {
+        player = null;
+        camera.x = world.width / 2;
+        camera.y = world.height / 2;
+    }
 
     const getBotLane = (idx) => { if(idx <= 3) return 'top'; if(idx === 4) return 'bottom'; return Math.random() > 0.5 ? 'top' : 'bottom'; };
 
@@ -520,6 +536,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     for(let m of game.minions) m.update(dt);
     for(let d of game.damageNumbers) d.update(dt);
     for(let t of game.towers) t.update(dt);
+    for(let et of game.effectTexts) et.update(dt);
     for(let pt of game.particles) pt.update(dt);
     
     for(let h of game.heals) h.update(dt);
@@ -553,6 +570,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     game.minions = game.minions.filter(m=>!m.dead);
     game.damageNumbers = game.damageNumbers.filter(d=>d.life>0);
     game.particles = game.particles.filter(p=>p.life>0);
+    game.effectTexts = game.effectTexts.filter(et=>et.life>0);
 
     // spawning: owned towers spawn minions toward neighboring enemy-owned towers
     if(game.startDelay <= 0 && (!socket || game.isHost)) { spawnTimer += dt;
@@ -645,8 +663,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   function loop(){ 
     try {
       const now = performance.now(); const dtRaw = Math.min(0.05, (now-last)/1000); last = now; 
-      
-      const steps = 1; // Odebrán 2x speed pro Spectator mode
+      const steps = game.isSpectator ? 1 : 1;
       for(let i=0; i<steps; i++) { update(dtRaw); }
       draw(); 
       requestAnimationFrame(loop); 

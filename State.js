@@ -1,6 +1,6 @@
 export const game = {
   autoTarget: true, autoPlay: false, showDebug: false, started: false,
-  players: [], projectiles: [], minions: [], towers: [], damageNumbers: [], particles: [], walls: [],
+  players: [], projectiles: [], minions: [], towers: [], damageNumbers: [], particles: [], effectTexts: [], walls: [],
   shake: 0, nexus: {0:500, 1:500}, gameOver: false, winner: null, startDelay: 10.0,
   heals: [], powerup: null, isHost: false, isSpectator: false,
   killFeed: []

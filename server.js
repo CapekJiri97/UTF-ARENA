@@ -59,6 +59,12 @@ io.on('connection', (socket) => {
     let newClass = data.className;
     let newSpell = data.summonerSpell || 'Heal';
 
+    if (newTeam === -1) { // Player chose to spectate
+        player.team = -1;
+        io.to(currentRoom).emit('lobby_update', room.players);
+        return;
+    }
+
     // --- LOGIKA PROTI DUPLIKÁTŮM ---
     const teamPlayers = Object.values(room.players).filter(p => p.team === newTeam && p.id !== socket.id);
     const isClassTakenOnNewTeam = (cls) => teamPlayers.some(p => p.className === cls);
