@@ -462,7 +462,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   let spawnTimer = 0; const spawnInterval = 12.0; const nexusDrainRate = 0.75; // Sníženo odečítání skóre (cca 30%)
 
   export function buyItem(id){ if(!player) return; const it = shopItems.find(x=>x.id===id); if(!it) return; const allyBaseDist = dist(player.pos, spawnPoints[player.team]); if (allyBaseDist > 250 && player.alive) { return flashMessage('Shop available only in your base!'); } 
-  if (player.items.length >= 25) { return flashMessage('Inventory is full! (Max 25)'); } if(player.gold < it.cost){ return flashMessage('Not enough gold'); } player.gold -= it.cost; player.items.push(it.id); it.apply(player); flashMessage('Bought '+it.name); updateInventory(); 
+  if (player.items.length >= 25) { return flashMessage('Inventory is full! (Max 25)'); } if(player.gold < it.cost){ return flashMessage('Not enough gold'); } player.gold -= it.cost; player.items.push(it.id); it.apply(player); flashMessage('Bought '+it.name); updateInventory(); populateShop(); }
   export function flashMessage(txt){ const el = document.createElement('div'); el.style.position='fixed'; el.style.left='50%'; el.style.top='18px'; el.style.transform='translateX(-50%)'; el.style.background='rgba(255,255,255,0.06)'; el.style.padding='6px 10px'; el.style.borderRadius='6px'; el.style.zIndex=120; el.textContent = txt; document.body.appendChild(el); setTimeout(()=>el.remove(),1200); }
 
   function update(dt){ if(game.gameOver || !game.started) return;
