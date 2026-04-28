@@ -12,7 +12,16 @@ style.innerHTML = `
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 50% !important; overflow: hidden !important; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
   #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 350px !important; height: 100vh !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; }
   #shopOverlay.hidden { transform: translateX(100%) !important; }
-  @media (max-height: 600px), (max-width: 900px) { #minimap { width: 30vh !important; height: 30vh !important; } }
+  @media (max-height: 600px), (max-width: 900px) { 
+      #minimap { 
+          width: 30vh !important; 
+          height: 30vh !important; 
+          position: absolute !important;
+          right: 2vw !important;
+          bottom: 2vh !important;
+          border-radius: 50% !important;
+      } 
+  }
   .shop-col { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
   .shop-col-title { font-weight: bold; color: #ffcc00; margin-bottom: 5px; border-bottom: 1px solid #444; padding-bottom: 3px; }
   @media (max-height: 600px) {
@@ -307,27 +316,31 @@ export function draw(){
     ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = '12px monospace'; ctx.fillStyle = '#888';
     ctx.fillText('B - SHOP', 20, 20); ctx.fillText('C - CHAR. INFO', 20, 36); ctx.fillText('M - GENERAL INFO', 20, 52);
 
+    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
     // --- TOP CENTER SCORE ---
     let tBlue = game.towers.filter(t=>t.owner===0).length; let tRed = game.towers.filter(t=>t.owner===1).length;
     let cxTop = canvas.width / 2;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.font = 'bold 28px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top'; 
+    ctx.font = isMobile ? 'bold 18px monospace' : 'bold 28px monospace';
     ctx.fillStyle = '#fff'; ctx.fillText(' : ', cxTop, 20);
     ctx.textAlign = 'right'; ctx.fillStyle = '#486FED'; ctx.fillText(Math.floor(game.nexus[0]), cxTop - 15, 20);
     ctx.textAlign = 'left'; ctx.fillStyle = '#FF4E4E'; ctx.fillText(Math.floor(game.nexus[1]), cxTop + 15, 20);
     
-    ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(' X ', cxTop, 55);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#486FED'; ctx.fillText(`(${tBlue})`, cxTop - 15, 55);
-    ctx.textAlign = 'left'; ctx.fillStyle = '#FF4E4E'; ctx.fillText(`(${tRed})`, cxTop + 15, 55);
+    ctx.font = isMobile ? 'bold 12px monospace' : 'bold 18px monospace'; 
+    ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(' X ', cxTop, isMobile ? 40 : 55);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#486FED'; ctx.fillText(`(${tBlue})`, cxTop - 15, isMobile ? 40 : 55);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#FF4E4E'; ctx.fillText(`(${tRed})`, cxTop + 15, isMobile ? 40 : 55);
 
     if (game.isSpectator) {
-        ctx.textAlign = 'center'; ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 20px monospace';
-        ctx.fillText('SPECTATOR MODE - WASD TO MOVE CAMERA', canvas.width / 2, 90);
+        ctx.textAlign = 'center'; ctx.fillStyle = '#ffcc00'; ctx.font = isMobile ? 'bold 14px monospace' : 'bold 20px monospace';
+        ctx.fillText('SPECTATOR MODE - WASD TO MOVE CAMERA', canvas.width / 2, isMobile ? 65 : 90);
     }
 
-    // Kill Feed & Objectives (Uprostřed pod skóre)
+    // Kill Feed & Objectives
     if (game.killFeed && game.killFeed.length > 0) {
-        let kfY = 85;
-        ctx.font = 'bold 13px monospace';
+        let kfY = isMobile ? 65 : 85;
+        ctx.font = isMobile ? 'bold 10px monospace' : 'bold 13px monospace';
         for (let kf of game.killFeed) {
             let kStr = kf.killer; let vStr = kf.victim; let mStr = kf.isCapture ? ' 🚩 ' : ' ⚔ ';
             let wK = ctx.measureText(kStr).width; let wM = ctx.measureText(mStr).width; let wV = ctx.measureText(vStr).width;
@@ -339,28 +352,32 @@ export function draw(){
             ctx.fillStyle = '#fff'; ctx.fillText(mStr, startX + wK, kfY);
             ctx.fillStyle = kf.victimTeam === 0 ? '#486FED' : (kf.victimTeam === 1 ? '#FF4E4E' : '#aaa');
             ctx.fillText(vStr, startX + wK + wM, kfY);
-            kfY += 22;
+            kfY += (isMobile ? 14 : 22);
         }
     }
 
     if(player) {
       if (!keys['tab']) {
-          ctx.textAlign = 'right'; ctx.font = '14px monospace'; let allyBots = game.players.filter(p => p.team === player.team && p.id !== player.id); let startY = canvas.height - 330;
-          ctx.fillStyle = '#aaa'; ctx.fillText('TEAMMATES', canvas.width - 20, startY - allyBots.length*25 - 10);
+          ctx.textAlign = 'right'; ctx.font = isMobile ? '10px monospace' : '14px monospace'; 
+          let allyBots = game.players.filter(p => p.team === player.team && p.id !== player.id); 
+          let shiftY = isMobile ? 16 : 25;
+          // Zajištění, aby spoluhráči byli nad minimapou
+          let startY = canvas.height - (isMobile ? (window.innerHeight * 0.35) : 330); 
+          ctx.fillStyle = '#aaa'; ctx.fillText('TEAMMATES', canvas.width - 20, startY - allyBots.length * shiftY - 10);
           for(let i=0; i<allyBots.length; i++) {
-              let bot = allyBots[i]; let y = startY - (allyBots.length - 1 - i)*25;
+              let bot = allyBots[i]; let y = startY - (allyBots.length - 1 - i) * shiftY;
               ctx.fillStyle = bot.alive ? '#fff' : '#666'; ctx.fillText(`${bot.className} LV${bot.level}`, canvas.width - 80, y);
               let maxBoxes = 5; let f = Math.max(0, Math.min(maxBoxes, Math.round((Math.max(0, bot.hp) / bot.maxHp) * maxBoxes) || 0));
               let bar = '[' + '|'.repeat(f) + ' '.repeat(maxBoxes - f) + ']'; ctx.fillStyle = bot.alive ? (bot.team === 0 ? '#486FED' : '#FF4E4E') : '#444'; ctx.fillText(bar, canvas.width - 20, y); 
           }
       }
       
-      const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       let anchorX = canvas.width / 2; const anchorY = canvas.height - (isMobile ? 10 : 65); 
       if (!isMobile && anchorX + 300 > canvas.width - 320) anchorX = Math.max(300, canvas.width - 620); // Responzivní uhnutí minimapě
 
       ctx.save();
-      let uiScale = isMobile ? Math.min(0.35, canvas.height / 800) : 1;
+      // Výrazně čistší a větší měřítko středového HUDu pro mobily
+      let uiScale = isMobile ? 0.75 : 1; 
       ctx.translate(anchorX, anchorY);
       ctx.scale(uiScale, uiScale);
       
@@ -728,41 +745,56 @@ export function initMobileUI() {
     const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (!isMobile) return;
     
+    // Zásadní oddálení kamery na mobilu (původně 1.52, teď 0.5 pro masivní rozhled)
+    camera.scale = 0.5;
+    
     const mc = document.createElement('div');
     mc.id = 'mobileControls';
     mc.style.position = 'fixed'; mc.style.top = '0'; mc.style.left = '0'; mc.style.width = '100%'; mc.style.height = '100%';
     mc.style.pointerEvents = 'none'; mc.style.zIndex = '5000'; mc.style.display = 'none';
     
+    // OBŘÍ D-PAD
     const dpad = document.createElement('div');
-    dpad.style.position = 'absolute'; dpad.style.left = '5vw'; dpad.style.bottom = '5vh';
-    dpad.style.width = '30vh'; dpad.style.height = '30vh';
+    dpad.style.position = 'absolute'; dpad.style.left = '4vw'; dpad.style.bottom = '8vh';
+    dpad.style.width = '45vh'; dpad.style.height = '45vh'; 
     dpad.style.background = 'rgba(255,255,255,0.1)';
     dpad.style.borderRadius = '50%'; dpad.style.pointerEvents = 'auto';
-    dpad.innerHTML = '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:rgba(255,255,255,0.2); font-family:monospace; font-size:3vh; font-weight:bold; pointer-events:none;">MOVE</div>';
+    dpad.innerHTML = '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:rgba(255,255,255,0.2); font-family:monospace; font-size:4vh; font-weight:bold; pointer-events:none;">MOVE</div>';
     
+    // TLAČÍTKA KOUZEL (vpravo nahoře nad minimapou)
     const btns = document.createElement('div');
-    btns.style.position = 'absolute'; btns.style.right = '2vw'; btns.style.bottom = '35vh';
+    btns.style.position = 'absolute'; btns.style.right = '2vw'; btns.style.bottom = '38vh'; 
     btns.style.display = 'flex'; btns.style.gap = '15px'; btns.style.pointerEvents = 'auto';
     
-    const triggerKey = (keyStr) => { window.dispatchEvent(new KeyboardEvent('keydown', { key: keyStr, bubbles: true })); };
-    const releaseKey = (keyStr) => { window.dispatchEvent(new KeyboardEvent('keyup', { key: keyStr, bubbles: true })); };
+    const triggerKey = (keyStr, shift = false) => { window.dispatchEvent(new KeyboardEvent('keydown', { key: keyStr, shiftKey: shift, bubbles: true })); };
+    const releaseKey = (keyStr, shift = false) => { window.dispatchEvent(new KeyboardEvent('keyup', { key: keyStr, shiftKey: shift, bubbles: true })); };
     
-    const createBtn = (keyStr, label) => {
+    const createBtn = (keyStr, label, shift = false, size = '12vh', fontSize = '4vh') => {
         const b = document.createElement('div');
-        b.style.width = '12vh'; b.style.height = '12vh'; b.style.background = 'rgba(255,255,255,0.1)';
+        b.style.width = size; b.style.height = size; b.style.background = 'rgba(255,255,255,0.15)';
         b.style.borderRadius = '50%'; b.style.display = 'flex'; b.style.justifyContent = 'center'; b.style.alignItems = 'center';
-        b.style.color = 'rgba(255,255,255,0.5)'; b.style.fontSize = '4vh'; b.style.fontWeight = 'bold'; b.style.fontFamily = 'monospace';
+        b.style.color = 'rgba(255,255,255,0.8)'; b.style.fontSize = fontSize; b.style.fontWeight = 'bold'; b.style.fontFamily = 'monospace';
         b.textContent = label;
-        b.addEventListener('touchstart', (e) => { e.preventDefault(); b.style.background = 'rgba(255,255,255,0.3)'; triggerKey(keyStr); }, {passive:false});
-        b.addEventListener('touchend', (e) => { e.preventDefault(); b.style.background = 'rgba(255,255,255,0.1)'; releaseKey(keyStr); }, {passive:false});
+        b.addEventListener('touchstart', (e) => { e.preventDefault(); b.style.background = 'rgba(255,255,255,0.4)'; triggerKey(keyStr, shift); }, {passive:false});
+        b.addEventListener('touchend', (e) => { e.preventDefault(); b.style.background = 'rgba(255,255,255,0.15)'; releaseKey(keyStr, shift); }, {passive:false});
         return b;
     };
     
     btns.appendChild(createBtn('j', 'Q'));
     btns.appendChild(createBtn('k', 'E'));
-    btns.appendChild(createBtn('l', 'S')); // Summoner spell
+    btns.appendChild(createBtn('l', 'S')); 
     
-    mc.appendChild(dpad); mc.appendChild(btns); document.body.appendChild(mc);
+    // TLAČÍTKA VEDLE MINIMAPY (SHOP, INFO, AUTOPLAY)
+    const sideBtns = document.createElement('div');
+    sideBtns.style.position = 'absolute'; sideBtns.style.right = '34vh'; // Nalevo od 30vh minimapy
+    sideBtns.style.bottom = '2vh';
+    sideBtns.style.display = 'flex'; sideBtns.style.flexDirection = 'column'; sideBtns.style.gap = '10px'; sideBtns.style.pointerEvents = 'auto';
+
+    sideBtns.appendChild(createBtn('b', 'SHOP', false, '8vh', '2vh'));
+    sideBtns.appendChild(createBtn('c', 'INFO', false, '8vh', '2vh'));
+    sideBtns.appendChild(createBtn('i', 'AUTO', true, '8vh', '2vh')); // Shift+I zapíná/vypíná autoplay
+    
+    mc.appendChild(dpad); mc.appendChild(btns); mc.appendChild(sideBtns); document.body.appendChild(mc);
 
     let activeDirs = { w:false, a:false, s:false, d:false };
     const updateDirs = (nw, na, ns, nd) => {
@@ -776,7 +808,8 @@ export function initMobileUI() {
         e.preventDefault(); const rect = dpad.getBoundingClientRect(); let touch = null;
         for(let i=0; i<e.touches.length; i++) {
             const tx = e.touches[i].clientX - rect.left; const ty = e.touches[i].clientY - rect.top;
-            if (tx > -20 && tx < rect.width + 20 && ty > -20 && ty < rect.height + 20) { touch = {x: tx, y: ty}; break; }
+            let margin = rect.width * 0.4; // Velkorysá hranice dotyku i mimo okraj D-Padu
+            if (tx > -margin && tx < rect.width + margin && ty > -margin && ty < rect.height + margin) { touch = {x: tx, y: ty}; break; }
         }
         if (touch) {
             const cx = rect.width / 2; const cy = rect.height / 2;

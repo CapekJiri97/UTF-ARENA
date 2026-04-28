@@ -533,11 +533,11 @@ export class BotPlayer extends Player {
       if (Math.random() < 0.05 && this.level >= 4) this.farmUrge = true;
       if (Math.random() < 0.1) this.farmUrge = false;
 
-      if (Math.random() < 0.05 && !this.huntTarget) {
+      if (Math.random() < 0.1 && !this.huntTarget) {
           let squishies = game.players.filter(p => p.team !== this.team && p.alive && ['Mage', 'Healer', 'Marksman', 'Acolyte', 'Summoner'].includes(p.className));
           if (squishies.length > 0) this.huntTarget = squishies[Math.floor(Math.random() * squishies.length)];
       }
-      if (this.huntTarget && (!this.huntTarget.alive || Math.random() < 0.01)) this.huntTarget = null;
+      if (this.huntTarget && (!this.huntTarget.alive || Math.random() < 0.005)) this.huntTarget = null;
 
       // --- 1. Hodnocení Objektivů (Věže a Minioni) ---
       let bestObjective = null;
@@ -642,7 +642,7 @@ export class BotPlayer extends Player {
           }
       }
       
-      if (Math.random() < 0.1) this.powerupUrge = true; // 10% šance na vyvolání nutkání sebrat powerup
+      if (Math.random() < 0.35) this.powerupUrge = true; // 35% šance na vyvolání nutkání sebrat powerup
       if (!game.powerup || !game.powerup.active || this.hasPowerup) this.powerupUrge = false;
       
       if (this.powerupUrge && game.powerup && game.powerup.active) {
@@ -659,14 +659,29 @@ export class BotPlayer extends Player {
       const enemies = [...game.players.filter(p => p.team !== this.team && p.alive), ...game.minions.filter(m => m.team !== this.team && !m.dead)];
       for (let e of enemies) {
           let d = dist(e.pos, this.pos);
-          if (d < this.personalWeights.attackVisionRange) {
+          // Pokud je to hunt target, ignorujeme zrak a vnímáme ho globálně
+          if (d < this.personalWeights.attackVisionRange || this.huntTarget === e) {
               let score = this.personalWeights.enemyBaseScore - d;
               if (dist(e.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Neútočíme dovnitř báze
+              
+              // ANALÝZA PŘESILY (Prevence sebevražedných 1v3)
+              if (e.className && this.huntTarget !== e) {
+                  let alliesNear = game.players.filter(p => p.team === this.team && p.alive && dist(p.pos, e.pos) < 600).length;
+                  let enemiesNear = game.players.filter(p => p.team !== this.team && p.alive && dist(p.pos, e.pos) < 600).length;
+                  if (enemiesNear > alliesNear + 1) { // Pokud jsou v přesile (např 1v3, 2v4)
+                      score -= 15000 * (enemiesNear - alliesNear); // Obrovská penalizace za riziko
+                  }
+              }
+
               if (e.className) {
                   score += this.personalWeights.heroKillScore;
-                  if (this.huntTarget === e) score += 8000; // Masivní priorita lovené oběti
+                  if (this.huntTarget === e) score += 20000; // Terminátor mód - gigantická priorita pro lovený cíl
               } else {
-                  if (this.farmUrge) score += 3400; // Sníženo o 15%
+                  if (this.farmUrge) score += 600; // Značně sníženo, aby minioni mimo věž tolik nelákali
+                  // Masivní priorita POUZE pro miniony, kteří překážejí v obsazování/obraně věže
+                  if ((this.state === 'CAPTURE' || this.state === 'DEFEND') && this.objective && this.objective.pos) {
+                      if (dist(e.pos, this.objective.pos) < 300) score += 8000;
+                  }
               }
               if (e.hp / (e.effectiveMaxHp || e.maxHp) < 0.3 && !this.farmUrge) score += this.personalWeights.lowHpScore;
               
@@ -676,7 +691,6 @@ export class BotPlayer extends Player {
                   let hits = atkData.count || 1;
                   if (timeSince < 5000) {
                       score += 6000 + (hits * 1500); // Silnější reakce na toho, kdo mě zasáhl (roste s hity)
-                      if (!e.className) score += 8000 + (hits * 3500); // Pokud je to minion, zvedni aggro drasticky s každým hitem
                   }
               }
 
@@ -891,13 +905,13 @@ export class BotPlayer extends Player {
 
       // --- ANTI-STUCK MECHANISMUS ---
       this.posCheckTimer = (this.posCheckTimer || 0) + dt;
-      if (this.posCheckTimer >= 1.0) {
+      if (this.posCheckTimer >= 0.25) {
           this.posCheckTimer = 0;
-          if (this.lastPosCheck && dist(this.pos, this.lastPosCheck) < 10) {
+          if (this.lastPosCheck && dist(this.pos, this.lastPosCheck) < 5) {
                   let nearWall = false;
                   for (let w of game.walls) {
                       let info = distToPoly(this.pos.x, this.pos.y, w.pts);
-                      if (info.minDist <= w.r + 10 || info.inside) {
+                      if (info.minDist <= w.r + 50 || info.inside) {
                           nearWall = true; break;
                       }
                   }
