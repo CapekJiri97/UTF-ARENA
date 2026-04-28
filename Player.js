@@ -490,6 +490,9 @@ export class BotPlayer extends Player {
           this.personalWeights[key] = BOT_WEIGHTS[key] * (0.9 + Math.random() * 0.2);
       }
       this.guardData = null;
+      this.farmUrgeTimer = 0;
+      this.huntUrgeTimer = 0;
+      this.powerupUrgeTimer = 0;
     }
     revive() {
       super.revive();
@@ -531,15 +534,18 @@ export class BotPlayer extends Player {
 
       this.terrified = false; // Reset strachu na začátku úvahy
 
-      // --- 0. Náhodné nálady (Urges) ---
-      if (Math.random() < 0.05 && this.level >= 4) this.farmUrge = true;
-      if (Math.random() < 0.1) this.farmUrge = false;
+      // --- 0. Nálady (Urges) s fixním časovačem ---
+      if (this.farmUrgeTimer <= 0 && Math.random() < 0.05 && this.level >= 4) this.farmUrgeTimer = 15 + Math.random() * 10;
+      const farmUrge = this.farmUrgeTimer > 0;
 
       if (Math.random() < 0.1 && !this.huntTarget) {
           let squishies = game.players.filter(p => p.team !== this.team && p.alive && ['Mage', 'Healer', 'Marksman', 'Acolyte', 'Summoner'].includes(p.className));
-          if (squishies.length > 0) this.huntTarget = squishies[Math.floor(Math.random() * squishies.length)];
+          if (squishies.length > 0) {
+              this.huntTarget = squishies[Math.floor(Math.random() * squishies.length)];
+              this.huntUrgeTimer = 15 + Math.random() * 10;
+          }
       }
-      if (this.huntTarget && (!this.huntTarget.alive || Math.random() < 0.005)) this.huntTarget = null;
+      if (this.huntTarget && !this.huntTarget.alive) { this.huntTarget = null; this.huntUrgeTimer = 0; }
 
       // --- 1. Hodnocení Objektivů (Věže a Minioni) ---
       let bestObjective = null;
@@ -644,12 +650,16 @@ export class BotPlayer extends Player {
           }
       }
       
-      if (Math.random() < 0.35) this.powerupUrge = true; // 35% šance na vyvolání nutkání sebrat powerup
-      if (!game.powerup || !game.powerup.active || this.hasPowerup) this.powerupUrge = false;
+      if (this.powerupUrgeTimer <= 0 && Math.random() < 0.20) this.powerupUrgeTimer = 10 + Math.random() * 10; // 10-20 sekund
+      const powerupUrge = this.powerupUrgeTimer > 0;
       
-      if (this.powerupUrge && game.powerup && game.powerup.active) {
+      if (game.powerup && game.powerup.active && !this.hasPowerup) {
           let d = dist(this.pos, game.powerup.pos);
-          let score = this.personalWeights.powerupScore - d;
+          let score = this.personalWeights.powerupScore - d; 
+          
+          if (powerupUrge) score += 10000; // Silný bonus z nálady
+          if (d < game.powerup.radius + 20) score += 30000; // Pokud už v něm bot stojí nebo běží těsně kolem, neodejde!
+
           if (dist(game.powerup.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty;
           if (this.state === 'PICKUP' && this.objective && this.objective.type === 'powerup') score += this.personalWeights.objectiveHysteresis;
           if (score > bestObjScore) { bestObjScore = score; bestObjective = { pos: game.powerup.pos, type: 'powerup', captureRadius: 70 }; bestState = 'PICKUP'; }
@@ -688,15 +698,15 @@ export class BotPlayer extends Player {
 
               if (e.className) {
                   score += this.personalWeights.heroKillScore;
-                  if (this.huntTarget === e) score += 20000; // Terminátor mód - gigantická priorita pro lovený cíl
+                  if (this.huntTarget === e) score += 30000; // Terminátor mód - neoblomná gigantická priorita
               } else {
-                  if (this.farmUrge) score += 600; // Značně sníženo, aby minioni mimo věž tolik nelákali
+                  if (farmUrge) score += 1500; // Zvýšeno, aby farmařil více
                   // Masivní priorita POUZE pro miniony, kteří překážejí v obsazování/obraně věže
                   if ((this.state === 'CAPTURE' || this.state === 'DEFEND') && this.objective && this.objective.pos) {
                       if (dist(e.pos, this.objective.pos) < 300) score += 8000;
                   }
               }
-              if (e.hp / (e.effectiveMaxHp || e.maxHp) < 0.3 && !this.farmUrge) score += this.personalWeights.lowHpScore;
+              if (e.hp / (e.effectiveMaxHp || e.maxHp) < 0.3 && !farmUrge) score += this.personalWeights.lowHpScore;
               
               if (this.recentAttackers && this.recentAttackers.has(e.id)) {
                   let atkData = this.recentAttackers.get(e.id);
@@ -711,8 +721,9 @@ export class BotPlayer extends Player {
               if (isLosing) score -= 3450; // Posílena averze k boji o 15%
 
               // PŘIDÁNO: Ztráta priority, pokud ho bot dlouho nahání ale nedal mu dmg
-              if (this.target === e && this.chaseTimer > 1.0) {
-                  score -= 20000; // Po vteřině neúspěšného stíhání cíl těžce ztratí na prioritě
+              // OPRAVA: Ignorujeme Anti-Chase pro lovené cíle a volání o pomoc!
+              if (this.target === e && this.chaseTimer > 2.0 && this.huntTarget !== e && this.helpUrgeTarget !== e) {
+                  score -= 20000; // Po dvou vteřinách neúspěšného stíhání běžný cíl těžce ztratí na prioritě
               }
 
               if (score > bestTargetScore) { bestTargetScore = score; bestTarget = e; }
@@ -722,8 +733,9 @@ export class BotPlayer extends Player {
       // --- 2.5 Hodnocení Volání o pomoc (Help Urge) ---
       if (this.helpUrgeTarget && this.helpUrgeTarget.alive !== false && !this.helpUrgeTarget.dead) {
           let dToHelp = dist(this.pos, this.helpUrgeTarget.pos);
-          if (dToHelp < 1500) { // Běží pomoct i z větší dálky, než je běžný vision
-              let score = 25000 - dToHelp; // Obrovská priorita (přebije i neutrální věž)
+          let maxHelpDist = this.role === 'SUPPORT' ? 2500 : 1500;
+          if (dToHelp < maxHelpDist) { // Běží pomoct i z větší dálky, než je běžný vision
+              let score = (this.role === 'SUPPORT' ? 40000 : 30000) - dToHelp; // Zvýšeno, aby pomoc přebila i pushování a PowerUp
               if (score > bestTargetScore) { bestTargetScore = score; bestTarget = this.helpUrgeTarget; }
           } else {
               this.helpUrgeTarget = null; // Cíl pomoci se příliš vzdálil
@@ -738,17 +750,26 @@ export class BotPlayer extends Player {
           if ((this.hp / this.effectiveMaxHp) < enemyHpPct && (!this.lastHelpCallTime || now - this.lastHelpCallTime > 5000)) {
               this.lastHelpCallTime = now;
               if (Math.random() < 0.5) { // 50% šance na zavolání
-                  let allies = game.players.filter(p => p instanceof BotPlayer && p.team === this.team && p.id !== this.id && p.alive && dist(p.pos, this.pos) < 1200);
+                  let allies = game.players.filter(p => p instanceof BotPlayer && p.team === this.team && p.id !== this.id && p.alive);
                   for (let ally of allies) {
+                      let hearRadius = ally.role === 'SUPPORT' ? 2000 : 1200;
+                      if (dist(ally.pos, this.pos) > hearRadius) continue;
+
                       let isBusy = false;
                       if (ally.state === 'ATTACK') isBusy = true; // Zrovna bojuje
                       if (ally.state === 'PICKUP' && ally.objective && ally.objective.type === 'heal') isBusy = true; // Jde se léčit
                       if ((ally.state === 'CAPTURE' || ally.state === 'PUSH') && ally.objective && ally.objective.pos) {
                           if (dist(ally.pos, ally.objective.pos) < dist(ally.pos, this.pos)) isBusy = true; // Má bližší objektiv, než je vzdálenost k volajícímu
                       }
+
+                      // SUPPORT zahodí práci a jde pomoct, pokud sám neumírá
+                      if (ally.role === 'SUPPORT' && (ally.hp / ally.effectiveMaxHp > 0.35)) {
+                          isBusy = false;
+                      }
+
                       if (!isBusy) {
                           ally.helpUrgeTarget = this.target; // Přepošleme mu nepřítele
-                          ally.helpUrgeTimer = 5.0; // Bude mu klást prioritu po 5 sekund
+                          ally.helpUrgeTimer = ally.role === 'SUPPORT' ? 8.0 : 5.0; // Support se snaží déle
                       }
                   }
               }
@@ -761,20 +782,21 @@ export class BotPlayer extends Player {
           
           let fleePos = spawnPoints[this.team];
           let bestFleeDist = Infinity;
+          let fleeRadius = 200; // Výchozí radius pro spawn
           
           // 1. Zkusíme utéct k nejbližší lékárničce
           for (let h of game.heals) {
-              if (h.active) { let d = dist(this.pos, h.pos); if (d < bestFleeDist) { bestFleeDist = d; fleePos = h.pos; } }
+              if (h.active) { let d = dist(this.pos, h.pos); if (d < bestFleeDist) { bestFleeDist = d; fleePos = h.pos; fleeRadius = 20; } }
           }
           
           // 2. Pokud žádná není blízko (dál než 1500 unitů), běžíme k nejbližšímu spojenci
           if (bestFleeDist > 1500) {
               for (let p of game.players) {
-                  if (p.team === this.team && p.alive && p.id !== this.id) { let d = dist(this.pos, p.pos); if (d < bestFleeDist) { bestFleeDist = d; fleePos = p.pos; } }
+                  if (p.team === this.team && p.alive && p.id !== this.id) { let d = dist(this.pos, p.pos); if (d < bestFleeDist) { bestFleeDist = d; fleePos = p.pos; fleeRadius = 150; } }
               }
           }
           
-          bestObjective = { pos: fleePos, type: 'flee', captureRadius: 200 };
+          bestObjective = { pos: fleePos, type: 'flee', captureRadius: fleeRadius };
           bestState = 'PICKUP'; // Zneužijeme PUSH/PICKUP logiku pro prostý běh
           bestTargetScore = -Infinity;
           bestTarget = null;
@@ -900,6 +922,14 @@ export class BotPlayer extends Player {
       if(this.levelUpTimer > 0) this.levelUpTimer -= dt;
 
       if(this.msBuffTimer > 0) this.msBuffTimer -= dt;
+
+      // Úprava pro nálady bota
+      if(this.farmUrgeTimer > 0) this.farmUrgeTimer -= dt;
+      if(this.powerupUrgeTimer > 0) this.powerupUrgeTimer -= dt;
+      if(this.huntUrgeTimer > 0) {
+          this.huntUrgeTimer -= dt;
+          if (this.huntUrgeTimer <= 0) this.huntTarget = null;
+      }
       
       // Timer pro volání o pomoc (Když mu někdo dá prioritu cizího targetu, drží mu to 5 vteřin)
       if(this.helpUrgeTimer > 0) {
@@ -1010,10 +1040,19 @@ export class BotPlayer extends Player {
                   let cRad = fightObjective.captureRadius || 80;
                   
                   if (isCapturing && odist > cRad - 15) {
-                      // PŘIDÁNO: Pokud se snaží zabrat věž, nesmí ho chase/kiting vyhodit z kruhu!
-                      let pullStr = Math.max(200, d * 2.0); 
-                      dx += (odx/odist) * pullStr; 
-                      dy += (ody/odist) * pullStr;
+                      let isUnderPressure = (this.hp / this.effectiveMaxHp < 0.5);
+                      if (this.recentAttackers) {
+                          let now = performance.now();
+                          for (let atkData of this.recentAttackers.values()) {
+                              if (now - (atkData.time || atkData) < 3000) { isUnderPressure = true; break; }
+                          }
+                      }
+                      // OPRAVA: Magnet se vypne, pokud bot schytává rány nebo má málo HP, aby mohl volně kitovat
+                      if (!isUnderPressure) {
+                          let pullStr = Math.max(120, d * 1.5); 
+                          dx += (odx/odist) * pullStr; 
+                          dy += (ody/odist) * pullStr;
+                      }
                   } else if (odist > 50 && odist < 600) { 
                       let pullStr = Math.max(10, d * 0.6);
                       dx += (odx/odist) * pullStr; 
