@@ -182,7 +182,7 @@ export function draw(){
       const qKeyStr = game.autoTarget ? 'J' : 'Q'; const eKeyStr = game.autoTarget ? 'K' : 'E';
       ctx.fillStyle = qPct > 0 ? '#555' : '#fff'; ctx.fillText(`[${qKeyStr}] LV${player.spells.Q.level}`, cx - w/2 + 330, cy - h + 30); if(qPct>0) ctx.fillText(`${player.spells.Q.cd.toFixed(1)}s`, cx - w/2 + 330, cy - h + 55); else ctx.fillText(`READY`, cx - w/2 + 330, cy - h + 55);
       ctx.fillStyle = ePct > 0 ? '#555' : '#fff'; ctx.fillText(`[${eKeyStr}] LV${player.spells.E.level}`, cx - w/2 + 420, cy - h + 30); if(ePct>0) ctx.fillText(`${player.spells.E.cd.toFixed(1)}s`, cx - w/2 + 420, cy - h + 55); else ctx.fillText(`READY`, cx - w/2 + 420, cy - h + 55);
-      ctx.fillStyle = '#ffcc00'; ctx.font = '14px monospace'; ctx.fillText(`[B] SHOP (Items: ${player.items.length})`, cx - w/2 + 510, cy - h + 20);
+      ctx.fillStyle = '#ffcc00'; ctx.font = '14px monospace'; ctx.fillText(`[B] SHOP | [C] INFO (Items: ${player.items.length})`, cx - w/2 + 510, cy - h + 20);
       ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(cx + w/2 - 200, cy - h + 28, 190, 56); ctx.fillStyle = '#ddd'; ctx.font = '11px monospace';
       ctx.fillText(`AD:  ${Math.round(player.AD * (player.hasPowerup?1.2:1))}`, cx + w/2 - 190, cy - h + 43); ctx.fillText(`AP:  ${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + w/2 - 110, cy - h + 43); ctx.fillText(`ARM: ${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + w/2 - 190, cy - h + 58); ctx.fillText(`MR:  ${Math.round(player.mr * (player.hasPowerup?1.2:1))}`, cx + w/2 - 110, cy - h + 58); ctx.fillText(`SPD: ${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + w/2 - 190, cy - h + 73); ctx.fillText(`AS:  ${(player.attackDelay / player.attackSpeed).toFixed(2)}s`, cx + w/2 - 110, cy - h + 73);
     }
@@ -203,7 +203,21 @@ export function draw(){
         ctx.fillText(`    Dmg: Base ${q.baseDamage||q.amount||0} + (${(q.scaleAD||0)*100}% AD) + (${(q.scaleAP||0)*100}% AP) = ${qTotal}`, 450, 270);
         ctx.fillText(`[E] Level ${e.level} - Cooldown: ${player.computeSpellCooldown('E').toFixed(1)}s`, 450, 310); ctx.fillStyle = '#aaa'; ctx.fillText(`    ${e.desc}`, 450, 330); ctx.fillStyle = '#fff';
         let eTotal = e.type.includes('heal') ? Math.round((e.amount||0) + (player.AP * (e.scaleAP||0)) + (player.AD * (e.scaleAD||0)) + e.level*10) : Math.round((e.baseDamage||0) + (player.AP * (e.scaleAP||0)) + (player.AD * (e.scaleAD||0)) + e.level*8); ctx.fillText(`    Dmg: Base ${e.baseDamage||e.amount||0} + (${(e.scaleAD||0)*100}% AD) + (${(e.scaleAP||0)*100}% AP) = ${eTotal}`, 450, 350);
-        let baDmg = Math.round(CLASSES[player.className].baseAtk + (player.dmgType === 'magical' ? player.AP*0.2 : player.AD*0.2)); ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (20% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, 150, 560);
+        let baScale = player.dmgType === 'magical' ? (player.className === 'Hana' ? 0.4 : 0.15) : 0.6;
+        let baDmg = Math.round(CLASSES[player.className].baseAtk + (player.dmgType === 'magical' ? player.AP*baScale : player.AD*baScale)); ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, 150, 560);
+        
+        ctx.fillStyle = '#ffcc00'; ctx.font = '18px monospace'; ctx.fillText(`CONTROLS`, 450, 400); 
+        ctx.fillStyle = '#fff'; ctx.font = '14px monospace';
+        ctx.fillText(`[W,A,S,D]     : Move`, 450, 425);
+        ctx.fillText(`[ARROWS]      : Manual Aim`, 450, 445);
+        ctx.fillText(`[SPACE]       : Basic Attack`, 450, 465);
+        ctx.fillText(`[Q] / [E]     : Cast Spells (J/K if AutoTarget ON)`, 450, 485);
+        ctx.fillText(`[SHIFT + Q/E] : Level Up Spell`, 450, 505);
+        ctx.fillText(`[B] : Shop  |  [TAB] : Scoreboard  |  [C] : Info`, 450, 525);
+        ctx.fillStyle = '#aaa';
+        ctx.fillText(`[SHIFT + U]   : Toggle Auto-Target Aim Assist`, 450, 555);
+        ctx.fillText(`[SHIFT + I]   : Toggle Auto-Play (Bot Mode)`, 450, 575);
+        ctx.fillText(`[SHIFT + V]   : Toggle Debug Visuals`, 450, 595);
     }
   }
 }
@@ -248,7 +262,7 @@ export function buildMenu() {
   m.style.position = 'fixed'; m.style.top = '0'; m.style.left = '0'; m.style.width = '100%'; m.style.height = '100%'; m.style.zIndex = '9999'; m.style.display = 'flex'; m.style.justifyContent = 'center'; m.style.alignItems = 'center'; m.style.background = 'rgba(0,0,0,0.85)';
   let selectedClass = 'Bruiser'; let selectedTeam = 0;
   m.innerHTML = `
-    <div style="background:#111; padding:30px; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 700px;">
+    <div style="background:#111; padding:30px; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 850px;">
       <div id="roomSelector" style="margin-bottom: 15px; display:flex; justify-content: center; gap: 10px;">
           <button class="roomBtn" data-room="Room 1" style="padding:8px 20px; cursor:pointer; font-weight:bold; background:#000; color:#fff; border:2px solid #0f0;">Room 1</button>
           <button class="roomBtn" data-room="Room 2" style="padding:8px 20px; cursor:pointer; font-weight:bold; background:#000; color:#fff; border:2px solid #444;">Room 2</button>
@@ -256,14 +270,14 @@ export function buildMenu() {
       </div>
       <h1 style="margin-top:0;">UTF Arena - MULTIPLAYER LOBBY</h1>
       <div style="display:flex; justify-content: space-between; margin-top: 20px;">
-        <div style="width: 55%; text-align: left;">
+        <div style="width: 65%; text-align: left;">
           <p style="color:#aaa; margin-bottom: 5px;">1. Select Team:</p>
           <button id="btnBlue" style="padding:10px; width:100%; margin-bottom:5px; cursor:pointer; font-weight:bold; background:#000; color:#4da6ff; border:2px solid #4da6ff;">BLUE TEAM</button>
           <button id="btnRed" style="padding:10px; width:100%; margin-bottom:15px; cursor:pointer; font-weight:bold; background:#000; color:#ff6b6b; border:2px solid #444;">RED TEAM</button>
           <p style="color:#aaa; margin-bottom: 5px;">2. Select Class:</p>
           <div id="classBtns" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
         </div>
-        <div style="width: 40%; text-align: left; background:#000; padding: 15px; border:1px solid #333; border-radius: 4px;">
+        <div style="width: 32%; text-align: left; background:#000; padding: 15px; border:1px solid #333; border-radius: 4px;">
           <h3 style="margin-top:0; color:#aaa; border-bottom:1px solid #444; padding-bottom:10px;">Players in Room:</h3>
           <ul id="lobbyList" style="list-style: none; padding: 0; margin: 0; font-family: monospace;"><li>Connecting to Server...</li></ul>
         </div>
@@ -284,10 +298,20 @@ export function buildMenu() {
   document.getElementById('btnBlue').onclick = (e) => { selectedTeam = 0; e.target.style.border = '2px solid #4da6ff'; document.getElementById('btnRed').style.border = '2px solid #444'; notifyServer(); };
   document.getElementById('btnRed').onclick = (e) => { selectedTeam = 1; e.target.style.border = '2px solid #ff6b6b'; document.getElementById('btnBlue').style.border = '2px solid #444'; notifyServer(); };
   const cBtns = document.getElementById('classBtns');
-  for(let c in CLASSES) {
-      let btn = document.createElement('button'); btn.textContent = c; btn.style.padding = '6px 10px'; btn.style.background = '#000'; btn.style.color = '#fff'; btn.style.border = '1px solid #444'; btn.style.cursor = 'pointer'; btn.style.flexGrow = '1';
-      btn.onclick = () => { selectedClass = c; Array.from(cBtns.children).forEach(b => b.style.borderColor = '#444'); btn.style.borderColor = '#0f0'; notifyServer(); }; cBtns.appendChild(btn);
-  } setTimeout(() => cBtns.children[2].click(), 50); // Default Bruiser
+  const catGroups = { 'FIGHTER': ['Bruiser', 'Tank', 'Vanguard', 'Goliath'], 'DPS': ['Assassin', 'Marksman', 'Runner'], 'MAGE': ['Mage', 'Summoner', 'Jirina'], 'SUPPORT': ['Healer', 'Acolyte', 'Hana'] };
+  const allBtns = [];
+  for(let cat in catGroups) {
+      let col = document.createElement('div'); col.style.display = 'flex'; col.style.flexDirection = 'column'; col.style.gap = '5px'; col.style.flexGrow = '1';
+      let title = document.createElement('div'); title.textContent = cat; title.style.color = '#ffcc00'; title.style.fontSize = '12px'; title.style.fontWeight = 'bold'; title.style.marginBottom = '2px'; title.style.textAlign = 'center';
+      col.appendChild(title);
+      catGroups[cat].forEach(c => {
+          if(!CLASSES[c]) return;
+          let btn = document.createElement('button'); btn.textContent = c; btn.style.padding = '6px 10px'; btn.style.background = '#000'; btn.style.color = '#fff'; btn.style.border = '1px solid #444'; btn.style.cursor = 'pointer';
+          btn.onclick = () => { selectedClass = c; allBtns.forEach(b => b.style.borderColor = '#444'); btn.style.borderColor = '#0f0'; notifyServer(); }; 
+          col.appendChild(btn); allBtns.push(btn);
+      });
+      cBtns.appendChild(col);
+  } setTimeout(() => { let b = allBtns.find(x => x.textContent === 'Bruiser'); if(b) b.click(); }, 50); // Default Bruiser
 
   function notifyServer() { if(socket) socket.emit('update_selection', { className: selectedClass, team: selectedTeam }); }
   document.getElementById('startBtn').addEventListener('click', () => { if(socket) socket.emit('start_game'); else { m.style.display = 'none'; startGame(selectedClass, selectedTeam); } });
