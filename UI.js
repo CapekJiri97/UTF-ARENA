@@ -12,7 +12,7 @@ style.innerHTML = `
   #hud, #hp, #gold, #exp, #level, #respawn, #nexusBlue, #nexusRed { display: none !important; }
   #qbar, #ebar, #qlv, #elv, #qcd, #ecd, .cooldown-container { display: none !important; }
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 50% !important; overflow: hidden !important; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
-  #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 350px !important; height: 100% !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px 20px 80px 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; }
+  #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 100% !important; max-width: 400px !important; height: 100% !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px 20px 25vh 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; }
   #shopOverlay.hidden { transform: translateX(100%) !important; }
   #menu, #roomBrowser, #roomLobby, #shopOverlay, #endStats, #roomListContainer { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: pan-y !important; }
   @media (max-height: 600px), (max-width: 900px) { 
@@ -59,6 +59,10 @@ if (!document.getElementById('shopOverlay')) {
     const so = document.createElement('div');
     so.id = 'shopOverlay';
     so.className = 'hidden';
+    so.addEventListener('touchstart', (e) => e.stopPropagation(), {passive: true});
+    so.addEventListener('touchmove', (e) => e.stopPropagation(), {passive: true});
+    so.addEventListener('touchend', (e) => e.stopPropagation(), {passive: true});
+    so.addEventListener('wheel', (e) => e.stopPropagation(), {passive: true});
     document.body.appendChild(so);
 }
 if (!document.getElementById('inventory')) {
@@ -199,8 +203,16 @@ export function toggleShop(){ const o = document.getElementById('shopOverlay'); 
 export function populateShop() { 
   const overlay = document.getElementById('shopOverlay'); 
   if(!overlay) return; 
-  overlay.innerHTML = '<h2 style="color:#fff; text-align:center; border-bottom:1px solid #444; padding-bottom:10px; margin-top:0;">SHOP</h2><div id="shopList"></div><button id="closeShopBtn" style="width:100%; padding:10px; margin-top:20px; background:#444; color:#fff; border:none; cursor:pointer; font-weight:bold;">CLOSE</button>'; 
+  overlay.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #444; padding-bottom:10px; margin-top:0; margin-bottom:15px;">
+      <h2 style="color:#fff; margin:0;">SHOP</h2>
+      <button id="closeShopX" style="background:transparent; color:#ff4e4e; border:none; font-size:32px; font-weight:bold; cursor:pointer; line-height:1; padding:0 10px;">&times;</button>
+    </div>
+    <div id="shopList"></div>
+    <button id="closeShopBtn" style="width:100%; padding:15px; margin-top:20px; background:#444; color:#fff; border:none; cursor:pointer; font-weight:bold; font-size:18px;">CLOSE SHOP</button>
+  `; 
   document.getElementById('closeShopBtn').onclick = closeShop; 
+  document.getElementById('closeShopX').onclick = closeShop; 
 
   const list = document.getElementById('shopList'); 
   const cats = { 'DMG': ['ad', 'ap'], 'ARMOR': ['armor', 'mr', 'hp'], 'SPEED': ['boots', 'as', 'ah'] }; 
@@ -216,7 +228,7 @@ export function populateShop() {
           let count = 0; if(player && player.items) count = player.items.filter(i=>i===it.id).length; 
           const div = document.createElement('div'); div.style.background = '#111'; div.style.border = '1px solid #333'; div.style.padding = '8px'; div.style.display = 'flex'; div.style.justifyContent = 'space-between'; div.style.alignItems = 'center'; 
           div.innerHTML = `<div style="flex-grow:1;"><b>${it.name}</b> ${count>0?`<span style="color:#0f0;">(${count}x)</span>`:''}<br><span style="font-size:10px; color:#aaa;">${it.desc}</span><br><span style="color:#ffcc00; font-size:12px;">${it.cost}g</span></div>`; 
-          const btn = document.createElement('button'); btn.textContent='Buy'; btn.style.background='#222'; btn.style.color='#0f0'; btn.style.border='1px solid #0f0'; btn.style.padding='4px 8px'; btn.style.cursor='pointer'; 
+          const btn = document.createElement('button'); btn.textContent='Buy'; btn.style.background='#222'; btn.style.color='#0f0'; btn.style.border='1px solid #0f0'; btn.style.padding='8px 12px'; btn.style.cursor='pointer'; btn.style.fontWeight='bold';
           btn.addEventListener('click', ()=> buyItem(it.id)); div.appendChild(btn); col.appendChild(div); 
       } list.appendChild(col); 
   } 
@@ -388,16 +400,18 @@ export function draw(){
       let anchorX = cw / 2; const anchorY = ch - (isMobile ? 25 : 65); 
       if (!isMobile && anchorX + 300 > cw - 320) anchorX = Math.max(300, cw - 620); // Responzivní uhnutí minimapě
 
-      ctx.save();
-      // Výrazně čistší a větší měřítko středového HUDu pro mobily
-      let uiScale = isMobile ? 0.75 : 1; 
-      ctx.translate(anchorX, anchorY);
-      ctx.scale(uiScale, uiScale);
-      
-      let cx = 0; const cy = 0; 
-
+      // Vykreslení target okna PŘED hlavním HUDem, nezávisle na jeho pozici a velikosti (doleva dolů)
       if (player.currentTarget && player.currentTarget.hp > 0 && !player.currentTarget.dead) {
-          const t = player.currentTarget; const tw = 280, th = 85; const tx = cx - tw/2, ty = cy - 180;
+          ctx.save();
+          let tgtScale = isMobile ? 0.4 : 1.0;
+          let txBase = isMobile ? 15 : cw / 2 - 140;
+          let tyBase = isMobile ? ch - (85 * tgtScale) - 15 : ch - 250; 
+          
+          ctx.translate(txBase, tyBase);
+          ctx.scale(tgtScale, tgtScale);
+          if (isMobile) ctx.globalAlpha = 0.4; // Zprůhlední okno targetu na 40%
+
+          const t = player.currentTarget; const tw = 280, th = 85; const tx = 0, ty = 0;
           ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = (t.team >= 0) ? TEAM_COLOR[t.team] : NEUTRAL_COLOR; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
           
           ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left'; let tName = t.className || 'Minion'; ctx.fillText(`${tName} ${t.level ? 'LV'+t.level : ''}`, tx + 15, ty + 25);
@@ -417,7 +431,16 @@ export function draw(){
               ctx.fillText(`SP:${Math.round(t.speed*(t.hasPowerup?1.2:1))}`, stX + 90, ty + 30);
               ctx.fillText(`AS:${(t.attackDelay / (t.attackSpeed * buffAsMultT)).toFixed(2)}`, stX + 90, ty + 55); 
           }
+          ctx.restore();
       }
+
+      ctx.save();
+      // Zmenšené měřítko středového HUDu pro mobily (na 60%)
+      let uiScale = isMobile ? 0.60 : 1; 
+      ctx.translate(anchorX, anchorY);
+      ctx.scale(uiScale, uiScale);
+      
+      let cx = 0; const cy = 0; 
 
       ctx.textBaseline = 'middle';
       // ASCII HP BAR
