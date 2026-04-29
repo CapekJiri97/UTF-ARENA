@@ -345,7 +345,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         if (target.stats) target.stats.dmgTaken += actualDamage;
         if (target instanceof Player && sourceEntity && sourceEntity.team !== target.team) {
             let existing = target.recentAttackers.get(sourceId);
-            target.recentAttackers.set(sourceId, { time: performance.now(), count: existing ? existing.count + 1 : 1 });
+            target.recentAttackers.set(sourceId, { time: performance.now(), count: existing ? existing.count + 1 : 1, damage: (existing ? existing.damage : 0) + actualDamage });
         }
     }
 

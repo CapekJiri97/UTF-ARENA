@@ -552,9 +552,19 @@ export class BotPlayer extends Player {
 
       if (!game.teamIntents) game.teamIntents = { 0: {}, 1: {} }; // Týmová nástěnka
       this.strategy = 'NORMAL';
+      this.randomizePokeThresholds();
     }
+
+    randomizePokeThresholds() {
+        const vary = () => 0.7 + Math.random() * 0.6; // Generuje odchylku +/- 30%
+        this.pokeToleranceHits = Math.max(1, Math.round(3 * vary())); // cca 2 - 4 rány
+        this.pokeTolerancePct = 0.20 * vary(); // 14% - 26% poškození
+        this.pokeTowerThreshold = 0.50 * vary(); // 35% - 65% obsazení
+    }
+
     revive() {
       super.revive();
+      this.randomizePokeThresholds();
     }
     draw(ctx) {
       super.draw(ctx);
@@ -649,6 +659,7 @@ export class BotPlayer extends Player {
     evaluateTactic() {
       if (!this.alive) return;
       this.terrified = false; // Reset strachu na začátku úvahy
+      this.angryAtPeker = null; // Reset naštvanosti na střelce
       
       const farmUrge = this.strategy === 'FARM';
       const powerupUrge = this.strategy === 'POWERUP';
@@ -716,6 +727,15 @@ export class BotPlayer extends Player {
               score += 18000; 
           }
 
+          // Rozdílná logika obsazování pro Melee vs Range
+          let defenders = aliveEnemies.filter(p => dist(p.pos, t.pos) < t.captureRadius + 150);
+          if (defenders.length > 0) {
+              let hasRangedDef = defenders.some(d => d.range);
+              let hasMeleeDef = defenders.some(d => !d.range);
+              if (this.range) { if (hasMeleeDef && !hasRangedDef) score += 1800; } // Ranged bot se nebojí Melee obránce
+              else { if (hasRangedDef) score -= 1800; } // Melee bot se obává pokeování od Ranged obránce
+          }
+
           // PŘIDÁNO: Masivní bonus, pokud je bot blízko neutrální nebo nepřátelské věže (< 1000 units)
           if (t.owner !== this.team && dist(this.pos, t.pos) < 1000) {
               score += 4000;
@@ -734,7 +754,10 @@ export class BotPlayer extends Player {
           
           if (t.owner === -1) score += this.personalWeights.neutralTowerScore;
           
-          let alliesOnTower = aliveAllies.filter(p => p instanceof BotPlayer && p.objective === t && p.id !== this.id).length;
+          let alliesOnTower = 0;
+          for (let id in game.teamIntents[this.team]) {
+              if (id !== this.id && game.teamIntents[this.team][id].objective === t) alliesOnTower++;
+          }
           if (alliesOnTower >= this.maxGroupSize) score -= this.personalWeights.overcrowdedTowerPenalty;
           else if (alliesOnTower === 0) score += this.personalWeights.emptyTowerScore;
           
@@ -860,6 +883,15 @@ export class BotPlayer extends Player {
               if (e.className) {
                   score += this.personalWeights.heroKillScore;
                   if (this.huntTarget === e) score += 30000; // Terminátor mód - neoblomná gigantická priorita
+                  
+                  // FOCUS FIRE BONUS PŘES NÁSTĚNKU
+                  let allyFocus = 0;
+                  for (let id in game.teamIntents[this.team]) { if (id !== this.id && game.teamIntents[this.team][id].target === e) allyFocus++; }
+                  if (allyFocus > 0) score += allyFocus * 3500; // Boti si pomáhají a sdružují poškození na jeden cíl
+                  
+                  // PEELING: Ochrana ustupujících spojenců
+                  let chasingTerrified = aliveAllies.some(ally => ally.id !== this.id && ally.terrified && dist(e.pos, ally.pos) < 350);
+                  if (chasingTerrified) score += 2500; // Slabý bonus za útok na někoho, kdo honí zraněného spojence
               } else {
                   if (farmUrge) score += 1500; // Zvýšeno, aby farmařil více
                   // Masivní priorita POUZE pro miniony, kteří překážejí v obsazování/obraně věže
@@ -873,8 +905,27 @@ export class BotPlayer extends Player {
                   let atkData = this.recentAttackers.get(e.id);
                   let timeSince = performance.now() - (atkData.time || atkData);
                   let hits = atkData.count || 1;
+                  let dmgTaken = atkData.damage || 0;
+                  let hpLostPct = dmgTaken / this.effectiveMaxHp;
                   if (timeSince < 5000) {
-                      score += 6000 + (hits * 1500); // Silnější reakce na toho, kdo mě zasáhl (roste s hity)
+                      score += 6000 + (hpLostPct * 20000); // Silnější reakce podle toho, jak moc to bolelo
+
+                      // --- ANTI-POKE LOGIKA (Melee vs Ranged) ---
+                      if (!this.range && e.range) {
+                          let progressVal = 0;
+                          if (bestState === 'CAPTURE' && bestObjective && bestObjective.control !== undefined) {
+                              progressVal = (this.team === 0) ? (bestObjective.control + 100)/200 : (100 - bestObjective.control)/200;
+                          }
+                          
+                          // Pokud už máme věž rozdělanou nad vlastní limit, nebo nás poke zatím dost nevytočil, ignorujeme ho
+                          if (progressVal > this.pokeTowerThreshold || (hits < this.pokeToleranceHits && hpLostPct < this.pokeTolerancePct)) {
+                              score -= 10000;
+                          } else {
+                              // Přetekla nám trpělivost -> jdeme střelce zničit (čím víc to bolelo, tím silnější motivace)
+                              score += 15000 + (hpLostPct * 40000);
+                              this.angryAtPeker = e.id;
+                          }
+                      }
                   }
               }
 
@@ -1340,6 +1391,34 @@ export class BotPlayer extends Player {
               }
           }
       }
+
+      // --- MICRO: VYHÝBÁNÍ SE SKILLSHOTŮM (DODGING) ---
+      let dodgeDx = 0, dodgeDy = 0;
+      for (let proj of game.projectiles) {
+          if (proj.ownerTeam !== this.team && !proj.dead) {
+              let pdDist = dist(this.pos, proj.pos);
+              if (pdDist < 250) {
+                  let pLen = Math.hypot(proj.vel.x, proj.vel.y);
+                  if (pLen > 0) {
+                      let pDirX = proj.vel.x / pLen, pDirY = proj.vel.y / pLen;
+                      let toMeX = this.pos.x - proj.pos.x, toMeY = this.pos.y - proj.pos.y;
+                      let dot = toMeX * pDirX + toMeY * pDirY;
+                      // Zkontrolujeme, zda projektil směřuje k nám (dot > 0) a neletí už za nás
+                      if (dot > 0 && dot < pdDist + 30) {
+                          let projX = proj.pos.x + pDirX * dot, projY = proj.pos.y + pDirY * dot;
+                          let distToLine = dist(this.pos, {x: projX, y: projY});
+                          if (distToLine < this.radius + (proj.radius || 8) + 25) {
+                              let crossX = this.pos.x - projX, crossY = this.pos.y - projY;
+                              let cLen = Math.hypot(crossX, crossY);
+                              if (cLen > 0) { dodgeDx += (crossX / cLen) * 3.5; dodgeDy += (crossY / cLen) * 3.5; } 
+                              else { dodgeDx += -pDirY * 3.5; dodgeDy += pDirX * 3.5; }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+      if (dodgeDx !== 0 || dodgeDy !== 0) { dx += dodgeDx; dy += dodgeDy; }
 
       const l = Math.hypot(dx, dy);
       let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? 0.6 : 1.0);
