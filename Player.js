@@ -96,7 +96,13 @@ export class Player{
 
   update(dt){ if(game.gameOver) return;
     // handle death/respawn
-    if(!this.alive){ this.respawnTimer -= dt; if(this.respawnTimer <= 0) this.revive(); return; }
+    if(!this.alive){
+        // Odpočet respawnu probíhá jen na Hostovi nebo pro lokálního hráče, ne pro cizí hráče po síti!
+        if (!socket || game.isHost || this === player) {
+            this.respawnTimer -= dt; if(this.respawnTimer <= 0) this.revive();
+        }
+        return;
+    }
     
     if(this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if(this.defBuffTimer > 0) this.defBuffTimer -= dt;
@@ -342,7 +348,7 @@ export class Player{
           }
       }
 
-      if (!isNetwork) { this.summonerCooldown = SUMMONER_SPELLS[this.summonerSpell].cd; }
+      this.summonerCooldown = SUMMONER_SPELLS[this.summonerSpell].cd;
 
       game.effectTexts.push(new EffectText(this.pos.x, this.pos.y - 30, this.summonerSpell, '#ffcc00'));
 
@@ -406,6 +412,7 @@ export class Player{
     } }
 
   castSpell(spKey, targetX, targetY, isNetwork = false){ 
+    if(!this.alive) return;
     const sp = this.spells[spKey]; if(!sp) return; 
     if(!isNetwork && sp.cd>0) return; // Zabráníme lokálnímu spamování
     
@@ -432,7 +439,8 @@ export class Player{
       }
     }
 
-    if(!isNetwork) { sp.cd = this.computeSpellCooldown(spKey); this.castingTimeRemaining = sp.castTime; }
+    sp.cd = this.computeSpellCooldown(spKey); 
+    this.castingTimeRemaining = sp.castTime; 
 
     const buffAdMult = 1.0 + (this.adAsBuffTimer > 0 ? this.adAsBuffAmount : 0);
     const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0) * buffAdMult; const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0);
@@ -1483,7 +1491,7 @@ export class BotPlayer extends Player {
 
       const l = Math.hypot(dx, dy);
       let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? 0.6 : 1.0);
-      if (this.attackPenaltyTimer > 0) moveSpeed *= 0.8;
+      if (this.attackPenaltyTimer > 0) moveSpeed *= (this.range ? 0.6 : 0.85);
       if (l > 0) { 
           dx /= l; dy /= l; 
           

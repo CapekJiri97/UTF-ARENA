@@ -205,6 +205,15 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         if (data.type === 'shoot') netPlayer.shoot(data.tx, data.ty, true);
         else if (data.type === 'cast') netPlayer.castSpell(data.spKey, data.tx, data.ty, true);
         else if (data.type === 'summoner') netPlayer.castSummonerSpell(true);
+        else if (data.type === 'buy_item') {
+            let it = shopItems.find(x => x.id === data.itemId);
+            if (it && netPlayer.gold >= it.cost && netPlayer.items.length < 25) {
+                netPlayer.gold -= it.cost;
+                netPlayer.items.push(data.itemId);
+                it.apply(netPlayer);
+                netPlayer.isDirty = true;
+            }
+        }
       }
     });
 
@@ -587,6 +596,9 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     if (player.items.length >= 25) { return flashMessage('Inventory is full! (Max 25)'); } 
     if (it.id === 'boots' && player.hasBoots) { return flashMessage('You already have Boots!'); }
     if (player.gold < it.cost){ return flashMessage('Not enough gold'); } player.gold -= it.cost; player.items.push(it.id); it.apply(player); player.isDirty = true; flashMessage('Bought ' + it.name); updateInventory(); populateShop(); 
+    if (socket && !game.isHost) {
+        socket.emit('player_action', { type: 'buy_item', id: player.id, itemId: it.id, cost: it.cost });
+    }
   }
   export function flashMessage(txt){ const el = document.createElement('div'); el.style.position='fixed'; el.style.left='50%'; el.style.top='18px'; el.style.transform='translateX(-50%)'; el.style.background='rgba(255,255,255,0.06)'; el.style.padding='6px 10px'; el.style.borderRadius='6px'; el.style.zIndex=120; el.textContent = txt; document.body.appendChild(el); setTimeout(()=>el.remove(),1200); }
 

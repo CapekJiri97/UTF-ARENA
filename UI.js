@@ -193,47 +193,52 @@ export function populateShop() {
 export function updateInventory(){ if(!player) return; const inv = document.getElementById('inventory'); inv.innerHTML = ''; for(const id of player.items){ const it = shopItems.find(s=>s.id===id); const slot = document.createElement('div'); slot.className='invSlot'; slot.textContent = it? it.name : id; inv.appendChild(slot); } }
 
 export function drawBackground(ctx){ 
-  ctx.fillStyle = '#070707'; ctx.fillRect(0,0,world.width, world.height);
-  if (!game.boundaryVisuals) {
-      game.boundaryVisuals = []; let sb = smoothPolygon(mapBoundary, 3);
-      let accumDist = 0; const spacing = 45;
+  if (!game.bgCanvas) {
+      game.bgCanvas = document.createElement('canvas');
+      game.bgCanvas.width = world.width; game.bgCanvas.height = world.height;
+      let bgCtx = game.bgCanvas.getContext('2d');
+      bgCtx.fillStyle = '#070707'; bgCtx.fillRect(0,0,world.width, world.height);
+
+      let sb = smoothPolygon(mapBoundary, 3);
+      let accumDist = 0; const spacing = 45; let boundVis = [];
       for(let i=0; i<sb.length; i++) { let p1 = sb[i], p2 = sb[(i+1)%sb.length]; let d = Math.hypot(p2.x-p1.x, p2.y-p1.y);
           while(accumDist <= d) {
               let bx = p1.x + (p2.x-p1.x)*(accumDist/d); let by = p1.y + (p2.y-p1.y)*(accumDist/d);
-              game.boundaryVisuals.push({ x: bx, y: by, char: '#' });
+              boundVis.push({ x: bx, y: by, char: '#' });
               accumDist += spacing;
           }
           accumDist -= d;
       }
+
+      bgCtx.fillStyle = 'rgba(255,255,255,0.2)'; bgCtx.font = '16px monospace'; bgCtx.textAlign='center'; bgCtx.textBaseline='middle';
+      for(let p of boundVis) { bgCtx.fillText(p.char, p.x, p.y); }
+      for(let sp of spawnPoints){
+        bgCtx.fillStyle = 'rgba(255,255,255,0.2)'; bgCtx.font = '16px monospace';
+        for(let a=0; a<Math.PI*2; a+=0.15) bgCtx.fillText('#', sp.x + Math.cos(a)*200, sp.y + Math.sin(a)*200);
+      }
+
+      bgCtx.font = '16px monospace'; const natureColors = ['#334d1e', '#426b27', '#528530', '#4d3d26', '#614f33', '#2a3b18'];
+      for (let w of game.walls) {
+        let startX = Math.floor((w.bbox.minX - w.r)/20)*20, endX = Math.ceil((w.bbox.maxX + w.r)/20)*20;
+        let startY = Math.floor((w.bbox.minY - w.r)/20)*20, endY = Math.ceil((w.bbox.maxY + w.r)/20)*20;
+        for (let wx = startX; wx <= endX; wx += 20) {
+          for (let wy = startY; wy <= endY; wy += 20) {
+            let info = distToPoly(wx, wy, w.pts);
+            if (info.inside || info.minDist <= w.r) {
+              bgCtx.fillStyle = natureColors[(Math.abs(wx * 7 + wy * 13)) % natureColors.length];
+              if (!info.inside && info.minDist > w.r - 15) bgCtx.fillText('L', wx, wy); else bgCtx.fillText('#', wx, wy);
+            }
+          }
+        }
+      }
   }
-  ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.font = '16px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  for(let p of game.boundaryVisuals) { ctx.fillText(p.char, p.x, p.y); }
-  for(let sp of spawnPoints){
-    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    ctx.font = '16px monospace';
-    for(let a=0; a<Math.PI*2; a+=0.15){
-        ctx.fillText('#', sp.x + Math.cos(a)*200, sp.y + Math.sin(a)*200);
-    }
-  }
+  ctx.drawImage(game.bgCanvas, 0, 0);
+
   ctx.strokeStyle = 'rgba(255,255,255,0.02)'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.font = '14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
   if (game.towers && game.towers.length > 0) {
       for(let i=0; i<game.towers.length; i++){ let t1 = game.towers[i], t2 = game.towers[(i+1)%game.towers.length]; let d = dist(t1.pos, t2.pos);
           for(let step=0; step<d; step+=40) ctx.fillText(':', t1.pos.x + (t2.pos.x - t1.pos.x) * (step/d), t1.pos.y + (t2.pos.y - t1.pos.y) * (step/d));
       }
-  }
-  ctx.font = '16px monospace'; const natureColors = ['#334d1e', '#426b27', '#528530', '#4d3d26', '#614f33', '#2a3b18'];
-  for (let w of game.walls) {
-    let startX = Math.floor((w.bbox.minX - w.r)/20)*20, endX = Math.ceil((w.bbox.maxX + w.r)/20)*20;
-    let startY = Math.floor((w.bbox.minY - w.r)/20)*20, endY = Math.ceil((w.bbox.maxY + w.r)/20)*20;
-    for (let wx = startX; wx <= endX; wx += 20) {
-      for (let wy = startY; wy <= endY; wy += 20) {
-        let info = distToPoly(wx, wy, w.pts);
-        if (info.inside || info.minDist <= w.r) {
-          ctx.fillStyle = natureColors[(Math.abs(wx * 7 + wy * 13)) % natureColors.length];
-          if (!info.inside && info.minDist > w.r - 15) ctx.fillText('L', wx, wy); else ctx.fillText('#', wx, wy);
-        }
-      }
-    }
   }
 }
 
@@ -602,16 +607,26 @@ export function drawMinimap(){
   for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#486FED' : t.owner===1? '#FF4E4E' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
   ctxm.beginPath(); ctxm.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY); for(let i=1; i<mapBoundary.length; i++) ctxm.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY); ctxm.closePath(); ctxm.strokeStyle = '#555'; ctxm.stroke();
   ctxm.fillStyle = '#555'; ctxm.font = '10px monospace'; ctxm.textAlign='center'; ctxm.textBaseline='middle';
-  for(let w of game.walls) {
-      let startX = Math.floor((w.bbox.minX - w.r)/60)*60, endX = Math.ceil((w.bbox.maxX + w.r)/60)*60;
-      let startY = Math.floor((w.bbox.minY - w.r)/60)*60, endY = Math.ceil((w.bbox.maxY + w.r)/60)*60;
-      for (let wx = startX; wx <= endX; wx += 60) {
-          for (let wy = startY; wy <= endY; wy += 60) {
-              let info = distToPoly(wx, wy, w.pts);
-              if (info.inside || info.minDist <= w.r) { ctxm.fillText('#', wx * scaleX, wy * scaleY); }
+  if (!game.minimapBg) {
+      game.minimapBg = document.createElement('canvas');
+      game.minimapBg.width = Math.floor(w * dpr); game.minimapBg.height = Math.floor(h * dpr);
+      let bgCtx = game.minimapBg.getContext('2d');
+      bgCtx.scale(dpr, dpr);
+      bgCtx.fillStyle='#111'; bgCtx.fillRect(0,0,w,h);
+      bgCtx.beginPath(); bgCtx.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY); for(let i=1; i<mapBoundary.length; i++) bgCtx.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY); bgCtx.closePath(); bgCtx.strokeStyle = '#555'; bgCtx.stroke();
+      bgCtx.fillStyle = '#555'; bgCtx.font = '10px monospace'; bgCtx.textAlign='center'; bgCtx.textBaseline='middle';
+      for(let wObj of game.walls) {
+          let startX = Math.floor((wObj.bbox.minX - wObj.r)/60)*60, endX = Math.ceil((wObj.bbox.maxX + wObj.r)/60)*60;
+          let startY = Math.floor((wObj.bbox.minY - wObj.r)/60)*60, endY = Math.ceil((wObj.bbox.maxY + wObj.r)/60)*60;
+          for (let wx = startX; wx <= endX; wx += 60) {
+              for (let wy = startY; wy <= endY; wy += 60) {
+                  let info = distToPoly(wx, wy, wObj.pts);
+                  if (info.inside || info.minDist <= wObj.r) { bgCtx.fillText('#', wx * scaleX, wy * scaleY); }
+              }
           }
       }
   }
+  ctxm.drawImage(game.minimapBg, 0, 0, w, h);
   for(let m of game.minions){ const x = m.pos.x * scaleX; const y = m.pos.y * scaleY; ctxm.fillStyle = m.team===0? '#aaddff':'#ffb3b3'; ctxm.fillRect(x-1,y-1,2,2); }
   
   for(let p of game.players){ 
