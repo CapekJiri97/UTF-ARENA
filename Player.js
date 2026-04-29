@@ -2,7 +2,7 @@ import { dist, distToPoly, expForLevel } from './Utils.js';
 import { CLASSES, SUMMONER_SPELLS, AA_SCALES } from './classes.js';
 import { shopItems } from './items.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
-import { spawnPoints, mapBoundary } from './MapConfig.js';
+import { world, spawnPoints, mapBoundary } from './MapConfig.js';
 import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
 import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse } from './main.js';
@@ -115,18 +115,12 @@ export class Player{
         if(this.powerupTimer <= 0) this.hasPowerup = false;
     }
 
+    const allyBaseDist = dist(this.pos, spawnPoints[this.team]);
+
     if (this === player) {
         // Passive HP Regen
         if(this.hp < this.effectiveMaxHp) this.hp = Math.min(this.effectiveMaxHp, this.hp + this.hpRegen * dt);
-    }
-    // Fountain Logic (Heal in own base, Laser in enemy base) - Host-only
-    if (!socket || game.isHost) {
-        // Fountain Logic (Heal in own base, Laser in enemy base)
-        const allyBaseDist = dist(this.pos, spawnPoints[this.team]);
-        if (allyBaseDist < 200) this.hp = Math.min(this.effectiveMaxHp, this.hp + (this.effectiveMaxHp * 0.15 * dt));
-        const enemyBaseDist = dist(this.pos, spawnPoints[1-this.team]);
-        if (enemyBaseDist < 200) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) handlePlayerKill(this, 'laser'); }
-    }
+
         // AUTO BUY
         if (game.autoPlay && (!this.alive || allyBaseDist < 250) && this.gold >= 300 && this.items.length < 25) {
             let itemToBuy = null;
@@ -160,6 +154,14 @@ export class Player{
             }
             if (itemToBuy && this.gold >= itemToBuy.cost && (!socket || game.isHost)) buyItem(itemToBuy.id); // buyItem handles gold/item changes
         }
+    }
+
+    // Fountain Logic (Heal in own base, Laser in enemy base) - Host-only
+    if (!socket || game.isHost) {
+        // Fountain Logic (Heal in own base, Laser in enemy base)
+        if (allyBaseDist < 200) this.hp = Math.min(this.effectiveMaxHp, this.hp + (this.effectiveMaxHp * 0.15 * dt));
+        const enemyBaseDist = dist(this.pos, spawnPoints[1-this.team]);
+        if (enemyBaseDist < 200) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) handlePlayerKill(this, 'laser'); }
     }
 
     if(this.msBuffTimer > 0) this.msBuffTimer -= dt;
@@ -1334,79 +1336,3 @@ export class BotPlayer extends Player {
       }
     }
   }
-                          this.castSpell(key, this.objective.pos.x, this.objective.pos.y);
-                          break; // Použije jen jedno kouzlo naráz
-                      }
-                  }
-              }
-          }
-      }
-
-      // --- KITING BĚHEM ÚTĚKU / PŘESUNU ---
-      if (this.state !== 'ATTACK') {
-          let atkRange = this.range ? RANGED_ATTACK_RANGE : MELEE_ATTACK_RANGE + 20;
-          let kitingTarget = null;
-          let bestKDist = atkRange;
-          
-          for (let p of game.players) {
-              if (p.team !== this.team && p.alive) {
-                  let d = dist(this.pos, p.pos);
-                  if (d <= bestKDist) { bestKDist = d; kitingTarget = p; }
-              }
-          }
-          if (!kitingTarget) {
-              for (let m of game.minions) {
-                  if (m.team !== this.team && !m.dead) {
-                      let d = dist(this.pos, m.pos);
-                      if (d <= bestKDist) { bestKDist = d; kitingTarget = m; }
-                  }
-              }
-          }
-          if (kitingTarget) {
-              isKiting = true;
-              this.aimAngle = Math.atan2(kitingTarget.pos.y - this.pos.y, kitingTarget.pos.x - this.pos.x);
-              if (this.attackCooldown <= 0) { this.shoot(kitingTarget.pos.x, kitingTarget.pos.y); this.attackCooldown = this.attackDelay / this.attackSpeed; }
-              if (this.castingTimeRemaining <= 0) {
-                  let isMinion = !kitingTarget.className;
-                  if (this.spells.Q && this.spells.Q.cd <= 0 && !['dash', 'dash_def', 'buff_ms', 'heal_self', 'hana_q'].includes(this.spells.Q.type)) {
-                      let chance = (isMinion && this.spells.Q.type === 'aoe') ? 1.0 : 0.10;
-                      if (Math.random() < chance) this.castSpell('Q', kitingTarget.pos.x, kitingTarget.pos.y);
-                  }
-                  else if (this.spells.E && this.spells.E.cd <= 0 && !['dash', 'dash_def', 'buff_ms', 'heal_self', 'hana_q'].includes(this.spells.E.type)) {
-                      let chance = (isMinion && this.spells.E.type === 'aoe') ? 1.0 : 0.10;
-                      if (Math.random() < chance) this.castSpell('E', kitingTarget.pos.x, kitingTarget.pos.y);
-                  }
-              }
-          }
-      }
-
-      const l = Math.hypot(dx, dy);
-      let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? 0.6 : 1.0);
-      if (this.attackPenaltyTimer > 0) moveSpeed *= 0.8;
-      if (l > 0) { 
-          dx /= l; dy /= l; 
-          
-          // --- JEMNÉ VYHÝBÁNÍ ZDEM (Wall avoidance) ---
-          for (let w of game.walls) {
-              let info = distToPoly(this.pos.x, this.pos.y, w.pts);
-              if (info.minDist < w.r + 40 && !info.inside) {
-                  dx += info.closestNorm.x * 0.8; // Odstrčení od zdi
-                  dy += info.closestNorm.y * 0.8;
-                  
-                  let tx = -info.closestNorm.y; 
-                  let ty = info.closestNorm.x;
-                  if (dx * tx + dy * ty < 0) { tx = -tx; ty = -ty; }
-                  dx += tx * 1.5; // Skluz podél zdi
-                  dy += ty * 1.5;
-              }
-          }
-          // Znovu znormalizujeme úpravy ze zdi
-          let finalL = Math.hypot(dx, dy);
-          if (finalL > 0) { dx /= finalL; dy /= finalL; }
-
-          if (this.state !== 'ATTACK' && !isKiting) this.aimAngle = Math.atan2(dy, dx);
-          moveEntityWithCollision(this, dx * moveSpeed, dy * moveSpeed, dt); 
-      }
-    }
-  }
-  
