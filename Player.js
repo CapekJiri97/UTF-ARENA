@@ -1043,7 +1043,6 @@ export class BotPlayer extends Player {
               }
           }
       }
-      }
 
       // 9. Zbabělý útěk (Terrified)
       if (this.terrified) {
