@@ -672,10 +672,10 @@ export function showEnd(winner){
 
 export function buildMenu() {
   let m = document.getElementById('menu'); if(!m) { m = document.createElement('div'); m.id = 'menu'; document.body.appendChild(m); }
-  m.style.position = 'fixed'; m.style.top = '0'; m.style.left = '0'; m.style.width = '100%'; m.style.height = '100%'; m.style.zIndex = '9999'; m.style.display = 'flex'; m.style.justifyContent = 'center'; m.style.alignItems = 'flex-start'; m.style.background = 'rgba(0,0,0,0.85)'; m.style.overflowY = 'auto'; m.style.padding = '5vh 0'; m.style.boxSizing = 'border-box';
+  m.style.position = 'fixed'; m.style.top = '0'; m.style.left = '0'; m.style.width = '100%'; m.style.height = '100%'; m.style.zIndex = '9999'; m.style.display = 'block'; m.style.background = 'rgba(0,0,0,0.85)'; m.style.overflowY = 'auto'; m.style.padding = '5vh 0 25vh 0'; m.style.boxSizing = 'border-box';
   let selectedClass = 'Bruiser'; let selectedTeam = 0; let selectedSpell = 'Heal'; let isSpectator = false;
   m.innerHTML = `
-      <div id="roomBrowser" style="margin: auto; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 90vw; max-width: 600px; max-height: 85vh; overflow-y:auto; box-sizing:border-box; display: ${socket ? 'block' : 'none'};">
+      <div id="roomBrowser" style="zoom: 0.85; margin: 0 auto; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 90vw; max-width: 600px; box-sizing:border-box; display: ${socket ? 'block' : 'none'};">
           <h1 style="margin-top:0;">UTF Arena - BROWSE GAMES</h1>
           <div style="margin-bottom: 20px; display:flex; gap:10px; justify-content:center;">
               <input type="text" id="newRoomInput" placeholder="Enter Room Name..." style="padding:10px; font-size:16px; background:#000; color:#fff; border:1px solid #444; width: 60%;">
@@ -688,7 +688,7 @@ export function buildMenu() {
               </ul>
           </div>
       </div>
-    <div id="roomLobby" style="margin: auto; display: ${socket ? 'none' : 'block'}; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1000px; max-height: 85vh; overflow-y:auto; box-sizing:border-box;">
+    <div id="roomLobby" style="zoom: 0.85; margin: 0 auto; display: ${socket ? 'none' : 'block'}; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1000px; box-sizing:border-box;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 15px;">
           <h1 id="lobbyTitle" style="margin:0;">OFFLINE MODE</h1>
           <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:8px 16px; cursor:pointer; background:#300; color:#ff6b6b; border:1px solid #ff6b6b; font-weight:bold; border-radius:4px;">LEAVE ROOM</button>
