@@ -76,13 +76,15 @@ export class Player{
 
   die(){ 
     this.alive = false; this.hasPowerup = false; 
-    if (!socket || game.isHost) { this.deaths++; this.respawnTimer = 7 + this.level; } // Lvl 1 = 8s, Lvl 10 = 17s
+    // PŘIDÁNO: Odpočet se musí nastavit pro všechny, aby i klient lokálně správně čekal a poslal scoreboard status
+    this.deaths++; this.respawnTimer = 7 + this.level; // Lvl 1 = 8s, Lvl 10 = 17s
     console.log(`[DEBUG] ${this.id} died. Respawning in ${this.respawnTimer}s.`); 
     if(player && this.id === player.id) { game.shake = 0.5; flashMessage('You died — respawning...'); } 
   }
   revive(){ 
     this.alive = true; this.respawnTimer = 0;
-    if (!socket || game.isHost) { this.hp = this.effectiveMaxHp; const sp = spawnPoints[this.team]; if(sp) { this.pos.x = sp.x; this.pos.y = sp.y; } }
+    // OPRAVA: Zdraví a pozice do základny se musí resetovat lokálně všem hráčům! Nejen Hostovi.
+    this.hp = this.effectiveMaxHp; const sp = spawnPoints[this.team]; if(sp) { this.pos.x = sp.x; this.pos.y = sp.y; this.targetPos = null; }
     console.log(`[DEBUG] ${this.id} revived.`); 
   }
 
@@ -203,14 +205,9 @@ export class Player{
             if(l>0){ dx/=l; dy/=l; this.vel.x = dx*moveSpeed; this.vel.y = dy*moveSpeed; } else { this.vel.x = 0; this.vel.y = 0; }
             moveEntityWithCollision(this, this.vel.x, this.vel.y, dt);
         } else if (this.targetPos) { // Logika pro ostatní (síťové) hráče
-            // OPRAVA: Na Hostu se pozice skokově mění pro přesnost, na klientech se interpoluje pro plynulost
-            if (game.isHost) {
-                this.pos.x = this.targetPos.x;
-                this.pos.y = this.targetPos.y;
-            } else {
-                if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; } // Pokud se teleportnul (např. po respawnu), tak přeskočí
-                else { this.pos.x += (this.targetPos.x - this.pos.x) * 15 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 15 * dt; }
-            }
+            // Interpolace pohybu síťových hráčů pro plynulost na Hostovi i u Klientů
+            if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; } // Pokud se teleportnul (např. po respawnu), tak přeskočí
+            else { this.pos.x += (this.targetPos.x - this.pos.x) * 15 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 15 * dt; }
         }
     }
 
