@@ -12,9 +12,9 @@ style.innerHTML = `
   #hud, #hp, #gold, #exp, #level, #respawn, #nexusBlue, #nexusRed { display: none !important; }
   #qbar, #ebar, #qlv, #elv, #qcd, #ecd, .cooldown-container { display: none !important; }
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 50% !important; overflow: hidden !important; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
-  #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 350px !important; height: 100vh !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; }
+  #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 350px !important; height: 100% !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px 20px 80px 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; }
   #shopOverlay.hidden { transform: translateX(100%) !important; }
-  #roomBrowser, #roomLobby, #shopOverlay { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: pan-y !important; }
+  #menu, #roomBrowser, #roomLobby, #shopOverlay, #endStats, #roomListContainer { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: pan-y !important; }
   @media (max-height: 600px), (max-width: 900px) { 
       #minimap { 
           width: 30vh !important; 
@@ -672,23 +672,23 @@ export function showEnd(winner){
 
 export function buildMenu() {
   let m = document.getElementById('menu'); if(!m) { m = document.createElement('div'); m.id = 'menu'; document.body.appendChild(m); }
-  m.style.position = 'fixed'; m.style.top = '0'; m.style.left = '0'; m.style.width = '100%'; m.style.height = '100%'; m.style.zIndex = '9999'; m.style.display = 'flex'; m.style.justifyContent = 'center'; m.style.alignItems = 'center'; m.style.background = 'rgba(0,0,0,0.85)';
+  m.style.position = 'fixed'; m.style.top = '0'; m.style.left = '0'; m.style.width = '100%'; m.style.height = '100%'; m.style.zIndex = '9999'; m.style.display = 'flex'; m.style.justifyContent = 'center'; m.style.alignItems = 'flex-start'; m.style.background = 'rgba(0,0,0,0.85)'; m.style.overflowY = 'auto'; m.style.padding = '5vh 0'; m.style.boxSizing = 'border-box';
   let selectedClass = 'Bruiser'; let selectedTeam = 0; let selectedSpell = 'Heal'; let isSpectator = false;
   m.innerHTML = `
-      <div id="roomBrowser" style="background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 90vw; max-width: 600px; max-height: 95vh; overflow-y:auto; box-sizing:border-box; display: ${socket ? 'block' : 'none'};">
+      <div id="roomBrowser" style="margin: auto; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 90vw; max-width: 600px; max-height: 85vh; overflow-y:auto; box-sizing:border-box; display: ${socket ? 'block' : 'none'};">
           <h1 style="margin-top:0;">UTF Arena - BROWSE GAMES</h1>
           <div style="margin-bottom: 20px; display:flex; gap:10px; justify-content:center;">
               <input type="text" id="newRoomInput" placeholder="Enter Room Name..." style="padding:10px; font-size:16px; background:#000; color:#fff; border:1px solid #444; width: 60%;">
               <button id="createRoomBtn" style="padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background:#222; color:#0f0; border:2px solid #0f0;">CREATE ROOM</button>
           </div>
-          <div style="text-align:left; background:#000; padding:15px; border:1px solid #333; border-radius:4px; min-height: 200px; max-height: 300px; overflow-y:auto;">
+          <div id="roomListContainer" style="text-align:left; background:#000; padding:15px; border:1px solid #333; border-radius:4px; min-height: 200px; max-height: 300px; overflow-y:auto;">
               <h3 style="margin-top:0; color:#aaa; border-bottom:1px solid #444; padding-bottom:10px;">Active Rooms:</h3>
               <ul id="roomList" style="list-style:none; padding:0; margin:0; font-family:monospace; font-size:16px;">
                   <li>Loading rooms...</li>
               </ul>
           </div>
       </div>
-    <div id="roomLobby" style="display: ${socket ? 'none' : 'block'}; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1000px; max-height: 95vh; overflow-y:auto; box-sizing:border-box;">
+    <div id="roomLobby" style="margin: auto; display: ${socket ? 'none' : 'block'}; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1000px; max-height: 85vh; overflow-y:auto; box-sizing:border-box;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 15px;">
           <h1 id="lobbyTitle" style="margin:0;">OFFLINE MODE</h1>
           <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:8px 16px; cursor:pointer; background:#300; color:#ff6b6b; border:1px solid #ff6b6b; font-weight:bold; border-radius:4px;">LEAVE ROOM</button>
@@ -711,7 +711,7 @@ export function buildMenu() {
           <ul id="lobbyList" style="list-style: none; padding: 0; margin: 0; font-family: monospace;"><li>Offline or Connecting...</li></ul>
         </div>
       </div>
-      <div style="display:flex; gap:10px; margin-top:25px;">
+      <div style="display:flex; gap:10px; margin-top:25px; padding-bottom:20px;">
          <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:15px 24px; flex-grow:1; font-size:18px; font-weight:bold; cursor:pointer; background:#222; color:#fff; border:2px solid #555;">READY</button>
          <button id="startBtn" style="padding:15px 24px; flex-grow:1; width: 100%; font-size:18px; font-weight:bold; cursor:pointer; background:#222; color:#0f0; border:2px solid #0f0;">START MATCH</button>
       </div>
