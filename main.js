@@ -263,7 +263,6 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     if(k === 'u' && keys['shift']) { game.autoTarget = !game.autoTarget; flashMessage('Auto Target: ' + (game.autoTarget ? 'ON' : 'OFF')); }
     if(k === 'i' && keys['shift']) { game.autoPlay = !game.autoPlay; flashMessage('Auto Play: ' + (game.autoPlay ? 'ON' : 'OFF')); }
     if(k === 'o' && keys['shift']) { game.mouseTarget = !game.mouseTarget; flashMessage('Mouse Target: ' + (game.mouseTarget ? 'ON' : 'OFF')); }
-    if(k === 'v' && keys['shift']) { game.showDebug = !game.showDebug; flashMessage('Debug View: ' + (game.showDebug ? 'ON' : 'OFF')); }
   });
 
   export const mouse = { sx:0, sy:0, down:false, wx:0, wy:0 };
@@ -364,7 +363,9 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         if (target.stats) target.stats.dmgTaken += actualDamage;
         if (target instanceof Player && sourceEntity && sourceEntity.team !== target.team) {
             let existing = target.recentAttackers.get(sourceId);
-            target.recentAttackers.set(sourceId, { time: performance.now(), count: existing ? existing.count + 1 : 1, damage: (existing ? existing.damage : 0) + actualDamage });
+            let now = performance.now();
+            let isRecent = existing && (now - existing.time < 10000); // 10 vteřin paměť souboje
+            target.recentAttackers.set(sourceId, { time: now, count: isRecent ? existing.count + 1 : 1, damage: isRecent ? existing.damage + actualDamage : actualDamage });
         }
     }
 

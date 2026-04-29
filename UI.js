@@ -14,6 +14,7 @@ style.innerHTML = `
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 50% !important; overflow: hidden !important; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
   #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 350px !important; height: 100vh !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; }
   #shopOverlay.hidden { transform: translateX(100%) !important; }
+  #roomBrowser, #roomLobby, #shopOverlay { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: pan-y !important; }
   @media (max-height: 600px), (max-width: 900px) { 
       #minimap { 
           width: 30vh !important; 
@@ -266,48 +267,6 @@ export function draw(){
   for(let h of game.heals) h.draw(ctx); if(game.powerup) game.powerup.draw(ctx);
   for(let t of game.towers) t.draw(ctx); for(let m of game.minions) m.draw(ctx); for(let p of game.projectiles) p.draw(ctx); for(let pl of game.players) pl.draw(ctx); for(let d of game.damageNumbers) d.draw(ctx); for(let pt of game.particles) pt.draw(ctx);
   
-  // ==========================================
-  // 🛠️ DEBUG VIZUALIZACE (SHIFT + V) 🛠️
-  // ==========================================
-  if (game.showDebug) {
-    ctx.save();
-    // 1. Vykreslení odpuzovacích zón zdí (w.r + 60)
-    ctx.lineJoin = 'round';
-    for (let w of game.walls) {
-      ctx.beginPath(); ctx.moveTo(w.pts[0].x, w.pts[0].y);
-      for(let i=1; i<w.pts.length; i++) ctx.lineTo(w.pts[i].x, w.pts[i].y);
-      ctx.closePath();
-      ctx.strokeStyle = 'rgba(54, 39, 255, 0.5)'; // default for debug
-      ctx.lineWidth = (w.r + 60) * 2; 
-      ctx.stroke();
-      
-      ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-      ctx.fill();
-    }
-
-    // 2. Vykreslení dráhy naklikaných waypointů
-    if (window._waypoints && window._waypoints.length > 0) {
-      ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)'; ctx.lineWidth = 2; ctx.beginPath();
-      for (let i = 0; i < window._waypoints.length; i++) {
-        let wp = window._waypoints[i];
-        if (i===0) ctx.moveTo(wp.x, wp.y); else ctx.lineTo(wp.x, wp.y);
-        ctx.fillStyle = 'rgba(0, 255, 0, 0.8)'; ctx.fillRect(wp.x-2, wp.y-2, 4, 4);
-      }
-      ctx.stroke();
-    }
-
-    // 3. Čáry cílů botů (Kam se zrovna snaží jít)
-    for (let p of game.players) {
-      if (p.alive && p.objective && p.objective.pos) {
-        ctx.strokeStyle = p.team === 0 ? 'rgba(72, 111, 237, 0.5)' : 'rgba(255, 78, 78, 0.5)';
-        ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
-        ctx.beginPath(); ctx.moveTo(p.pos.x, p.pos.y); ctx.lineTo(p.objective.pos.x, p.objective.pos.y); ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    }
-    ctx.restore();
-  }
-
   ctx.setTransform(dpr,0,0,dpr,0,0); 
   
   // --- SCREEN FLASH EFFECTS ---
@@ -596,7 +555,6 @@ export function draw(){
         ctx.fillText(`[SHIFT + U]   : Toggle Auto-Target Aim Assist`, 2 * vw, 46 * vh);
         ctx.fillText(`[SHIFT + I]   : Toggle Auto-Play (Bot Mode)`, 2 * vw, 49 * vh);
         ctx.fillText(`[SHIFT + O]   : Toggle Mouse Target`, 2 * vw, 52 * vh);
-        ctx.fillText(`[SHIFT + V]   : Toggle Debug Visuals`, 2 * vw, 55 * vh);
     }
     
     if (isMobile && player) {

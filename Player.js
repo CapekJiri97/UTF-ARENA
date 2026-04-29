@@ -599,15 +599,6 @@ export class BotPlayer extends Player {
       super.revive();
       this.randomizePokeThresholds();
     }
-    draw(ctx) {
-      super.draw(ctx);
-      if (!this.alive) return;
-      // Zobrazí nad botem jeho aktuální stav a váhu motivace
-      ctx.font = 'bold 10px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#ffcc00';
-      ctx.fillText(`[${this.state}: ${Math.round(this.currentScore || 0)}]`, this.pos.x, this.pos.y - 40);
-    }
 
     // ==========================================
     // VRSTVA 1: STRATEGIE (Makro management - Každé 2 vteřiny)
@@ -693,6 +684,7 @@ export class BotPlayer extends Player {
       if (!this.alive) return;
       this.terrified = false; // Reset strachu na začátku úvahy
       this.angryAtPeker = null; // Reset naštvanosti na střelce
+      this.tankStalemateTarget = null; // Resetování stavu Tank vs Tank
       
       const farmUrge = this.strategy === 'FARM';
       const powerupUrge = this.strategy === 'POWERUP';
@@ -1014,37 +1006,43 @@ export class BotPlayer extends Player {
       }
 
       // 8. Odeslání žádosti o pomoc
-      if (this.state === 'ATTACK' && this.target && this.hp / this.effectiveMaxHp < 0.6) {
+      let isStalemate = (this.state === 'ATTACK' && this.target && this.tankStalemateTarget === this.target);
+      if (this.state === 'ATTACK' && this.target && (isStalemate || this.hp / this.effectiveMaxHp < 0.6)) {
           let enemyHpPct = this.target.hp / (this.target.effectiveMaxHp || this.target.maxHp);
           let now = performance.now();
-          // Pokud mám procentuálně méně životů než nepřítel (prohrávám) a naposledy jsem volal před více jak 5 vteřinami
-          if ((this.hp / this.effectiveMaxHp) < enemyHpPct && (!this.lastHelpCallTime || now - this.lastHelpCallTime > 5000)) {
-              this.lastHelpCallTime = now;
-              if (Math.random() < 0.5) { // 50% šance na zavolání
-                  let allies = aliveAllies.filter(p => p instanceof BotPlayer && p.id !== this.id);
-                  for (let ally of allies) {
-                      let hearRadius = ally.role === 'SUPPORT' ? 2000 : 1200;
-                      if (dist(ally.pos, this.pos) > hearRadius) continue;
+          
+          // Zkontrolujeme cooldown na volání o pomoc (5 vteřin)
+          if (!this.lastHelpCallTime || now - this.lastHelpCallTime > 5000) {
+              // Voláme pomoc pokud je to Stalemate, NEBO pokud prohráváme HP souboj
+              if (isStalemate || (this.hp / this.effectiveMaxHp) < enemyHpPct) {
+                  this.lastHelpCallTime = now;
+                  if (isStalemate || Math.random() < 0.5) { // 100% šance při stalemate, jinak 50%
+                      let allies = aliveAllies.filter(p => p instanceof BotPlayer && p.id !== this.id);
+                      for (let ally of allies) {
+                          let hearRadius = ally.role === 'SUPPORT' ? 2000 : 1200;
+                          if (dist(ally.pos, this.pos) > hearRadius) continue;
 
-                      let isBusy = false;
-                      if (ally.state === 'ATTACK') isBusy = true; // Zrovna bojuje
-                      if (ally.state === 'PICKUP' && ally.objective && ally.objective.type === 'heal') isBusy = true; // Jde se léčit
-                      if ((ally.state === 'CAPTURE' || ally.state === 'PUSH') && ally.objective && ally.objective.pos) {
-                          if (dist(ally.pos, ally.objective.pos) < dist(ally.pos, this.pos)) isBusy = true; // Má bližší objektiv, než je vzdálenost k volajícímu
-                      }
+                          let isBusy = false;
+                          if (ally.state === 'ATTACK') isBusy = true; // Zrovna bojuje
+                          if (ally.state === 'PICKUP' && ally.objective && ally.objective.type === 'heal') isBusy = true; // Jde se léčit
+                          if ((ally.state === 'CAPTURE' || ally.state === 'PUSH') && ally.objective && ally.objective.pos) {
+                              if (dist(ally.pos, ally.objective.pos) < dist(ally.pos, this.pos)) isBusy = true; // Má bližší objektiv, než je vzdálenost k volajícímu
+                          }
 
-                      // SUPPORT zahodí práci a jde pomoct, pokud sám neumírá
-                      if (ally.role === 'SUPPORT' && (ally.hp / ally.effectiveMaxHp > 0.35)) {
-                          isBusy = false;
-                      }
+                          // SUPPORT zahodí práci a jde pomoct, pokud sám neumírá
+                          if (ally.role === 'SUPPORT' && (ally.hp / ally.effectiveMaxHp > 0.35)) {
+                              isBusy = false;
+                          }
 
-                      if (!isBusy) {
-                          ally.helpUrgeTarget = this.target; // Přepošleme mu nepřítele
-                          ally.helpUrgeTimer = ally.role === 'SUPPORT' ? 8.0 : 5.0; // Support se snaží déle
+                          if (!isBusy) {
+                              ally.helpUrgeTarget = this.target; // Přepošleme mu nepřítele
+                              ally.helpUrgeTimer = ally.role === 'SUPPORT' ? 8.0 : 5.0; // Support se snaží déle
+                          }
                       }
                   }
               }
           }
+      }
       }
 
       // 9. Zbabělý útěk (Terrified)
