@@ -538,16 +538,37 @@ export class BotPlayer extends Player {
       this.maxGroupSize = Math.random() > 0.5 ? 3 : 2; // 50% šance snést 3člennou skupinu na stejné věži
       this.lane = opts.lane || null;
       
-      const roamerClasses = ['Assassin', 'Runner', 'Jirina'];
-      const supportClasses = ['Healer', 'Acolyte'];
-      if (roamerClasses.includes(this.className)) this.role = 'ROAMER';
-      else if (supportClasses.includes(this.className)) this.role = 'SUPPORT';
-      else this.role = 'FIGHTER';
+      if (['Runner'].includes(this.className)) this.role = 'SPLITPUSHER';
+      else if (['Assassin', 'Marksman', 'Mage', 'Kratoma', 'Summoner'].includes(this.className)) this.role = 'SLAYER';
+      else if (['Tank', 'Goliath', 'Hana'].includes(this.className)) this.role = 'TANK';
+      else if (['Healer', 'Acolyte'].includes(this.className)) this.role = 'SUPPORT';
+      else this.role = 'FIGHTER'; // Bruiser, Vanguard, Jirina
 
       this.personalWeights = {};
       for(let key in BOT_WEIGHTS) {
           this.personalWeights[key] = BOT_WEIGHTS[key] * (0.9 + Math.random() * 0.2);
       }
+
+      // Aplikace osobností bota (Role-based AI Weights)
+      if (this.role === 'SPLITPUSHER') {
+          this.personalWeights.heroKillScore *= 0.2; // Pacifista
+          this.personalWeights.enemyBaseScore *= 0.2;
+          this.personalWeights.towerBaseScore *= 1.8; // Miluje věže
+          this.personalWeights.emptyTowerScore *= 2.5;
+          this.personalWeights.neutralTowerScore *= 2.5;
+          this.personalWeights.powerupScore *= 3.0; // Posedlost PowerUpem
+      } else if (this.role === 'SLAYER') {
+          this.personalWeights.heroKillScore *= 1.6; // Zabiják
+          this.personalWeights.lowHpScore *= 2.2; // Krvelačný
+          this.personalWeights.attackVisionRange *= 1.25; // Vidí kořist dál
+      } else if (this.role === 'TANK') {
+          this.personalWeights.heroKillScore *= 0.8;
+          this.personalWeights.towerBaseScore *= 1.3; // Rád drží linii u věží
+      } else if (this.role === 'FIGHTER') {
+          this.personalWeights.minionPushBaseScore *= 1.5; // Dobrý pusher vln
+          this.personalWeights.heroKillScore *= 1.1;
+      }
+
       this.guardData = null;
 
       if (!game.teamIntents) game.teamIntents = { 0: {}, 1: {} }; // Týmová nástěnka
@@ -560,6 +581,10 @@ export class BotPlayer extends Player {
         this.pokeToleranceHits = Math.max(1, Math.round(3 * vary())); // cca 2 - 4 rány
         this.pokeTolerancePct = 0.20 * vary(); // 14% - 26% poškození
         this.pokeTowerThreshold = 0.50 * vary(); // 35% - 65% obsazení
+        
+        // BLOODLUST thresholds (Finish Him!)
+        this.bloodlustTargetHpPct = 0.20 * vary(); // Cíl musí mít pod 14% - 26% HP
+        this.bloodlustHpAdvantage = 0.30 * vary(); // Bot musí mít o 21% - 39% více HP
     }
 
     revive() {
@@ -859,8 +884,12 @@ export class BotPlayer extends Player {
       const enemies = [...aliveEnemies, ...activeEnemyMinions];
       for (let e of enemies) {
           let d = dist(e.pos, this.pos);
-          // Pokud je to hunt target, ignorujeme zrak a vnímáme ho globálně
-          if (d < this.personalWeights.attackVisionRange || this.huntTarget === e) {
+          let enemyHpPct = e.hp / (e.effectiveMaxHp || e.maxHp);
+          let myHpPctLoc = this.hp / this.effectiveMaxHp;
+          let isBloodlust = e.className && (enemyHpPct < this.bloodlustTargetHpPct) && ((myHpPctLoc - enemyHpPct) > this.bloodlustHpAdvantage);
+
+          // Pokud je to hunt target, ignorujeme zrak a vnímáme ho globálně (nebo pokud ho zrovna chceme dorazit)
+          if (d < this.personalWeights.attackVisionRange || this.huntTarget === e || (isBloodlust && this.target === e)) {
               let score = this.personalWeights.enemyBaseScore - d;
               if (dist(e.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Neútočíme dovnitř báze
               
@@ -874,9 +903,14 @@ export class BotPlayer extends Player {
                   let myHpPct = this.hp / this.effectiveMaxHp;
                   let minionSwarm = activeEnemyMinions.filter(m => dist(m.pos, this.pos) < 350).length;
 
-                  if (enemyStrength > allyStrength + 0.8 || (myHpPct < 0.25 && enemyStrength > allyStrength + 0.4) || minionSwarm >= 4) { 
+                  let cowardice = 0.8; // Výchozí práh pro útěk z boje
+                  if (this.role === 'SPLITPUSHER') cowardice = -0.2; // Runner utíká i před vyrovnaným bojem (pokud nemá výhodu)
+                  else if (this.role === 'TANK') cowardice = 1.5; // Tank vydrží masivní poškození a kryje ústup, neuteče hned
+                  else if (this.role === 'SLAYER') cowardice = 0.5; // Slayers jsou opatrnější na přesilu
+                  
+                  if (enemyStrength > allyStrength + cowardice || (myHpPct < 0.25 && enemyStrength > allyStrength + (cowardice/2)) || minionSwarm >= 4) { 
                       score -= 30000; 
-                      if (d < 500) this.terrified = true; 
+                      if (d < 600) this.terrified = true; 
                   }
               }
 
@@ -889,9 +923,14 @@ export class BotPlayer extends Player {
                   for (let id in game.teamIntents[this.team]) { if (id !== this.id && game.teamIntents[this.team][id].target === e) allyFocus++; }
                   if (allyFocus > 0) score += allyFocus * 3500; // Boti si pomáhají a sdružují poškození na jeden cíl
                   
-                  // PEELING: Ochrana ustupujících spojenců
+                  // PEELING & TANK PROTECT
                   let chasingTerrified = aliveAllies.some(ally => ally.id !== this.id && ally.terrified && dist(e.pos, ally.pos) < 350);
-                  if (chasingTerrified) score += 2500; // Slabý bonus za útok na někoho, kdo honí zraněného spojence
+                  if (chasingTerrified) score += 2500;
+                  
+                  if (this.role === 'TANK') {
+                      let attackingCarry = aliveAllies.some(ally => ['SLAYER', 'SUPPORT'].includes(ally.role) && ally.recentAttackers && ally.recentAttackers.has(e.id));
+                      if (attackingCarry) score += 8000; // Tanci agresivně brání střelce a supporty ve svém týmu
+                  }
               } else {
                   if (farmUrge) score += 1500; // Zvýšeno, aby farmařil více
                   // Masivní priorita POUZE pro miniony, kteří překážejí v obsazování/obraně věže
@@ -899,7 +938,8 @@ export class BotPlayer extends Player {
                       if (dist(e.pos, this.objective.pos) < 120) score += 15000; // Okamžitá poprava překážejících minionů
                   }
               }
-              if (e.hp / (e.effectiveMaxHp || e.maxHp) < 0.3 && !farmUrge) score += this.personalWeights.lowHpScore;
+              if (enemyHpPct < 0.3 && !farmUrge) score += this.personalWeights.lowHpScore;
+              if (isBloodlust) score += 25000; // Krev! Musí ho dorazit a nenechat utéct!
               
               if (this.recentAttackers && this.recentAttackers.has(e.id)) {
                   let atkData = this.recentAttackers.get(e.id);
@@ -933,8 +973,8 @@ export class BotPlayer extends Player {
               if (this.isGlobalLosing) score -= 3450; // Posílena averze k boji o 15%
 
               // PŘIDÁNO: Ztráta priority, pokud ho bot dlouho nahání ale nedal mu dmg
-              // OPRAVA: Ignorujeme Anti-Chase pro lovené cíle a volání o pomoc!
-              if (this.target === e && this.chaseTimer > 2.0 && this.huntTarget !== e && this.helpUrgeTarget !== e) {
+              // OPRAVA: Ignorujeme Anti-Chase pro lovené cíle, volání o pomoc a low HP cíle (Bloodlust)!
+              if (this.target === e && this.chaseTimer > 2.0 && this.huntTarget !== e && this.helpUrgeTarget !== e && !isBloodlust) {
                   score -= 20000; // Po dvou vteřinách neúspěšného stíhání běžný cíl těžce ztratí na prioritě
               }
 
@@ -1250,6 +1290,26 @@ export class BotPlayer extends Player {
           this.lastPosCheck = { x: this.pos.x, y: this.pos.y };
       }
 
+      // --- MICRO: WAVE CLEAR (AOE kouzla do skupinky minionů) ---
+      if (this.castingTimeRemaining <= 0) {
+          for (let key of ['Q', 'E']) {
+              let sp = this.spells[key];
+              if (sp && sp.cd <= 0 && (sp.type === 'aoe' || sp.type === 'aoe_knockback')) {
+                  let hitCount = 0;
+                  let r = sp.radius || 150;
+                  for (let m of game.minions) {
+                      if (!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= r) {
+                          hitCount++;
+                      }
+                  }
+                  if (hitCount >= 3) {
+                      this.castSpell(key, this.pos.x, this.pos.y);
+                      break;
+                  }
+              }
+          }
+      }
+
       // --- OPERATIVNÍ LOGIKA POHYBU A ÚTOKU ---
       let dx = 0, dy = 0;
       let isKiting = false; // Vlajka pro střelbu za běhu
@@ -1397,21 +1457,22 @@ export class BotPlayer extends Player {
       for (let proj of game.projectiles) {
           if (proj.ownerTeam !== this.team && !proj.dead) {
               let pdDist = dist(this.pos, proj.pos);
-              if (pdDist < 250) {
+              if (pdDist < 350 * this.microDodgeMod) { // Vidí letící hrozbu z větší dálky (více času na reakci)
                   let pLen = Math.hypot(proj.vel.x, proj.vel.y);
                   if (pLen > 0) {
                       let pDirX = proj.vel.x / pLen, pDirY = proj.vel.y / pLen;
                       let toMeX = this.pos.x - proj.pos.x, toMeY = this.pos.y - proj.pos.y;
                       let dot = toMeX * pDirX + toMeY * pDirY;
                       // Zkontrolujeme, zda projektil směřuje k nám (dot > 0) a neletí už za nás
-                      if (dot > 0 && dot < pdDist + 30) {
+                      if (dot > 0 && dot < pdDist + 50 * this.microDodgeMod) {
                           let projX = proj.pos.x + pDirX * dot, projY = proj.pos.y + pDirY * dot;
                           let distToLine = dist(this.pos, {x: projX, y: projY});
-                          if (distToLine < this.radius + (proj.radius || 8) + 25) {
+                          if (distToLine < this.radius + (proj.radius || 8) + 35 * this.microDodgeMod) { // Širší "bezpečná zóna"
                               let crossX = this.pos.x - projX, crossY = this.pos.y - projY;
                               let cLen = Math.hypot(crossX, crossY);
-                              if (cLen > 0) { dodgeDx += (crossX / cLen) * 3.5; dodgeDy += (crossY / cLen) * 3.5; } 
-                              else { dodgeDx += -pDirY * 3.5; dodgeDy += pDirX * 3.5; }
+                              let dodgeForce = 1200 * this.microDodgeMod;
+                              if (cLen > 0) { dodgeDx += (crossX / cLen) * dodgeForce; dodgeDy += (crossY / cLen) * dodgeForce; } // Tvrdý úkrok do strany
+                              else { dodgeDx += -pDirY * dodgeForce; dodgeDy += pDirX * dodgeForce; }
                           }
                       }
                   }
