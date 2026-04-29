@@ -49,6 +49,24 @@ if (!document.querySelector('meta[name="viewport"]')) {
     document.head.appendChild(meta);
 }
 
+// Vytvoření chybějících UI elementů, pokud nejsou v HTML, aby hra nespadla při startu
+if (!document.getElementById('minimap')) {
+    const mm = document.createElement('div');
+    mm.id = 'minimap';
+    document.body.appendChild(mm);
+}
+if (!document.getElementById('shopOverlay')) {
+    const so = document.createElement('div');
+    so.id = 'shopOverlay';
+    so.className = 'hidden';
+    document.body.appendChild(so);
+}
+if (!document.getElementById('inventory')) {
+    const inv = document.createElement('div');
+    inv.id = 'inventory';
+    document.body.appendChild(inv);
+}
+
 // --- ZABRÁNĚNÍ NATIVNÍHO ZOOMU A POHYBU STRÁNKY PROHLÍŽEČEM ---
 window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 window.addEventListener('keydown', (e) => {
