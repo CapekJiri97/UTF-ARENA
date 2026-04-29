@@ -7,7 +7,8 @@ import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollisi
 export class Projectile{
   constructor(x,y,vx,vy,ownerId,ownerTeam,opts={}){ this.pos={x,y}; this.vel={x:vx,y:vy}; 
     this.radius=opts.radius||4; this.life=opts.life||2.0; this.ownerId = ownerId; this.ownerTeam = ownerTeam; this.damage = opts.damage||25; this.dmgType = opts.dmgType||'physical'; this.glyph = opts.glyph||'*'; this.dead = false;
-    this.color = ownerTeam === 0 ? '#486FED' : (ownerTeam === 1 ? '#FF4E4E' : '#fff'); }
+    this.color = ownerTeam === 0 ? '#486FED' : (ownerTeam === 1 ? '#FF4E4E' : '#fff'); 
+    this.opts = opts; }
   update(dt){ if(this.dead) return; this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; if(this.life<=0) this.dead = true;
     if(!isPointInPoly(this.pos.x, this.pos.y, mapBoundary)) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; }
     for(let w of game.walls) { 
@@ -15,21 +16,37 @@ export class Projectile{
       if(info.inside || info.minDist < w.r) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; }
     }
     
-    let hit = false;
+    let hitTarget = null;
     for(let m of game.minions){ 
       if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){ 
-        hit = true; applyDamage(m, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00');     if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ owner.gold += 10; owner.totalGold += 10; owner.exp += 15; } } break; 
+        hitTarget = m; applyDamage(m, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00');     if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ owner.gold += 10; owner.totalGold += 10; owner.exp += 15; } } break; 
       } 
     }
-    if (hit) { this.dead = true; return; }
+    if (hitTarget) { this.processOnHit(hitTarget); this.dead = true; return; }
     
     for(let p of game.players){ 
       if(p.id !== this.ownerId && p.team !== this.ownerTeam && p.alive && dist(this.pos, p.pos) < this.radius + p.radius){ 
-        hit = true; applyDamage(p, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00'); 
+        hitTarget = p; applyDamage(p, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00'); 
         if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.ownerId); } break; 
       } 
     }
-    if (hit) { this.dead = true; }
+    if (hitTarget) { this.processOnHit(hitTarget); this.dead = true; }
+  }
+  processOnHit(target) {
+      if (this.opts.slowDuration) {
+          target.slowTimer = Math.max(target.slowTimer || 0, this.opts.slowDuration);
+      }
+      if (this.opts.spawnMinion && (!socket || game.isHost)) {
+          let bestTower = null, bd = Infinity;
+          for (let t of game.towers) if (t.owner !== this.ownerTeam && dist(t.pos, this.pos) < bd) { bestTower = t; bd = dist(t.pos, this.pos); }
+          const tIndex = bestTower ? bestTower.index : 0;
+          
+          let m = new Minion(this.pos.x, this.pos.y, this.ownerTeam, tIndex);
+          m.maxHp = this.opts.mHp || 100; m.hp = m.maxHp; m.attackDamage = this.opts.mAd || 10;
+          m.glyph = this.opts.mGlyph || 'b';
+          game.minions.push(m);
+          spawnParticles(this.pos.x, this.pos.y, 10, '#a3c');
+      }
   }
   draw(ctx){ 
     ctx.fillStyle = this.color; ctx.font=`bold ${Math.round(this.radius * 4.5)}px monospace`; ctx.textAlign='center'; ctx.textBaseline='middle'; 

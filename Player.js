@@ -35,6 +35,8 @@ export class Player{
     this.regenBuffTimer = 0;
     this.regenBuffAmount = 0;
     this.defBuffTimer = 0;
+    this.adAsBuffTimer = 0;
+    this.adAsBuffAmount = 0;
     this.hasPowerup = false; this.powerupTimer = 0;
     this.stats = { dmgDealt: 0, dmgTaken: 0, hpHealed: 0 };
     this.recentAttackers = new Map();
@@ -61,6 +63,7 @@ export class Player{
 
     // basic attack
     this.attackCooldown = 0; this.attackDelay = cData.attackDelay; this.range = cData.range;
+    this.attackRange = cData.attackRange || (this.range ? RANGED_ATTACK_RANGE : MELEE_ATTACK_RANGE);
 
     this.aimAngle = 0; // Uchovává směr, kam hráč míří
 
@@ -97,6 +100,7 @@ export class Player{
     
     if(this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if(this.defBuffTimer > 0) this.defBuffTimer -= dt;
+    if(this.adAsBuffTimer > 0) this.adAsBuffTimer -= dt;
     if(this.summonerCooldown > 0) this.summonerCooldown -= dt;
     if(this.boostTimer > 0) this.boostTimer -= dt;
     if(this.rallyTimer > 0) this.rallyTimer -= dt;
@@ -223,7 +227,7 @@ export class Player{
     // --- Aim Assist (Auto-Targeting with Player Priority) ---
     if (this === player && !game.mouseTarget) {
       let bestTarget = null;
-      const maxD = this.range ? RANGED_ATTACK_RANGE : MELEE_ATTACK_RANGE + 100;
+      const maxD = this.attackRange + 100;
       const use360 = game.autoTarget;
       const maxAngleDiff = 35 * Math.PI / 180;
 
@@ -282,10 +286,11 @@ export class Player{
     if (this === player && game.mouseTarget && mouse.down) wantAttack = true;
     if (this === player && game.autoPlay && this.currentTarget && this.currentTarget.hp > 0 && !this.currentTarget.dead) {
         const d = dist(this.pos, this.currentTarget.pos);
-        const atkRange = this.range ? RANGED_ATTACK_RANGE : MELEE_ATTACK_RANGE + 20;
+        const atkRange = this.attackRange + 20;
         if (d <= atkRange) wantAttack = true;
     }
-    if(this === player && wantAttack && this.attackCooldown<=0){ this.shoot(this.pos.x + Math.cos(this.aimAngle)*100, this.pos.y + Math.sin(this.aimAngle)*100); this.attackCooldown = this.attackDelay / this.attackSpeed; }
+    let effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0);
+    if(this === player && wantAttack && this.attackCooldown<=0){ this.shoot(this.pos.x + Math.cos(this.aimAngle)*100, this.pos.y + Math.sin(this.aimAngle)*100); this.attackCooldown = this.attackDelay / effAS; }
 
     // spells cooldowns
     for(let k of Object.keys(this.spells)){ const sp = this.spells[k]; if(sp.cd>0){ sp.cd = Math.max(0, sp.cd - dt); } }
@@ -372,12 +377,21 @@ export class Player{
       }
     }
 
-    const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0); const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0);
+    const buffAdMult = 1.0 + (this.adAsBuffTimer > 0 ? this.adAsBuffAmount : 0);
+    const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0) * buffAdMult; 
+    const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0);
     const aaScale = AA_SCALES[this.className] || 0.3;
     if(this.range){ // ranged - projectile with limited range
-      const angle = Math.atan2(ty-this.pos.y, tx-this.pos.x); const speed = 800; const range = RANGED_ATTACK_RANGE; const life = range / speed; const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed; const damage = Math.round(CLASSES[this.className].baseAtk + ((this.dmgType === 'magical' ? pAP : pAD) * aaScale)); const p = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:'-' , life:life, radius: 8}); game.projectiles.push(p);
+      const angle = Math.atan2(ty-this.pos.y, tx-this.pos.x); const speed = 800; const range = this.attackRange; const life = range / speed; const damage = Math.round(CLASSES[this.className].baseAtk + ((this.dmgType === 'magical' ? pAP : pAD) * aaScale)); 
+      let pCount = CLASSES[this.className].projCount || 1;
+      let pSpread = CLASSES[this.className].projSpread || 0.25;
+      for(let i=0; i<pCount; i++) {
+          const a = pCount === 1 ? angle : angle - (pSpread*(pCount-1))/2 + i*pSpread;
+          const vx = Math.cos(a)*speed; const vy = Math.sin(a)*speed;
+          const p = new Projectile(this.pos.x + Math.cos(a)*(this.radius+6), this.pos.y + Math.sin(a)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:'-' , life:life, radius: 8}); game.projectiles.push(p);
+      }
     } else { // melee basic
-      const meleeRange = MELEE_ATTACK_RANGE; const damage = Math.round(CLASSES[this.className].baseAtk + ((this.dmgType === 'magical' ? pAP : pAD) * aaScale));
+      const meleeRange = this.attackRange; const damage = Math.round(CLASSES[this.className].baseAtk + ((this.dmgType === 'magical' ? pAP : pAD) * aaScale));
       if (this.className === 'Hana') {
           spawnParticles(this.pos.x, this.pos.y, 2, '#f0f', { shape: 'ring', radius: meleeRange, life: 0.2, speed: 0, lineWidth: 2 });
           for(let m of game.minions){ if(!m.dead && m.team !== this.team){ if(dist(this.pos, m.pos) <= meleeRange){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) { this.gold += 10; this.totalGold += 10; this.exp += 15; } } } } }
@@ -420,7 +434,8 @@ export class Player{
 
     if(!isNetwork) { sp.cd = this.computeSpellCooldown(spKey); this.castingTimeRemaining = sp.castTime; }
 
-    const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0); const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0);
+    const buffAdMult = 1.0 + (this.adAsBuffTimer > 0 ? this.adAsBuffAmount : 0);
+    const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0) * buffAdMult; const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0);
     const damage = Math.round(sp.baseDamage + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*8); // Damage calculation is fine on client for display
     
     // Odebráno globální omezení 'Host-only', aby klienti viděli letící projektily a mohli vizuálně dashovat
@@ -432,6 +447,18 @@ export class Player{
             const vx = Math.cos(a)*speed; const vy = Math.sin(a)*speed;
             game.projectiles.push(new Projectile(this.pos.x + Math.cos(a)*(this.radius+6), this.pos.y + Math.sin(a)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:sp.pGlyph, life: life})); 
         }
+    } else if (sp.type === 'projectile_summon') {
+        const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x); const speed = sp.pSpeed || 900; const life = sp.life || (700 / speed);
+        const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed;
+        game.projectiles.push(new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {
+            damage: damage, dmgType: this.dmgType, glyph: sp.pGlyph, life: life,
+            spawnMinion: true, mGlyph: sp.summonGlyph, mHp: sp.summonHp, mAd: sp.summonAd,
+            slowDuration: sp.slowDuration
+        }));
+    } else if (sp.type === 'buff_ad_as') {
+        this.adAsBuffTimer = sp.duration;
+        this.adAsBuffAmount = sp.amount;
+        spawnParticles(this.pos.x, this.pos.y, 15, '#f00', {speed: 150});
     } else if (sp.type === 'aoe') {
         const range = sp.radius; 
         game.particles.push(new Particle(this.pos.x, this.pos.y, '#ccf', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
@@ -1007,6 +1034,7 @@ export class BotPlayer extends Player {
           if(this.slowTimer > 0) this.slowTimer -= dt;
           if(this.msBuffTimer > 0) this.msBuffTimer -= dt;
           if(this.levelUpTimer > 0) this.levelUpTimer -= dt;
+          if(this.adAsBuffTimer > 0) this.adAsBuffTimer -= dt;
           if (this.knockbackTimer > 0) {
               this.knockbackTimer -= dt;
               moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);
@@ -1033,6 +1061,7 @@ export class BotPlayer extends Player {
       
       if(this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
       if(this.defBuffTimer > 0) this.defBuffTimer -= dt;
+      if(this.adAsBuffTimer > 0) this.adAsBuffTimer -= dt;
       if(this.regenBuffTimer > 0) {
           this.regenBuffTimer -= dt;
           if (this === player || (!socket || game.isHost)) { this.hp = Math.min(this.effectiveMaxHp, this.hp + this.regenBuffAmount * dt); }
@@ -1179,7 +1208,8 @@ export class BotPlayer extends Player {
               let tx = this.target.pos.x;
               let ty = this.target.pos.y;
               let d = dist(this.pos, this.target.pos);
-              let atkRange = this.range ? RANGED_ATTACK_RANGE - 50 : MELEE_ATTACK_RANGE - 20;
+              let atkRange = this.attackRange - (this.range ? 50 : 20);
+              if (atkRange < 100) atkRange = 100;
               
               if (d > atkRange + 20) {
                   this.chaseTimer = (this.chaseTimer || 0) + dt;
@@ -1217,7 +1247,8 @@ export class BotPlayer extends Player {
               // Basic Attack
               if (this.attackCooldown <= 0 && d <= atkRange + 20) { 
                   this.shoot(tx, ty); 
-                  this.attackCooldown = this.attackDelay / this.attackSpeed; 
+                  let effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0);
+                  this.attackCooldown = this.attackDelay / effAS; 
               }
               
               // Spells Logic (Q)
@@ -1271,7 +1302,7 @@ export class BotPlayer extends Player {
 
       // --- KITING BĚHEM ÚTĚKU / PŘESUNU ---
       if (this.state !== 'ATTACK') {
-          let atkRange = this.range ? RANGED_ATTACK_RANGE : MELEE_ATTACK_RANGE + 20;
+          let atkRange = this.attackRange + 20;
           let kitingTarget = null;
           let bestKDist = atkRange;
           
@@ -1292,7 +1323,10 @@ export class BotPlayer extends Player {
           if (kitingTarget) {
               isKiting = true;
               this.aimAngle = Math.atan2(kitingTarget.pos.y - this.pos.y, kitingTarget.pos.x - this.pos.x);
-              if (this.attackCooldown <= 0) { this.shoot(kitingTarget.pos.x, kitingTarget.pos.y); this.attackCooldown = this.attackDelay / this.attackSpeed; }
+              if (this.attackCooldown <= 0) { 
+                  this.shoot(kitingTarget.pos.x, kitingTarget.pos.y); 
+                  let effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0);
+                  this.attackCooldown = this.attackDelay / effAS; }
               if (this.castingTimeRemaining <= 0) {
                   let isMinion = !kitingTarget.className;
                   if (this.spells.Q && this.spells.Q.cd <= 0 && !['dash', 'dash_def', 'buff_ms', 'heal_self', 'hana_q'].includes(this.spells.Q.type)) {

@@ -1,10 +1,10 @@
 export const SUMMONER_SPELLS = {
-  Heal: { name: 'Heal', desc: 'Léčí 150 HP + 20 za level.', cd: 120 },
-  Ghost: { name: 'Ghost', desc: 'Zvýší rychlost o +40% na 5s.', cd: 90 },
-  Boost: { name: 'Boost', desc: 'Zvýší staty (+10%) na 5s.', cd: 90 },
-  Rally: { name: 'Rally', desc: 'Zrychlí obsazování, léčí a posílí okolní miniony.', cd: 120 },
-  Revive: { name: 'Revive', desc: 'Okamžité oživení při smrti.', cd: 180 },
-  Exhaust: { name: 'Exhaust', desc: 'Zpomalí nepřátele (300 unitů) o 40% na 2s.', cd: 90 }
+  Heal: { name: 'Heal', desc: 'Léčí 150 HP + 20 za level.', cd: 60 },
+  Ghost: { name: 'Ghost', desc: 'Zvýší rychlost o +40% na 5s.', cd: 45 },
+  Boost: { name: 'Boost', desc: 'Zvýší staty (+10%) na 5s.', cd: 45 },
+  Rally: { name: 'Rally', desc: 'Zrychlí obsazování, léčí a posílí okolní miniony.', cd: 60 },
+  Revive: { name: 'Revive', desc: 'Okamžité oživení při smrti.', cd: 90 },
+  Exhaust: { name: 'Exhaust', desc: 'Zpomalí nepřátele (300 unitů) o 40% na 2s.', cd: 45 }
 };
 
 export const AA_SCALES = {
@@ -16,6 +16,7 @@ export const AA_SCALES = {
   Goliath:  0.40,
   Assassin: 0.55,
   Runner:   0.20,
+  Kratoma:  0.40,
   Marksman: 0.50,
   Mage:     0.20,
   Summoner: 0.20,
@@ -186,6 +187,27 @@ export const CLASSES = {
       baseDamage: 60, scaleAP: 0.6, scaleAD: 0,
       type: 'aoe', radius: 120,
       desc: 'Magická exploze v blízkém okolí.'
+    }
+  },
+
+  Kratoma: {
+    glyph: 'K', range: true, attackRange: 160, dmgType: 'physical',
+    hp: 600, speed: 115, attackDelay: 1.0,
+    baseAtk: 35, baseAD: 65, baseAP: 0,
+    baseArmor: 20, baseMR: 20,
+    projCount: 3, projSpread: 0.3,
+    Q: {
+      baseCooldown: 8.0, castTime: 0.2,
+      baseDamage: 50, scaleAP: 0, scaleAD: 0.6,
+      type: 'projectile_summon', pGlyph: 'o', pSpeed: 800,
+      summonGlyph: 'b', summonHp: 100, summonAd: 10, slowDuration: 1.0,
+      desc: 'Zraní a zpomalí první cíl. Vyvolá Ghoula.'
+    },
+    E: {
+      baseCooldown: 12.0, castTime: 0.1,
+      baseDamage: 0, scaleAP: 0, scaleAD: 0,
+      type: 'buff_ad_as', duration: 4.0, amount: 0.25,
+      desc: 'Zvýší AD a Attack Speed o 25% na 4s.'
     }
   },
 

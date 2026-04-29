@@ -413,12 +413,14 @@ export function draw(){
           
           if (t.AD !== undefined) { 
               ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; let stX = tx + 150;
-              ctx.fillText(`AD:${Math.round(t.AD*(t.hasPowerup?1.2:1))}`, stX, ty + 30);
+              let buffAdMultT = 1.0 + (t.adAsBuffTimer > 0 ? t.adAsBuffAmount : 0);
+              let buffAsMultT = 1.0 + (t.adAsBuffTimer > 0 ? t.adAsBuffAmount : 0);
+              ctx.fillText(`AD:${Math.round(t.AD*(t.hasPowerup?1.2:1)*buffAdMultT)}`, stX, ty + 30);
               ctx.fillText(`AP:${Math.round(t.AP*(t.hasPowerup?1.2:1))}`, stX, ty + 55);
               ctx.fillText(`AR:${Math.round(t.armor*(t.hasPowerup?1.2:1))}`, stX + 45, ty + 30);
               ctx.fillText(`MR:${Math.round(t.mr*(t.hasPowerup?1.2:1))}`, stX + 45, ty + 55);
               ctx.fillText(`SP:${Math.round(t.speed*(t.hasPowerup?1.2:1))}`, stX + 90, ty + 30);
-              ctx.fillText(`AS:${(t.attackDelay / t.attackSpeed).toFixed(2)}`, stX + 90, ty + 55); 
+              ctx.fillText(`AS:${(t.attackDelay / (t.attackSpeed * buffAsMultT)).toFixed(2)}`, stX + 90, ty + 55); 
           }
       }
 
@@ -488,12 +490,14 @@ export function draw(){
       ctx.fillStyle = '#111'; ctx.fillRect(cx + 160, cy - 40, 180, 75);
       ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 160, cy - 40, 180, 75);
       ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(`AD:${Math.round(player.AD * (player.hasPowerup?1.2:1))}`, cx + 165, cy - 25);
+      let buffAdMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
+      let buffAsMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
+      ctx.fillText(`AD:${Math.round(player.AD * (player.hasPowerup?1.2:1) * buffAdMult)}`, cx + 165, cy - 25);
       ctx.fillText(`AP:${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + 165, cy - 5);
       ctx.fillText(`AR:${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + 225, cy - 25);
       ctx.fillText(`MR:${Math.round(player.mr * (player.hasPowerup?1.2:1))}`, cx + 225, cy - 5);
       ctx.fillText(`HP:${player.effectiveMaxHp}`, cx + 225, cy + 15);
-      ctx.fillText(`AS:${(player.attackDelay / player.attackSpeed).toFixed(2)}`, cx + 285, cy - 25);
+      ctx.fillText(`AS:${(player.attackDelay / (player.attackSpeed * buffAsMult)).toFixed(2)}`, cx + 285, cy - 25);
       ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 285, cy - 5);
       ctx.fillText(`AH:${player.abilityHaste}`, cx + 285, cy + 15);
       
@@ -524,12 +528,14 @@ export function draw(){
         ctx.fillText(`Kills: ${player.kills} | Deaths: ${player.deaths}`, 2 * vw, 22 * vh);
         
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`ATTRIBUTES`, 2 * vw, 28 * vh);
+        let buffAdMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
+        let buffAsMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
         ctx.fillStyle = '#aaa';
-        ctx.fillText(`AD: ${Math.round(player.AD*(player.hasPowerup?1.2:1))}`, 2 * vw, 31 * vh);
+        ctx.fillText(`AD: ${Math.round(player.AD*(player.hasPowerup?1.2:1)*buffAdMultP)}`, 2 * vw, 31 * vh);
         ctx.fillText(`AP: ${Math.round(player.AP*(player.hasPowerup?1.2:1))}`, 15 * vw, 31 * vh);
         ctx.fillText(`Armor: ${Math.round(player.armor*(player.hasPowerup?1.2:1))}`, 2 * vw, 34 * vh);
         ctx.fillText(`MR: ${Math.round(player.mr*(player.hasPowerup?1.2:1))}`, 15 * vw, 34 * vh);
-        ctx.fillText(`Attack Speed: ${player.attackSpeed.toFixed(2)}`, 2 * vw, 37 * vh);
+        ctx.fillText(`Attack Speed: ${(player.attackSpeed * buffAsMultP).toFixed(2)}`, 2 * vw, 37 * vh);
         ctx.fillText(`Move Speed: ${Math.round(player.speed*(player.hasPowerup?1.2:1))}`, 15 * vw, 37 * vh);
         ctx.fillText(`Ability Haste: ${player.abilityHaste}`, 2 * vw, 40 * vh);
         
@@ -727,7 +733,7 @@ export function buildMenu() {
   const catGroups = { 
       'FIGHTER': ['Bruiser', 'Vanguard', 'Jirina'], 
       'TANK': ['Tank', 'Goliath', 'Hana'], 
-      'DPS': ['Assassin', 'Marksman', 'Runner'], 
+      'DPS': ['Assassin', 'Marksman', 'Runner', 'Kratoma'], 
       'MAGE': ['Mage', 'Summoner'], 
       'SUPPORT': ['Healer', 'Acolyte'] 
   };
