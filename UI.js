@@ -416,9 +416,9 @@ export function draw(){
       // Vykreslení target okna PŘED hlavním HUDem, nezávisle na jeho pozici a velikosti (doleva dolů)
       if (player.currentTarget && player.currentTarget.hp > 0 && !player.currentTarget.dead) {
           ctx.save();
-          let tgtScale = isMobile ? 0.4 : 1.0;
+          let tgtScale = isMobile ? 0.5 : 1.0; // Zvětšeno o cca 20 % (z 0.4 na 0.5)
           let txBase = isMobile ? 15 : cw / 2 - 140;
-          let tyBase = isMobile ? ch - (85 * tgtScale) - 15 : ch - 250; 
+          let tyBase = isMobile ? (ch / 2) - 20 : ch - 250; // Posunuto přesně doprostřed na levý okraj
           
           ctx.translate(txBase, tyBase);
           ctx.scale(tgtScale, tgtScale);
@@ -839,8 +839,8 @@ export function initMobileUI() {
     const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (!isMobile) return;
     
-    // Oddálení kamery na mobilu o 100% (z původních 0.5 zpět na 1.0)
-    camera.scale = 1.0;
+    // Oddálení kamery na mobilu o 20% (z původních 1.0 na 0.8)
+    camera.scale = 0.8;
 
     // Natvrdo zarovnáme minimapu pomocí JS pro případ, že CSS Media Queries na mobilech selžou
     const mm = document.getElementById('minimap');
@@ -899,11 +899,11 @@ export function initMobileUI() {
     const btnE = createBtn('k', 'E'); btnE.id = 'mobBtnE'; btnE.style.right = '18vh'; btnE.style.bottom = '46vh';
     const btnS = createBtn('l', 'S'); btnS.id = 'mobBtnS'; btnS.style.right = '2vw'; btnS.style.bottom = '60vh';
     
-    // TLAČÍTKA VEDLE MINIMAPY -> PŘESUNUTO VPRAVO NAHORU (SHOP, INFO, AUTOPLAY)
+    // TLAČÍTKA -> PŘESUNUTO VLEVO DOLŮ HORIZONTÁLNĚ
     const sideBtns = document.createElement('div');
-    sideBtns.style.position = 'absolute'; sideBtns.style.right = '2vw'; 
-    sideBtns.style.top = '10vh';
-    sideBtns.style.display = 'flex'; sideBtns.style.flexDirection = 'column'; sideBtns.style.gap = '10px'; sideBtns.style.pointerEvents = 'auto';
+    sideBtns.style.position = 'absolute'; sideBtns.style.left = '2vw'; sideBtns.style.right = 'auto';
+    sideBtns.style.bottom = '2vh'; sideBtns.style.top = 'auto';
+    sideBtns.style.display = 'flex'; sideBtns.style.flexDirection = 'row'; sideBtns.style.gap = '10px'; sideBtns.style.pointerEvents = 'auto';
 
     sideBtns.appendChild(createBtn('b', 'SHOP', false, '8vh', '2vh'));
     sideBtns.appendChild(createBtn('c', 'INFO', false, '8vh', '2vh'));
