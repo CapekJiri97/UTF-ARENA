@@ -88,10 +88,10 @@ export class Player{
     console.log(`[DEBUG] ${this.id} revived.`); 
   }
 
-  allocateSpellPoint(spKey){ if(this.spellPoints<=0) return; const sp = this.spells[spKey]; if(!sp) return; if (!socket || game.isHost) { sp.level += 1; this.spellPoints -= 1; this.isDirty = true; } updateSpellLabels(); }
+  allocateSpellPoint(spKey){ if(this.spellPoints<=0) return; const sp = this.spells[spKey]; if(!sp) return; if (!socket || game.isHost || this === player) { sp.level += 1; this.spellPoints -= 1; this.isDirty = true; } updateSpellLabels(); }
 
   levelUp(){
-    if (!socket || game.isHost) { this.level += 1; this.spellPoints += 1; this.maxHp += 15; this.hp = Math.min(this.effectiveMaxHp, this.hp + 15); this.AD += 1; this.AP += 1; this.isDirty = true; }
+    if (!socket || game.isHost || this === player) { this.level += 1; this.spellPoints += 1; this.maxHp += 15; this.hp = Math.min(this.effectiveMaxHp, this.hp + 15); this.AD += 1; this.AP += 1; this.isDirty = true; }
     this.levelUpTimer = 2.0; spawnParticles(this.pos.x, this.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0});
     console.log(`[DEBUG] ${this.id} leveled up to ${this.level}`); 
   }
@@ -164,7 +164,7 @@ export class Player{
                 let chosenId = pool[Math.floor(Math.random() * pool.length)];
                 itemToBuy = shopItems.find(it => it.id === chosenId);
             }
-            if (itemToBuy && this.gold >= itemToBuy.cost && (!socket || game.isHost)) buyItem(itemToBuy.id); // buyItem handles gold/item changes
+            if (itemToBuy && this.gold >= itemToBuy.cost) buyItem(itemToBuy.id); // buyItem handles gold/item changes
         }
     }
 
