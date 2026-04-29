@@ -1,5 +1,5 @@
 import { dist, distToPoly, expForLevel } from './Utils.js';
-import { CLASSES, SUMMONER_SPELLS } from './classes.js';
+import { CLASSES, SUMMONER_SPELLS, AA_SCALES } from './classes.js';
 import { shopItems } from './items.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 import { spawnPoints, mapBoundary } from './MapConfig.js';
@@ -123,13 +123,33 @@ export class Player{
             let itemToBuy = null;
             if (!this.hasBoots && this.gold >= 300) itemToBuy = shopItems.find(it => it.id === 'boots');
             else {
-                let possibleItems = shopItems.filter(it => it.cost <= this.gold && it.id !== 'boots');
-                if (possibleItems.length > 0) {
-                    let prefs = possibleItems.filter(it => (this.dmgType === 'magical' && (it.id==='ap' || it.id==='mr')) || (this.dmgType === 'physical' && (it.id==='ad' || it.id==='as' || it.id==='armor')) || it.id==='hp');
-                    itemToBuy = (prefs.length > 0) ? prefs[Math.floor(Math.random()*prefs.length)] : possibleItems[Math.floor(Math.random()*possibleItems.length)];
+                let enemyPhys = 0, enemyMag = 0;
+                const enemies = game.players.filter(p => p.team !== this.team);
+                for (let e of enemies) { if (e.dmgType === 'physical') enemyPhys++; else enemyMag++; }
+
+                let pool = [];
+                const isTank = ['Tank', 'Goliath', 'Hana'].includes(this.className);
+                const isFighter = ['Bruiser', 'Vanguard', 'Jirina'].includes(this.className);
+                const isMageSupport = ['Mage', 'Summoner', 'Healer', 'Acolyte', 'Runner'].includes(this.className);
+                
+                if (isTank) {
+                    pool.push('hp', 'hp');
+                    if (enemyPhys >= enemyMag) pool.push('armor', 'armor');
+                    if (enemyMag >= enemyPhys) pool.push('mr', 'mr');
+                } else if (isFighter) {
+                    pool.push('hp');
+                    if (this.dmgType === 'magical') pool.push('ap', 'ah'); else pool.push('ad', 'ah'); 
+                    if (enemyPhys > enemyMag) pool.push('armor'); else if (enemyMag > enemyPhys) pool.push('mr');
+                } else if (isMageSupport) {
+                    pool.push('ap', 'ap', 'ah', 'ah'); if (Math.random() < 0.25) pool.push('hp'); 
+                } else { 
+                    if (this.className === 'Marksman') pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); 
+                    if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr');
                 }
+                let chosenId = pool[Math.floor(Math.random() * pool.length)];
+                itemToBuy = shopItems.find(it => it.id === chosenId);
             }
-            if (itemToBuy) buyItem(itemToBuy.id);
+            if (itemToBuy && this.gold >= itemToBuy.cost) buyItem(itemToBuy.id);
         }
     }
 
@@ -342,11 +362,11 @@ export class Player{
     }
 
     const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0); const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0);
-    const aaScale = this.dmgType === 'magical' ? (this.className === 'Hana' ? 0.4 : 0.15) : 0.6;
+    const aaScale = AA_SCALES[this.className] || 0.3;
     if(this.range){ // ranged - projectile with limited range
-      const angle = Math.atan2(ty-this.pos.y, tx-this.pos.x); const speed = 800; const range = RANGED_ATTACK_RANGE; const life = range / speed; const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed; const damage = Math.round(CLASSES[this.className].baseAtk + (this.dmgType === 'magical' ? pAP*aaScale : pAD*aaScale)); const p = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:'-' , life:life, radius: 8}); game.projectiles.push(p);
+      const angle = Math.atan2(ty-this.pos.y, tx-this.pos.x); const speed = 800; const range = RANGED_ATTACK_RANGE; const life = range / speed; const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed; const damage = Math.round(CLASSES[this.className].baseAtk + ((this.dmgType === 'magical' ? pAP : pAD) * aaScale)); const p = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:'-' , life:life, radius: 8}); game.projectiles.push(p);
     } else { // melee basic
-      const meleeRange = MELEE_ATTACK_RANGE; const damage = Math.round(CLASSES[this.className].baseAtk + (this.dmgType === 'magical' ? pAP*aaScale : pAD*aaScale));
+      const meleeRange = MELEE_ATTACK_RANGE; const damage = Math.round(CLASSES[this.className].baseAtk + ((this.dmgType === 'magical' ? pAP : pAD) * aaScale));
       if (this.className === 'Hana') {
           spawnParticles(this.pos.x, this.pos.y, 2, '#f0f', { shape: 'ring', radius: meleeRange, life: 0.2, speed: 0, lineWidth: 2 });
           for(let m of game.minions){ if(!m.dead && m.team !== this.team){ if(dist(this.pos, m.pos) <= meleeRange){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; this.gold += 10; this.totalGold += 10; this.exp += 15; } } } }
@@ -515,18 +535,36 @@ export class BotPlayer extends Player {
       // Nakupování (pokud je mrtvý nebo ve fontáně)
       const inBase = dist(this.pos, spawnPoints[this.team]) < 250;
       if ((!this.alive || inBase) && this.gold >= 300 && this.items.length < 25) {
-          let itemToBuy = null;
           if (!this.hasBoots && this.gold >= 300) {
-              itemToBuy = shopItems.find(it => it.id === 'boots');
+              let boots = shopItems.find(it => it.id === 'boots');
+              if (boots) { this.gold -= boots.cost; this.items.push(boots.id); boots.apply(this); this.isDirty = true; }
           } else {
-              let possibleItems = shopItems.filter(it => it.cost <= this.gold && it.id !== 'boots');
-              if (possibleItems.length > 0) {
-                  let prefs = possibleItems.filter(it => (this.dmgType === 'magical' && (it.id==='ap' || it.id==='mr')) || (this.dmgType === 'physical' && (it.id==='ad' || it.id==='as' || it.id==='armor')) || it.id==='hp');
-                  itemToBuy = (prefs.length > 0) ? prefs[Math.floor(Math.random()*prefs.length)] : possibleItems[Math.floor(Math.random()*possibleItems.length)];
+              let enemyPhys = 0, enemyMag = 0;
+              const enemies = game.players.filter(p => p.team !== this.team);
+              for (let e of enemies) { if (e.dmgType === 'physical') enemyPhys++; else enemyMag++; }
+
+              let pool = [];
+              const isTank = ['Tank', 'Goliath', 'Hana'].includes(this.className);
+              const isFighter = ['Bruiser', 'Vanguard', 'Jirina'].includes(this.className);
+              const isMageSupport = ['Mage', 'Summoner', 'Healer', 'Acolyte', 'Runner'].includes(this.className);
+              
+              if (isTank) {
+                  pool.push('hp', 'hp');
+                  if (enemyPhys >= enemyMag) pool.push('armor', 'armor');
+                  if (enemyMag >= enemyPhys) pool.push('mr', 'mr');
+              } else if (isFighter) {
+                  pool.push('hp');
+                  if (this.dmgType === 'magical') pool.push('ap', 'ah'); else pool.push('ad', 'ah'); 
+                  if (enemyPhys > enemyMag) pool.push('armor'); else if (enemyMag > enemyPhys) pool.push('mr');
+              } else if (isMageSupport) {
+                  pool.push('ap', 'ap', 'ah', 'ah'); if (Math.random() < 0.25) pool.push('hp'); 
+              } else { 
+                  if (this.className === 'Marksman') pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); 
+                  if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr');
               }
-          }
-          if (itemToBuy) {
-              this.gold -= itemToBuy.cost; this.items.push(itemToBuy.id); itemToBuy.apply(this); this.isDirty = true;
+              let chosenId = pool[Math.floor(Math.random() * pool.length)];
+              let item = shopItems.find(it => it.id === chosenId);
+              if (item && this.gold >= item.cost) { this.gold -= item.cost; this.items.push(item.id); item.apply(this); this.isDirty = true; }
           }
       }
 

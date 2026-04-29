@@ -1,6 +1,6 @@
 import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
 import { shopItems } from './items.js';
-import { CLASSES, SUMMONER_SPELLS } from './classes.js';
+import { CLASSES, SUMMONER_SPELLS, AA_SCALES } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
 import { canvas, ctx, keys, player, socket, startGame, buyItem, drawHealthBar } from './main.js';
@@ -533,8 +533,8 @@ export function draw(){
         ctx.fillText(`Move Speed: ${Math.round(player.speed*(player.hasPowerup?1.2:1))}`, 15 * vw, 37 * vh);
         ctx.fillText(`Ability Haste: ${player.abilityHaste}`, 2 * vw, 40 * vh);
         
-        let baScale = player.dmgType === 'magical' ? (player.className === 'Hana' ? 0.4 : 0.15) : 0.6;
-        let baDmg = Math.round(CLASSES[player.className].baseAtk + (player.dmgType === 'magical' ? player.AP*baScale : player.AD*baScale)); 
+        let baScale = AA_SCALES[player.className] || 0.3;
+        let baDmg = Math.round(CLASSES[player.className].baseAtk + ((player.dmgType === 'magical' ? player.AP : player.AD) * baScale)); 
         ctx.fillStyle = '#fff'; ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, 2 * vw, 44 * vh);
         
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`SPELLS`, 2 * vw, 50 * vh);
