@@ -97,7 +97,7 @@ io.on('connection', (socket) => {
             const allClassNames = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Runner', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Healer', 'Acolyte'];
             const takenClassNames = teamPlayers.map(p => p.className);
             const availableClass = allClassNames.find(cls => !takenClassNames.includes(cls));
-            newClass = availableClass || player.className; // Fallback, kdyby nebylo nic volného
+            newClass = availableClass || 'Bruiser'; // Bezpečný statický fallback, zabrání vložení undefined
         } else {
             // Postava je volná, může si ji nechat.
             newClass = player.className;

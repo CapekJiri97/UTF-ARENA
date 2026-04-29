@@ -39,6 +39,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
       const m = document.getElementById('menu'); if(m) m.style.display = 'none';
       // Extrahujeme data správně a určíme, kdo je Host
       game.isHost = (socket.id === data.hostId);
+      game.hostId = data.hostId; // Zapamatujeme si ID hosta pro případ odpojení
       if(typeof startGameNetworked === 'function') startGameNetworked(data.players);
     });
     socket.on('network_player_update', (data) => {
@@ -139,13 +140,18 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
               data.humans.forEach(hData => {
                   let p = game.players.find(x => x.id === hData.id);
                   if (p) {
-                      p.hp = hData.hp; p.gold = hData.currentGold; p.totalGold = hData.gold; p.exp = hData.exp;
-                      p.kills = hData.kills; p.deaths = hData.deaths; p.assists = hData.assists;
+                      if (p === player) {
+                          // LOKÁLNÍ HRÁČ: Počítáme jen přírůstky Goldů a EXPů z Hosta, abychom zamezili skákání UI při nákupech!
+                          let goldDiff = hData.gold - (p.totalGold || 0); if (goldDiff > 0) { p.gold += goldDiff; p.totalGold = hData.gold; }
+                          let expDiff = hData.totalExp - (p.totalExp || 0); if (expDiff > 0) { p.exp += expDiff; p.totalExp = hData.totalExp; }
+                          p.hp = hData.hp; p.kills = hData.kills; p.deaths = hData.deaths; p.assists = hData.assists;
+                      } else {
+                          // SÍŤOVÍ HRÁČI: Rovnou natvrdo přepisujeme vše, včetně zlata a expů
+                          p.hp = hData.hp; p.gold = hData.currentGold; p.totalGold = hData.gold; p.exp = hData.exp; p.totalExp = hData.totalExp;
+                          p.kills = hData.kills; p.deaths = hData.deaths; p.assists = hData.assists;
+                      }
                       if (hData.stats && p.stats) { p.stats.dmgDealt = hData.stats.dmgDealt; p.stats.dmgTaken = hData.stats.dmgTaken; p.stats.hpHealed = hData.stats.hpHealed; }
-                      
-                      // Striktní kontrola oživení a smrti diktovaná Hostem
-                      if (!p.alive && hData.alive) p.revive();
-                      else if (p.alive && !hData.alive) { p.hp = 0; p.die(); }
+                      if (!p.alive && hData.alive) p.revive(); else if (p.alive && !hData.alive) { p.hp = 0; p.die(); }
                   }
               });
           }
@@ -224,6 +230,10 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
 
     socket.on('player_disconnected', (id) => {
        if(game && game.players) game.players = game.players.filter(p => p.id !== id);
+       if(game && game.hostId === id) {
+           alert('Server Host se odpojil. Hra bude nyní ukončena.');
+           window.location.reload();
+       }
     });
   } else {
     console.warn('[KLIENT] Socket.io knihovna nenalezena. Hra běží offline.');
@@ -375,14 +385,14 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
       if (game.killFeed) game.killFeed.push(killData);
 
       if (!socket || game.isHost) {
-          if (killer) { killer.gold += 150; killer.totalGold += 150; killer.exp += 50; killer.kills++; }
+          if (killer) { killer.gold += 150; killer.totalGold += 150; killer.exp += 50; killer.totalExp = (killer.totalExp||0) + 50; killer.kills++; }
           let now = performance.now();
           if (victim.recentAttackers) {
               victim.recentAttackers.forEach((data, attackerId) => {
                   let t = data.time || data;
                   if (attackerId !== killerId && (now - t) < 10000) {
                       let assister = game.players.find(p => p.id === attackerId);
-                      if (assister && assister.team !== victim.team) { assister.assists++; assister.gold += 50; assister.totalGold += 50; assister.exp += 25; }
+                      if (assister && assister.team !== victim.team) { assister.assists++; assister.gold += 50; assister.totalGold += 50; assister.exp += 25; assister.totalExp = (assister.totalExp||0) + 25; }
                   }
               });
               victim.recentAttackers.clear();
@@ -653,7 +663,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     if (game.screenDamageFlash > 0) game.screenDamageFlash -= dt * 0.8;
     if (game.screenHealFlash > 0) game.screenHealFlash -= dt * 0.8;
     game.passiveTimer = (game.passiveTimer || 0) + dt;
-    if (game.startDelay <= 0 && game.passiveTimer >= 1.0) { game.passiveTimer -= 1.0; if (!socket || game.isHost) { for(let p of game.players) { p.gold += 2; p.totalGold += 2; p.exp += 1; } } }
+    if (game.startDelay <= 0 && game.passiveTimer >= 1.0) { game.passiveTimer -= 1.0; if (!socket || game.isHost) { for(let p of game.players) { p.gold += 2; p.totalGold += 2; p.exp += 1; p.totalExp = (p.totalExp||0) + 1; } } }
 
     if (game.killFeed) {
         game.killFeed.forEach(k => k.timer -= dt);
@@ -743,7 +753,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                         } else { return minimalState; }
                     }),
                     humans: game.players.filter(p => !(p instanceof BotPlayer)).map(p => ({
-                        id: p.id, hp: p.hp, gold: p.totalGold, currentGold: p.gold, exp: p.exp,
+                        id: p.id, hp: p.hp, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
                         kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive
                     })),
                     minions: game.minions.map(m => ({id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: m.dead, team: m.team, targetIndex: m.targetIndex})),

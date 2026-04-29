@@ -7,6 +7,8 @@ import { canvas, ctx, keys, player, socket, startGame, buyItem, drawHealthBar } 
 
 const style = document.createElement('style');
 style.innerHTML = `
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; background: #070707; }
+  canvas { touch-action: none; user-select: none; -webkit-user-select: none; outline: none; -webkit-tap-highlight-color: transparent; }
   #hud, #hp, #gold, #exp, #level, #respawn, #nexusBlue, #nexusRed { display: none !important; }
   #qbar, #ebar, #qlv, #elv, #qcd, #ecd, .cooldown-container { display: none !important; }
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 50% !important; overflow: hidden !important; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
@@ -45,6 +47,17 @@ if (!document.querySelector('meta[name="viewport"]')) {
     meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
     document.head.appendChild(meta);
 }
+
+// --- ZABRÁNĚNÍ NATIVNÍHO ZOOMU A POHYBU STRÁNKY PROHLÍŽEČEM ---
+window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=')) {
+        e.preventDefault();
+    }
+});
+window.addEventListener('touchmove', (e) => {
+    if (e.scale !== 1 || e.touches.length > 1) { e.preventDefault(); }
+}, { passive: false });
 
 export function updateLobbyUI(playersData, roomName = "OFFLINE") {
   const rb = document.getElementById('roomBrowser'); if (rb) rb.style.display = 'none';
@@ -585,6 +598,27 @@ export function draw(){
         ctx.fillText(`[SHIFT + O]   : Toggle Mouse Target`, 2 * vw, 52 * vh);
         ctx.fillText(`[SHIFT + V]   : Toggle Debug Visuals`, 2 * vw, 55 * vh);
     }
+    
+    if (isMobile && player) {
+        const mobQ = document.getElementById('mobBtnQ');
+        const mobE = document.getElementById('mobBtnE');
+        const mobS = document.getElementById('mobBtnS');
+        if (mobQ) {
+            let cd = player.spells.Q.cd;
+            mobQ.textContent = cd > 0 ? cd.toFixed(1) : 'Q';
+            mobQ.style.color = cd > 0 ? '#ff4e4e' : 'rgba(255,255,255,0.8)';
+        }
+        if (mobE) {
+            let cd = player.spells.E.cd;
+            mobE.textContent = cd > 0 ? cd.toFixed(1) : 'E';
+            mobE.style.color = cd > 0 ? '#ff4e4e' : 'rgba(255,255,255,0.8)';
+        }
+        if (mobS) {
+            let cd = player.summonerCooldown;
+            mobS.textContent = cd > 0 ? cd.toFixed(1) : 'S';
+            mobS.style.color = cd > 0 ? '#ff4e4e' : 'rgba(255,255,255,0.8)';
+        }
+    }
   }
 }
 
@@ -604,9 +638,6 @@ export function drawMinimap(){
   ctxm.save(); ctxm.beginPath(); ctxm.arc(w/2, h/2, w/2, 0, Math.PI*2); ctxm.clip();
   ctxm.fillStyle='#111'; ctxm.fillRect(0,0,w,h);
   
-  for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#486FED' : t.owner===1? '#FF4E4E' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
-  ctxm.beginPath(); ctxm.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY); for(let i=1; i<mapBoundary.length; i++) ctxm.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY); ctxm.closePath(); ctxm.strokeStyle = '#555'; ctxm.stroke();
-  ctxm.fillStyle = '#555'; ctxm.font = '10px monospace'; ctxm.textAlign='center'; ctxm.textBaseline='middle';
   if (!game.minimapBg) {
       game.minimapBg = document.createElement('canvas');
       game.minimapBg.width = Math.floor(w * dpr); game.minimapBg.height = Math.floor(h * dpr);
@@ -627,6 +658,7 @@ export function drawMinimap(){
       }
   }
   ctxm.drawImage(game.minimapBg, 0, 0, w, h);
+  for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#486FED' : t.owner===1? '#FF4E4E' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
   for(let m of game.minions){ const x = m.pos.x * scaleX; const y = m.pos.y * scaleY; ctxm.fillStyle = m.team===0? '#aaddff':'#ffb3b3'; ctxm.fillRect(x-1,y-1,2,2); }
   
   for(let p of game.players){ 
@@ -797,19 +829,43 @@ export function initMobileUI() {
     
     // Oddálení kamery na mobilu o 100% (z původních 0.5 zpět na 1.0)
     camera.scale = 1.0;
+
+    // Natvrdo zarovnáme minimapu pomocí JS pro případ, že CSS Media Queries na mobilech selžou
+    const mm = document.getElementById('minimap');
+    if (mm) {
+        mm.style.position = 'fixed';
+        mm.style.right = '2vw';
+        mm.style.bottom = '2vh';
+        mm.style.top = 'auto';
+        mm.style.left = 'auto';
+        mm.style.margin = '0';
+        mm.style.transform = 'none';
+        mm.style.width = '30vh';
+        mm.style.height = '30vh';
+        mm.style.zIndex = '4000';
+    }
     
     const mc = document.createElement('div');
     mc.id = 'mobileControls';
     mc.style.position = 'fixed'; mc.style.top = '0'; mc.style.left = '0'; mc.style.width = '100%'; mc.style.height = '100%';
     mc.style.pointerEvents = 'none'; mc.style.zIndex = '5000'; mc.style.display = 'none';
     
-    // OBŘÍ D-PAD (Zvětšeno o 25%)
-    const dpad = document.createElement('div');
-    dpad.style.position = 'absolute'; dpad.style.left = '4vw'; dpad.style.bottom = '8vh';
-    dpad.style.width = '56vh'; dpad.style.height = '56vh'; 
-    dpad.style.background = 'rgba(255,255,255,0.1)';
-    dpad.style.borderRadius = '50%'; dpad.style.pointerEvents = 'auto';
-    dpad.innerHTML = '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:rgba(255,255,255,0.2); font-family:monospace; font-size:4vh; font-weight:bold; pointer-events:none;">MOVE</div>';
+    // DYNAMIC D-PAD ZONE (Levá polovina obrazovky)
+    const dpadZone = document.createElement('div');
+    dpadZone.style.position = 'absolute'; dpadZone.style.left = '0'; dpadZone.style.top = '0';
+    dpadZone.style.width = '50vw'; dpadZone.style.height = '100vh'; 
+    dpadZone.style.pointerEvents = 'auto';
+
+    const dpadVisual = document.createElement('div');
+    dpadVisual.style.position = 'absolute'; dpadVisual.style.width = '16vh'; dpadVisual.style.height = '16vh';
+    dpadVisual.style.background = 'rgba(255,255,255,0.15)'; dpadVisual.style.borderRadius = '50%';
+    dpadVisual.style.transform = 'translate(-50%, -50%)'; dpadVisual.style.display = 'none'; dpadVisual.style.pointerEvents = 'none';
+
+    const dpadKnob = document.createElement('div');
+    dpadKnob.style.position = 'absolute'; dpadKnob.style.width = '6vh'; dpadKnob.style.height = '6vh';
+    dpadKnob.style.background = 'rgba(255,255,255,0.5)'; dpadKnob.style.borderRadius = '50%';
+    dpadKnob.style.transform = 'translate(-50%, -50%)'; dpadKnob.style.left = '50%'; dpadKnob.style.top = '50%';
+    dpadVisual.appendChild(dpadKnob); dpadZone.appendChild(dpadVisual);
     
     const triggerKey = (keyStr, shift = false) => { window.dispatchEvent(new KeyboardEvent('keydown', { key: keyStr, shiftKey: shift, bubbles: true })); };
     const releaseKey = (keyStr, shift = false) => { window.dispatchEvent(new KeyboardEvent('keyup', { key: keyStr, shiftKey: shift, bubbles: true })); };
@@ -827,9 +883,9 @@ export function initMobileUI() {
     };
     
     // TLAČÍTKA KOUZEL (Diagonálně nad minimapou vpravo)
-    const btnQ = createBtn('j', 'Q'); btnQ.style.right = '35vh'; btnQ.style.bottom = '32vh';
-    const btnE = createBtn('k', 'E'); btnE.style.right = '18vh'; btnE.style.bottom = '46vh';
-    const btnS = createBtn('l', 'S'); btnS.style.right = '2vw'; btnS.style.bottom = '60vh';
+    const btnQ = createBtn('j', 'Q'); btnQ.id = 'mobBtnQ'; btnQ.style.right = '35vh'; btnQ.style.bottom = '32vh';
+    const btnE = createBtn('k', 'E'); btnE.id = 'mobBtnE'; btnE.style.right = '18vh'; btnE.style.bottom = '46vh';
+    const btnS = createBtn('l', 'S'); btnS.id = 'mobBtnS'; btnS.style.right = '2vw'; btnS.style.bottom = '60vh';
     
     // TLAČÍTKA VEDLE MINIMAPY -> PŘESUNUTO VPRAVO NAHORU (SHOP, INFO, AUTOPLAY)
     const sideBtns = document.createElement('div');
@@ -842,7 +898,7 @@ export function initMobileUI() {
     sideBtns.appendChild(createBtn('i', 'AUTO', true, '8vh', '2vh')); // Shift+I zapíná/vypíná autoplay
     Array.from(sideBtns.children).forEach(b => b.style.position = 'relative'); // Vracíme na relative kvůli flex layoutu
     
-    mc.appendChild(dpad); mc.appendChild(btnQ); mc.appendChild(btnE); mc.appendChild(btnS); mc.appendChild(sideBtns); document.body.appendChild(mc);
+    mc.appendChild(dpadZone); mc.appendChild(btnQ); mc.appendChild(btnE); mc.appendChild(btnS); mc.appendChild(sideBtns); document.body.appendChild(mc);
 
     let activeDirs = { w:false, a:false, s:false, d:false };
     const updateDirs = (nw, na, ns, nd) => {
@@ -852,20 +908,43 @@ export function initMobileUI() {
         if(nd !== activeDirs.d) { window.dispatchEvent(new KeyboardEvent(nd?'keydown':'keyup', {key:'d', bubbles:true})); activeDirs.d = nd; }
     };
 
-    const handleTouch = (e) => {
-        e.preventDefault(); const rect = dpad.getBoundingClientRect(); let touch = null;
-        for(let i=0; i<e.touches.length; i++) {
-            const tx = e.touches[i].clientX - rect.left; const ty = e.touches[i].clientY - rect.top;
-            let margin = rect.width * 0.4; // Velkorysá hranice dotyku i mimo okraj D-Padu
-            if (tx > -margin && tx < rect.width + margin && ty > -margin && ty < rect.height + margin) { touch = {x: tx, y: ty}; break; }
-        }
-        if (touch) {
-            const cx = rect.width / 2; const cy = rect.height / 2;
-            const dx = touch.x - cx; const dy = touch.y - cy; let nw=false, na=false, ns=false, nd=false;
-            if (Math.hypot(dx, dy) > rect.width * 0.1) { let angle = Math.atan2(dy, dx); if (angle > -Math.PI*0.875 && angle < -Math.PI*0.125) nw = true; if (angle > Math.PI*0.125 && angle < Math.PI*0.875) ns = true; if (Math.abs(angle) > Math.PI*0.625) na = true; if (Math.abs(angle) < Math.PI*0.375) nd = true; }
-            updateDirs(nw, na, ns, nd);
-        } else { updateDirs(false, false, false, false); }
-    };
-    dpad.addEventListener('touchstart', handleTouch, {passive:false}); dpad.addEventListener('touchmove', handleTouch, {passive:false}); dpad.addEventListener('touchend', (e) => { e.preventDefault(); updateDirs(false, false, false, false); }, {passive:false});
+    let dpadTouchId = null;
+    let dpadStartX = 0, dpadStartY = 0;
+
+    dpadZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (dpadTouchId !== null) return;
+        const t = e.changedTouches[0]; dpadTouchId = t.identifier;
+        const rect = dpadZone.getBoundingClientRect();
+        dpadStartX = t.clientX - rect.left; dpadStartY = t.clientY - rect.top;
+        dpadVisual.style.display = 'block'; dpadVisual.style.left = dpadStartX + 'px'; dpadVisual.style.top = dpadStartY + 'px';
+        dpadKnob.style.left = '50%'; dpadKnob.style.top = '50%';
+        updateDirs(false, false, false, false);
+    }, {passive:false});
+
+    dpadZone.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (dpadTouchId === null) return;
+        let t = null; for(let i=0; i<e.changedTouches.length; i++) if(e.changedTouches[i].identifier === dpadTouchId) t = e.changedTouches[i];
+        if(!t) return;
+        const rect = dpadZone.getBoundingClientRect();
+        const curX = t.clientX - rect.left, curY = t.clientY - rect.top;
+        const dx = curX - dpadStartX, dy = curY - dpadStartY; const dist = Math.hypot(dx, dy);
+        const maxDist = window.innerHeight * 0.08; // Max posun kloboučku (cca 8vh)
+        let kx = dx, ky = dy; if (dist > maxDist) { kx = (dx/dist)*maxDist; ky = (dy/dist)*maxDist; }
+        dpadKnob.style.left = `calc(50% + ${kx}px)`; dpadKnob.style.top = `calc(50% + ${ky}px)`;
+        
+        let nw=false, na=false, ns=false, nd=false;
+        if (dist > maxDist * 0.2) { let angle = Math.atan2(dy, dx); if (angle > -Math.PI*0.875 && angle < -Math.PI*0.125) nw = true; if (angle > Math.PI*0.125 && angle < Math.PI*0.875) ns = true; if (Math.abs(angle) > Math.PI*0.625) na = true; if (Math.abs(angle) < Math.PI*0.375) nd = true; }
+        updateDirs(nw, na, ns, nd);
+    }, {passive:false});
+
+    dpadZone.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        let found = false; for(let i=0; i<e.changedTouches.length; i++) if(e.changedTouches[i].identifier === dpadTouchId) found = true;
+        if(!found) return;
+        dpadTouchId = null; dpadVisual.style.display = 'none'; updateDirs(false, false, false, false);
+    }, {passive:false});
+    dpadZone.addEventListener('touchcancel', (e) => { dpadTouchId = null; dpadVisual.style.display = 'none'; updateDirs(false, false, false, false); }, {passive:false});
 }
 initMobileUI();
