@@ -56,10 +56,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         if (data.isFullUpdate) {
           if (data.level && data.level > netPlayer.level) { netPlayer.levelUpTimer = 2.0; spawnParticles(netPlayer.pos.x, netPlayer.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
           netPlayer.level = data.level || netPlayer.level; netPlayer.maxHp = data.maxHp || netPlayer.maxHp;
-          netPlayer.kills = data.kills || 0; netPlayer.deaths = data.deaths || 0; netPlayer.assists = data.assists || 0; 
-          netPlayer.totalGold = data.gold || 0; netPlayer.items.length = data.items || 0;
-          if (data.stats) { netPlayer.stats.dmgDealt = data.stats.dmgDealt; netPlayer.stats.dmgTaken = data.stats.dmgTaken; netPlayer.stats.hpHealed = data.stats.hpHealed; }
-          // PŘIDÁNO: Synchro bojových statů pro správný výpočet damage z cizích střel
+          netPlayer.items.length = data.items !== undefined ? data.items : netPlayer.items.length;
           netPlayer.AD = data.AD || netPlayer.AD; netPlayer.AP = data.AP || netPlayer.AP; netPlayer.armor = data.armor || netPlayer.armor;
           netPlayer.mr = data.mr || netPlayer.mr; netPlayer.speed = data.speed || netPlayer.speed; netPlayer.attackSpeed = data.attackSpeed || netPlayer.attackSpeed; netPlayer.abilityHaste = data.abilityHaste || netPlayer.abilityHaste;
           netPlayer.invulnerableTimer = data.invTimer || 0; netPlayer.defBuffTimer = data.defTimer || 0; // Ochrana proti lokálnímu falešnému damage
@@ -138,6 +135,20 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
       if (data.heals) data.heals.forEach((act, i) => { if(game.heals[i]) game.heals[i].active = act; });
       if (data.powerup && game.powerup) { game.powerup.active = data.powerup.a; game.powerup.captureTimer = data.powerup.c; }
       if (data.nexus) { game.nexus[0] = data.nexus[0]; game.nexus[1] = data.nexus[1]; }
+          if (data.humans) {
+              data.humans.forEach(hData => {
+                  let p = game.players.find(x => x.id === hData.id);
+                  if (p) {
+                      p.hp = hData.hp; p.gold = hData.currentGold; p.totalGold = hData.gold; p.exp = hData.exp;
+                      p.kills = hData.kills; p.deaths = hData.deaths; p.assists = hData.assists;
+                      if (hData.stats && p.stats) { p.stats.dmgDealt = hData.stats.dmgDealt; p.stats.dmgTaken = hData.stats.dmgTaken; p.stats.hpHealed = hData.stats.hpHealed; }
+                      
+                      // Striktní kontrola oživení a smrti diktovaná Hostem
+                      if (!p.alive && hData.alive) p.revive();
+                      else if (p.alive && !hData.alive) { p.hp = 0; p.die(); }
+                  }
+              });
+          }
     });
     
     // PŘIDÁNO: Přijímání jednorázových událostí od Hosta (Věže střílí, poškození prostředím, Konec hry)
@@ -176,11 +187,13 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
             game.damageNumbers.push(new DamageNumber(t.pos.x, t.pos.y-6, data.amount, color));
             let pCount = Math.min(30, Math.max(3, Math.floor(data.amount / 10)));
             spawnParticles(t.pos.x, t.pos.y, pCount, '#f00', { speed: 100 + (data.amount / 2) });
+                    if (t === player) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + data.amount / 450);
         }
       } else if (data.type === 'show_heal') {
         let t = game.players.find(p => p.id === data.targetId) || game.minions.find(m => m.id === data.targetId);
         if (t) {
             game.damageNumbers.push(new DamageNumber(t.pos.x, t.pos.y-15, '+' + data.amount, '#00ff00'));
+                    if (t === player) game.screenHealFlash = Math.min(1.0, (game.screenHealFlash || 0) + data.amount / 450);
         }
       }
     });
@@ -251,19 +264,22 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   export function applyHeal(target, amount) {
     if(!target || target.dead || target.hp <= 0) return 0;
     let oldHp = target.hp;
-    target.hp = Math.min(target.effectiveMaxHp || target.maxHp, target.hp + amount);
-    let actualHeal = Math.round(target.hp - oldHp);
-    if (actualHeal > 0) {
-          if (target === player) game.screenHealFlash = Math.min(1.0, (game.screenHealFlash || 0) + actualHeal / 450);
-        if (!socket || game.isHost) {
+    
+    // SERVER AUTORITA
+    if (!socket || game.isHost) {
+        target.hp = Math.min(target.effectiveMaxHp || target.maxHp, target.hp + amount);
+        let actualHeal = Math.round(target.hp - oldHp);
+        if (actualHeal > 0) {
+            if (target === player) game.screenHealFlash = Math.min(1.0, (game.screenHealFlash || 0) + actualHeal / 450);
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-15, '+' + actualHeal, '#00ff00'));
             if (socket) socket.emit('host_event', { type: 'show_heal', targetId: target.id, amount: actualHeal });
+            if (socket && target instanceof Player) {
+                socket.emit('host_event', { type: 'player_hp_update', id: target.id, hp: target.hp });
+            }
         }
-        if (socket && game.isHost && target instanceof Player) {
-            socket.emit('host_event', { type: 'player_hp_update', id: target.id, hp: target.hp });
-        }
+        return actualHeal;
     }
-    return actualHeal;
+    return 0;
   }
 
   export function applyDamage(target, amount, type, sourceId, isNetwork = false) {
@@ -290,11 +306,18 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     }
 
     const actualDamage = Math.round(amount * multiplier);
-    target.hp -= actualDamage; target.flashTimer = 0.1;
+    
+    // SERVER AUTORITA: Klient nesmí sám sobě nebo ostatním měnit HP bez pokynu
+    if (!socket || game.isHost || isNetwork) { target.hp -= actualDamage; }
+    target.flashTimer = 0.1;
+    
     if (actualDamage > 0) {
-        if (target === player) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + actualDamage / 450);
-        let pCount = Math.min(30, Math.max(3, Math.floor(actualDamage / 10)));
-        spawnParticles(target.pos.x, target.pos.y, pCount, '#f00', { speed: 100 + (actualDamage / 2) });
+        if (target === player && (!socket || game.isHost || isNetwork)) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + actualDamage / 450);
+        
+        if (!socket || game.isHost || isNetwork) {
+            let pCount = Math.min(30, Math.max(3, Math.floor(actualDamage / 10)));
+            spawnParticles(target.pos.x, target.pos.y, pCount, '#f00', { speed: 100 + (actualDamage / 2) });
+        }
 
         if (!socket || game.isHost) {
             let isLocal = (player && (sourceId === player.id || target.id === player.id));
@@ -316,12 +339,14 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     }
 
     // TRACKOVÁNÍ STATISTIK A ASISTENCÍ
-    let sourceEntity = game.players.find(p => p.id === sourceId) || game.minions.find(m => m.id === sourceId);
-    if (sourceEntity && sourceEntity.stats) sourceEntity.stats.dmgDealt += actualDamage;
-    if (target.stats) target.stats.dmgTaken += actualDamage;
-    if (target instanceof Player && sourceEntity && sourceEntity.team !== target.team) {
-        let existing = target.recentAttackers.get(sourceId);
-        target.recentAttackers.set(sourceId, { time: performance.now(), count: existing ? existing.count + 1 : 1 });
+    if (!socket || game.isHost) {
+        let sourceEntity = game.players.find(p => p.id === sourceId) || game.minions.find(m => m.id === sourceId);
+        if (sourceEntity && sourceEntity.stats) sourceEntity.stats.dmgDealt += actualDamage;
+        if (target.stats) target.stats.dmgTaken += actualDamage;
+        if (target instanceof Player && sourceEntity && sourceEntity.team !== target.team) {
+            let existing = target.recentAttackers.get(sourceId);
+            target.recentAttackers.set(sourceId, { time: performance.now(), count: existing ? existing.count + 1 : 1 });
+        }
     }
 
     return actualDamage;
@@ -340,17 +365,19 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
       const killData = { killer: killerName, victim: victim.className || 'Player', killerTeam: killerTeam, victimTeam: victim.team, timer: 5.0 };
       if (game.killFeed) game.killFeed.push(killData);
 
-      if (killer) { killer.gold += 150; killer.totalGold += 150; killer.exp += 50; killer.kills++; }
-      let now = performance.now();
-      if (victim.recentAttackers) {
-          victim.recentAttackers.forEach((data, attackerId) => {
-              let t = data.time || data;
-              if (attackerId !== killerId && (now - t) < 10000) {
-                  let assister = game.players.find(p => p.id === attackerId);
-                  if (assister && assister.team !== victim.team) { assister.assists++; assister.gold += 50; assister.totalGold += 50; assister.exp += 25; }
-              }
-          });
-          victim.recentAttackers.clear();
+      if (!socket || game.isHost) {
+          if (killer) { killer.gold += 150; killer.totalGold += 150; killer.exp += 50; killer.kills++; }
+          let now = performance.now();
+          if (victim.recentAttackers) {
+              victim.recentAttackers.forEach((data, attackerId) => {
+                  let t = data.time || data;
+                  if (attackerId !== killerId && (now - t) < 10000) {
+                      let assister = game.players.find(p => p.id === attackerId);
+                      if (assister && assister.team !== victim.team) { assister.assists++; assister.gold += 50; assister.totalGold += 50; assister.exp += 25; }
+                  }
+              });
+              victim.recentAttackers.clear();
+          }
       }
   }
 
@@ -614,7 +641,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     if (game.screenDamageFlash > 0) game.screenDamageFlash -= dt * 0.8;
     if (game.screenHealFlash > 0) game.screenHealFlash -= dt * 0.8;
     game.passiveTimer = (game.passiveTimer || 0) + dt;
-    if (game.startDelay <= 0 && game.passiveTimer >= 1.0) { game.passiveTimer -= 1.0; for(let p of game.players) { p.gold += 2; p.totalGold += 2; p.exp += 1; } }
+    if (game.startDelay <= 0 && game.passiveTimer >= 1.0) { game.passiveTimer -= 1.0; if (!socket || game.isHost) { for(let p of game.players) { p.gold += 2; p.totalGold += 2; p.exp += 1; } } }
 
     if (game.killFeed) {
         game.killFeed.forEach(k => k.timer -= dt);
@@ -668,17 +695,16 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
             if (game.syncTimer >= 0.05) {
                 game.syncTimer = 0;
                 const minimalState = {
-                    id: player.id, x: player.pos.x, y: player.pos.y, alive: player.alive, aimAngle: player.aimAngle,
+                    id: player.id, x: player.pos.x, y: player.pos.y, aimAngle: player.aimAngle,
                     slowT: player.slowTimer, boostT: player.boostTimer
                 };
                 if (player.isDirty) {
                     player.isDirty = false;
                     socket.emit('player_update', { ...minimalState, isFullUpdate: true,
-                        level: player.level, maxHp: player.effectiveMaxHp, kills: player.kills, deaths: player.deaths, assists: player.assists, gold: player.totalGold, items: player.items.length,
+                        level: player.level, maxHp: player.effectiveMaxHp, items: player.items.length,
                         AD: player.AD, AP: player.AP, armor: player.armor, mr: player.mr, speed: player.speed, attackSpeed: player.attackSpeed, abilityHaste: player.abilityHaste,
                         invTimer: player.invulnerableTimer, defTimer: player.defBuffTimer,
-                        qLvl: player.spells.Q.level, eLvl: player.spells.E.level,
-                        stats: player.stats, sumSpell: player.summonerSpell
+                        qLvl: player.spells.Q.level, eLvl: player.spells.E.level, sumSpell: player.summonerSpell
                     });
                 } else {
                     socket.emit('player_update', minimalState);
@@ -704,6 +730,10 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                                 stats: b.stats, sumSpell: b.summonerSpell };
                         } else { return minimalState; }
                     }),
+                    humans: game.players.filter(p => !(p instanceof BotPlayer)).map(p => ({
+                        id: p.id, hp: p.hp, gold: p.totalGold, currentGold: p.gold, exp: p.exp,
+                        kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive
+                    })),
                     minions: game.minions.map(m => ({id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: m.dead, team: m.team, targetIndex: m.targetIndex})),
                     towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner})),
                     heals: game.heals.map(h => h.active),

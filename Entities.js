@@ -18,8 +18,7 @@ export class Projectile{
     let hit = false;
     for(let m of game.minions){ 
       if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){ 
-        hit = true; applyDamage(m, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00'); 
-        if(m.hp<=0){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ owner.gold += 10; owner.totalGold += 10; owner.exp += 15; } } break; 
+        hit = true; applyDamage(m, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00');     if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ owner.gold += 10; owner.totalGold += 10; owner.exp += 15; } } break; 
       } 
     }
     if (hit) { this.dead = true; return; }
@@ -40,6 +39,7 @@ export class Projectile{
   }
 }
 
+// Věže - Host je autorita pro obsazování a útoky
 export class Tower{
   constructor(x,y,index){ this.pos={x,y}; this.index = index; this.radius=20; this.captureRadius = 80; this.owner = -1; this.control = 0; this.attackCooldown = 0; this.attackRange = 320; this.attackDamage = 45; }
   update(dt){ if(game.gameOver) return; 
@@ -140,23 +140,23 @@ export class Minion{
     if(this.dead || game.gameOver) return; 
     const towerTarget = game.towers[this.targetIndex]; if(!towerTarget) return;
     if(this.hp <= 0 && !this.dead) { this.dead = true; return; }
-    if(dist(this.pos, spawnPoints[1-this.team]) < 200) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) { this.dead=true; return; } }
+    if(dist(this.pos, spawnPoints[1-this.team]) < 200 && (!socket || game.isHost)) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) { this.dead=true; return; } }
     if(this.flashTimer > 0) this.flashTimer -= dt;
     if(this.attackCooldown>0) this.attackCooldown -= dt;
     
     if (this.knockbackTimer > 0) {
         this.knockbackTimer -= dt;
-        moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);
+        if (!socket || game.isHost) moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt); // Pohyb minionů řídí Host
         return;
     }
     
     this.thinkTimer -= dt; if (this.thinkTimer <= 0) { this.thinkTimer = 0.4 + Math.random() * 0.2; this.think(); }
     let dx = 0, dy = 0;
     if (this.state === 'ATTACK' && this.currentTarget) {
-        const d = dist(this.pos, this.currentTarget.pos);
+        const d = dist(this.pos, this.currentTarget.pos); // Klient si může spočítat vzdálenost
         if (this.attackCooldown <= 0 && d <= 55) {
-            applyDamage(this.currentTarget, this.attackDamage, 'physical', this.id); this.attackCooldown = 1.2;
-            if (this.currentTarget.hp <= 0) { if (this.currentTarget.die) this.currentTarget.die(); else this.currentTarget.dead = true; this.currentTarget = null; this.state = 'PUSH'; }
+            if (!socket || game.isHost) { applyDamage(this.currentTarget, this.attackDamage, 'physical', this.id); this.attackCooldown = 1.2; } // Pouze Host aplikuje damage
+            if (this.currentTarget.hp <= 0 && (!socket || game.isHost)) { if (this.currentTarget.die) this.currentTarget.die(); else this.currentTarget.dead = true; this.currentTarget = null; this.state = 'PUSH'; } // Pouze Host rozhoduje o smrti
         }
         if (this.currentTarget && d > 45) { dx = this.currentTarget.pos.x - this.pos.x; dy = this.currentTarget.pos.y - this.pos.y; }
     } else {
@@ -166,10 +166,10 @@ export class Minion{
             } else { dx = towerTarget.pos.x - this.pos.x; dy = towerTarget.pos.y - this.pos.y; }
             if(distToTarget <= towerTarget.captureRadius - 10){ this.atTarget = true; this.linger = 3.5; dx = 0; dy = 0; }
         }
-    }
+    } // Pohyb minionů řídí Host
     if (this.atTarget) {
         if (towerTarget.owner !== this.team) {
-            if (this.attackCooldown <= 0) { if (this.team === 0) towerTarget.control += 5; else towerTarget.control -= 5; this.hp -= this.maxHp * 0.10; if (this.hp <= 0) this.dead = true; this.attackCooldown = 1.0; spawnParticles(towerTarget.pos.x, towerTarget.pos.y, 4, '#ffa500'); }
+            if (this.attackCooldown <= 0 && (!socket || game.isHost)) { if (this.team === 0) towerTarget.control += 5; else towerTarget.control -= 5; this.hp -= this.maxHp * 0.10; if (this.hp <= 0) this.dead = true; this.attackCooldown = 1.0; spawnParticles(towerTarget.pos.x, towerTarget.pos.y, 4, '#ffa500'); } // Pouze Host mění control a HP
         } else { this.linger -= dt; if (this.linger <= 0) this.dead = true; }
     } else {
         if (dx !== 0 || dy !== 0) {

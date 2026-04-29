@@ -16,7 +16,7 @@ export const AA_SCALES = {
   Goliath:  0.40,
   Assassin: 0.55,
   Runner:   0.20,
-  Marksman: 0.65,
+  Marksman: 0.50,
   Mage:     0.20,
   Summoner: 0.20,
   Healer:   0.13,
@@ -36,7 +36,7 @@ export const CLASSES = {
     Q: {
       baseCooldown: 6.0, castTime: 0.2,
       baseDamage: 75, scaleAP: 0, scaleAD: 0.25,
-      type: 'dash', distance: 220, radius: 104,
+      type: 'dash', distance: 198, radius: 104,
       desc: 'Výpad štítem, zraní cíl dopadu.'
     },
     E: {
@@ -80,7 +80,7 @@ export const CLASSES = {
     E: {
       baseCooldown: 9.0, castTime: 0.1,
       baseDamage: 45, scaleAP: 0, scaleAD: 0.5,
-      type: 'dash', distance: 220, radius: 110,
+      type: 'dash', distance: 198, radius: 110,
       desc: 'Skočí vpřed a zraní okolí (vysoký scaling).'
     }
   },
@@ -122,7 +122,7 @@ export const CLASSES = {
     E: {
       baseCooldown: 7.5, castTime: 0.1,
       baseDamage: 65, scaleAP: 0.5, scaleAD: 0,
-      type: 'dash_def', distance: 250, radius: 128,
+      type: 'dash_def', distance: 225, radius: 128,
       desc: 'Dash se zvýšením obrany.'
     }
   },
@@ -135,7 +135,7 @@ export const CLASSES = {
     Q: {
       baseCooldown: 7.5, castTime: 0.3,
       baseDamage: 50, scaleAP: 0, scaleAD: 0.45,
-      type: 'dash', distance: 250, radius: 120,
+      type: 'dash', distance: 225, radius: 120,
       desc: 'Nezastavitelný náraz do nepřátel.'
     },
     E: {
@@ -190,9 +190,9 @@ export const CLASSES = {
   },
 
   Marksman: {
-    glyph: '»', range: true, dmgType: 'physical',
-    hp: 560, speed: 115, attackDelay: 1.0,
-    baseAtk: 55, baseAD: 85, baseAP: 0,
+    glyph: 'R', range: true, dmgType: 'physical',
+    hp: 550, speed: 110, attackDelay: 1.2,
+    baseAtk: 55, baseAD: 80, baseAP: 0,
     baseArmor: 15, baseMR: 15,
     Q: {
       baseCooldown: 4.0, castTime: 0.15,
@@ -203,7 +203,7 @@ export const CLASSES = {
     E: {
       baseCooldown: 13.0, castTime: 0.1,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
-      type: 'dash', distance: 330,
+      type: 'dash', distance: 297,
       desc: 'Dlouhý taktický úskok do bezpečí.'
     }
   },

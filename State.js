@@ -10,7 +10,7 @@ export const game = {
 export const camera = { x: 0, y: 0, scale: 1.52 }; // Přiblíženo o 10%
 export const TEAM_COLOR = ['#486FED', '#FF4E4E'];
 export const NEUTRAL_COLOR = '#999999';
-export const RANGED_ATTACK_RANGE = 320;
+export const RANGED_ATTACK_RANGE = 256;
 export const MELEE_ATTACK_RANGE = 80;
 
 export const BOT_WEIGHTS = {
