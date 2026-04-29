@@ -204,15 +204,28 @@ export function populateShop() {
   const overlay = document.getElementById('shopOverlay'); 
   if(!overlay) return; 
   overlay.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #444; padding-bottom:10px; margin-top:0; margin-bottom:15px;">
-      <h2 style="color:#fff; margin:0;">SHOP</h2>
-      <button id="closeShopX" style="background:transparent; color:#ff4e4e; border:none; font-size:32px; font-weight:bold; cursor:pointer; line-height:1; padding:0 10px;">&times;</button>
+    <div style="position: sticky; top: -20px; background: rgba(0,0,0,0.98); z-index: 10; margin: -20px -20px 15px -20px; padding: 20px; border-bottom: 2px solid #444;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+          <h2 style="color:#fff; margin:0;">SHOP</h2>
+          <button id="closeShopX" style="background:transparent; color:#ff4e4e; border:none; font-size:32px; font-weight:bold; cursor:pointer; line-height:1; padding:0 10px;">&times;</button>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button id="shopUpBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▲ UP</button>
+            <button id="shopDownBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▼ DOWN</button>
+        </div>
     </div>
     <div id="shopList"></div>
     <button id="closeShopBtn" style="width:100%; padding:15px; margin-top:20px; background:#444; color:#fff; border:none; cursor:pointer; font-weight:bold; font-size:18px;">CLOSE SHOP</button>
   `; 
   document.getElementById('closeShopBtn').onclick = closeShop; 
   document.getElementById('closeShopX').onclick = closeShop; 
+
+  const upBtn = document.getElementById('shopUpBtn');
+  const downBtn = document.getElementById('shopDownBtn');
+  const doScrollUp = (e) => { if(e) e.preventDefault(); overlay.scrollBy({ top: -300, behavior: 'smooth' }); };
+  const doScrollDown = (e) => { if(e) e.preventDefault(); overlay.scrollBy({ top: 300, behavior: 'smooth' }); };
+  upBtn.onclick = doScrollUp; upBtn.ontouchstart = doScrollUp;
+  downBtn.onclick = doScrollDown; downBtn.ontouchstart = doScrollDown;
 
   const list = document.getElementById('shopList'); 
   const cats = { 'DMG': ['ad', 'ap'], 'ARMOR': ['armor', 'mr', 'hp'], 'SPEED': ['boots', 'as', 'ah'] }; 
