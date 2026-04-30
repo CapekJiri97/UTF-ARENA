@@ -44,6 +44,7 @@ export class Projectile{
           let m = new Minion(this.pos.x, this.pos.y, this.ownerTeam, tIndex);
           m.maxHp = this.opts.mHp || 100; m.hp = m.maxHp; m.attackDamage = this.opts.mAd || 10;
           m.glyph = this.opts.mGlyph || 'b';
+              m.isSummon = true; m.ownerId = this.ownerId; m.speed = 135;
           game.minions.push(m);
           spawnParticles(this.pos.x, this.pos.y, 10, '#a3c');
       }
@@ -133,13 +134,21 @@ export class Minion{
     this.knockbackTimer = 0; this.knockbackVel = {x:0, y:0};
   }
   think() {
-    if (this.atTarget || (this.currentTarget && (this.currentTarget.dead || this.currentTarget.hp <= 0 || dist(this.pos, this.currentTarget.pos) > 200))) {
+    if (this.atTarget || (this.currentTarget && (this.currentTarget.dead || this.currentTarget.hp <= 0 || dist(this.pos, this.currentTarget.pos) > (this.isSummon ? 800 : 200)))) {
         this.currentTarget = null; this.state = 'PUSH';
     }
     if (this.state === 'PUSH') {
-        let nearestEnemy = null, minDist = 150;
-        const potentialTargets = [...game.players.filter(p => p.alive && p.team !== this.team), ...game.minions.filter(m => !m.dead && m.team !== this.team && m !== this)];
-        for (const t of potentialTargets) { const d = dist(this.pos, t.pos); if (d < minDist) { nearestEnemy = t; minDist = d; } }
+        let nearestEnemy = null, minDist = this.isSummon ? 600 : 150;
+        const enemyPlayers = game.players.filter(p => p.alive && p.team !== this.team);
+        const enemyMinions = game.minions.filter(m => !m.dead && m.team !== this.team && m !== this);
+        
+        if (this.isSummon) {
+            for (const p of enemyPlayers) { const d = dist(this.pos, p.pos); if (d < minDist) { nearestEnemy = p; minDist = d; } }
+        }
+        if (!nearestEnemy) {
+            const potentialTargets = [...enemyPlayers, ...enemyMinions];
+            for (const t of potentialTargets) { const d = dist(this.pos, t.pos); if (d < minDist) { nearestEnemy = t; minDist = d; } }
+        }
         if (nearestEnemy) { this.state = 'ATTACK'; this.currentTarget = nearestEnemy; }
     }
   }

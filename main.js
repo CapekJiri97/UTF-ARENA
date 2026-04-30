@@ -126,10 +126,13 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         if (!minion && !mData.dead && !game.deadMinionIds.has(mData.id)) { // Pokud u klienta chybí a nebyl lokálně zabit, vytvoříme ho
            minion = new Minion(mData.x, mData.y, mData.team, mData.targetIndex);
            minion.id = mData.id;
+           minion.isSummon = mData.isSummon;
+           minion.glyph = mData.glyph || 'm';
+           minion.maxHp = mData.maxHp || 250;
            minion.targetPos = { x: mData.x, y: mData.y };
            game.minions.push(minion);
         }
-        if (minion) { minion.targetPos = { x: mData.x, y: mData.y }; minion.hp = mData.hp; minion.dead = mData.dead; }
+        if (minion) { minion.targetPos = { x: mData.x, y: mData.y }; minion.hp = mData.hp; minion.dead = mData.dead; minion.maxHp = mData.maxHp || minion.maxHp; minion.glyph = mData.glyph || minion.glyph; }
       });
       data.towers.forEach(tData => {
         let tower = game.towers.find(t => t.index === tData.i);
@@ -777,7 +780,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                         id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
                         kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive
                     })),
-                    minions: game.minions.map(m => ({id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: m.dead, team: m.team, targetIndex: m.targetIndex})),
+                    minions: game.minions.map(m => ({id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, maxHp: m.maxHp, dead: m.dead, team: m.team, targetIndex: m.targetIndex, isSummon: m.isSummon, glyph: m.glyph})),
                     towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner})),
                     heals: game.heals.map(h => h.active),
                     powerup: game.powerup ? { a: game.powerup.active, c: game.powerup.captureTimer } : null,

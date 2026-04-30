@@ -19,6 +19,7 @@ export class Player{
     this.dmgType = cData.dmgType;
     this.shield = 0;
     this.silenceTimer = 0;
+    this.shieldTimer = 0;
 
     // stats
     this.maxHp = cData.hp; this.hp = this.maxHp; this.hpRegen = 2.0; 
@@ -57,6 +58,7 @@ export class Player{
 
     
     this.castingTimeRemaining = 0;
+    this.castingTimeTotal = 0;
     this.dashTimer = 0; this.dashVel = {x:0, y:0}; this.dashEndExplosion = null;
     this.knockbackTimer = 0; this.knockbackVel = {x:0, y:0};
     this.msBuffTimer = 0; this.msBuffAmount = 0;
@@ -83,6 +85,7 @@ export class Player{
     this.shield = 0; this.shieldExplodeData = null;
     this.dashTimer = 0; this.dashEndExplosion = null;
     this.castingTimeRemaining = 0; this.knockbackTimer = 0;
+    this.castingTimeTotal = 0; this.shieldTimer = 0;
     this.silenceTimer = 0; this.slowTimer = 0; this.msBuffTimer = 0;
     this.hanaBuffTimer = 0; this.adAsBuffTimer = 0; this.defBuffTimer = 0;
 
@@ -117,6 +120,10 @@ export class Player{
     }
     
     if(this.silenceTimer > 0) this.silenceTimer -= dt;
+    if(this.shieldTimer > 0) {
+        this.shieldTimer -= dt;
+        if (this.shieldTimer <= 0 && !this.shieldExplodeData) this.shield = 0;
+    }
     if(this.hanaBuffTimer > 0) this.hanaBuffTimer -= dt;
     if(this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if(this.defBuffTimer > 0) this.defBuffTimer -= dt;
@@ -352,6 +359,14 @@ export class Player{
     ctx.beginPath(); ctx.moveTo(this.pos.x + Math.cos(this.aimAngle)*20, this.pos.y + Math.sin(this.aimAngle)*20); ctx.lineTo(cxAim, cyAim); ctx.strokeStyle = 'rgba(0, 255, 0, 0.4)'; ctx.lineWidth = 2; ctx.stroke();
     ctx.fillStyle = '#0f0'; ctx.font = 'bold 18px monospace'; ctx.fillText('+', cxAim, cyAim);
     drawHealthBar(ctx, this.hp, this.effectiveMaxHp, this.pos.x, this.pos.y + 18, this.team);
+    if (this.castingTimeRemaining > 0 && this.castingTimeTotal > 0) {
+        let castPct = 1.0 - (this.castingTimeRemaining / this.castingTimeTotal);
+        let barW = 30; let barH = 4;
+        let bx = this.pos.x - barW / 2; let by = this.pos.y + 24;
+        ctx.fillStyle = '#222'; ctx.fillRect(bx, by, barW, barH);
+        ctx.fillStyle = '#0ff'; ctx.fillRect(bx, by, barW * castPct, barH);
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(bx, by, barW, barH);
+    }
     if (this.shield > 0) {
         ctx.fillStyle = '#aaa';
         ctx.font = 'bold 10px monospace';
@@ -471,7 +486,7 @@ export class Player{
     if(!this.alive) return;
     const sp = this.spells[spKey]; if(!sp) return; 
     if(!isNetwork && sp.cd>0) return; // Zabráníme lokálnímu spamování
-    if(!isNetwork && this.silenceTimer > 0) { flashMessage("SILENCED!"); return; }
+    if(!isNetwork && this.silenceTimer > 0) return; 
     
     let tx = targetX, ty = targetY; 
     if(tx === undefined){ 
@@ -498,6 +513,7 @@ export class Player{
 
     sp.cd = this.computeSpellCooldown(spKey) + (sp.castTime || 0); // Cooldown se rovnou navýší o délku cast time
     this.castingTimeRemaining = sp.castTime || 0; 
+    this.castingTimeTotal = sp.castTime || 0;
 
     const buffAdMult = 1.0 + (this.adAsBuffTimer > 0 ? this.adAsBuffAmount : 0);
     const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0) * buffAdMult; const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0);
@@ -523,7 +539,7 @@ export class Player{
     } else if (sp.type === 'buff_ad_as') {
         this.adAsBuffTimer = sp.duration;
         this.adAsBuffAmount = sp.amount;
-        if (sp.shieldAmount) { this.shield = sp.shieldAmount + (pAD * 0.3) + sp.level * 15; }
+        if (sp.shieldAmount) { this.shield = sp.shieldAmount + (pAD * 0.3) + sp.level * 15; this.shieldTimer = sp.duration; }
         spawnParticles(this.pos.x, this.pos.y, 15, '#f00', {speed: 150});
     } else if (sp.type === 'aoe') {
         const range = sp.radius; 
@@ -608,6 +624,7 @@ export class Player{
                 let m = new Minion(sx, sy, this.team, tIndex);
                 m.maxHp = Math.round(damage * 3); m.hp = m.maxHp; m.attackDamage = Math.round(damage * 0.8);
                 m.glyph = sp.mGlyph || 'g';
+                m.isSummon = true; m.ownerId = this.id; m.speed = 135;
                 game.minions.push(m);
             }
         }
@@ -1213,6 +1230,10 @@ export class BotPlayer extends Player {
           if(this.msBuffTimer > 0) this.msBuffTimer -= dt;
           if(this.levelUpTimer > 0) this.levelUpTimer -= dt;
           if(this.adAsBuffTimer > 0) this.adAsBuffTimer -= dt;
+          if(this.shieldTimer > 0) { 
+              this.shieldTimer -= dt; 
+              if(this.shieldTimer <= 0 && !this.shieldExplodeData) this.shield = 0; 
+          }
           if (this.knockbackTimer > 0) {
               this.knockbackTimer -= dt;
               moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);
@@ -1240,6 +1261,10 @@ export class BotPlayer extends Player {
       if(this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
       if(this.defBuffTimer > 0) this.defBuffTimer -= dt;
       if(this.adAsBuffTimer > 0) this.adAsBuffTimer -= dt;
+      if(this.shieldTimer > 0) { 
+          this.shieldTimer -= dt; 
+          if(this.shieldTimer <= 0 && !this.shieldExplodeData) this.shield = 0; 
+      }
       if(this.regenBuffTimer > 0) {
           this.regenBuffTimer -= dt;
           if (this === player || (!socket || game.isHost)) { this.hp = Math.min(this.effectiveMaxHp, this.hp + this.regenBuffAmount * dt); }
