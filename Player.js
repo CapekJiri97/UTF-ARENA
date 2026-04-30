@@ -346,7 +346,7 @@ export class Player{
     if(this.attackCooldown>0) this.attackCooldown -= dt;
     let wantAttack = keys[' '];
     if (this === player && game.mouseTarget && mouse.down) wantAttack = true;
-    if (this === player && game.autoPlay && this.currentTarget && this.currentTarget.hp > 0 && !this.currentTarget.dead) {
+    if (this === player && game.autoPlay && this.currentTarget && this.currentTarget.hp > 0 && !this.currentTarget.dead && this.currentTarget.team !== this.team) {
         const d = dist(this.pos, this.currentTarget.pos);
         const atkRange = this.attackRange + 20;
         // Autoplay počká na plynulé dotočení crosshairu k cíli, než vystřelí (zamezuje střelbě naprázdno do zdi)

@@ -1002,7 +1002,7 @@ export function buildMenu() {
   const catGroups = { 
       'FIGHTER': ['Bruiser', 'Vanguard', 'Jirina'], 
       'TANK': ['Tank', 'Goliath', 'Hana'], 
-      'ASSASSIN': ['Assassin', 'Zephyr'],
+      'ASSASSIN': ['Assassin', 'Zephyr', 'Reaper'],
       'RANGED': ['Marksman', 'Kratoma'],
       'MAGE': ['Mage', 'Summoner'], 
       'SUPPORT': ['Healer', 'Acolyte', 'Keeper'] 
