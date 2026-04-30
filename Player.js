@@ -1234,6 +1234,37 @@ export class BotPlayer extends Player {
               this.shieldTimer -= dt; 
               if(this.shieldTimer <= 0 && !this.shieldExplodeData) this.shield = 0; 
           }
+
+          // Lokální vykreslení exploze štítu u cizích botů
+          if (this.shieldExplodeData) {
+              this.shieldExplodeData.timer -= dt;
+              if (this.shieldExplodeData.timer <= 0 || this.shield <= 0) {
+                  let expl = this.shieldExplodeData;
+                  game.particles.push(new Particle(this.pos.x, this.pos.y, '#aaa', {shape: 'ring', radius: expl.radius, life: 0.4, speed: 0, lineWidth: 4}));
+                  for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= expl.radius){ applyDamage(m, expl.damage, expl.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); } }
+                  for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= expl.radius){ applyDamage(p, expl.damage, expl.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); } }
+                  spawnParticles(this.pos.x, this.pos.y, 10, '#aaa');
+                  this.shieldExplodeData = null;
+                  this.shield = 0;
+              }
+          }
+
+          // Lokální vykreslení plynulého dashe a exploze na konci dashe u cizích botů
+          if (this.dashTimer > 0) {
+              this.dashTimer -= dt;
+              moveEntityWithCollision(this, this.dashVel.x, this.dashVel.y, dt);
+              if (Math.random() < 0.4 && Math.hypot(this.dashVel.x, this.dashVel.y) > 250) spawnParticles(this.pos.x, this.pos.y, 1, '#fff', {life: 0.2});
+              if (this.dashTimer <= 0 && this.dashEndExplosion) {
+                 const expl = this.dashEndExplosion; const range = expl.radius;
+                 game.particles.push(new Particle(this.pos.x, this.pos.y, '#f80', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
+                 for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage, expl.dmgType, expl.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); } }
+                 for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); } }
+                 spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
+                 this.dashEndExplosion = null;
+              }
+              return;
+          }
+
           if (this.knockbackTimer > 0) {
               this.knockbackTimer -= dt;
               moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);
