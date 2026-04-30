@@ -16,6 +16,7 @@ export const AA_SCALES = {
   Goliath:  0.40,
   Assassin: 0.55,
   Zephyr:   0.20,
+  Reaper:   0.25,
   Kratoma:  0.40,
   Marksman: 0.50,
   Mage:     0.20,
@@ -188,6 +189,25 @@ export const CLASSES = {
       baseDamage: 60, scaleAP: 0.6, scaleAD: 0,
       type: 'aoe', radius: 120,
       desc: 'Vytvoří magickou explozi, která zraní nepřátele v okolí.'
+    }
+  },
+
+  Reaper: {
+    glyph: '☠', range: false, dmgType: 'magical',
+    hp: 520, speed: 125, attackDelay: 0.9,
+    baseAtk: 25, baseAD: 0, baseAP: 40,
+    baseArmor: 18, baseMR: 20,
+    Q: {
+      baseCooldown: 12.0, castTime: 0.1,
+      baseDamage: 20, scaleAP: 0.55, scaleAD: 0,
+      type: 'reaper_q', charges: 3,
+      desc: 'Posílí další 3 základní útoky. Získají větší dosah, masivní bonusové poškození a zpomalí cíl o 60% na 1.5s.'
+    },
+    E: {
+      baseCooldown: 14.0, castTime: 0.05,
+      baseDamage: 0, scaleAP: 0.7, scaleAD: 0, amount: 60,
+      type: 'reaper_e', distance: 100, duration: 1.5,
+      desc: 'Krátký úskok (100). Získá štít a 40% rychlost pohybu na 1.5s. Okamžitě resetuje cooldown kouzla Q!'
     }
   },
 

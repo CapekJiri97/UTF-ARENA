@@ -63,7 +63,7 @@ io.on('connection', (socket) => {
       socket.join(currentRoom);
       const team0Players = Object.values(rooms[currentRoom].players).filter(p => p.team === 0);
       const takenClasses = team0Players.map(p => p.className);
-      const allClasses = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Zephyr', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper'];
+      const allClasses = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Zephyr', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper', 'Reaper'];
       const availableClass = allClasses.find(cls => !takenClasses.includes(cls)) || 'Bruiser';
       rooms[currentRoom].players[socket.id] = { id: socket.id, className: availableClass, summonerSpell: 'Heal', team: 0, x: 0, y: 0, ready: false };
       io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: rooms[currentRoom].players });

@@ -20,6 +20,7 @@ export class Player{
     this.shield = 0;
     this.silenceTimer = 0;
     this.shieldTimer = 0;
+    this.reaperCharge = 0; // Stacky posílených útoků
 
     // stats
     this.maxHp = cData.hp; this.hp = this.maxHp; this.hpRegen = 2.0; 
@@ -89,6 +90,7 @@ export class Player{
     this.silenceTimer = 0; this.slowTimer = 0; this.msBuffTimer = 0;
     this.hanaBuffTimer = 0; this.adAsBuffTimer = 0; this.defBuffTimer = 0;
     this.invulnerableTimer = 0; this.boostTimer = 0; this.rallyTimer = 0;
+    this.reaperCharge = 0;
 
     // PŘIDÁNO: Odpočet se musí nastavit pro všechny, aby i klient lokálně správně čekal a poslal scoreboard status
     this.deaths++; this.respawnTimer = 7 + this.level; // Lvl 1 = 8s, Lvl 10 = 17s
@@ -412,6 +414,7 @@ export class Player{
     if (this.defBuffTimer > 0) statuses.push({ t: 'DEFENSE', c: '#88f' });
     if (this.adAsBuffTimer > 0) statuses.push({ t: 'FRENZY', c: '#f00' });
     if (this.hanaBuffTimer > 0) statuses.push({ t: 'EMPOWERED', c: '#f0f' });
+    if (this.reaperCharge > 0) statuses.push({ t: `EMPOWERED (${this.reaperCharge})`, c: '#800080' });
     
     let startY = this.pos.y - 38;
     ctx.font = 'bold 10px monospace';
@@ -479,6 +482,14 @@ export class Player{
     let damage = Math.round(CLASSES[this.className].baseAtk + ((this.dmgType === 'magical' ? pAP : pAD) * aaScale));
     if (this.hanaBuffTimer > 0) damage += Math.round(this.effectiveMaxHp * 0.04);
 
+    let isEmpowered = false;
+    if (this.reaperCharge > 0) {
+        isEmpowered = true;
+        this.reaperCharge--;
+        const spQ = this.spells.Q;
+        damage += Math.round((spQ.baseDamage||0) + (pAP * (spQ.scaleAP||0)) + spQ.level*15);
+    }
+
     if(this.range){ // ranged - projectile with limited range
       const angle = Math.atan2(ty-this.pos.y, tx-this.pos.x); const speed = 800; const range = this.attackRange; const life = range / speed; 
       let pCount = CLASSES[this.className].projCount || 1;
@@ -489,7 +500,7 @@ export class Player{
           const p = new Projectile(this.pos.x + Math.cos(a)*(this.radius+6), this.pos.y + Math.sin(a)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:'-' , life:life, radius: 8}); game.projectiles.push(p);
       }
     } else { // melee basic
-      const meleeRange = this.attackRange; 
+      const meleeRange = isEmpowered ? this.attackRange + 70 : this.attackRange; 
       if (this.className === 'Hana') {
           spawnParticles(this.pos.x, this.pos.y, 2, '#f0f', { shape: 'ring', radius: meleeRange, life: 0.2, speed: 0, lineWidth: 2 });
           for(let m of game.minions){ if(!m.dead && m.team !== this.team){ if(dist(this.pos, m.pos) <= meleeRange){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) { this.gold += 10; this.totalGold += 10; this.exp += 15; this.totalExp = (this.totalExp||0) + 15; } } } } }
@@ -497,9 +508,10 @@ export class Player{
       } else {
           // hit minions in cone
           const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = Math.PI/2; // 90deg
-          spawnParticles(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, 1, '#fff', { angle: ang, speed: 400, life: 0.15, glyph: ')))', size: 24, rotate: true });
-          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) { this.gold += 10; this.totalGold += 10; this.exp += 15; this.totalExp = (this.totalExp||0) + 15; } } } } } }
-          for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 2, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } } }
+          let pColor = isEmpowered ? '#800080' : '#fff';
+          spawnParticles(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, 1, pColor, { angle: ang, speed: 400, life: 0.15, glyph: ')))', size: 24, rotate: true });
+          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, damage, this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = 0.4; } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) { this.gold += 10; this.totalGold += 10; this.exp += 15; this.totalExp = (this.totalExp||0) + 15; } } } } } }
+          for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); if(isEmpowered){ p.slowTimer = Math.max(p.slowTimer||0, 1.5); p.slowMod = 0.4; } spawnParticles(p.pos.x, p.pos.y, 2, pColor); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } } }
       }
     } }
 
@@ -650,6 +662,20 @@ export class Player{
             }
         }
         spawnParticles(this.pos.x, this.pos.y, 10, '#a3c');
+    } else if (sp.type === 'reaper_q') {
+        this.reaperCharge = sp.charges || 3;
+        spawnParticles(this.pos.x, this.pos.y, 20, '#800080', {speed: 150});
+    } else if (sp.type === 'reaper_e') {
+        const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
+        const distToMove = sp.distance || 100;
+        const dashTime = 0.15; 
+        this.dashTimer = dashTime;
+        this.dashVel = { x: Math.cos(angle)*(distToMove/dashTime), y: Math.sin(angle)*(distToMove/dashTime) };
+        this.msBuffTimer = sp.duration || 1.5; this.msBuffAmount = 0.4;
+        this.shield = (sp.amount || 0) + (pAP * (sp.scaleAP||0)) + sp.level * 20;
+        this.shieldTimer = sp.duration || 1.5;
+        this.spells.Q.cd = 0; // Okamžitý reset Q!
+        spawnParticles(this.pos.x, this.pos.y, 15, '#800080', {speed: 120});
     } else if (sp.type === 'summon_healers') {
         let healAmount = Math.round((sp.amount || 15) + pAP * (sp.scaleAP || 0) + sp.level * 2);
         if (!socket || game.isHost) {
@@ -772,7 +798,7 @@ export class BotPlayer extends Player {
       this.maxGroupSize = Math.random() > 0.5 ? 3 : 2; // 50% šance snést 3člennou skupinu na stejné věži
       this.lane = opts.lane || null;
       
-      if (['Zephyr'].includes(this.className)) this.role = 'SPLITPUSHER';
+      if (['Zephyr', 'Reaper'].includes(this.className)) this.role = 'SPLITPUSHER';
       else if (['Assassin', 'Marksman', 'Mage', 'Kratoma', 'Summoner'].includes(this.className)) this.role = 'SLAYER';
       else if (['Tank', 'Goliath', 'Hana'].includes(this.className)) this.role = 'TANK';
       else if (['Healer', 'Acolyte', 'Keeper'].includes(this.className)) this.role = 'SUPPORT';
@@ -1600,6 +1626,7 @@ export class BotPlayer extends Player {
               let ty = this.target.pos.y;
               let d = dist(this.pos, this.target.pos);
               let atkRange = this.range ? Math.max(100, this.attackRange - 50) : Math.max(40, this.attackRange - 30);
+              if (this.reaperCharge > 0) atkRange += 70; // Bot ví, že má s Q mnohem delší dosah
               
               if (d > atkRange + 20) {
                   this.chaseTimer = (this.chaseTimer || 0) + dt;
@@ -1651,6 +1678,7 @@ export class BotPlayer extends Player {
                   } else if (this.spells.Q.type === 'buff_ms') castQ = (d < 600);
                   else if (this.spells.Q.type === 'aoe' || this.spells.Q.type === 'aoe_knockback') castQ = (d < (this.spells.Q.radius || 200));
                   else if (this.spells.Q.type === 'projectile_egg') castQ = (d < 260);
+                  else if (this.spells.Q.type === 'reaper_q') castQ = (d < 350 && this.reaperCharge === 0);
                   else castQ = (d < 450);
                   if (castQ) this.castSpell('Q', qtx, qty);
               }
@@ -1665,6 +1693,7 @@ export class BotPlayer extends Player {
                       if (this.range) { if (d < 250) { castE = true; etx = this.pos.x + (this.pos.x - tx); ety = this.pos.y + (this.pos.y - ty); } }
                       else { if (d > 150 && d < 400) castE = true; }
                   } else if (this.spells.E.type === 'aoe' || this.spells.E.type === 'aoe_knockback') castE = (d < (this.spells.E.radius || 200));
+                  else if (this.spells.E.type === 'reaper_e') castE = (d > 100 && d < 350) || (this.spells.Q.cd > 2.0 && d < 200);
                   else castE = (d < (this.spells.E.radius || 250));
                   if (castE) this.castSpell('E', etx, ety);
               }
