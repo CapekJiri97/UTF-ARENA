@@ -193,7 +193,7 @@ export const CLASSES = {
   },
 
   Reaper: {
-    glyph: '☠', range: false, dmgType: 'magical',
+    glyph: 'R', range: false, dmgType: 'magical',
     hp: 520, speed: 125, attackDelay: 0.9,
     baseAtk: 25, baseAD: 0, baseAP: 40,
     baseArmor: 18, baseMR: 20,
