@@ -217,7 +217,7 @@ export const CLASSES = {
     baseAtk: 55, baseAD: 80, baseAP: 0,
     baseArmor: 15, baseMR: 15,
     Q: {
-      baseCooldown: 4.0, castTime: 0.6,
+      baseCooldown: 4.0, castTime: 0.4,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.7,
       type: 'projectile', pGlyph: '»', pSpeed: 1200,
       desc: 'Vystřelí střelu s dlouhým dosahem, která zraní prvního zasaženého nepřítele. Poškození se výrazně zvyšuje s útočným poškozením.'
@@ -240,13 +240,13 @@ export const CLASSES = {
     baseAtk: 35, baseAD: 0, baseAP: 70,
     baseArmor: 15, baseMR: 30,
     Q: {
-      baseCooldown: 3.5, castTime: 0.5,
+      baseCooldown: 3.5, castTime: 0.3,
       baseDamage: 115, scaleAP: 0.55, scaleAD: 0,
       type: 'projectile', pGlyph: 'O', pSpeed: 750,
       desc: 'Vystřelí magickou kouli, která zraní prvního zasaženého nepřítele. Kouzlo má vysoké základní poškození.'
     },
     E: {
-      baseCooldown: 8.0, castTime: 0.8,
+      baseCooldown: 8.0, castTime: 0.6,
       baseDamage: 115, scaleAP: 0.65, scaleAD: 0,
       type: 'aoe', radius: 160,
       desc: 'Vytvoří na cílovém místě plošnou explozi magické energie, která zraní všechny nepřátele v oblasti.'
@@ -259,13 +259,13 @@ export const CLASSES = {
     baseAtk: 30, baseAD: 0, baseAP: 80,
     baseArmor: 22, baseMR: 22,
     Q: {
-      baseCooldown: 4.0, castTime: 0.5,
+      baseCooldown: 4.0, castTime: 0.3,
       baseDamage: 85, scaleAP: 0.75, scaleAD: 0,
       type: 'projectile', pGlyph: '~', pSpeed: 750,
       desc: 'Vystřelí stínový projektil, který zraní prvního zasaženého nepřítele. Poškození se výrazně zvyšuje s magickou silou.'
     },
     E: {
-      baseCooldown: 11.0, castTime: 1.0,
+      baseCooldown: 11.0, castTime: 0.6,
       baseDamage: 45, scaleAP: 0.65, scaleAD: 0,
       type: 'summon', count: 2, mGlyph: 'g',
       desc: 'Vyvolá dva ghúly, kteří budou bojovat po jeho boku a útočit na nepřátele.'
@@ -282,13 +282,13 @@ export const CLASSES = {
     baseAtk: 25, baseAD: 0, baseAP: 65,
     baseArmor: 25, baseMR: 30,
     Q: {
-      baseCooldown: 4.5, castTime: 0.5,
+      baseCooldown: 4.5, castTime: 0.3,
       baseDamage: 85, scaleAP: 0.6, scaleAD: 0,
       type: 'projectile', pGlyph: '+', pSpeed: 660,
       desc: 'Vystřelí paprsek světla, který zraní prvního zasaženého nepřítele.'
     },
     E: {
-      baseCooldown: 8.0, castTime: 0.8,
+      baseCooldown: 8.0, castTime: 0.3,
       baseDamage: 0, amount: 110, scaleAP: 0.60, scaleAD: 0,
       type: 'heal_aoe', radius: 200,
       desc: 'Vytvoří vlnu energie, která vyléčí všechny spojence v širokém okolí.'
@@ -301,13 +301,13 @@ export const CLASSES = {
     baseAtk: 25, baseAD: 0, baseAP: 80,
     baseArmor: 20, baseMR: 25,
     Q: {
-      baseCooldown: 6.0, castTime: 0.6,
+      baseCooldown: 6.0, castTime: 0.3,
       baseDamage: 0, amount: 55, scaleAP: 0.45, scaleAD: 0,
       type: 'heal_aoe', radius: 120,
       desc: 'Vytvoří léčivou vlnu, která vyléčí spojence v okolí. Síla léčení se zvyšuje s magickou silou.'
     },
     E: {
-      baseCooldown: 5.5, castTime: 0.7,
+      baseCooldown: 5.5, castTime: 0.4,
       baseDamage: 55, scaleAP: 0.65, scaleAD: 0,
       type: 'projectile', count: 3, spread: 0.3,
       pGlyph: '*', pSpeed: 850,

@@ -275,7 +275,11 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     if(k === sumKey) { player && player.castSummonerSpell && player.castSummonerSpell(); }
     if(k === 'b') toggleShop();
     if(k === 'u' && keys['shift']) { game.autoTarget = !game.autoTarget; flashMessage('Auto Target: ' + (game.autoTarget ? 'ON' : 'OFF')); }
-    if(k === 'i' && keys['shift']) { game.autoPlay = !game.autoPlay; flashMessage('Auto Play: ' + (game.autoPlay ? 'ON' : 'OFF')); }
+    if(k === 'i' && keys['shift']) { 
+        if (!game.autoPlay) { game.autoPlay = true; game.autoBuy = true; flashMessage('Auto: FULL'); }
+        else if (game.autoBuy) { game.autoBuy = false; flashMessage('Auto: COMBAT ONLY'); }
+        else { game.autoPlay = false; game.autoBuy = false; flashMessage('Auto: OFF'); }
+    }
     if(k === 'o' && keys['shift']) { game.mouseTarget = !game.mouseTarget; flashMessage('Mouse Target: ' + (game.mouseTarget ? 'ON' : 'OFF')); }
   });
 

@@ -165,7 +165,7 @@ export class Player{
     if (this === player) {
 
         // AUTO BUY
-        if (game.autoPlay && (!this.alive || allyBaseDist < 250) && this.gold >= 300 && this.items.length < 25) {
+        if (game.autoPlay && game.autoBuy && (!this.alive || allyBaseDist < 250) && this.gold >= 300 && this.items.length < 25) {
             let itemToBuy = null;
             if (!this.hasBoots && this.gold >= 300) itemToBuy = shopItems.find(it => it.id === 'boots');
             else {
@@ -302,7 +302,27 @@ export class Player{
       }
       this.currentTarget = bestTarget; // Uložení pro vykreslení HUD
     } else if (this === player && game.mouseTarget) {
-      this.currentTarget = null;
+      let hoverTarget = null;
+      let minDist = 80; // Zóna okolo kurzoru myši pro zachycení cíle
+      const potentialTargets = [...game.players.filter(p => p.team !== this.team && p.alive), ...game.minions.filter(m => m.team !== this.team && !m.dead)];
+      for (const t of potentialTargets) {
+          const d = dist({x: mouse.wx, y: mouse.wy}, t.pos);
+          if (d < minDist) { minDist = d; hoverTarget = t; }
+      }
+      this.currentTarget = hoverTarget;
+    }
+
+    // Pokud nemáme žádný cíl (nepřítele), ukážeme v HUDu nejbližšího spojence
+    if (this === player && !this.currentTarget) {
+        let nearestAlly = null;
+        let minAllyDist = Infinity;
+        for (let p of game.players) {
+            if (p.team === this.team && p !== this && p.alive) {
+                const d = dist(this.pos, p.pos);
+                if (d < minAllyDist) { minAllyDist = d; nearestAlly = p; }
+            }
+        }
+        this.currentTarget = nearestAlly;
     }
 
     if (this === player) {
@@ -1473,8 +1493,7 @@ export class BotPlayer extends Player {
               let tx = this.target.pos.x;
               let ty = this.target.pos.y;
               let d = dist(this.pos, this.target.pos);
-              let atkRange = this.attackRange - (this.range ? 50 : 20);
-              if (atkRange < 100) atkRange = 100;
+              let atkRange = this.range ? Math.max(100, this.attackRange - 50) : Math.max(40, this.attackRange - 30);
               
               if (d > atkRange + 20) {
                   this.chaseTimer = (this.chaseTimer || 0) + dt;

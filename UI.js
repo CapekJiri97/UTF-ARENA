@@ -15,6 +15,10 @@ style.innerHTML = `
   #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 100% !important; max-width: 400px !important; height: 100% !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px 20px 25vh 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; }
   #shopOverlay.hidden { transform: translateX(100%) !important; }
   #menu, #roomBrowser, #roomLobby, #shopOverlay, #endStats, #roomListContainer { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: pan-y !important; }
+  #portraitWarning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #ffcc00; z-index: 9999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-family: monospace; }
+  @media screen and (max-width: 900px) and (orientation: portrait) {
+      #portraitWarning { display: flex !important; }
+  }
   @media (max-height: 600px), (max-width: 900px) { 
       #minimap { 
           width: 30vh !important; 
@@ -70,6 +74,12 @@ if (!document.getElementById('inventory')) {
     inv.id = 'inventory';
     document.body.appendChild(inv);
 }
+if (!document.getElementById('portraitWarning')) {
+    const pw = document.createElement('div');
+    pw.id = 'portraitWarning';
+    pw.innerHTML = '<h1>ROTATE DEVICE</h1><p>Please rotate your phone<br>to landscape mode to play.</p><div style="font-size: 48px; margin-top: 20px;">↻</div>';
+    document.body.appendChild(pw);
+}
 
 // --- ZABRÁNĚNÍ NATIVNÍHO ZOOMU A POHYBU STRÁNKY PROHLÍŽEČEM ---
 window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
@@ -81,7 +91,19 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('touchmove', (e) => {
     if (e.scale !== 1 || e.touches.length > 1) { e.preventDefault(); }
 }, { passive: false });
-
+export function requestLandscapeFullscreen() {
+    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (!isMobile) return;
+    const el = document.documentElement;
+    const rfs = el.requestFullscreen || el.webkitRequestFullScreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (rfs) {
+        rfs.call(el).then(() => {
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(e => console.warn('Orientation lock ignored by browser'));
+            }
+        }).catch(e => console.warn('Fullscreen ignored by browser'));
+    }
+}
 export function updateLobbyUI(playersData, roomName = "OFFLINE") {
   const rb = document.getElementById('roomBrowser'); if (rb) rb.style.display = 'none';
   const rl = document.getElementById('roomLobby'); if (rl) rl.style.display = 'block';
@@ -215,8 +237,8 @@ export function populateShop() {
               <button id="closeShopX" style="background:transparent; color:#ff4e4e; border:none; font-size:32px; font-weight:bold; cursor:pointer; line-height:1; padding:0 10px;">&times;</button>
             </div>
             <div style="display:flex; gap:10px;">
-                <button id="shopUpBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▲ UP</button>
-                <button id="shopDownBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▼ DOWN</button>
+                <button id="shopUpBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▲</button>
+                <button id="shopDownBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▼</button>
             </div>
         </div>
         <div id="shopList"></div>
@@ -437,7 +459,7 @@ export function draw(){
           
           ctx.translate(txBase, tyBase);
           ctx.scale(tgtScale, tgtScale);
-          if (isMobile) ctx.globalAlpha = 0.4; // Zprůhlední okno targetu na 40%
+          ctx.globalAlpha = isMobile ? 0.4 : 0.3; // 40% průhlednost okna targetu na mobilu, 30% na PC
 
           const t = player.currentTarget; const tw = 280, th = 85; const tx = 0, ty = 0;
           ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = (t.team >= 0) ? TEAM_COLOR[t.team] : NEUTRAL_COLOR; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
@@ -598,22 +620,31 @@ export function draw(){
     }
     
     if (keys['c'] && player) {
-        let panelW = Math.max(400, cw * 0.35); 
-        ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, panelW, ch);
-        ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, panelW, ch);
+        ctx.save();
+        let isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        // Pokud je obrazovka menší než 650px na výšku, okno se oddálí (zmenší se scale), aby se vešlo
+        let uiScale = isMobile ? Math.min(1, ch / 650) : 1; 
+        ctx.scale(uiScale, uiScale);
+        let invScale = 1 / uiScale;
+
+        let panelW = Math.max(400, (cw * 0.35) * invScale); 
+        let panelH = ch * invScale;
         
-        let leftM = 20; let startY = 40;
+        ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, panelW, panelH);
+        ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, panelW, panelH);
+        
+        let leftM = 20; let startY = 30;
         ctx.fillStyle = '#fff'; ctx.font = `bold 20px monospace`; ctx.textAlign = 'left';
-        ctx.fillText('CHARACTER INFO', leftM, startY); startY += 40;
+        ctx.fillText('CHARACTER INFO  ▲ ▼', leftM, startY); startY += 30;
         
         ctx.font = `13px monospace`;
-        ctx.fillText(`Class: ${player.className}`, leftM, startY); startY += 20;
-        ctx.fillText(`Level: ${player.level} (${Math.floor(player.exp)}/${expForLevel(player.level)} XP)`, leftM, startY); startY += 20;
-        ctx.fillText(`HP: ${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, leftM, startY); startY += 20;
-        ctx.fillText(`Gold: ${Math.floor(player.gold)}`, leftM, startY); startY += 20;
-        ctx.fillText(`Kills: ${player.kills} | Deaths: ${player.deaths} | Assists: ${player.assists}`, leftM, startY); startY += 40;
+        ctx.fillText(`Class: ${player.className}`, leftM, startY); startY += 18;
+        ctx.fillText(`Level: ${player.level} (${Math.floor(player.exp)}/${expForLevel(player.level)} XP)`, leftM, startY); startY += 18;
+        ctx.fillText(`HP: ${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, leftM, startY); startY += 18;
+        ctx.fillText(`Gold: ${Math.floor(player.gold)}`, leftM, startY); startY += 18;
+        ctx.fillText(`Kills: ${player.kills} | Deaths: ${player.deaths} | Assists: ${player.assists}`, leftM, startY); startY += 30;
         
-        ctx.fillStyle = '#ffcc00'; ctx.fillText(`ATTRIBUTES`, leftM, startY); startY += 25;
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`ATTRIBUTES`, leftM, startY); startY += 20;
         let buffAdMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
         let buffAsMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
         let adVal = Math.round(player.AD*(player.hasPowerup?1.2:1)*buffAdMultP);
@@ -625,16 +656,16 @@ export function draw(){
         let ahVal = player.abilityHaste;
         
         ctx.fillStyle = '#aaa';
-        ctx.fillText(`AD:    ${String(adVal).padEnd(5, ' ')} | AP:    ${apVal}`, leftM, startY); startY += 20;
-        ctx.fillText(`Armor: ${String(arVal).padEnd(5, ' ')} | MR:    ${mrVal}`, leftM, startY); startY += 20;
-        ctx.fillText(`A.Spd: ${String(asVal).padEnd(5, ' ')} | Speed: ${msVal}`, leftM, startY); startY += 20;
-        ctx.fillText(`Haste: ${String(ahVal).padEnd(5, ' ')} |`, leftM, startY); startY += 30;
+        ctx.fillText(`AD:    ${String(adVal).padEnd(5, ' ')} | AP:    ${apVal}`, leftM, startY); startY += 18;
+        ctx.fillText(`Armor: ${String(arVal).padEnd(5, ' ')} | MR:    ${mrVal}`, leftM, startY); startY += 18;
+        ctx.fillText(`A.Spd: ${String(asVal).padEnd(5, ' ')} | Speed: ${msVal}`, leftM, startY); startY += 18;
+        ctx.fillText(`Haste: ${String(ahVal).padEnd(5, ' ')} |`, leftM, startY); startY += 25;
         
         let baScale = AA_SCALES[player.className] || 0.3;
         let baDmg = Math.round(CLASSES[player.className].baseAtk + ((player.dmgType === 'magical' ? player.AP : player.AD) * baScale)); 
-        ctx.fillStyle = '#fff'; ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, leftM, startY); startY += 40;
+        ctx.fillStyle = '#fff'; ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, leftM, startY); startY += 35;
         
-        ctx.fillStyle = '#ffcc00'; ctx.fillText(`SPELLS`, leftM, startY); startY += 25;
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`SPELLS`, leftM, startY); startY += 20;
         const q = player.spells.Q, e = player.spells.E;
         
         const wrapText = (text, x, y, maxWidth, lineHeight) => {
@@ -648,27 +679,77 @@ export function draw(){
             ctx.fillText(line, x, drawY); return drawY;
         };
 
-        ctx.fillStyle = '#fff'; ctx.fillText(`[Q] Level ${q.level} - Cooldown: ${player.computeSpellCooldown('Q').toFixed(1)}s`, leftM, startY); startY += 20;
-        ctx.fillStyle = '#aaa'; startY = wrapText(`    ${q.desc}`, leftM, startY, panelW - 40, 18) + 20;
-        ctx.fillStyle = '#fff';
-        let qTotal = q.type.includes('heal') ? Math.round((q.amount||0) + (player.AP * (q.scaleAP||0)) + (player.AD * (q.scaleAD||0)) + q.level*10) : Math.round((q.baseDamage||0) + (player.AP * (q.scaleAP||0)) + (player.AD * (q.scaleAD||0)) + q.level*8);
-        ctx.fillText(`    Dmg: Base ${q.baseDamage||q.amount||0} + (${(q.scaleAD||0)*100}% AD) + (${(q.scaleAP||0)*100}% AP) = ${qTotal}`, leftM, startY); startY += 35;
+        const getSpellStatString = (sp, player) => {
+            let bAdMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
+            let pAD = player.AD * (player.hasPowerup ? 1.2 : 1.0) * (player.boostTimer > 0 ? 1.1 : 1.0) * bAdMult;
+            let pAP = player.AP * (player.hasPowerup ? 1.2 : 1.0) * (player.boostTimer > 0 ? 1.1 : 1.0);
+            let bDmg = sp.baseDamage || 0; let amt = sp.amount || 0; let scAD = sp.scaleAD || 0; let scAP = sp.scaleAP || 0; let lvl = sp.level || 1;
+            
+            if (sp.type === 'heal_self' || sp.type === 'heal_aoe') {
+                let total = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * 10);
+                return `    Heal: Base ${amt} + (${scAD*100}% AD) + (${scAP*100}% AP) = ${total} HP`;
+            } else if (sp.type === 'shield_explode') {
+                let shield = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * 20);
+                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
+                return `    Shield: ${shield} | Explode Dmg: ${dmg}`;
+            } else if (sp.type === 'buff_ad_as') {
+                let sh = Math.round((sp.shieldAmount||0) + (pAD * 0.3) + lvl * 15);
+                return `    Buff: +${(sp.amount||0)*100}% AD/AS | Shield: ${sh}`;
+            } else if (sp.type === 'buff_ms') {
+                return `    Buff: +${(sp.amount||0)*100}% Speed for ${sp.duration}s`;
+            } else if (sp.type === 'summon') {
+                let mHp = Math.round((bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8) * 3);
+                let mAd = Math.round((bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8) * 0.8);
+                return `    Summons: ${sp.count||1}x Ghoul (HP: ${mHp}, AD: ${mAd})`;
+            } else if (sp.type === 'projectile_summon') {
+                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
+                return `    Dmg: ${dmg} | Summons 1x (HP: ${sp.summonHp}, AD: ${sp.summonAd})`;
+            } else if (sp.type === 'dash_heal_silence') {
+                let heal = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * 10);
+                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
+                return `    Dmg: ${dmg} | Heal: ${heal} | Silence: ${sp.silenceDuration}s`;
+            } else if (sp.type === 'hana_q') {
+                let regen = Math.round(5 + (pAP * 0.1) + lvl * 2);
+                return `    Regen: ${regen} HP/s | Duration: ${sp.duration}s`;
+            } else if (sp.type === 'dash_def') {
+                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
+                return `    Dmg: ${dmg} | Def Buff 4s | Slow: ${sp.slowDuration}s`;
+            } else if (sp.type === 'aoe_knockback') {
+                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
+                return `    Dmg: ${dmg} | Knockback enemies`;
+            } else {
+                let total = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
+                return `    Dmg: Base ${bDmg} + (${scAD*100}% AD) + (${scAP*100}% AP) = ${total}`;
+            }
+        };
+
+        ctx.fillStyle = '#fff'; ctx.fillText(`[Q] Level ${q.level} - Cooldown: ${player.computeSpellCooldown('Q').toFixed(1)}s`, leftM, startY); startY += 18;
+        ctx.fillStyle = '#aaa'; startY = wrapText(`    ${q.desc}`, leftM, startY, panelW - 40, 16) + 16;
+        ctx.fillStyle = '#fff'; ctx.fillText(getSpellStatString(q, player), leftM, startY); startY += 28;
         
-        ctx.fillText(`[E] Level ${e.level} - Cooldown: ${player.computeSpellCooldown('E').toFixed(1)}s`, leftM, startY); startY += 20;
-        ctx.fillStyle = '#aaa'; startY = wrapText(`    ${e.desc}`, leftM, startY, panelW - 40, 18) + 20;
-        ctx.fillStyle = '#fff';
-        let eTotal = e.type.includes('heal') ? Math.round((e.amount||0) + (player.AP * (e.scaleAP||0)) + (player.AD * (e.scaleAD||0)) + e.level*10) : Math.round((e.baseDamage||0) + (player.AP * (e.scaleAP||0)) + (player.AD * (e.scaleAD||0)) + e.level*8);
-        ctx.fillText(`    Dmg: Base ${e.baseDamage||e.amount||0} + (${(e.scaleAD||0)*100}% AD) + (${(e.scaleAP||0)*100}% AP) = ${eTotal}`, leftM, startY);
+        ctx.fillText(`[E] Level ${e.level} - Cooldown: ${player.computeSpellCooldown('E').toFixed(1)}s`, leftM, startY); startY += 18;
+        ctx.fillStyle = '#aaa'; startY = wrapText(`    ${e.desc}`, leftM, startY, panelW - 40, 16) + 16;
+        ctx.fillStyle = '#fff'; ctx.fillText(getSpellStatString(e, player), leftM, startY);
+
+        ctx.restore();
     }
 
     if (keys['m']) {
-        let panelW = Math.max(350, cw * 0.30);
-        ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, panelW, ch);
-        ctx.strokeStyle = '#486FED'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, panelW, ch);
+        ctx.save();
+        let isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        let uiScale = isMobile ? Math.min(1, ch / 500) : 1;
+        ctx.scale(uiScale, uiScale);
+        let invScale = 1 / uiScale;
+
+        let panelW = Math.max(350, (cw * 0.30) * invScale);
+        let panelH = ch * invScale;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, panelW, panelH);
+        ctx.strokeStyle = '#486FED'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, panelW, panelH);
         
-        let leftM = 20; let startY = 40;
+        let leftM = 20; let startY = 30;
         ctx.fillStyle = '#fff'; ctx.font = `bold 20px monospace`; ctx.textAlign = 'left';
-        ctx.fillText('GENERAL INFO', leftM, startY); startY += 40;
+        ctx.fillText('GENERAL INFO', leftM, startY); startY += 35;
         
         ctx.font = `13px monospace`;
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`CONTROLS`, leftM, startY); startY += 25;
@@ -680,19 +761,32 @@ export function draw(){
         ctx.fillText(`[Q] / [E]     : Cast Spells`, leftM, startY); startY += 20;
         ctx.fillText(`[F] / [L]     : Summoner Spell`, leftM, startY); startY += 20;
         ctx.fillText(`[SHIFT + Q/E] : Level Up Spell`, leftM, startY); startY += 20;
-        ctx.fillText(`[B] : Shop | [TAB] : Scoreboard`, leftM, startY); startY += 40;
+        ctx.fillText(`[B] : Shop | [TAB] : Scoreboard`, leftM, startY); startY += 35;
         
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`DEBUG & SETTINGS`, leftM, startY); startY += 25;
         ctx.fillStyle = '#aaa';
         ctx.fillText(`[SHIFT + U]   : Toggle Auto-Target Aim`, leftM, startY); startY += 20;
         ctx.fillText(`[SHIFT + I]   : Toggle Auto-Play (Bot)`, leftM, startY); startY += 20;
         ctx.fillText(`[SHIFT + O]   : Toggle Mouse Target`, leftM, startY); startY += 20;
+
+        ctx.restore();
     }
     
     if (isMobile && player) {
         const mobQ = document.getElementById('mobBtnQ');
         const mobE = document.getElementById('mobBtnE');
         const mobS = document.getElementById('mobBtnS');
+        const mobLvlQ = document.getElementById('mobLvlQ');
+        const mobLvlE = document.getElementById('mobLvlE');
+        
+        if (mobLvlQ && mobLvlE) {
+            const showLvl = player.spellPoints > 0 ? 'flex' : 'none';
+            if (mobLvlQ.style.display !== showLvl) {
+                mobLvlQ.style.display = showLvl;
+                mobLvlE.style.display = showLvl;
+            }
+        }
+        
         if (mobQ) {
             let cd = player.spells.Q.cd;
             mobQ.textContent = cd > 0 ? cd.toFixed(1) : 'Q';
@@ -777,8 +871,8 @@ export function showEnd(winner){
           scrollBtns.id = 'endScrollBtns';
           scrollBtns.style.display = 'flex'; scrollBtns.style.gap = '10px'; scrollBtns.style.marginTop = '10px'; scrollBtns.style.marginBottom = '10px';
           scrollBtns.innerHTML = `
-              <button id="endUpBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▲ UP</button>
-              <button id="endDownBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▼ DOWN</button>
+                  <button id="endUpBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▲</button>
+                  <button id="endDownBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▼</button>
           `;
 
           let restartBtn = document.getElementById('restartBtn'); 
@@ -829,7 +923,10 @@ export function buildMenu() {
       </div>
     <div id="roomLobby" style="zoom: 0.85; margin: 0 auto; display: ${socket ? 'none' : 'block'}; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1000px; box-sizing:border-box;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 15px;">
-          <h1 id="lobbyTitle" style="margin:0;">OFFLINE MODE</h1>
+          <div style="display:flex; align-items:center; gap: 15px;">
+              <h1 id="lobbyTitle" style="margin:0;">OFFLINE MODE</h1>
+              <span style="color:#aaa; font-size:24px;">▲ ▼</span>
+          </div>
           <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:8px 16px; cursor:pointer; background:#300; color:#ff6b6b; border:1px solid #ff6b6b; font-weight:bold; border-radius:4px;">LEAVE ROOM</button>
       </div>
       <div style="display:flex; flex-wrap:wrap; justify-content: space-between; margin-top: 10px; gap: 10px;">
@@ -930,7 +1027,7 @@ export function buildMenu() {
   } setTimeout(() => { let b = allSpells.find(x => x.textContent === 'Heal'); if(b) b.click(); }, 50);
 
   function notifyServer() { if(socket) socket.emit('update_selection', { className: selectedClass, team: selectedTeam, summonerSpell: selectedSpell }); }
-  startBtn.addEventListener('click', () => { if(socket) socket.emit('start_game'); else { m.style.display = 'none'; startGame(selectedClass, selectedTeam, isSpectator); } });
+  startBtn.addEventListener('click', () => { requestLandscapeFullscreen(); if(socket) socket.emit('start_game'); else { m.style.display = 'none'; startGame(selectedClass, selectedTeam, isSpectator); } });
 }
 
 export function updateSpellLabels() {}
@@ -958,6 +1055,23 @@ export function initMobileUI() {
         mm.style.width = '30vh';
         mm.style.height = '30vh';
         mm.style.zIndex = '4000';
+        
+        // PŘIDÁNO: Minimapa na mobilu funguje jako obří tlačítko pro Auto Attack!
+        mm.addEventListener('touchstart', (e) => { 
+            e.preventDefault(); 
+            mm.style.boxShadow = '0 0 20px rgba(255, 0, 0, 0.8)';
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+        }, {passive: false});
+        mm.addEventListener('touchend', (e) => { 
+            e.preventDefault(); 
+            mm.style.boxShadow = '0 0 10px rgba(0,0,0,0.8)';
+            window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', bubbles: true }));
+        }, {passive: false});
+        mm.addEventListener('touchcancel', (e) => { 
+            e.preventDefault(); 
+            mm.style.boxShadow = '0 0 10px rgba(0,0,0,0.8)';
+            window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', bubbles: true }));
+        }, {passive: false});
     }
     
     const mc = document.createElement('div');
@@ -1002,6 +1116,23 @@ export function initMobileUI() {
     const btnE = createBtn('k', 'E'); btnE.id = 'mobBtnE'; btnE.style.right = '18vh'; btnE.style.bottom = '46vh';
     const btnS = createBtn('l', 'S'); btnS.id = 'mobBtnS'; btnS.style.right = '2vw'; btnS.style.bottom = '60vh';
     
+    // DYNAMICKÁ TLAČÍTKA PRO LEVELOVÁNÍ (Vyskakují nad Q a E)
+    const createLvlBtn = (spKey, right, bottom) => {
+        const b = document.createElement('div');
+        b.style.width = '6vh'; b.style.height = '6vh'; b.style.background = 'rgba(255,204,0,0.3)';
+        b.style.border = '2px solid #ffcc00'; b.style.borderRadius = '50%'; 
+        b.style.display = 'none'; // Ve výchozím stavu schované
+        b.style.justifyContent = 'center'; b.style.alignItems = 'center';
+        b.style.color = '#ffcc00'; b.style.fontSize = '4vh'; b.style.fontWeight = 'bold'; b.style.fontFamily = 'monospace';
+        b.style.position = 'absolute'; b.style.pointerEvents = 'auto';
+        b.style.right = right; b.style.bottom = bottom; b.textContent = '+';
+        b.addEventListener('touchstart', (e) => { e.preventDefault(); b.style.background = 'rgba(255,204,0,0.6)'; if (player) player.allocateSpellPoint(spKey); }, {passive:false});
+        b.addEventListener('touchend', (e) => { e.preventDefault(); b.style.background = 'rgba(255,204,0,0.3)'; }, {passive:false});
+        return b;
+    };
+    const btnLvlQ = createLvlBtn('Q', '39.5vh', '49vh'); btnLvlQ.id = 'mobLvlQ';
+    const btnLvlE = createLvlBtn('E', '22.5vh', '63vh'); btnLvlE.id = 'mobLvlE';
+
     // TLAČÍTKA -> PŘESUNUTO VLEVO DOLŮ HORIZONTÁLNĚ
     const sideBtns = document.createElement('div');
     sideBtns.style.position = 'absolute'; sideBtns.style.left = '2vw'; sideBtns.style.right = 'auto';
@@ -1011,9 +1142,10 @@ export function initMobileUI() {
     sideBtns.appendChild(createBtn('b', 'SHOP', false, '8vh', '2vh'));
     sideBtns.appendChild(createBtn('c', 'INFO', false, '8vh', '2vh'));
     sideBtns.appendChild(createBtn('i', 'AUTO', true, '8vh', '2vh')); // Shift+I zapíná/vypíná autoplay
+    sideBtns.appendChild(createBtn('tab', 'TAB', false, '8vh', '2vh'));
     Array.from(sideBtns.children).forEach(b => b.style.position = 'relative'); // Vracíme na relative kvůli flex layoutu
     
-    mc.appendChild(dpadZone); mc.appendChild(btnQ); mc.appendChild(btnE); mc.appendChild(btnS); mc.appendChild(sideBtns); document.body.appendChild(mc);
+    mc.appendChild(dpadZone); mc.appendChild(btnLvlQ); mc.appendChild(btnLvlE); mc.appendChild(btnQ); mc.appendChild(btnE); mc.appendChild(btnS); mc.appendChild(sideBtns); document.body.appendChild(mc);
 
     let activeDirs = { w:false, a:false, s:false, d:false };
     const updateDirs = (nw, na, ns, nd) => {
