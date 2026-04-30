@@ -698,12 +698,15 @@ export function draw(){
             } else if (sp.type === 'buff_ms') {
                 return `    Buff: +${Math.round((sp.amount||0)*100)}% Speed for ${sp.duration}s`;
             } else if (sp.type === 'summon') {
-                let mHp = Math.round((bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8) * 3);
-                let mAd = Math.round((bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8) * 0.8);
+                let totalDmg = bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8;
+                let mHp = Math.round(totalDmg * 1.5);
+                let mAd = Math.round(totalDmg * 0.4);
                 return `    Summons: ${sp.count||1}x Ghoul (HP: ${mHp}, AD: ${mAd})`;
             } else if (sp.type === 'projectile_summon') {
                 let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
-                return `    Dmg: ${dmg} | Summons 1x (HP: ${sp.summonHp}, AD: ${sp.summonAd})`;
+                let sumHp = Math.round((sp.summonHp || 120) + pAD * 0.5);
+                let sumAd = Math.round((sp.summonAd || 50) + pAD * 0.2);
+                return `    Dmg: ${dmg} | Summons 1x (HP: ${sumHp}, AD: ${sumAd})`;
             } else if (sp.type === 'dash_heal_silence') {
                 let heal = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * 10);
                 let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
