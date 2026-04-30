@@ -205,7 +205,23 @@ export class Minion{
         const l = Math.hypot(dx, dy); if (l > 0) { moveEntityWithCollision(this, (dx / l) * this.speed, (dy / l) * this.speed, dt); }
     }
   }
-  draw(ctx){ ctx.font='14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = this.flashTimer > 0 ? '#fff' : (this.team===0? '#aaddff' : '#ffb3b3'); ctx.fillText(this.glyph, this.pos.x, this.pos.y); drawHealthBar(ctx, this.hp, this.maxHp, this.pos.x, this.pos.y+12, this.team); }
+  draw(ctx){ 
+    if ((this.isSmallChicken || this.isBigChicken) && this.targetHeroId) {
+        let target = game.players.find(p => p.id === this.targetHeroId);
+        if (target && target.alive) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(this.pos.x, this.pos.y);
+            ctx.lineTo(target.pos.x, target.pos.y);
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+    ctx.font='14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = this.flashTimer > 0 ? '#fff' : (this.team===0? '#aaddff' : '#ffb3b3'); ctx.fillText(this.glyph, this.pos.x, this.pos.y); drawHealthBar(ctx, this.hp, this.maxHp, this.pos.x, this.pos.y+12, this.team); 
+  }
 }
 
 export class HealPickup {

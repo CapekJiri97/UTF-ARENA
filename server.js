@@ -94,7 +94,7 @@ io.on('connection', (socket) => {
     if (newTeam !== player.team) {
         if (isClassTakenOnNewTeam(player.className)) {
             // Postava je zabraná, najdeme první volnou.
-            const allClassNames = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Zephyr', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper'];
+            const allClassNames = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Zephyr', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper', 'Reaper'];
             const takenClassNames = teamPlayers.map(p => p.className);
             const availableClass = allClassNames.find(cls => !takenClassNames.includes(cls));
             newClass = availableClass || 'Bruiser'; // Bezpečný statický fallback, zabrání vložení undefined

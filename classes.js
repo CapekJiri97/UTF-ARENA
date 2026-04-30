@@ -351,7 +351,7 @@ export const CLASSES = {
       baseCooldown: 14.0, castTime: 0.4,
       baseDamage: 0, amount: 15, scaleAP: 0.2, scaleAD: 0,
       type: 'summon_healers',
-      desc: 'Vyvolá 3 podpůrné slepičky. Každá si najde nejbližšího spojence (max 2 na hrdinu), následuje ho a každou sekundu ho léčí.'
+      desc: 'Vyvolá malou podpůrnou slepičku (max 1 aktivní). Najde si nejbližšího spojence, následuje ho a každou sekundu ho léčí.'
     }
   }
 };
