@@ -88,6 +88,7 @@ export class Player{
     this.castingTimeTotal = 0; this.shieldTimer = 0;
     this.silenceTimer = 0; this.slowTimer = 0; this.msBuffTimer = 0;
     this.hanaBuffTimer = 0; this.adAsBuffTimer = 0; this.defBuffTimer = 0;
+    this.invulnerableTimer = 0; this.boostTimer = 0; this.rallyTimer = 0;
 
     // PŘIDÁNO: Odpočet se musí nastavit pro všechny, aby i klient lokálně správně čekal a poslal scoreboard status
     this.deaths++; this.respawnTimer = 7 + this.level; // Lvl 1 = 8s, Lvl 10 = 17s
@@ -1234,6 +1235,10 @@ export class BotPlayer extends Player {
               this.shieldTimer -= dt; 
               if(this.shieldTimer <= 0 && !this.shieldExplodeData) this.shield = 0; 
           }
+          if(this.silenceTimer > 0) this.silenceTimer -= dt;
+          if(this.hanaBuffTimer > 0) this.hanaBuffTimer -= dt;
+          if(this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
+          if(this.defBuffTimer > 0) this.defBuffTimer -= dt;
 
           // Lokální vykreslení exploze štítu u cizích botů
           if (this.shieldExplodeData) {
@@ -1296,6 +1301,8 @@ export class BotPlayer extends Player {
           this.shieldTimer -= dt; 
           if(this.shieldTimer <= 0 && !this.shieldExplodeData) this.shield = 0; 
       }
+      if(this.silenceTimer > 0) this.silenceTimer -= dt;
+      if(this.hanaBuffTimer > 0) this.hanaBuffTimer -= dt;
       if(this.regenBuffTimer > 0) {
           this.regenBuffTimer -= dt;
           if (this === player || (!socket || game.isHost)) { this.hp = Math.min(this.effectiveMaxHp, this.hp + this.regenBuffAmount * dt); }
