@@ -203,19 +203,25 @@ export function toggleShop(){ const o = document.getElementById('shopOverlay'); 
 export function populateShop() { 
   const overlay = document.getElementById('shopOverlay'); 
   if(!overlay) return; 
+
+  const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const contentZoom = isMobile ? 'zoom: 0.5;' : '';
+
   overlay.innerHTML = `
-    <div style="position: sticky; top: -20px; background: rgba(0,0,0,0.98); z-index: 10; margin: -20px -20px 15px -20px; padding: 20px; border-bottom: 2px solid #444;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-          <h2 style="color:#fff; margin:0;">SHOP</h2>
-          <button id="closeShopX" style="background:transparent; color:#ff4e4e; border:none; font-size:32px; font-weight:bold; cursor:pointer; line-height:1; padding:0 10px;">&times;</button>
+    <div style="${contentZoom}">
+        <div style="position: sticky; top: -20px; background: rgba(0,0,0,0.98); z-index: 10; margin: -20px -20px 15px -20px; padding: 20px; border-bottom: 2px solid #444;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+              <h2 style="color:#fff; margin:0;">SHOP</h2>
+              <button id="closeShopX" style="background:transparent; color:#ff4e4e; border:none; font-size:32px; font-weight:bold; cursor:pointer; line-height:1; padding:0 10px;">&times;</button>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button id="shopUpBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▲ UP</button>
+                <button id="shopDownBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▼ DOWN</button>
+            </div>
         </div>
-        <div style="display:flex; gap:10px;">
-            <button id="shopUpBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▲ UP</button>
-            <button id="shopDownBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▼ DOWN</button>
-        </div>
+        <div id="shopList"></div>
+        <button id="closeShopBtn" style="width:100%; padding:15px; margin-top:20px; background:#444; color:#fff; border:none; cursor:pointer; font-weight:bold; font-size:18px;">CLOSE SHOP</button>
     </div>
-    <div id="shopList"></div>
-    <button id="closeShopBtn" style="width:100%; padding:15px; margin-top:20px; background:#444; color:#fff; border:none; cursor:pointer; font-weight:bold; font-size:18px;">CLOSE SHOP</button>
   `; 
   document.getElementById('closeShopBtn').onclick = closeShop; 
   document.getElementById('closeShopX').onclick = closeShop; 
@@ -344,6 +350,15 @@ export function draw(){
   
   drawMinimap();
   if(game.startDelay > 0 && game.started) { ctx.font = '40px monospace'; ctx.fillStyle = '#ffcc00'; ctx.textAlign='center'; ctx.fillText(`MATCH STARTS IN ${Math.ceil(game.startDelay)}`, cw/2, 100); }
+
+  if (player && !player.alive) {
+      ctx.save();
+      const isMob = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      ctx.font = (isMob ? 'bold 24px' : 'bold 40px') + ' monospace'; 
+      ctx.fillStyle = '#ff4e4e'; ctx.textAlign='center'; ctx.shadowColor = '#000'; ctx.shadowBlur = 10;
+      ctx.fillText('RESPAWNING IN ' + Math.ceil(player.respawnTimer) + 's', cw/2, ch/2 - (isMob ? 30 : 50));
+      ctx.restore();
+  }
 
   if(game.started) {
     const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -694,7 +709,32 @@ export function showEnd(winner){
       let statsDiv = document.getElementById('endStats');
       if (!statsDiv) {
           statsDiv = document.createElement('div'); statsDiv.id = 'endStats'; statsDiv.style.marginTop = '20px'; statsDiv.style.textAlign = 'left'; statsDiv.style.fontSize = '14px'; statsDiv.style.maxHeight = '400px'; statsDiv.style.overflowY = 'auto'; statsDiv.style.background = '#111'; statsDiv.style.padding = '15px'; statsDiv.style.borderRadius = '8px';
-          let restartBtn = document.getElementById('restartBtn'); if (restartBtn && restartBtn.parentNode) restartBtn.parentNode.insertBefore(statsDiv, restartBtn); else overlay.querySelector('div') ? overlay.querySelector('div').appendChild(statsDiv) : overlay.appendChild(statsDiv);
+          
+          let scrollBtns = document.createElement('div');
+          scrollBtns.id = 'endScrollBtns';
+          scrollBtns.style.display = 'flex'; scrollBtns.style.gap = '10px'; scrollBtns.style.marginTop = '10px'; scrollBtns.style.marginBottom = '10px';
+          scrollBtns.innerHTML = `
+              <button id="endUpBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▲ UP</button>
+              <button id="endDownBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▼ DOWN</button>
+          `;
+
+          let restartBtn = document.getElementById('restartBtn'); 
+          if (restartBtn && restartBtn.parentNode) {
+              restartBtn.parentNode.insertBefore(statsDiv, restartBtn); 
+              restartBtn.parentNode.insertBefore(scrollBtns, restartBtn);
+          } else {
+              let target = overlay.querySelector('div') ? overlay.querySelector('div') : overlay;
+              target.appendChild(statsDiv);
+              target.appendChild(scrollBtns);
+          }
+
+          setTimeout(() => {
+              const doScrollUp = (e) => { if(e) e.preventDefault(); statsDiv.scrollBy({ top: -150, behavior: 'smooth' }); };
+              const doScrollDown = (e) => { if(e) e.preventDefault(); statsDiv.scrollBy({ top: 150, behavior: 'smooth' }); };
+              let upB = document.getElementById('endUpBtn'); let downB = document.getElementById('endDownBtn');
+              if (upB) { upB.onclick = doScrollUp; upB.ontouchstart = doScrollUp; }
+              if (downB) { downB.onclick = doScrollDown; downB.ontouchstart = doScrollDown; }
+          }, 50);
       }
       let html = '<table style="width:100%; border-collapse: collapse;">'; html += '<tr style="border-bottom:1px solid #444;"><th>Hero</th><th>K/D/A</th><th>Dmg Dealt</th><th>Dmg Taken</th><th>Healed</th><th>Gold</th></tr>';
       let sorted = [...game.players].sort((a,b)=>(b.kills*2+b.assists)-(a.kills*2+a.assists));

@@ -96,10 +96,10 @@ export const CLASSES = {
     baseAtk: 50, baseAD: 35, baseAP: 0,
     baseArmor: 48, baseMR: 43,
     Q: {
-      baseCooldown: 6.5, castTime: 0.1,
-      baseDamage: 0, scaleAP: 0, scaleAD: 0,
-      type: 'heal_self', amount: 110,
-      desc: 'Silné základní léčení.'
+      baseCooldown: 9.0, castTime: 0.1,
+      baseDamage: 80, scaleAP: 0, scaleAD: 0.3,
+      type: 'shield_explode', amount: 140, duration: 4.0, radius: 144,
+      desc: 'Získá štít na 4s. Po zničení nebo vypršení exploduje a zraní okolí.'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.4,
@@ -117,14 +117,14 @@ export const CLASSES = {
     Q: {
       baseCooldown: 10.0, castTime: 0.1,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
-      type: 'hana_q',
-      desc: '1s imunita, 6s masivní HP regen.'
+      type: 'hana_q', duration: 5.0,
+      desc: 'Na 5s získá Attack Speed, AA dávají bonus poškození z Max HP a mírně regeneruje.'
     },
     E: {
       baseCooldown: 7.5, castTime: 0.1,
       baseDamage: 65, scaleAP: 0.5, scaleAD: 0,
-      type: 'dash_def', distance: 225, radius: 128,
-      desc: 'Dash se zvýšením obrany.'
+      type: 'dash_def', distance: 225, radius: 128, slowDuration: 1.5, slowMod: 0.3,
+      desc: 'Dash se zvýšením obrany. Při dopadu udělí 70% slow na 1.5s.'
     }
   },
 
@@ -140,10 +140,10 @@ export const CLASSES = {
       desc: 'Nezastavitelný náraz do nepřátel.'
     },
     E: {
-      baseCooldown: 10.0, castTime: 0.1,
-      baseDamage: 0, scaleAP: 0, scaleAD: 0,
-      type: 'heal_self', amount: 130,
-      desc: 'Masivní vyléčení.'
+      baseCooldown: 11.0, castTime: 0.1,
+      baseDamage: 50, scaleAP: 0, scaleAD: 0,
+      type: 'dash_heal_silence', amount: 80, distance: 80, radius: 120, silenceDuration: 1.5,
+      desc: 'Malý dash, který vyléčí 80 HP a plošně umlčí nepřátele na 1.5s.'
     }
   },
 
@@ -183,7 +183,7 @@ export const CLASSES = {
       desc: 'Zvýší rychlost pohybu o 50% na 3s.'
     },
     E: {
-      baseCooldown: 5.0, castTime: 0.1,
+      baseCooldown: 5.0, castTime: 0.5,
       baseDamage: 60, scaleAP: 0.6, scaleAD: 0,
       type: 'aoe', radius: 120,
       desc: 'Magická exploze v blízkém okolí.'
@@ -197,27 +197,27 @@ export const CLASSES = {
     baseArmor: 20, baseMR: 20,
     projCount: 3, projSpread: 0.3,
     Q: {
-      baseCooldown: 8.0, castTime: 0.2,
+      baseCooldown: 10.0, castTime: 1,
       baseDamage: 50, scaleAP: 0, scaleAD: 0.6,
-      type: 'projectile_summon', pGlyph: 'o', pSpeed: 800,
-      summonGlyph: 'b', summonHp: 100, summonAd: 10, slowDuration: 1.0,
-      desc: 'Zraní a zpomalí první cíl. Vyvolá Ghoula.'
+      type: 'projectile_summon', pGlyph: 'b', pSpeed: 800,
+      summonGlyph: 'b', summonHp: 120, summonAd: 50, slowDuration: 2,
+      desc: 'Zraní a zpomalí první cíl. Vyvolá Bažanta.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.1,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
-      type: 'buff_ad_as', duration: 4.0, amount: 0.25,
-      desc: 'Zvýší AD a Attack Speed o 25% na 4s.'
+      type: 'buff_ad_as', duration: 4.0, amount: 0.25, shieldAmount: 80,
+      desc: 'Zvýší AD a AS o 25% a získá štít 80 na 4s.'
     }
   },
 
   Marksman: {
-    glyph: 'R', range: true, dmgType: 'physical',
+    glyph: 'S', range: true, dmgType: 'physical',
     hp: 550, speed: 110, attackDelay: 1.2,
     baseAtk: 55, baseAD: 80, baseAP: 0,
     baseArmor: 15, baseMR: 15,
     Q: {
-      baseCooldown: 4.0, castTime: 0.15,
+      baseCooldown: 4.0, castTime: 0.6,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.7,
       type: 'projectile', pGlyph: '»', pSpeed: 1200,
       desc: 'Průrazná střela (vysoký scaling).'
@@ -240,13 +240,13 @@ export const CLASSES = {
     baseAtk: 35, baseAD: 0, baseAP: 70,
     baseArmor: 15, baseMR: 30,
     Q: {
-      baseCooldown: 3.5, castTime: 0.2,
+      baseCooldown: 3.5, castTime: 0.5,
       baseDamage: 115, scaleAP: 0.55, scaleAD: 0,
       type: 'projectile', pGlyph: 'O', pSpeed: 750,
       desc: 'Magická koule (vysoký základ).'
     },
     E: {
-      baseCooldown: 8.0, castTime: 0.2,
+      baseCooldown: 8.0, castTime: 0.8,
       baseDamage: 115, scaleAP: 0.65, scaleAD: 0,
       type: 'aoe', radius: 160,
       desc: 'Plošná exploze magické energie.'
@@ -259,13 +259,13 @@ export const CLASSES = {
     baseAtk: 30, baseAD: 0, baseAP: 80,
     baseArmor: 22, baseMR: 22,
     Q: {
-      baseCooldown: 4.0, castTime: 0.2,
+      baseCooldown: 4.0, castTime: 0.5,
       baseDamage: 85, scaleAP: 0.75, scaleAD: 0,
       type: 'projectile', pGlyph: '~', pSpeed: 750,
       desc: 'Stínový projektil.'
     },
     E: {
-      baseCooldown: 11.0, castTime: 0.5,
+      baseCooldown: 11.0, castTime: 1.0,
       baseDamage: 45, scaleAP: 0.65, scaleAD: 0,
       type: 'summon', count: 2, mGlyph: 'g',
       desc: 'Vyvolá 2 silné ghúly.'
@@ -282,13 +282,13 @@ export const CLASSES = {
     baseAtk: 25, baseAD: 0, baseAP: 65,
     baseArmor: 25, baseMR: 30,
     Q: {
-      baseCooldown: 4.5, castTime: 0.2,
+      baseCooldown: 4.5, castTime: 0.5,
       baseDamage: 85, scaleAP: 0.6, scaleAD: 0,
       type: 'projectile', pGlyph: '+', pSpeed: 660,
       desc: 'Zraňující paprsek světla.'
     },
     E: {
-      baseCooldown: 8.0, castTime: 0.2,
+      baseCooldown: 8.0, castTime: 0.8,
       baseDamage: 0, amount: 110, scaleAP: 0.4, scaleAD: 0,
       type: 'heal_aoe', radius: 200,
       desc: 'Plošné léčení spojenců.'
@@ -301,13 +301,13 @@ export const CLASSES = {
     baseAtk: 25, baseAD: 0, baseAP: 80,
     baseArmor: 20, baseMR: 25,
     Q: {
-      baseCooldown: 4.0, castTime: 0.1,
+      baseCooldown: 4.0, castTime: 0.6,
       baseDamage: 0, amount: 55, scaleAP: 0.45, scaleAD: 0,
       type: 'heal_aoe', radius: 240,
       desc: 'Rychlá léčivá vlna (scaling).'
     },
     E: {
-      baseCooldown: 5.5, castTime: 0.2,
+      baseCooldown: 5.5, castTime: 0.7,
       baseDamage: 55, scaleAP: 0.65, scaleAD: 0,
       type: 'projectile', count: 3, spread: 0.3,
       pGlyph: '*', pSpeed: 850,
