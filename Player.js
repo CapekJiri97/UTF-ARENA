@@ -712,9 +712,10 @@ export class Player{
                         for (let ally of allies) {
                             let maxOnAlly = (ally.id === this.ownerId) ? 1 : 2;
                             let chickensOnAlly = game.minions.filter(min => min.isSmallChicken && min.targetHeroId === ally.id && !min.dead).length;
-                            if (chickensOnAlly < maxOnAlly) { let d = dist(this.pos, ally.pos); if (d < bestDist) { bestDist = d; bestAlly = ally; } }
+                            let d = dist(this.pos, ally.pos);
+                            if (chickensOnAlly < maxOnAlly && d <= 400) { if (d < bestDist) { bestDist = d; bestAlly = ally; } }
                         }
-                        if (bestAlly) this.targetHeroId = bestAlly.id;
+                        this.targetHeroId = bestAlly ? bestAlly.id : null;
                     }
 
                     if (this.targetHeroId) {
@@ -733,7 +734,7 @@ export class Player{
                                 }
                             }
                         }
-                    } else { this.hp -= 5 * dt; } // Pokud není koho léčit, pomalu umře
+                    } // Pokud nemá cíl, prostě stojí a čeká na místě. (umře přirozeně po 8 vteřinách)
                 };
                 game.minions.push(m);
             }
