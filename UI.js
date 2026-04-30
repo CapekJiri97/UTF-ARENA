@@ -778,6 +778,7 @@ export function draw(){
         const mobS = document.getElementById('mobBtnS');
         const mobLvlQ = document.getElementById('mobLvlQ');
         const mobLvlE = document.getElementById('mobLvlE');
+        const mobAuto = document.getElementById('mobBtnAuto');
         
         if (mobLvlQ && mobLvlE) {
             const showLvl = player.spellPoints > 0 ? 'flex' : 'none';
@@ -789,18 +790,24 @@ export function draw(){
         
         if (mobQ) {
             let cd = player.spells.Q.cd;
-            mobQ.textContent = cd > 0 ? cd.toFixed(1) : 'Q';
-            mobQ.style.color = cd > 0 ? '#ff4e4e' : 'rgba(255,255,255,0.8)';
+            let txt = cd > 0 ? cd.toFixed(1) : 'Q';
+            if (mobQ.textContent !== txt) { mobQ.textContent = txt; mobQ.style.color = cd > 0 ? '#ff4e4e' : 'rgba(255,255,255,0.8)'; }
         }
         if (mobE) {
             let cd = player.spells.E.cd;
-            mobE.textContent = cd > 0 ? cd.toFixed(1) : 'E';
-            mobE.style.color = cd > 0 ? '#ff4e4e' : 'rgba(255,255,255,0.8)';
+            let txt = cd > 0 ? cd.toFixed(1) : 'E';
+            if (mobE.textContent !== txt) { mobE.textContent = txt; mobE.style.color = cd > 0 ? '#ff4e4e' : 'rgba(255,255,255,0.8)'; }
         }
         if (mobS) {
             let cd = player.summonerCooldown;
-            mobS.textContent = cd > 0 ? cd.toFixed(1) : 'S';
-            mobS.style.color = cd > 0 ? '#ff4e4e' : 'rgba(255,255,255,0.8)';
+            let txt = cd > 0 ? cd.toFixed(1) : 'S';
+            if (mobS.textContent !== txt) { mobS.textContent = txt; mobS.style.color = cd > 0 ? '#ff4e4e' : 'rgba(255,255,255,0.8)'; }
+        }
+        if (mobAuto) {
+            let aTxt = 'AUTO', aCol = 'rgba(255,255,255,0.8)';
+            if (game.autoPlay && game.autoBuy) { aTxt = 'FULL'; aCol = '#0f0'; }
+            else if (game.autoPlay) { aTxt = 'FIGHT'; aCol = '#ffcc00'; }
+            if (mobAuto.textContent !== aTxt) { mobAuto.textContent = aTxt; mobAuto.style.color = aCol; }
         }
     }
   }
@@ -925,7 +932,10 @@ export function buildMenu() {
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 15px;">
           <div style="display:flex; align-items:center; gap: 15px;">
               <h1 id="lobbyTitle" style="margin:0;">OFFLINE MODE</h1>
-              <span style="color:#aaa; font-size:24px;">▲ ▼</span>
+              <span style="color:#aaa; font-size:24px;">
+                  <span id="lobbyUpBtn" style="cursor:pointer; padding:0 10px;">▲</span>
+                  <span id="lobbyDownBtn" style="cursor:pointer; padding:0 10px;">▼</span>
+              </span>
           </div>
           <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:8px 16px; cursor:pointer; background:#300; color:#ff6b6b; border:1px solid #ff6b6b; font-weight:bold; border-radius:4px;">LEAVE ROOM</button>
       </div>
@@ -1028,6 +1038,17 @@ export function buildMenu() {
 
   function notifyServer() { if(socket) socket.emit('update_selection', { className: selectedClass, team: selectedTeam, summonerSpell: selectedSpell }); }
   startBtn.addEventListener('click', () => { requestLandscapeFullscreen(); if(socket) socket.emit('start_game'); else { m.style.display = 'none'; startGame(selectedClass, selectedTeam, isSpectator); } });
+
+  const lobbyUpBtn = document.getElementById('lobbyUpBtn');
+  const lobbyDownBtn = document.getElementById('lobbyDownBtn');
+  if (lobbyUpBtn) {
+      const doScrollUp = (e) => { if(e) e.preventDefault(); m.scrollBy({ top: -250, behavior: 'smooth' }); };
+      lobbyUpBtn.onclick = doScrollUp; lobbyUpBtn.ontouchstart = doScrollUp;
+  }
+  if (lobbyDownBtn) {
+      const doScrollDown = (e) => { if(e) e.preventDefault(); m.scrollBy({ top: 250, behavior: 'smooth' }); };
+      lobbyDownBtn.onclick = doScrollDown; lobbyDownBtn.ontouchstart = doScrollDown;
+  }
 }
 
 export function updateSpellLabels() {}
@@ -1096,8 +1117,14 @@ export function initMobileUI() {
     dpadKnob.style.transform = 'translate(-50%, -50%)'; dpadKnob.style.left = '50%'; dpadKnob.style.top = '50%';
     dpadVisual.appendChild(dpadKnob); dpadZone.appendChild(dpadVisual);
     
-    const triggerKey = (keyStr, shift = false) => { window.dispatchEvent(new KeyboardEvent('keydown', { key: keyStr, shiftKey: shift, bubbles: true })); };
-    const releaseKey = (keyStr, shift = false) => { window.dispatchEvent(new KeyboardEvent('keyup', { key: keyStr, shiftKey: shift, bubbles: true })); };
+    const triggerKey = (keyStr, shift = false) => { 
+        if (shift) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }));
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: keyStr, shiftKey: shift, bubbles: true })); 
+    };
+    const releaseKey = (keyStr, shift = false) => { 
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: keyStr, shiftKey: shift, bubbles: true })); 
+        if (shift) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift', bubbles: true }));
+    };
     
     const createBtn = (keyStr, label, shift = false, size = '15vh', fontSize = '5vh') => {
         const b = document.createElement('div');
@@ -1141,7 +1168,9 @@ export function initMobileUI() {
 
     sideBtns.appendChild(createBtn('b', 'SHOP', false, '8vh', '2vh'));
     sideBtns.appendChild(createBtn('c', 'INFO', false, '8vh', '2vh'));
-    sideBtns.appendChild(createBtn('i', 'AUTO', true, '8vh', '2vh')); // Shift+I zapíná/vypíná autoplay
+    const btnAuto = createBtn('i', 'AUTO', true, '8vh', '2vh');
+    btnAuto.id = 'mobBtnAuto';
+    sideBtns.appendChild(btnAuto); // Shift+I zapíná/vypíná autoplay
     sideBtns.appendChild(createBtn('tab', 'TAB', false, '8vh', '2vh'));
     Array.from(sideBtns.children).forEach(b => b.style.position = 'relative'); // Vracíme na relative kvůli flex layoutu
     
