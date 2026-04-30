@@ -16,7 +16,7 @@ export const AA_SCALES = {
   Goliath:  0.40,
   Assassin: 0.55,
   Zephyr:   0.20,
-  Reaper:   0.25,
+  Reaper:   0.60,
   Kratoma:  0.40,
   Marksman: 0.50,
   Mage:     0.20,
@@ -198,13 +198,13 @@ export const CLASSES = {
     baseAtk: 25, baseAD: 0, baseAP: 40,
     baseArmor: 18, baseMR: 20,
     Q: {
-      baseCooldown: 12.0, castTime: 0.1,
+      baseCooldown: 9.0, castTime: 0.1,
       baseDamage: 20, scaleAP: 0.55, scaleAD: 0,
       type: 'reaper_q', charges: 3,
-      desc: 'Posílí další 3 základní útoky. Získají větší dosah, masivní bonusové poškození a zpomalí cíl o 60% na 1.5s.'
+      desc: 'Na 4 sekundy posílí další 3 základní útoky. Získají větší dosah, masivní bonusové poškození a zpomalí cíl o 60% na 1.5s.'
     },
     E: {
-      baseCooldown: 14.0, castTime: 0.05,
+      baseCooldown: 11.0, castTime: 0.05,
       baseDamage: 0, scaleAP: 0.7, scaleAD: 0, amount: 60,
       type: 'reaper_e', distance: 100, duration: 1.5,
       desc: 'Krátký úskok (100). Získá štít a 40% rychlost pohybu na 1.5s. Okamžitě resetuje cooldown kouzla Q!'
@@ -351,7 +351,7 @@ export const CLASSES = {
       baseCooldown: 14.0, castTime: 0.4,
       baseDamage: 0, amount: 15, scaleAP: 0.2, scaleAD: 0,
       type: 'summon_healers',
-      desc: 'Vyvolá malou podpůrnou slepičku (max 1 aktivní). Najde si nejbližšího spojence, následuje ho a každou sekundu ho léčí.'
+      desc: 'Vyvolá 3 malé podpůrné slepičky. Najdou si nejbližšího spojence (max 1 u Keepera, max 2 u jiného), následují ho a každou sekundu ho léčí.'
     }
   }
 };

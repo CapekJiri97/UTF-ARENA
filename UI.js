@@ -687,16 +687,16 @@ export function draw(){
             
             if (sp.type === 'heal_self' || sp.type === 'heal_aoe') {
                 let total = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * 10);
-                return `    Heal: Base ${amt} + (${scAD*100}% AD) + (${scAP*100}% AP) = ${total} HP`;
+                return `    Heal: Base ${amt} + (${Math.round(scAD*100)}% AD) + (${Math.round(scAP*100)}% AP) = ${total} HP`;
             } else if (sp.type === 'shield_explode') {
                 let shield = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * 20);
                 let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
                 return `    Shield: ${shield} | Explode Dmg: ${dmg}`;
             } else if (sp.type === 'buff_ad_as') {
                 let sh = Math.round((sp.shieldAmount||0) + (pAD * 0.3) + lvl * 15);
-                return `    Buff: +${(sp.amount||0)*100}% AD/AS | Shield: ${sh}`;
+                return `    Buff: +${Math.round((sp.amount||0)*100)}% AD/AS | Shield: ${sh}`;
             } else if (sp.type === 'buff_ms') {
-                return `    Buff: +${(sp.amount||0)*100}% Speed for ${sp.duration}s`;
+                return `    Buff: +${Math.round((sp.amount||0)*100)}% Speed for ${sp.duration}s`;
             } else if (sp.type === 'summon') {
                 let mHp = Math.round((bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8) * 3);
                 let mAd = Math.round((bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8) * 0.8);
@@ -719,7 +719,7 @@ export function draw(){
                 return `    Dmg: ${dmg} | Knockback enemies`;
             } else {
                 let total = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
-                return `    Dmg: Base ${bDmg} + (${scAD*100}% AD) + (${scAP*100}% AP) = ${total}`;
+                return `    Dmg: Base ${bDmg} + (${Math.round(scAD*100)}% AD) + (${Math.round(scAP*100)}% AP) = ${total}`;
             }
         };
 
@@ -729,7 +729,12 @@ export function draw(){
         
         ctx.fillText(`[E] Level ${e.level} - Cooldown: ${player.computeSpellCooldown('E').toFixed(1)}s`, leftM, startY); startY += 18;
         ctx.fillStyle = '#aaa'; startY = wrapText(`    ${e.desc}`, leftM, startY, panelW - 40, 16) + 16;
-        ctx.fillStyle = '#fff'; ctx.fillText(getSpellStatString(e, player), leftM, startY);
+        ctx.fillStyle = '#fff'; ctx.fillText(getSpellStatString(e, player), leftM, startY); startY += 28;
+
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`SUMMONER SPELL`, leftM, startY); startY += 20;
+        let sumSpell = SUMMONER_SPELLS[player.summonerSpell];
+        ctx.fillStyle = '#fff'; ctx.fillText(`[F / L] ${player.summonerSpell} - Cooldown: ${sumSpell.cd}s`, leftM, startY); startY += 18;
+        ctx.fillStyle = '#aaa'; startY = wrapText(`    ${sumSpell.desc}`, leftM, startY, panelW - 40, 16) + 16;
 
         ctx.restore();
     }

@@ -21,6 +21,7 @@ export class Player{
     this.silenceTimer = 0;
     this.shieldTimer = 0;
     this.reaperCharge = 0; // Stacky posílených útoků
+    this.reaperTimer = 0;
 
     // stats
     this.maxHp = cData.hp; this.hp = this.maxHp; this.hpRegen = 2.0; 
@@ -90,7 +91,7 @@ export class Player{
     this.silenceTimer = 0; this.slowTimer = 0; this.msBuffTimer = 0;
     this.hanaBuffTimer = 0; this.adAsBuffTimer = 0; this.defBuffTimer = 0;
     this.invulnerableTimer = 0; this.boostTimer = 0; this.rallyTimer = 0;
-    this.reaperCharge = 0;
+    this.reaperCharge = 0; this.reaperTimer = 0;
 
     // PŘIDÁNO: Odpočet se musí nastavit pro všechny, aby i klient lokálně správně čekal a poslal scoreboard status
     this.deaths++; this.respawnTimer = 7 + this.level; // Lvl 1 = 8s, Lvl 10 = 17s
@@ -135,6 +136,10 @@ export class Player{
     if(this.boostTimer > 0) this.boostTimer -= dt;
     if(this.rallyTimer > 0) this.rallyTimer -= dt;
     if(this.slowTimer > 0) this.slowTimer -= dt;
+    if(this.reaperCharge > 0) {
+        this.reaperTimer -= dt;
+        if(this.reaperTimer <= 0) this.reaperCharge = 0;
+    }
 
     if(this.regenBuffTimer > 0) {
         this.regenBuffTimer -= dt;
@@ -667,6 +672,7 @@ export class Player{
         spawnParticles(this.pos.x, this.pos.y, 10, '#a3c');
     } else if (sp.type === 'reaper_q') {
         this.reaperCharge = sp.charges || 3;
+        this.reaperTimer = 4.0;
         spawnParticles(this.pos.x, this.pos.y, 20, '#800080', {speed: 150});
     } else if (sp.type === 'reaper_e') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
@@ -682,14 +688,7 @@ export class Player{
     } else if (sp.type === 'summon_healers') {
         let healAmount = Math.round((sp.amount || 15) + pAP * (sp.scaleAP || 0) + sp.level * 2);
         if (!socket || game.isHost) {
-            // Limit 1 malá slepice
-            let existingSmall = game.minions.filter(m => m.ownerId === this.id && m.isSmallChicken && !m.dead);
-            while(existingSmall.length >= 1) { 
-                let oldest = existingSmall.shift();
-                oldest.hp = 0; oldest.dead = true;
-            }
-
-            for(let i=0; i<1; i++) {
+            for(let i=0; i<3; i++) {
                 const sx = this.pos.x + (Math.random()-0.5)*60; const sy = this.pos.y + (Math.random()-0.5)*60;
                 let m = new Minion(sx, sy, this.team, 0);
                 m.maxHp = 40; m.hp = m.maxHp; m.attackDamage = 0;
@@ -711,8 +710,9 @@ export class Player{
                         let allies = game.players.filter(p => p.team === this.team && p.alive);
                         let bestAlly = null; let bestDist = Infinity;
                         for (let ally of allies) {
-                            let chickensOnAlly = game.minions.filter(min => min.isSmallChicken && min.targetHeroId === ally.id).length;
-                            if (chickensOnAlly < 2) { let d = dist(this.pos, ally.pos); if (d < bestDist) { bestDist = d; bestAlly = ally; } }
+                            let maxOnAlly = (ally.id === this.ownerId) ? 1 : 2;
+                            let chickensOnAlly = game.minions.filter(min => min.isSmallChicken && min.targetHeroId === ally.id && !min.dead).length;
+                            if (chickensOnAlly < maxOnAlly) { let d = dist(this.pos, ally.pos); if (d < bestDist) { bestDist = d; bestAlly = ally; } }
                         }
                         if (bestAlly) this.targetHeroId = bestAlly.id;
                     }
@@ -1402,6 +1402,10 @@ export class BotPlayer extends Player {
           if(this.hanaBuffTimer > 0) this.hanaBuffTimer -= dt;
           if(this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
           if(this.defBuffTimer > 0) this.defBuffTimer -= dt;
+          if(this.reaperCharge > 0) {
+              this.reaperTimer -= dt;
+              if(this.reaperTimer <= 0) this.reaperCharge = 0;
+          }
 
           // Lokální vykreslení exploze štítu u cizích botů
           if (this.shieldExplodeData) {
@@ -1465,6 +1469,10 @@ export class BotPlayer extends Player {
           if(this.shieldTimer <= 0 && !this.shieldExplodeData) this.shield = 0; 
       }
       if(this.silenceTimer > 0) this.silenceTimer -= dt;
+      if(this.reaperCharge > 0) {
+          this.reaperTimer -= dt;
+          if(this.reaperTimer <= 0) this.reaperCharge = 0;
+      }
       if(this.hanaBuffTimer > 0) this.hanaBuffTimer -= dt;
       if(this.regenBuffTimer > 0) {
           this.regenBuffTimer -= dt;
