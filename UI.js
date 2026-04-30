@@ -842,11 +842,15 @@ export function drawMinimap(){
       bgCtx.fillStyle='#111'; bgCtx.fillRect(0,0,w,h);
       bgCtx.beginPath(); bgCtx.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY); for(let i=1; i<mapBoundary.length; i++) bgCtx.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY); bgCtx.closePath(); bgCtx.strokeStyle = '#555'; bgCtx.stroke();
       bgCtx.fillStyle = '#555'; bgCtx.font = '10px monospace'; bgCtx.textAlign='center'; bgCtx.textBaseline='middle';
+      
+      const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const mmSpacing = isMobile ? 90 : 66;
+
       for(let wObj of game.walls) {
-          let startX = Math.floor((wObj.bbox.minX - wObj.r)/60)*60, endX = Math.ceil((wObj.bbox.maxX + wObj.r)/60)*60;
-          let startY = Math.floor((wObj.bbox.minY - wObj.r)/60)*60, endY = Math.ceil((wObj.bbox.maxY + wObj.r)/60)*60;
-          for (let wx = startX; wx <= endX; wx += 60) {
-              for (let wy = startY; wy <= endY; wy += 60) {
+          let startX = Math.floor((wObj.bbox.minX - wObj.r)/mmSpacing)*mmSpacing, endX = Math.ceil((wObj.bbox.maxX + wObj.r)/mmSpacing)*mmSpacing;
+          let startY = Math.floor((wObj.bbox.minY - wObj.r)/mmSpacing)*mmSpacing, endY = Math.ceil((wObj.bbox.maxY + wObj.r)/mmSpacing)*mmSpacing;
+          for (let wx = startX; wx <= endX; wx += mmSpacing) {
+              for (let wy = startY; wy <= endY; wy += mmSpacing) {
                   let info = distToPoly(wx, wy, wObj.pts);
                   if (info.inside || info.minDist <= wObj.r) { bgCtx.fillText('#', wx * scaleX, wy * scaleY); }
               }
