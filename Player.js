@@ -236,7 +236,7 @@ export class Player{
         if (this === player) { // PŘIDÁNO: Zabráníme aplikaci lokálních WASD na cizí hráče
             if(keys['w']) dy-=1; if(keys['s']) dy+=1; if(keys['a']) dx-=1; if(keys['d']) dx+=1; l = Math.hypot(dx,dy);
             let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? (this.slowMod || 0.6) : 1.0);
-            if(this.castingTimeRemaining > 0) moveSpeed *= 0.1; // 90% slow během castingu!
+            if(this.castingTimeRemaining > 0) moveSpeed *= 0.3; // 70% slow během castingu!
             if(this.attackPenaltyTimer > 0) moveSpeed *= 0.8;
             if(l>0){ dx/=l; dy/=l; this.vel.x = dx*moveSpeed; this.vel.y = dy*moveSpeed; } else { this.vel.x = 0; this.vel.y = 0; }
             moveEntityWithCollision(this, this.vel.x, this.vel.y, dt);

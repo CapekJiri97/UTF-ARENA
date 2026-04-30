@@ -35,13 +35,13 @@ export const CLASSES = {
     baseAtk: 45, baseAD: 45, baseAP: 0,
     baseArmor: 35, baseMR: 30,
     Q: {
-      baseCooldown: 6.0, castTime: 0.2,
+      baseCooldown: 6.0, castTime: 0.05,
       baseDamage: 75, scaleAP: 0, scaleAD: 0.25,
       type: 'dash', distance: 198, radius: 104,
       desc: 'Vrhne se vpřed a zraní nepřátele, se kterými se srazí.'
     },
     E: {
-      baseCooldown: 8.0, castTime: 0.3,
+      baseCooldown: 8.0, castTime: 0.25,
       baseDamage: 90, scaleAP: 0, scaleAD: 0.35,
       type: 'aoe', radius: 136,
       desc: 'Provede kruhový úder, který zraní všechny nepřátele v okolí.'
@@ -54,7 +54,7 @@ export const CLASSES = {
     baseAtk: 40, baseAD: 0, baseAP: 55,
     baseArmor: 38, baseMR: 38,
     Q: {
-      baseCooldown: 5.5, castTime: 0.2,
+      baseCooldown: 5.5, castTime: 0.1,
       baseDamage: 65, scaleAP: 0.45, scaleAD: 0,
       type: 'aoe_knockback', radius: 144,
       desc: 'Vytvoří tlakovou vlnu, která zraní a odhodí blízké nepřátele.'
@@ -73,13 +73,13 @@ export const CLASSES = {
     baseAtk: 50, baseAD: 55, baseAP: 0,
     baseArmor: 33, baseMR: 28,
     Q: {
-      baseCooldown: 6.0, castTime: 0.2,
+      baseCooldown: 6.0, castTime: 0.1,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.55,
       type: 'projectile', pGlyph: 'D', pSpeed: 600, life: 0.4,
       desc: 'Vrhne těžkou zbraň, která zraní prvního zasaženého nepřítele. Poškození se výrazně zvyšuje s útočným poškozením.'
     },
     E: {
-      baseCooldown: 9.0, castTime: 0.1,
+      baseCooldown: 9.0, castTime: 0.05,
       baseDamage: 45, scaleAP: 0, scaleAD: 0.5,
       type: 'dash', distance: 198, radius: 110,
       desc: 'Skočí na cílové místo a při dopadu zraní nepřátele v okolí. Poškození se výrazně zvyšuje s útočným poškozením.'
@@ -102,7 +102,7 @@ export const CLASSES = {
       desc: 'Vytvoří dočasný štít. Pokud je štít zničen nebo vyprší, exploduje a zraní okolní nepřátele.'
     },
     E: {
-      baseCooldown: 9.0, castTime: 0.4,
+      baseCooldown: 9.0, castTime: 0.1,
       baseDamage: 80, scaleAP: 0, scaleAD: 0.15,
       type: 'aoe', radius: 144,
       desc: 'Udeří do země a zraní všechny nepřátele v blízkém okolí.'
@@ -121,7 +121,7 @@ export const CLASSES = {
       desc: 'Na 5 sekund posílí své útoky, které způsobují bonusové poškození dle jejích maximálních životů. Také získá bonus k rychlosti útoku a mírnou regeneraci.'
     },
     E: {
-      baseCooldown: 7.5, castTime: 0.1,
+      baseCooldown: 7.5, castTime: 0.05,
       baseDamage: 65, scaleAP: 0.5, scaleAD: 0,
       type: 'dash_def', distance: 225, radius: 128, slowDuration: 1.5, slowMod: 0.3,
       desc: 'Provede rychlý úskok a dočasně si zvýší obranu. Při dopadu zraní a výrazně zpomalí nepřátele v okolí.'
@@ -134,7 +134,7 @@ export const CLASSES = {
     baseAtk: 55, baseAD: 40, baseAP: 0,
     baseArmor: 50, baseMR: 50,
     Q: {
-      baseCooldown: 7.5, castTime: 0.3,
+      baseCooldown: 7.5, castTime: 0.15,
       baseDamage: 50, scaleAP: 0, scaleAD: 0.45,
       type: 'dash', distance: 225, radius: 120,
       desc: 'Provede nezastavitelný náraz vpřed, který zraní všechny nepřátele po cestě.'
@@ -157,14 +157,14 @@ export const CLASSES = {
     baseAtk: 50, baseAD: 55, baseAP: 0,
     baseArmor: 20, baseMR: 20,
     Q: {
-      baseCooldown: 5.0, castTime: 0.1,
+      baseCooldown: 5.0, castTime: 0.05,
       baseDamage: 65, scaleAP: 0, scaleAD: 0.2,
       type: 'projectile', count: 3, spread: 0.45,
       pGlyph: '-', pSpeed: 960, life: 0.21,
       desc: 'Vrhne tři dýky v kuželu, které zraní zasažené nepřátele. Kouzlo má vysoké základní poškození.'
     },
     E: {
-      baseCooldown: 8.0, castTime: 0.1,
+      baseCooldown: 8.0, castTime: 0.05,
       baseDamage: 95, scaleAP: 0, scaleAD: 0.45,
       type: 'aoe', radius: 96,
       desc: 'Vytvoří explozi nožů, která zraní všechny nepřátele v těsné blízkosti.'
@@ -183,7 +183,7 @@ export const CLASSES = {
       desc: 'Krátkodobě si výrazně zvýší rychlost pohybu.'
     },
     E: {
-      baseCooldown: 5.0, castTime: 0.5,
+      baseCooldown: 5.0, castTime: 0.1,
       baseDamage: 60, scaleAP: 0.6, scaleAD: 0,
       type: 'aoe', radius: 120,
       desc: 'Vytvoří magickou explozi, která zraní nepřátele v okolí.'
@@ -197,7 +197,7 @@ export const CLASSES = {
     baseArmor: 20, baseMR: 20,
     projCount: 3, projSpread: 0.3,
     Q: {
-      baseCooldown: 10.0, castTime: 1,
+      baseCooldown: 10.0, castTime: 0.7,
       baseDamage: 50, scaleAP: 0, scaleAD: 0.6,
       type: 'projectile_summon', pGlyph: 'b', pSpeed: 800,
       summonGlyph: 'b', summonHp: 120, summonAd: 50, slowDuration: 2,
@@ -223,7 +223,7 @@ export const CLASSES = {
       desc: 'Vystřelí střelu s dlouhým dosahem, která zraní prvního zasaženého nepřítele. Poškození se výrazně zvyšuje s útočným poškozením.'
     },
     E: {
-      baseCooldown: 13.0, castTime: 0.1,
+      baseCooldown: 13.0, castTime: 0.05,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
       type: 'dash', distance: 297,
       desc: 'Provede dlouhý úskok, který jí umožní rychle změnit pozici.'

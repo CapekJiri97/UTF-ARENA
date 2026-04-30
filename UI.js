@@ -551,10 +551,24 @@ export function draw(){
     }
     if (keys['tab']) {
         ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(100, 100, cw - 200, ch - 200); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(100, 100, cw - 200, ch - 200);
-        ctx.fillStyle = '#fff'; ctx.font = '24px monospace'; ctx.textAlign = 'center'; ctx.fillText('SCOREBOARD', cw/2, 140); ctx.font = '16px monospace'; ctx.textAlign = 'left'; ctx.fillText('BLUE TEAM', 130, 180);
-        let blueTeam = game.players.filter(p => p.team === 0); for(let i=0; i<blueTeam.length; i++) { let p = blueTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = (player && p.id === player.id) ? '#0f0' : '#486FED'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, 130, 210 + i*25); }
+        ctx.fillStyle = '#fff'; ctx.font = '24px monospace'; ctx.textAlign = 'center'; ctx.fillText('SCOREBOARD', cw/2, 140); 
+        ctx.font = '13px monospace'; ctx.textAlign = 'left'; ctx.fillText('BLUE TEAM', 130, 180);
+        let blueTeam = game.players.filter(p => p.team === 0); 
+        for(let i=0; i<blueTeam.length; i++) { 
+            let p = blueTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; 
+            ctx.fillStyle = (player && p.id === player.id) ? '#0f0' : '#486FED'; 
+            let cStr = `${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level})`.padEnd(24, ' ');
+            let sStr = stat.padEnd(10, ' '); let iStr = `Items: ${p.items.length}`.padEnd(9, ' '); let kStr = `K/D/A: ${p.kills}/${p.deaths}/${p.assists}`.padEnd(14, ' ');
+            ctx.fillText(`${cStr} | ${sStr} | ${iStr} | ${kStr} | Gold: ${Math.floor(p.totalGold)}`, 130, 210 + i*25); 
+        }
         ctx.fillStyle = '#fff'; ctx.fillText('RED TEAM', cw/2 + 30, 180); let redTeam = game.players.filter(p => p.team === 1);
-        for(let i=0; i<redTeam.length; i++) { let p = redTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; ctx.fillStyle = '#FF4E4E'; ctx.fillText(`${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level}) - ${stat} - Items: ${p.items.length} | K/D/A: ${p.kills}/${p.deaths}/${p.assists} | Gold: ${Math.floor(p.totalGold)}`, cw/2 + 30, 210 + i*25); }
+        for(let i=0; i<redTeam.length; i++) { 
+            let p = redTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; 
+            ctx.fillStyle = '#FF4E4E'; 
+            let cStr = `${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level})`.padEnd(24, ' ');
+            let sStr = stat.padEnd(10, ' '); let iStr = `Items: ${p.items.length}`.padEnd(9, ' '); let kStr = `K/D/A: ${p.kills}/${p.deaths}/${p.assists}`.padEnd(14, ' ');
+            ctx.fillText(`${cStr} | ${sStr} | ${iStr} | ${kStr} | Gold: ${Math.floor(p.totalGold)}`, cw/2 + 30, 210 + i*25); 
+        }
     }
     
     let vw = cw / 100;
@@ -576,14 +590,18 @@ export function draw(){
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`ATTRIBUTES`, 2 * vw, 28 * vh);
         let buffAdMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
         let buffAsMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
+        let adVal = Math.round(player.AD*(player.hasPowerup?1.2:1)*buffAdMultP);
+        let apVal = Math.round(player.AP*(player.hasPowerup?1.2:1));
+        let arVal = Math.round(player.armor*(player.hasPowerup?1.2:1));
+        let mrVal = Math.round(player.mr*(player.hasPowerup?1.2:1));
+        let asVal = (player.attackSpeed * buffAsMultP).toFixed(2);
+        let msVal = Math.round(player.speed*(player.hasPowerup?1.2:1));
+        let ahVal = player.abilityHaste;
         ctx.fillStyle = '#aaa';
-        ctx.fillText(`AD: ${Math.round(player.AD*(player.hasPowerup?1.2:1)*buffAdMultP)}`, 2 * vw, 31 * vh);
-        ctx.fillText(`AP: ${Math.round(player.AP*(player.hasPowerup?1.2:1))}`, 15 * vw, 31 * vh);
-        ctx.fillText(`Armor: ${Math.round(player.armor*(player.hasPowerup?1.2:1))}`, 2 * vw, 34 * vh);
-        ctx.fillText(`MR: ${Math.round(player.mr*(player.hasPowerup?1.2:1))}`, 15 * vw, 34 * vh);
-        ctx.fillText(`Attack Speed: ${(player.attackSpeed * buffAsMultP).toFixed(2)}`, 2 * vw, 37 * vh);
-        ctx.fillText(`Move Speed: ${Math.round(player.speed*(player.hasPowerup?1.2:1))}`, 15 * vw, 37 * vh);
-        ctx.fillText(`Ability Haste: ${player.abilityHaste}`, 2 * vw, 40 * vh);
+        ctx.fillText(`AD:    ${String(adVal).padEnd(5, ' ')} | AP:    ${apVal}`, 2 * vw, 31 * vh);
+        ctx.fillText(`Armor: ${String(arVal).padEnd(5, ' ')} | MR:    ${mrVal}`, 2 * vw, 34 * vh);
+        ctx.fillText(`A.Spd: ${String(asVal).padEnd(5, ' ')} | Speed: ${msVal}`, 2 * vw, 37 * vh);
+        ctx.fillText(`Haste: ${String(ahVal).padEnd(5, ' ')} |`, 2 * vw, 40 * vh);
         
         let baScale = AA_SCALES[player.className] || 0.3;
         let baDmg = Math.round(CLASSES[player.className].baseAtk + ((player.dmgType === 'magical' ? player.AP : player.AD) * baScale)); 
