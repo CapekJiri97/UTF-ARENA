@@ -643,13 +643,93 @@ export class Player{
             for(let i=0; i<(sp.count||1); i++) {
                 const sx = this.pos.x + (Math.random()-0.5)*40; const sy = this.pos.y + (Math.random()-0.5)*40;
                 let m = new Minion(sx, sy, this.team, tIndex);
-                m.maxHp = Math.round(damage * 3); m.hp = m.maxHp; m.attackDamage = Math.round(damage * 0.8);
+                m.maxHp = Math.round(damage * 1.5); m.hp = m.maxHp; m.attackDamage = Math.round(damage * 0.4);
                 m.glyph = sp.mGlyph || 'g';
-                m.isSummon = true; m.ownerId = this.id; m.speed = 135;
+                m.isSummon = true; m.ownerId = this.id; m.speed = 115;
                 game.minions.push(m);
             }
         }
         spawnParticles(this.pos.x, this.pos.y, 10, '#a3c');
+    } else if (sp.type === 'summon_healers') {
+        let healAmount = Math.round((sp.amount || 15) + pAP * (sp.scaleAP || 0) + sp.level * 2);
+        if (!socket || game.isHost) {
+            for(let i=0; i<3; i++) {
+                const sx = this.pos.x + (Math.random()-0.5)*60; const sy = this.pos.y + (Math.random()-0.5)*60;
+                let m = new Minion(sx, sy, this.team, 0);
+                m.maxHp = 80; m.hp = m.maxHp; m.attackDamage = 0;
+                m.glyph = 'c'; m.isSummon = true; m.ownerId = this.id; m.speed = 130;
+                m.isSmallChicken = true; m.healAmount = healAmount; m.healTimer = 1.0; m.targetHeroId = null;
+
+                m.update = function(dt) { // Unikátní update loop jen pro Host server
+                    if(this.dead || game.gameOver) return;
+                    if(this.hp <= 0) { this.dead = true; return; }
+                    if(this.flashTimer > 0) this.flashTimer -= dt;
+                    if (this.knockbackTimer > 0) { this.knockbackTimer -= dt; moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt); return; }
+
+                    this.healTimer -= dt;
+                    if (!this.targetHeroId || !game.players.find(p => p.id === this.targetHeroId && p.alive)) {
+                        let allies = game.players.filter(p => p.team === this.team && p.alive);
+                        let bestAlly = null; let bestDist = Infinity;
+                        for (let ally of allies) {
+                            let chickensOnAlly = game.minions.filter(min => min.isSmallChicken && min.targetHeroId === ally.id).length;
+                            if (chickensOnAlly < 2) { let d = dist(this.pos, ally.pos); if (d < bestDist) { bestDist = d; bestAlly = ally; } }
+                        }
+                        if (bestAlly) this.targetHeroId = bestAlly.id;
+                    }
+
+                    if (this.targetHeroId) {
+                        let targetHero = game.players.find(p => p.id === this.targetHeroId);
+                        if (targetHero) {
+                            let d = dist(this.pos, targetHero.pos);
+                            if (d > 70) {
+                                let dx = targetHero.pos.x - this.pos.x, dy = targetHero.pos.y - this.pos.y;
+                                let l = Math.hypot(dx, dy); moveEntityWithCollision(this, (dx/l)*this.speed, (dy/l)*this.speed, dt);
+                            }
+                            if (this.healTimer <= 0) {
+                                this.healTimer = 1.0;
+                                if (d < 300 && targetHero.hp < targetHero.effectiveMaxHp) { applyHeal(targetHero, this.healAmount); spawnParticles(this.pos.x, this.pos.y, 3, '#0f0'); }
+                            }
+                        }
+                    } else { this.hp -= 5 * dt; } // Pokud není koho léčit, pomalu umře
+                };
+                game.minions.push(m);
+            }
+        }
+        spawnParticles(this.pos.x, this.pos.y, 15, '#ffcc00');
+    } else if (sp.type === 'projectile_egg') {
+        const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
+        const speed = sp.pSpeed || 400; const life = sp.life || 0.625;
+        const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed;
+        
+        let egg = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {
+            damage: damage, dmgType: this.dmgType, glyph: 'o', life: life, radius: 18
+        });
+
+        if (!socket || game.isHost) {
+            let origUpdate = egg.update.bind(egg);
+            egg.update = function(dt) {
+                let wasDead = this.dead; origUpdate(dt);
+                if (this.dead && !wasDead) { // Při rozbití zplodí velkou slepici!
+                    let m = new Minion(this.pos.x, this.pos.y, this.ownerTeam, 0);
+                    m.maxHp = 160; m.hp = m.maxHp; m.attackDamage = 0; m.glyph = 'C'; m.isSummon = true; m.ownerId = this.ownerId; m.speed = 140;
+                    m.isBigChicken = true; m.healAmount = Math.round((sp.amount || 25) + pAP * (sp.scaleAP || 0) + sp.level * 4); m.healTimer = 1.0;
+                    m.update = function(dt) {
+                        if(this.dead || game.gameOver) return; if(this.hp <= 0) { this.dead = true; return; }
+                        if(this.flashTimer > 0) this.flashTimer -= dt;
+                        if (this.knockbackTimer > 0) { this.knockbackTimer -= dt; moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt); return; }
+                        this.healTimer -= dt; let targetHero = game.players.find(p => p.id === this.ownerId && p.alive);
+                        if (targetHero) {
+                            let d = dist(this.pos, targetHero.pos);
+                            if (d > 70) { let dx = targetHero.pos.x - this.pos.x, dy = targetHero.pos.y - this.pos.y; let l = Math.hypot(dx, dy); moveEntityWithCollision(this, (dx/l)*this.speed, (dy/l)*this.speed, dt); }
+                            if (this.healTimer <= 0) { this.healTimer = 1.0; if (d < 300 && targetHero.hp < targetHero.effectiveMaxHp) { applyHeal(targetHero, this.healAmount); spawnParticles(this.pos.x, this.pos.y, 6, '#0f0'); } }
+                        } else { this.hp -= 20 * dt; } // Pokud hrdina umřel, velká slepice chřadne
+                    };
+                    game.minions.push(m);
+                    spawnParticles(this.pos.x, this.pos.y, 10, '#fff');
+                }
+            };
+        }
+        game.projectiles.push(egg);
     }
     if (this === player) updateSpellLabels(); 
   }
@@ -669,7 +749,7 @@ export class BotPlayer extends Player {
       if (['Runner'].includes(this.className)) this.role = 'SPLITPUSHER';
       else if (['Assassin', 'Marksman', 'Mage', 'Kratoma', 'Summoner'].includes(this.className)) this.role = 'SLAYER';
       else if (['Tank', 'Goliath', 'Hana'].includes(this.className)) this.role = 'TANK';
-      else if (['Healer', 'Acolyte'].includes(this.className)) this.role = 'SUPPORT';
+      else if (['Healer', 'Acolyte', 'Keeper'].includes(this.className)) this.role = 'SUPPORT';
       else this.role = 'FIGHTER'; // Bruiser, Vanguard, Jirina
 
       this.personalWeights = {};
@@ -1544,6 +1624,7 @@ export class BotPlayer extends Player {
                       else { if (d > 150 && d < 400) castQ = true; }
                   } else if (this.spells.Q.type === 'buff_ms') castQ = (d < 600);
                   else if (this.spells.Q.type === 'aoe' || this.spells.Q.type === 'aoe_knockback') castQ = (d < (this.spells.Q.radius || 200));
+                  else if (this.spells.Q.type === 'projectile_egg') castQ = (d < 260);
                   else castQ = (d < 450);
                   if (castQ) this.castSpell('Q', qtx, qty);
               }
@@ -1553,6 +1634,7 @@ export class BotPlayer extends Player {
                   let castE = false; let etx = tx, ety = ty;
                   if (this.spells.E.type === 'heal_self' || this.spells.E.type === 'hana_q') castE = (this.hp < this.effectiveMaxHp * 0.6);
                   else if (this.spells.E.type === 'heal_aoe') castE = (this.hp < this.effectiveMaxHp * 0.7);
+                  else if (this.spells.E.type === 'summon_healers') castE = (this.hp < this.effectiveMaxHp * 0.8 || d < 400);
                   else if (this.spells.E.type === 'dash' || this.spells.E.type === 'dash_def') {
                       if (this.range) { if (d < 250) { castE = true; etx = this.pos.x + (this.pos.x - tx); ety = this.pos.y + (this.pos.y - ty); } }
                       else { if (d > 150 && d < 400) castE = true; }

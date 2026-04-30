@@ -63,7 +63,7 @@ io.on('connection', (socket) => {
       socket.join(currentRoom);
       const team0Players = Object.values(rooms[currentRoom].players).filter(p => p.team === 0);
       const takenClasses = team0Players.map(p => p.className);
-      const allClasses = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Runner', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Healer', 'Acolyte'];
+      const allClasses = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Runner', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper'];
       const availableClass = allClasses.find(cls => !takenClasses.includes(cls)) || 'Bruiser';
       rooms[currentRoom].players[socket.id] = { id: socket.id, className: availableClass, summonerSpell: 'Heal', team: 0, x: 0, y: 0, ready: false };
       io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: rooms[currentRoom].players });
@@ -94,7 +94,7 @@ io.on('connection', (socket) => {
     if (newTeam !== player.team) {
         if (isClassTakenOnNewTeam(player.className)) {
             // Postava je zabraná, najdeme první volnou.
-            const allClassNames = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Runner', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Healer', 'Acolyte'];
+            const allClassNames = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Runner', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper'];
             const takenClassNames = teamPlayers.map(p => p.className);
             const availableClass = allClassNames.find(cls => !takenClassNames.includes(cls));
             newClass = availableClass || 'Bruiser'; // Bezpečný statický fallback, zabrání vložení undefined

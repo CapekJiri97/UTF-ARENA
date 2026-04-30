@@ -22,6 +22,7 @@ export const AA_SCALES = {
   Summoner: 0.20,
   Healer:   0.13,
   Acolyte:  0.20,
+  Keeper:   0.20,
 };
 
 export const CLASSES = {
@@ -212,7 +213,7 @@ export const CLASSES = {
   },
 
   Marksman: {
-    glyph: 'S', range: true, dmgType: 'physical',
+    glyph: 'N', range: true, dmgType: 'physical',
     hp: 550, speed: 110, attackDelay: 1.2,
     baseAtk: 55, baseAD: 80, baseAP: 0,
     baseArmor: 15, baseMR: 15,
@@ -312,6 +313,25 @@ export const CLASSES = {
       type: 'projectile', count: 3, spread: 0.3,
       pGlyph: '*', pSpeed: 850,
       desc: 'Vystřelí tři magické střely v kuželu, které zraní zasažené nepřátele. Poškození se výrazně zvyšuje s magickou silou.'
+    }
+  },
+
+  Keeper: {
+    glyph: 'K', range: true, dmgType: 'magical',
+    hp: 640, speed: 105, attackDelay: 1.2,
+    baseAtk: 25, baseAD: 0, baseAP: 70,
+    baseArmor: 22, baseMR: 25,
+    Q: {
+      baseCooldown: 8.0, castTime: 0.3,
+      baseDamage: 60, scaleAP: 0.55, scaleAD: 0, amount: 20,
+      type: 'projectile_egg', pSpeed: 400, life: 0.625,
+      desc: 'Hodí vajíčko (dosah 250), které poškodí cíl. Po dopadu nebo zásahu se vylíhne velká slepice, která tě následuje a léčí.'
+    },
+    E: {
+      baseCooldown: 14.0, castTime: 0.4,
+      baseDamage: 0, amount: 15, scaleAP: 0.2, scaleAD: 0,
+      type: 'summon_healers',
+      desc: 'Vyvolá 3 podpůrné slepičky. Každá si najde nejbližšího spojence (max 2 na hrdinu), následuje ho a každou sekundu ho léčí.'
     }
   }
 };
