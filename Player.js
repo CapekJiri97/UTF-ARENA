@@ -657,14 +657,18 @@ export class Player{
                 const sx = this.pos.x + (Math.random()-0.5)*60; const sy = this.pos.y + (Math.random()-0.5)*60;
                 let m = new Minion(sx, sy, this.team, 0);
                 m.maxHp = 80; m.hp = m.maxHp; m.attackDamage = 0;
-                m.glyph = 'c'; m.isSummon = true; m.ownerId = this.id; m.speed = 130;
+                m.glyph = 'c'; m.isSummon = true; m.ownerId = this.id; m.speed = 190;
                 m.isSmallChicken = true; m.healAmount = healAmount; m.healTimer = 1.0; m.targetHeroId = null;
+                m.lifeTime = 10.0;
 
                 m.update = function(dt) { // Unikátní update loop jen pro Host server
                     if(this.dead || game.gameOver) return;
                     if(this.hp <= 0) { this.dead = true; return; }
                     if(this.flashTimer > 0) this.flashTimer -= dt;
                     if (this.knockbackTimer > 0) { this.knockbackTimer -= dt; moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt); return; }
+
+                    this.lifeTime -= dt;
+                    if (this.lifeTime <= 0) this.hp -= this.maxHp * 0.10 * dt;
 
                     this.healTimer -= dt;
                     if (!this.targetHeroId || !game.players.find(p => p.id === this.targetHeroId && p.alive)) {
@@ -687,7 +691,14 @@ export class Player{
                             }
                             if (this.healTimer <= 0) {
                                 this.healTimer = 1.0;
-                                if (d < 300 && targetHero.hp < targetHero.effectiveMaxHp) { applyHeal(targetHero, this.healAmount); spawnParticles(this.pos.x, this.pos.y, 3, '#0f0'); }
+                                if (d < 500 && targetHero.hp < targetHero.effectiveMaxHp) { 
+                                    applyHeal(targetHero, this.healAmount); 
+                                    spawnParticles(this.pos.x, this.pos.y, 3, '#0f0'); 
+                                    let steps = Math.floor(d / 20);
+                                    for(let i=0; i<=steps; i++) {
+                                        game.particles.push(new Particle(this.pos.x + (targetHero.pos.x - this.pos.x)*(i/steps), this.pos.y + (targetHero.pos.y - this.pos.y)*(i/steps), '#0f0', { life: 0.2, size: 8, speed: 0, glyph: '+' }));
+                                    }
+                                }
                             }
                         }
                     } else { this.hp -= 5 * dt; } // Pokud není koho léčit, pomalu umře
@@ -702,7 +713,7 @@ export class Player{
         const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed;
         
         let egg = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {
-            damage: damage, dmgType: this.dmgType, glyph: 'o', life: life, radius: 18
+            damage: damage, dmgType: this.dmgType, glyph: 'o', life: life, radius: 10
         });
 
         if (!socket || game.isHost) {
@@ -711,17 +722,32 @@ export class Player{
                 let wasDead = this.dead; origUpdate(dt);
                 if (this.dead && !wasDead) { // Při rozbití zplodí velkou slepici!
                     let m = new Minion(this.pos.x, this.pos.y, this.ownerTeam, 0);
-                    m.maxHp = 160; m.hp = m.maxHp; m.attackDamage = 0; m.glyph = 'C'; m.isSummon = true; m.ownerId = this.ownerId; m.speed = 140;
+                    m.maxHp = 160; m.hp = m.maxHp; m.attackDamage = 0; m.glyph = 'C'; m.isSummon = true; m.ownerId = this.ownerId; m.speed = 210;
                     m.isBigChicken = true; m.healAmount = Math.round((sp.amount || 25) + pAP * (sp.scaleAP || 0) + sp.level * 4); m.healTimer = 1.0;
+                    m.lifeTime = 10.0;
                     m.update = function(dt) {
                         if(this.dead || game.gameOver) return; if(this.hp <= 0) { this.dead = true; return; }
                         if(this.flashTimer > 0) this.flashTimer -= dt;
                         if (this.knockbackTimer > 0) { this.knockbackTimer -= dt; moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt); return; }
-                        this.healTimer -= dt; let targetHero = game.players.find(p => p.id === this.ownerId && p.alive);
+                        
+                        this.lifeTime -= dt;
+                        if (this.lifeTime <= 0) this.hp -= this.maxHp * 0.10 * dt;
+                        
+                        this.healTimer -= dt; 
+                        let targetHero = game.players.find(p => p.id === this.ownerId && p.alive);
                         if (targetHero) {
                             let d = dist(this.pos, targetHero.pos);
                             if (d > 70) { let dx = targetHero.pos.x - this.pos.x, dy = targetHero.pos.y - this.pos.y; let l = Math.hypot(dx, dy); moveEntityWithCollision(this, (dx/l)*this.speed, (dy/l)*this.speed, dt); }
-                            if (this.healTimer <= 0) { this.healTimer = 1.0; if (d < 300 && targetHero.hp < targetHero.effectiveMaxHp) { applyHeal(targetHero, this.healAmount); spawnParticles(this.pos.x, this.pos.y, 6, '#0f0'); } }
+                            if (this.healTimer <= 0) { 
+                                this.healTimer = 1.0; 
+                                if (d < 500 && targetHero.hp < targetHero.effectiveMaxHp) { 
+                                    applyHeal(targetHero, this.healAmount); spawnParticles(this.pos.x, this.pos.y, 6, '#0f0'); 
+                                    let steps = Math.floor(d / 20);
+                                    for(let i=0; i<=steps; i++) {
+                                        game.particles.push(new Particle(this.pos.x + (targetHero.pos.x - this.pos.x)*(i/steps), this.pos.y + (targetHero.pos.y - this.pos.y)*(i/steps), '#0f0', { life: 0.25, size: 12, speed: 0, glyph: '+' }));
+                                    }
+                                } 
+                            }
                         } else { this.hp -= 20 * dt; } // Pokud hrdina umřel, velká slepice chřadne
                     };
                     game.minions.push(m);
