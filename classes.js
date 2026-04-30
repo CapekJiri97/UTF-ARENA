@@ -16,7 +16,7 @@ export const AA_SCALES = {
   Goliath:  0.40,
   Assassin: 0.55,
   Zephyr:   0.20,
-  Reaper:   0.60,
+  Reaper:   0.50,
   Kratoma:  0.40,
   Marksman: 0.50,
   Mage:     0.20,
@@ -194,17 +194,17 @@ export const CLASSES = {
 
   Reaper: {
     glyph: 'R', range: false, dmgType: 'magical',
-    hp: 520, speed: 125, attackDelay: 0.9,
+    hp: 520, speed: 125, attackDelay: 0.72,
     baseAtk: 25, baseAD: 0, baseAP: 40,
     baseArmor: 18, baseMR: 20,
     Q: {
-      baseCooldown: 9.0, castTime: 0.1,
-      baseDamage: 20, scaleAP: 0.55, scaleAD: 0,
+      baseCooldown: 10.0, castTime: 0.1,
+      baseDamage: 20, scaleAP: 0.35, scaleAD: 0,
       type: 'reaper_q', charges: 3,
       desc: 'Na 4 sekundy posílí další 3 základní útoky. Získají větší dosah, masivní bonusové poškození a zpomalí cíl o 60% na 1.5s.'
     },
     E: {
-      baseCooldown: 11.0, castTime: 0.05,
+      baseCooldown: 13.0, castTime: 0.05,
       baseDamage: 0, scaleAP: 0.7, scaleAD: 0, amount: 60,
       type: 'reaper_e', distance: 100, duration: 1.5,
       desc: 'Krátký úskok (100). Získá štít a 40% rychlost pohybu na 1.5s. Okamžitě resetuje cooldown kouzla Q!'
@@ -343,15 +343,15 @@ export const CLASSES = {
     baseArmor: 22, baseMR: 25,
     Q: {
       baseCooldown: 8.0, castTime: 0.3,
-      baseDamage: 60, scaleAP: 0.55, scaleAD: 0, amount: 20,
+      baseDamage: 30, scaleAP: 0.75, scaleAD: 0, amount: 5,
       type: 'projectile_egg', pSpeed: 400, life: 0.625,
-      desc: 'Hodí vajíčko (dosah 250), které poškodí cíl. Po dopadu nebo zásahu se vylíhne velká slepice, která tě následuje a léčí.'
+      desc: 'Hodí vajíčko (dosah 250), které poškodí cíl. Po dopadu nebo zásahu se vylíhne velká slepice. Následuje tě, léčí tě a každou sekundu zraňuje blízké nepřátele.'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.4,
-      baseDamage: 0, amount: 15, scaleAP: 0.2, scaleAD: 0,
+      baseDamage: 0, amount: 5, scaleAP: 0.3, scaleAD: 0,
       type: 'summon_healers',
-      desc: 'Vyvolá 3 malé podpůrné slepičky. Najdou si nejbližšího spojence (max 1 u Keepera, max 2 u jiného), následují ho a každou sekundu ho léčí.'
+      desc: 'Vyvolá 3 malé podpůrné slepičky. Najdou si nejbližšího spojence (max 1 u Keepera, max 2 u jiného). Následují ho, léčí ho a každou sekundu zraňují blízké nepřátele.'
     }
   }
 };

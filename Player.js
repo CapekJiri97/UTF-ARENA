@@ -692,6 +692,7 @@ export class Player{
         spawnParticles(this.pos.x, this.pos.y, 15, '#800080', {speed: 120});
     } else if (sp.type === 'summon_healers') {
         let healAmount = Math.round((sp.amount || 15) + pAP * (sp.scaleAP || 0) + sp.level * 2);
+        let pulseDmg = Math.round(5 + pAP * 0.10);
         if (!socket || game.isHost) {
             for(let i=0; i<3; i++) {
                 const sx = this.pos.x + (Math.random()-0.5)*60; const sy = this.pos.y + (Math.random()-0.5)*60;
@@ -699,6 +700,7 @@ export class Player{
                 m.maxHp = 40; m.hp = m.maxHp; m.attackDamage = 0;
                 m.glyph = 'c'; m.isSummon = true; m.ownerId = this.id; m.speed = 190;
                 m.isSmallChicken = true; m.healAmount = healAmount; m.healTimer = 1.0; m.targetHeroId = null;
+                m.pulseDmg = pulseDmg;
                 m.lifeTime = 8.0;
 
                 m.update = function(dt) { // Unikátní update loop jen pro Host server
@@ -731,15 +733,20 @@ export class Player{
                                 let dx = targetHero.pos.x - this.pos.x, dy = targetHero.pos.y - this.pos.y;
                                 let l = Math.hypot(dx, dy); moveEntityWithCollision(this, (dx/l)*this.speed, (dy/l)*this.speed, dt);
                             }
-                            if (this.healTimer <= 0) {
-                                this.healTimer = 1.0;
-                                if (d < 500 && targetHero.hp < targetHero.effectiveMaxHp) { 
-                                    applyHeal(targetHero, this.healAmount); 
-                                    spawnParticles(this.pos.x, this.pos.y, 3, '#0f0'); 
-                                }
-                            }
                         }
-                    } // Pokud nemá cíl, prostě stojí a čeká na místě. (umře přirozeně po 8 vteřinách)
+                    }
+
+                    if (this.healTimer <= 0) {
+                        this.healTimer = 1.0;
+                        if (this.targetHeroId) {
+                            let targetHero = game.players.find(p => p.id === this.targetHeroId);
+                            if (targetHero && dist(this.pos, targetHero.pos) < 500 && targetHero.hp < targetHero.effectiveMaxHp) { applyHeal(targetHero, this.healAmount); spawnParticles(this.pos.x, this.pos.y, 3, '#0f0'); }
+                        }
+                        let hit = false;
+                        for(let ep of game.players) { if(ep.team !== this.team && ep.alive && dist(this.pos, ep.pos) <= 65) { applyDamage(ep, this.pulseDmg, 'magical', this.ownerId); hit = true; } }
+                        for(let em of game.minions) { if(em.team !== this.team && !em.dead && dist(this.pos, em.pos) <= 65) { applyDamage(em, this.pulseDmg, 'magical', this.ownerId); hit = true; } }
+                        if (hit) spawnParticles(this.pos.x, this.pos.y, 4, '#ff4e4e');
+                    } // Pokud nemá cíl, prostě stojí a čeká na místě. (umře přirozeně po 8 vteřinách, ale stále pálí okolí)
                 };
                 game.minions.push(m);
             }
@@ -753,6 +760,7 @@ export class Player{
         let egg = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {
             damage: damage, dmgType: this.dmgType, glyph: 'o', life: life, radius: 10
         });
+        let pulseDmg = Math.round(10 + pAP * 0.15);
 
         if (!socket || game.isHost) {
             let origUpdate = egg.update.bind(egg);
@@ -770,6 +778,7 @@ export class Player{
                     m.maxHp = 80; m.hp = m.maxHp; m.attackDamage = 0; m.glyph = 'C'; m.isSummon = true; m.ownerId = this.ownerId; m.speed = 210;
                     m.isBigChicken = true; m.healAmount = Math.round((sp.amount || 25) + pAP * (sp.scaleAP || 0) + sp.level * 4); m.healTimer = 1.0;
                     m.lifeTime = 8.0;
+                    m.pulseDmg = pulseDmg;
                     m.targetHeroId = this.ownerId;
                     m.update = function(dt) {
                         if(this.dead || game.gameOver) return; if(this.hp <= 0) { this.dead = true; return; }
@@ -785,13 +794,16 @@ export class Player{
                             this.targetHeroId = targetHero.id;
                             let d = dist(this.pos, targetHero.pos);
                             if (d > 70) { let dx = targetHero.pos.x - this.pos.x, dy = targetHero.pos.y - this.pos.y; let l = Math.hypot(dx, dy); moveEntityWithCollision(this, (dx/l)*this.speed, (dy/l)*this.speed, dt); }
-                            if (this.healTimer <= 0) { 
-                                this.healTimer = 1.0; 
-                                if (d < 500 && targetHero.hp < targetHero.effectiveMaxHp) { 
-                                    applyHeal(targetHero, this.healAmount); spawnParticles(this.pos.x, this.pos.y, 6, '#0f0'); 
-                                } 
-                            }
-                        } else { this.hp -= 20 * dt; this.targetHeroId = null; } 
+                        } else { this.hp -= 20 * dt; this.targetHeroId = null; }
+
+                        if (this.healTimer <= 0) { 
+                            this.healTimer = 1.0; 
+                            if (targetHero && dist(this.pos, targetHero.pos) < 500 && targetHero.hp < targetHero.effectiveMaxHp) { applyHeal(targetHero, this.healAmount); spawnParticles(this.pos.x, this.pos.y, 6, '#0f0'); } 
+                            let hit = false;
+                            for(let ep of game.players) { if(ep.team !== this.team && ep.alive && dist(this.pos, ep.pos) <= 65) { applyDamage(ep, this.pulseDmg, 'magical', this.ownerId); hit = true; } }
+                            for(let em of game.minions) { if(em.team !== this.team && !em.dead && dist(this.pos, em.pos) <= 65) { applyDamage(em, this.pulseDmg, 'magical', this.ownerId); hit = true; } }
+                            if (hit) spawnParticles(this.pos.x, this.pos.y, 5, '#ff4e4e');
+                        }
                     };
                     game.minions.push(m);
                     spawnParticles(this.pos.x, this.pos.y, 10, '#fff');
