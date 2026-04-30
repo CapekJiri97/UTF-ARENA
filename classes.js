@@ -15,7 +15,7 @@ export const AA_SCALES = {
   Hana:     0.35,
   Goliath:  0.40,
   Assassin: 0.55,
-  Runner:   0.20,
+  Zephyr:   0.20,
   Kratoma:  0.40,
   Marksman: 0.50,
   Mage:     0.20,
@@ -172,8 +172,8 @@ export const CLASSES = {
     }
   },
 
-  Runner: {
-    glyph: 'R', range: false, dmgType: 'magical',
+  Zephyr: {
+    glyph: 'Z', range: false, dmgType: 'magical',
     hp: 650, speed: 135, attackDelay: 0.9,
     baseAtk: 40, baseAD: 0, baseAP: 55,
     baseArmor: 25, baseMR: 25,
@@ -317,7 +317,7 @@ export const CLASSES = {
   },
 
   Keeper: {
-    glyph: 'K', range: true, dmgType: 'magical',
+    glyph: 'E', range: true, dmgType: 'magical',
     hp: 640, speed: 105, attackDelay: 1.2,
     baseAtk: 25, baseAD: 0, baseAP: 70,
     baseArmor: 22, baseMR: 25,

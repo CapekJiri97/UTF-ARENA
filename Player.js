@@ -746,7 +746,7 @@ export class BotPlayer extends Player {
       this.maxGroupSize = Math.random() > 0.5 ? 3 : 2; // 50% šance snést 3člennou skupinu na stejné věži
       this.lane = opts.lane || null;
       
-      if (['Runner'].includes(this.className)) this.role = 'SPLITPUSHER';
+      if (['Zephyr'].includes(this.className)) this.role = 'SPLITPUSHER';
       else if (['Assassin', 'Marksman', 'Mage', 'Kratoma', 'Summoner'].includes(this.className)) this.role = 'SLAYER';
       else if (['Tank', 'Goliath', 'Hana'].includes(this.className)) this.role = 'TANK';
       else if (['Healer', 'Acolyte', 'Keeper'].includes(this.className)) this.role = 'SUPPORT';
@@ -818,7 +818,7 @@ export class BotPlayer extends Player {
               let pool = [];
               const isTank = ['Tank', 'Goliath', 'Hana'].includes(this.className);
               const isFighter = ['Bruiser', 'Vanguard', 'Jirina'].includes(this.className);
-              const isMageSupport = ['Mage', 'Summoner', 'Healer', 'Acolyte', 'Runner'].includes(this.className);
+              const isMageSupport = ['Mage', 'Summoner', 'Healer', 'Acolyte', 'Zephyr', 'Keeper'].includes(this.className);
               
               if (isTank) {
                   pool.push('hp', 'hp');
@@ -861,13 +861,13 @@ export class BotPlayer extends Player {
           if (r < 0.33 && this.level >= 4) this.strategy = 'FARM';
           else if (r < 0.66) {
               // PowerUp sbírají cíleně spíše dmg dealeři a roameři
-              if (['Assassin', 'Marksman', 'Runner', 'Mage', 'Summoner', 'Bruiser', 'Vanguard'].includes(this.className) && game.powerup && game.powerup.active && !this.hasPowerup) {
+              if (['Assassin', 'Marksman', 'Zephyr', 'Mage', 'Summoner', 'Bruiser', 'Vanguard'].includes(this.className) && game.powerup && game.powerup.active && !this.hasPowerup) {
                   this.strategy = 'POWERUP';
               }
           }
           else {
               // Hunt cílují DPS a Bruiseři na Supporty/Mágy v okolí 2000 unitů
-              if (['Assassin', 'Marksman', 'Runner', 'Bruiser'].includes(this.className)) {
+              if (['Assassin', 'Marksman', 'Zephyr', 'Bruiser'].includes(this.className)) {
                       let aliveEnemies = game.players.filter(p => p.team !== this.team && p.alive);
                       let targets = aliveEnemies.filter(p => ['Healer', 'Acolyte', 'Mage', 'Summoner'].includes(p.className) && dist(this.pos, p.pos) < 2000);
                   if (targets.length > 0) { this.huntTarget = targets[Math.floor(Math.random() * targets.length)]; this.strategy = 'HUNT'; }
@@ -1104,7 +1104,7 @@ export class BotPlayer extends Player {
                   let minionSwarm = activeEnemyMinions.filter(m => dist(m.pos, this.pos) < 350).length;
 
                   let cowardice = 0.8; // Výchozí práh pro útěk z boje
-                  if (this.role === 'SPLITPUSHER') cowardice = -0.2; // Runner utíká i před vyrovnaným bojem (pokud nemá výhodu)
+                  if (this.role === 'SPLITPUSHER') cowardice = -0.2; // Zephyr utíká i před vyrovnaným bojem (pokud nemá výhodu)
                   else if (this.role === 'TANK') cowardice = 1.5; // Tank vydrží masivní poškození a kryje ústup, neuteče hned
                   else if (this.role === 'SLAYER') cowardice = 0.5; // Slayers jsou opatrnější na přesilu
                   
