@@ -12,6 +12,7 @@ export class Particle {
     this.shape = opts.shape || 'text';
     this.radius = opts.radius || 0;
     this.lineWidth = opts.lineWidth || 2;
+    this.cone = opts.cone || Math.PI/2;
   }
   update(dt) { this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; }
   draw(ctx) { 
@@ -19,6 +20,9 @@ export class Particle {
     if(this.shape === 'ring') {
       ctx.strokeStyle = this.color; ctx.lineWidth = this.lineWidth;
       ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI*2); ctx.stroke();
+    } else if (this.shape === 'arc') {
+      ctx.strokeStyle = this.color; ctx.lineWidth = this.lineWidth;
+      ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, this.angle - this.cone/2, this.angle + this.cone/2); ctx.stroke();
     } else {
       ctx.fillStyle = this.color; ctx.font = this.size+'px monospace'; 
       if(this.rotate) { ctx.translate(this.pos.x, this.pos.y); ctx.rotate(this.angle); ctx.fillText(this.glyph, 0, 0); } else { ctx.fillText(this.glyph, this.pos.x, this.pos.y); } 

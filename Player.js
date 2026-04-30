@@ -517,7 +517,12 @@ export class Player{
           // hit minions in cone
           const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = Math.PI/2; // 90deg
           let pColor = isEmpowered ? '#800080' : '#fff';
-          spawnParticles(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, 1, pColor, { angle: ang, speed: 400, life: 0.15, glyph: ')))', size: 24, rotate: true });
+          let mGlyph = isEmpowered ? '}' : ')';
+          let mSize = isEmpowered ? 40 : 30;
+          let mSpeed = (meleeRange - 20) / 0.15; // Závorka přesně doletí na okraj dosahu
+          spawnParticles(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, 1, pColor, { angle: ang, speed: mSpeed, life: 0.15, glyph: mGlyph, size: mSize, rotate: true });
+          // Jasně vykreslená hranice dosahu pomocí oblouku
+          game.particles.push(new Particle(this.pos.x, this.pos.y, pColor, { shape: 'arc', radius: meleeRange, angle: ang, cone: cone, life: 0.2, speed: 0, lineWidth: 2 }));
           for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, damage, this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = 0.4; } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) { this.gold += 10; this.totalGold += 10; this.exp += 15; this.totalExp = (this.totalExp||0) + 15; } } } } } }
           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); if(isEmpowered){ p.slowTimer = Math.max(p.slowTimer||0, 1.5); p.slowMod = 0.4; } spawnParticles(p.pos.x, p.pos.y, 2, pColor); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } } }
       }
