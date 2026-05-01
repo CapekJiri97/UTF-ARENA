@@ -129,7 +129,18 @@ export class Tower{
 export class Minion{
   constructor(x,y,team,targetIndex){ 
     this.id = 'm_' + Math.random().toString(36).substr(2,9); 
-    this.pos={x,y}; this.team = team; this.radius=8; this.glyph='m'; this.speed = 80; this.maxHp = 250; this.hp = 250; this.dead = false; this.targetIndex = targetIndex; this.atTarget = false; this.linger = 3.5; this.attackCooldown = 0; this.attackDamage = 25; this.flashTimer = 0; 
+    this.pos={x,y}; this.team = team; this.radius=8; this.glyph='m'; this.speed = 80; 
+    
+    let avgLevel = 1;
+    if (game.players && game.players.length > 0) {
+        let totalLvl = 0;
+        for (let p of game.players) totalLvl += p.level;
+        avgLevel = totalLvl / game.players.length;
+    }
+    let scale = 1 + Math.max(0, avgLevel - 1) * 0.08; // +15% stats za každý průměrný level hrdinů
+    
+    this.maxHp = Math.round(250 * scale); this.hp = this.maxHp; 
+    this.dead = false; this.targetIndex = targetIndex; this.atTarget = false; this.linger = 3.5; this.attackCooldown = 0; this.attackDamage = Math.round(25 * scale); this.flashTimer = 0; 
     this.thinkTimer = Math.random() * 0.5; this.state = 'PUSH'; this.currentTarget = null;
     this.knockbackTimer = 0; this.knockbackVel = {x:0, y:0};
   }

@@ -38,13 +38,13 @@ export const CLASSES = {
     baseArmor: 35, baseMR: 30,
     Q: {
       baseCooldown: 6.0, castTime: 0.05,
-      baseDamage: 75, scaleAP: 0, scaleAD: 0.25,
+      baseDamage: 75, scaleAP: 0.2, scaleAD: 0.25,
       type: 'dash', distance: 198, radius: 104,
       desc: 'Vrhne se vpřed a zraní nepřátele, se kterými se srazí.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.25,
-      baseDamage: 90, scaleAP: 0, scaleAD: 0.35,
+      baseDamage: 90, scaleAP: 0.15, scaleAD: 0.35,
       type: 'aoe', radius: 136,
       desc: 'Provede kruhový úder, který zraní všechny nepřátele v okolí.'
     }
@@ -57,13 +57,13 @@ export const CLASSES = {
     baseArmor: 38, baseMR: 38,
     Q: {
       baseCooldown: 5.5, castTime: 0.1,
-      baseDamage: 65, scaleAP: 0.45, scaleAD: 0,
+      baseDamage: 65, scaleAP: 0.45, scaleAD: 0.2,
       type: 'aoe_knockback', radius: 144,
       desc: 'Vytvoří tlakovou vlnu, která zraní a odhodí blízké nepřátele.'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.2,
-      baseDamage: 0, amount: 85, scaleAP: 0.55, scaleAD: 0,
+      baseDamage: 0, amount: 85, scaleAP: 0.55, scaleAD: 0.15,
       type: 'heal_aoe', radius: 200,
       desc: 'Vyléčí sebe a všechny spojence v dosahu.'
     }
@@ -76,13 +76,13 @@ export const CLASSES = {
     baseArmor: 33, baseMR: 28,
     Q: {
       baseCooldown: 6.0, castTime: 0.1,
-      baseDamage: 60, scaleAP: 0, scaleAD: 0.55,
+      baseDamage: 60, scaleAP: 0.2, scaleAD: 0.55,
       type: 'projectile', pGlyph: 'D', pSpeed: 600, life: 0.4,
       desc: 'Vrhne těžkou zbraň, která zraní prvního zasaženého nepřítele. Poškození se výrazně zvyšuje s útočným poškozením.'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.05,
-      baseDamage: 45, scaleAP: 0, scaleAD: 0.5,
+      baseDamage: 45, scaleAP: 0.25, scaleAD: 0.5,
       type: 'dash', distance: 198, radius: 110,
       desc: 'Skočí na cílové místo a při dopadu zraní nepřátele v okolí. Poškození se výrazně zvyšuje s útočným poškozením.'
     }
@@ -99,13 +99,13 @@ export const CLASSES = {
     baseArmor: 48, baseMR: 43,
     Q: {
       baseCooldown: 9.0, castTime: 0.1,
-      baseDamage: 80, scaleAP: 0, scaleAD: 0.3,
+      baseDamage: 80, scaleAP: 0.3, scaleAD: 0.3,
       type: 'shield_explode', amount: 140, duration: 4.0, radius: 144,
       desc: 'Vytvoří dočasný štít. Pokud je štít zničen nebo vyprší, exploduje a zraní okolní nepřátele.'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.1,
-      baseDamage: 80, scaleAP: 0, scaleAD: 0.15,
+      baseDamage: 80, scaleAP: 0.15, scaleAD: 0.15,
       type: 'aoe', radius: 144,
       desc: 'Udeří do země a zraní všechny nepřátele v blízkém okolí.'
     }
@@ -124,7 +124,7 @@ export const CLASSES = {
     },
     E: {
       baseCooldown: 7.5, castTime: 0.05,
-      baseDamage: 65, scaleAP: 0.5, scaleAD: 0,
+      baseDamage: 65, scaleAP: 0.5, scaleAD: 0.25,
       type: 'dash_def', distance: 225, radius: 128, slowDuration: 1.5, slowMod: 0.3,
       desc: 'Provede rychlý úskok a dočasně si zvýší obranu. Při dopadu zraní a výrazně zpomalí nepřátele v okolí.'
     }
@@ -137,13 +137,13 @@ export const CLASSES = {
     baseArmor: 50, baseMR: 50,
     Q: {
       baseCooldown: 7.5, castTime: 0.15,
-      baseDamage: 50, scaleAP: 0, scaleAD: 0.45,
+      baseDamage: 50, scaleAP: 0.2, scaleAD: 0.45,
       type: 'dash', distance: 225, radius: 120,
       desc: 'Provede nezastavitelný náraz vpřed, který zraní všechny nepřátele po cestě.'
     },
     E: {
       baseCooldown: 11.0, castTime: 0.1,
-      baseDamage: 50, scaleAP: 0, scaleAD: 0,
+      baseDamage: 50, scaleAP: 0.25, scaleAD: 0,
       type: 'dash_heal_silence', amount: 80, distance: 80, radius: 120, silenceDuration: 1.5,
       desc: 'Provede krátký úskok, vyléčí si část zdraví a při dopadu umlčí všechny nepřátele v okolí na 1.5 sekundy.'
     }
@@ -160,14 +160,14 @@ export const CLASSES = {
     baseArmor: 20, baseMR: 20,
     Q: {
       baseCooldown: 5.0, castTime: 0.05,
-      baseDamage: 65, scaleAP: 0, scaleAD: 0.2,
+      baseDamage: 65, scaleAP: 0.15, scaleAD: 0.2,
       type: 'projectile', count: 3, spread: 0.45,
       pGlyph: '-', pSpeed: 960, life: 0.21,
       desc: 'Vrhne tři dýky v kuželu, které zraní zasažené nepřátele. Kouzlo má vysoké základní poškození.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.05,
-      baseDamage: 95, scaleAP: 0, scaleAD: 0.45,
+      baseDamage: 95, scaleAP: 0.25, scaleAD: 0.45,
       type: 'aoe', radius: 96,
       desc: 'Vytvoří explozi nožů, která zraní všechny nepřátele v těsné blízkosti.'
     }
@@ -186,7 +186,7 @@ export const CLASSES = {
     },
     E: {
       baseCooldown: 5.0, castTime: 0.1,
-      baseDamage: 60, scaleAP: 0.6, scaleAD: 0,
+      baseDamage: 60, scaleAP: 0.6, scaleAD: 0.2,
       type: 'aoe', radius: 120,
       desc: 'Vytvoří magickou explozi, která zraní nepřátele v okolí.'
     }
@@ -199,13 +199,13 @@ export const CLASSES = {
     baseArmor: 18, baseMR: 20,
     Q: {
       baseCooldown: 10.0, castTime: 0.1,
-      baseDamage: 20, scaleAP: 0.35, scaleAD: 0,
+      baseDamage: 20, scaleAP: 0.35, scaleAD: 0.2,
       type: 'reaper_q', charges: 3,
       desc: 'Na 4 sekundy posílí další 3 základní útoky. Získají větší dosah, masivní bonusové poškození a zpomalí cíl o 60% na 1.5s.'
     },
     E: {
       baseCooldown: 13.0, castTime: 0.05,
-      baseDamage: 0, scaleAP: 0.7, scaleAD: 0, amount: 60,
+      baseDamage: 0, scaleAP: 0.7, scaleAD: 0.25, amount: 60,
       type: 'reaper_e', distance: 100, duration: 1.5,
       desc: 'Krátký úskok (100). Získá štít a 40% rychlost pohybu na 1.5s. Okamžitě resetuje cooldown kouzla Q!'
     }
@@ -219,7 +219,7 @@ export const CLASSES = {
     projCount: 3, projSpread: 0.3,
     Q: {
       baseCooldown: 10.0, castTime: 0.7,
-      baseDamage: 50, scaleAP: 0, scaleAD: 0.6,
+      baseDamage: 50, scaleAP: 0.25, scaleAD: 0.6,
       type: 'projectile_summon', pGlyph: 'b', pSpeed: 800,
       summonGlyph: 'b', summonHp: 120, summonAd: 50, slowDuration: 2,
       desc: 'Vystřelí projektil, který zraní a zpomalí prvního zasaženého nepřítele. Po zásahu vyvolá Bažanta, který bude bojovat po jejím boku.'
@@ -239,7 +239,7 @@ export const CLASSES = {
     baseArmor: 15, baseMR: 15,
     Q: {
       baseCooldown: 4.0, castTime: 0.4,
-      baseDamage: 60, scaleAP: 0, scaleAD: 0.7,
+      baseDamage: 60, scaleAP: 0.25, scaleAD: 0.7,
       type: 'projectile', pGlyph: '»', pSpeed: 1200,
       desc: 'Vystřelí střelu s dlouhým dosahem, která zraní prvního zasaženého nepřítele. Poškození se výrazně zvyšuje s útočným poškozením.'
     },
@@ -262,13 +262,13 @@ export const CLASSES = {
     baseArmor: 15, baseMR: 30,
     Q: {
       baseCooldown: 3.5, castTime: 0.3,
-      baseDamage: 115, scaleAP: 0.55, scaleAD: 0,
+      baseDamage: 115, scaleAP: 0.55, scaleAD: 0.15,
       type: 'projectile', pGlyph: 'O', pSpeed: 750,
       desc: 'Vystřelí magickou kouli, která zraní prvního zasaženého nepřítele. Kouzlo má vysoké základní poškození.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.6,
-      baseDamage: 115, scaleAP: 0.65, scaleAD: 0,
+      baseDamage: 115, scaleAP: 0.65, scaleAD: 0.2,
       type: 'aoe', radius: 160,
       desc: 'Vytvoří na cílovém místě plošnou explozi magické energie, která zraní všechny nepřátele v oblasti.'
     }
@@ -281,13 +281,13 @@ export const CLASSES = {
     baseArmor: 22, baseMR: 22,
     Q: {
       baseCooldown: 4.0, castTime: 0.3,
-      baseDamage: 85, scaleAP: 0.75, scaleAD: 0,
+      baseDamage: 85, scaleAP: 0.75, scaleAD: 0.2,
       type: 'projectile', pGlyph: '~', pSpeed: 750,
       desc: 'Vystřelí stínový projektil, který zraní prvního zasaženého nepřítele. Poškození se výrazně zvyšuje s magickou silou.'
     },
     E: {
       baseCooldown: 11.0, castTime: 0.6,
-      baseDamage: 45, scaleAP: 0.65, scaleAD: 0,
+      baseDamage: 45, scaleAP: 0.65, scaleAD: 0.15,
       type: 'summon', count: 2, mGlyph: 'g',
       desc: 'Vyvolá dva ghúly, kteří budou bojovat po jeho boku a útočit na nepřátele.'
     }
@@ -304,13 +304,13 @@ export const CLASSES = {
     baseArmor: 25, baseMR: 30,
     Q: {
       baseCooldown: 4.5, castTime: 0.3,
-      baseDamage: 85, scaleAP: 0.6, scaleAD: 0,
+      baseDamage: 85, scaleAP: 0.6, scaleAD: 0.2,
       type: 'projectile', pGlyph: '+', pSpeed: 660,
       desc: 'Vystřelí paprsek světla, který zraní prvního zasaženého nepřítele.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.3,
-      baseDamage: 0, amount: 110, scaleAP: 0.60, scaleAD: 0,
+      baseDamage: 0, amount: 110, scaleAP: 0.60, scaleAD: 0.15,
       type: 'heal_aoe', radius: 200,
       desc: 'Vytvoří vlnu energie, která vyléčí všechny spojence v širokém okolí.'
     }
@@ -323,13 +323,13 @@ export const CLASSES = {
     baseArmor: 20, baseMR: 25,
     Q: {
       baseCooldown: 6.0, castTime: 0.3,
-      baseDamage: 0, amount: 55, scaleAP: 0.45, scaleAD: 0,
+      baseDamage: 0, amount: 55, scaleAP: 0.45, scaleAD: 0.2,
       type: 'heal_aoe', radius: 120,
       desc: 'Vytvoří léčivou vlnu, která vyléčí spojence v okolí. Síla léčení se zvyšuje s magickou silou.'
     },
     E: {
       baseCooldown: 5.5, castTime: 0.4,
-      baseDamage: 55, scaleAP: 0.65, scaleAD: 0,
+      baseDamage: 55, scaleAP: 0.65, scaleAD: 0.15,
       type: 'projectile', count: 3, spread: 0.3,
       pGlyph: '*', pSpeed: 850,
       desc: 'Vystřelí tři magické střely v kuželu, které zraní zasažené nepřátele. Poškození se výrazně zvyšuje s magickou silou.'
@@ -343,13 +343,13 @@ export const CLASSES = {
     baseArmor: 22, baseMR: 25,
     Q: {
       baseCooldown: 8.0, castTime: 0.3,
-      baseDamage: 30, scaleAP: 0.75, scaleAD: 0, amount: 5,
+      baseDamage: 30, scaleAP: 0.75, scaleAD: 0.2, amount: 5,
       type: 'projectile_egg', pSpeed: 400, life: 0.625,
       desc: 'Hodí vajíčko (dosah 250), které poškodí cíl. Po dopadu nebo zásahu se vylíhne velká slepice. Následuje tě, léčí tě a každou sekundu zraňuje blízké nepřátele.'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.4,
-      baseDamage: 0, amount: 5, scaleAP: 0.3, scaleAD: 0,
+      baseDamage: 0, amount: 5, scaleAP: 0.3, scaleAD: 0.15,
       type: 'summon_healers',
       desc: 'Vyvolá 3 malé podpůrné slepičky. Najdou si nejbližšího spojence (max 1 u Keepera, max 2 u jiného). Následují ho, léčí ho a každou sekundu zraňují blízké nepřátele.'
     }

@@ -182,8 +182,8 @@ export class Player{
 
                 let pool = [];
                 const isTank = ['Tank', 'Goliath', 'Hana'].includes(this.className);
-                const isFighter = ['Bruiser', 'Vanguard', 'Jirina'].includes(this.className);
-                const isMageSupport = ['Mage', 'Summoner', 'Healer', 'Acolyte', 'Runner'].includes(this.className);
+                const isFighter = ['Bruiser', 'Vanguard', 'Jirina', 'Assassin', 'Reaper'].includes(this.className);
+                const isMageSupport = ['Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper', 'Zephyr'].includes(this.className);
                 
                 if (isTank) {
                     pool.push('hp', 'hp');
@@ -196,7 +196,7 @@ export class Player{
                 } else if (isMageSupport) {
                     pool.push('ap', 'ap', 'ah', 'ah'); if (Math.random() < 0.25) pool.push('hp'); 
                 } else { 
-                    if (this.className === 'Marksman') pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); 
+                    if (this.className === 'Marksman' || this.className === 'Kratoma') pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); 
                     if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr');
                 }
                 let chosenId = pool[Math.floor(Math.random() * pool.length)];
@@ -910,8 +910,8 @@ export class BotPlayer extends Player {
 
               let pool = [];
               const isTank = ['Tank', 'Goliath', 'Hana'].includes(this.className);
-              const isFighter = ['Bruiser', 'Vanguard', 'Jirina'].includes(this.className);
-              const isMageSupport = ['Mage', 'Summoner', 'Healer', 'Acolyte', 'Zephyr', 'Keeper'].includes(this.className);
+              const isFighter = ['Bruiser', 'Vanguard', 'Jirina', 'Assassin', 'Reaper'].includes(this.className);
+              const isMageSupport = ['Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper', 'Zephyr'].includes(this.className);
               
               if (isTank) {
                   pool.push('hp', 'hp');
@@ -924,7 +924,7 @@ export class BotPlayer extends Player {
               } else if (isMageSupport) {
                   pool.push('ap', 'ap', 'ah', 'ah'); if (Math.random() < 0.25) pool.push('hp'); 
               } else { 
-                  if (this.className === 'Marksman') pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); 
+                  if (this.className === 'Marksman' || this.className === 'Kratoma') pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); 
                   if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr');
               }
               let chosenId = pool[Math.floor(Math.random() * pool.length)];
