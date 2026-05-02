@@ -22,7 +22,6 @@ export class Projectile{
         hitTarget = m; applyDamage(m, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00');    
         if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantRewards(owner, 10, 15); } } break; 
       } 
-      } 
     }
     if (hitTarget) { this.processOnHit(hitTarget); this.dead = true; return; }
     

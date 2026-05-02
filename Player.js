@@ -953,18 +953,9 @@ export class BotPlayer extends Player {
             if (p.regenBuffTimer > 0) hps += p.regenBuffAmount || 0;
             if (p.summonerSpell === 'Heal' && p.summonerCooldown <= 0) hps += (150 + p.level * 20) / 15; // Predikce léčení
             
-            // Započítání burst damage a plošného healingu
             if (p.spells) {
                 for (let key of ['Q', 'E']) {
                     let sp = p.spells[key];
-                    if (sp) {
-                        if (['heal_self', 'heal_aoe', 'dash_heal_silence', 'summon_healers'].includes(sp.type)) {
-                            let cd = sp.baseCooldown || 8;
-                            let amt = (sp.amount || 0) + (p.AP * (sp.scaleAP || 0)) + (p.AD * (sp.scaleAD || 0)) + (sp.level * 10);
-                            hps += amt / cd; // Healing Per Second (HPS)
-                        } else if (sp.cd <= 0) {
-                            dps += (sp.baseDamage || 0) / 3;
-                        }
                     if (!sp) continue;
                     
                     let cd = Math.max(1.0, sp.baseCooldown);
@@ -993,7 +984,6 @@ export class BotPlayer extends Player {
                     if (sp.type === 'projectile_summon') dps += (((sp.summonAd || 50) + pAD * 0.2) / 1.2) * (8 / cd);
                 }
             }
-            return { hp: p.hp, dps: dps, hps: hps };
             return { hp: p.hp + (p.shield || 0), dps: dps, hps: hps }; // Přidání štítů k celkové odolnosti
         };
 
@@ -1006,7 +996,6 @@ export class BotPlayer extends Player {
             }
         }
         
-        // Započítání poškození a "štítu z masa" od minionů a vyvolaných jednotek (Ghúlové, Slepice)
         // Započítání poškození a léčení od už vyvolaných jednotek na mapě
         for (let m of game.minions) {
             if (m.dead) continue;
@@ -1016,10 +1005,8 @@ export class BotPlayer extends Player {
             if (m.healAmount && m.healTimer) mHps += (m.healAmount / m.healTimer);
 
             if (m.team === this.team && dist(this.pos, m.pos) < 600) {
-                myTeamHp += m.hp; myTeamDps += (m.attackDamage || 15) * 0.8; // Minion útočí cca každých 1.2s
                 myTeamHp += m.hp; myTeamDps += mDps; myTeamHps += mHps;
             } else if (m.team !== this.team && dist(target.pos, m.pos) < 600) {
-                enTeamHp += m.hp; enTeamDps += (m.attackDamage || 15) * 0.8;
                 enTeamHp += m.hp; enTeamDps += mDps; enTeamHps += mHps;
             }
         }
