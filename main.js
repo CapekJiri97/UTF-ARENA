@@ -54,6 +54,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         netPlayer.slowTimer = data.slowT || 0;
         netPlayer.boostTimer = data.boostT || 0;
         netPlayer.silenceTimer = data.silenceT || 0;
+        netPlayer.stunTimer = data.stunT || 0;
         netPlayer.shield = data.shield || 0;
         netPlayer.hanaBuffTimer = data.hanaT || 0;
 
@@ -94,6 +95,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
           bot.slowTimer = bData.slowT || 0;
           bot.boostTimer = bData.boostT || 0;
           bot.silenceTimer = bData.silenceT || 0;
+          bot.stunTimer = bData.stunT || 0;
           bot.shield = bData.shield || 0;
           bot.hanaBuffTimer = bData.hanaT || 0;
 
@@ -164,6 +166,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                       }
                       if (hData.shield !== undefined) p.shield = hData.shield;
                       if (hData.silenceT !== undefined) p.silenceTimer = hData.silenceT;
+                      if (hData.stunT !== undefined) p.stunTimer = hData.stunT;
                       if (hData.slowT !== undefined) p.slowTimer = hData.slowT;
                       if (hData.boostT !== undefined) p.boostTimer = hData.boostT;
                       if (hData.hanaT !== undefined) p.hanaBuffTimer = hData.hanaT;
@@ -305,6 +308,27 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     ctx.fillText(bar, x, y);
   }
 
+  export function grantRewards(targetPlayer, baseGold, baseExp) {
+    if (!targetPlayer) return;
+    let avgLevel = 1;
+    let totalLevel = 0;
+    let count = 0;
+    for (let p of game.players) { if (p.team >= 0) { totalLevel += p.level; count++; } }
+    if (count > 0) avgLevel = totalLevel / count;
+
+    let mult = 1.0;
+    if (targetPlayer.level >= avgLevel + 3) mult = 0.5;
+    else if (targetPlayer.level <= avgLevel - 2) mult = 1.5;
+
+    let finalGold = Math.round(baseGold * mult);
+    let finalExp = Math.round(baseExp * mult);
+
+    targetPlayer.gold += finalGold;
+    targetPlayer.totalGold += finalGold;
+    targetPlayer.exp += finalExp;
+    targetPlayer.totalExp = (targetPlayer.totalExp || 0) + finalExp;
+  }
+
   export function applyHeal(target, amount) {
     if(!target || target.dead || target.hp <= 0) return 0;
     let oldHp = target.hp;
@@ -425,14 +449,14 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
       if (game.killFeed) game.killFeed.push(killData);
 
       if (!socket || game.isHost) {
-          if (killer) { killer.gold += 150; killer.totalGold += 150; killer.exp += 50; killer.totalExp = (killer.totalExp||0) + 50; killer.kills++; }
+          if (killer) { grantRewards(killer, 150, 50); killer.kills++; }
           let now = performance.now();
           if (victim.recentAttackers) {
               victim.recentAttackers.forEach((data, attackerId) => {
                   let t = data.time || data;
                   if (attackerId !== killerId && (now - t) < 10000) {
                       let assister = game.players.find(p => p.id === attackerId);
-                      if (assister && assister.team !== victim.team) { assister.assists++; assister.gold += 50; assister.totalGold += 50; assister.exp += 25; assister.totalExp = (assister.totalExp||0) + 25; }
+                      if (assister && assister.team !== victim.team) { assister.assists++; grantRewards(assister, 50, 25); }
                   }
               });
               victim.recentAttackers.clear();
@@ -819,7 +843,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                 game.syncTimer = 0;
                 const minimalState = {
                     id: player.id, x: player.pos.x, y: player.pos.y, aimAngle: player.aimAngle,
-                    slowT: player.slowTimer, boostT: player.boostTimer,
+                    slowT: player.slowTimer, boostT: player.boostTimer, stunT: player.stunTimer,
                     silenceT: player.silenceTimer, shield: player.shield, hanaT: player.hanaBuffTimer
                 };
                 if (player.isDirty) {
@@ -843,7 +867,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                 game.hostSyncTimer = 0;
                 socket.emit('host_state', {
                     bots: game.players.filter(p => p instanceof BotPlayer).map(b => {
-                        const minimalState = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, shield: b.shield, hanaT: b.hanaBuffTimer };
+                        const minimalState = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, stunT: b.stunTimer, shield: b.shield, hanaT: b.hanaBuffTimer };
                         if (b.isDirty) {
                             b.isDirty = false;
                             return { ...minimalState, isFullUpdate: true, className: b.className,
@@ -855,7 +879,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                         } else { return minimalState; }
                     }),
                     humans: game.players.filter(p => !(p instanceof BotPlayer)).map(p => ({
-                        id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
+                        id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, stunT: p.stunTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
                         kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null
                     })),
                     minions: game.minions.map(m => ({

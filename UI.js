@@ -701,7 +701,8 @@ export function draw(){
                 let sh = Math.round((sp.shieldAmount||0) + (pAD * 0.3) + lvl * 15);
                 return `    Buff: +${Math.round((sp.amount||0)*100)}% AD/AS | Shield: ${sh}`;
             } else if (sp.type === 'buff_ms') {
-                return `    Buff: +${Math.round((sp.amount||0)*100)}% Speed for ${sp.duration}s`;
+                let spd = Math.round(((sp.amount||0) + (pAP * (sp.scaleAP||0))) * 100);
+                return `    Buff: +${spd}% Speed for ${sp.duration}s`;
             } else if (sp.type === 'summon') {
                 let totalDmg = bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8;
                 let mHp = Math.round(totalDmg * 1.5);

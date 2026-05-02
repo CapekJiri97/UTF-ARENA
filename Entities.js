@@ -2,7 +2,7 @@ import { dist, isPointInPoly, distToPoly } from './Utils.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { mapBoundary, spawnPoints } from './MapConfig.js';
 import { spawnParticles } from './Effects.js';
-import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player } from './main.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, grantRewards } from './main.js';
 
 export class Projectile{
   constructor(x,y,vx,vy,ownerId,ownerTeam,opts={}){ this.pos={x,y}; this.vel={x:vx,y:vy}; 
@@ -19,7 +19,9 @@ export class Projectile{
     let hitTarget = null;
     for(let m of game.minions){ 
       if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){ 
-        hitTarget = m; applyDamage(m, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00');     if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ owner.gold += 10; owner.totalGold += 10; owner.exp += 15; owner.totalExp = (owner.totalExp||0) + 15; } } break; 
+        hitTarget = m; applyDamage(m, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00');    
+        if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantRewards(owner, 10, 15); } } break; 
+      } 
       } 
     }
     if (hitTarget) { this.processOnHit(hitTarget); this.dead = true; return; }
@@ -36,6 +38,8 @@ export class Projectile{
       if (this.opts.slowDuration) {
           target.slowTimer = Math.max(target.slowTimer || 0, this.opts.slowDuration);
       }
+      if (this.opts.stunDuration) { target.stunTimer = Math.max(target.stunTimer || 0, this.opts.stunDuration); if(target.className) game.effectTexts.push(new EffectText(target.pos.x, target.pos.y-20, "STUNNED", '#ffcc00')); }
+      if (this.opts.silenceDuration) { target.silenceTimer = Math.max(target.silenceTimer || 0, this.opts.silenceDuration); if(target.className) game.effectTexts.push(new EffectText(target.pos.x, target.pos.y-20, "SILENCED", '#fff')); }
       if (this.opts.spawnMinion && (!socket || game.isHost)) {
           let bestTower = null, bd = Infinity;
           for (let t of game.towers) if (t.owner !== this.ownerTeam && dist(t.pos, this.pos) < bd) { bestTower = t; bd = dist(t.pos, this.pos); }
@@ -80,6 +84,7 @@ export class Tower{
           this.owner = 0; this.control = 100; game.shake = 0.3; 
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 0 && dist(p.pos, this.pos) <= this.captureRadius);
+                  for (let p of caps) grantRewards(p, 50, 75);
               let kName = caps.length > 0 ? caps[0].className : 'Blue Team';
               let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 0, victimTeam: -1, isCapture: true };
               if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
@@ -89,6 +94,7 @@ export class Tower{
           this.owner = 1; this.control = -100; game.shake = 0.3; 
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 1 && dist(p.pos, this.pos) <= this.captureRadius);
+                  for (let p of caps) grantRewards(p, 50, 75);
               let kName = caps.length > 0 ? caps[0].className : 'Red Team';
               let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 1, victimTeam: -1, isCapture: true };
               if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
@@ -143,6 +149,7 @@ export class Minion{
     this.dead = false; this.targetIndex = targetIndex; this.atTarget = false; this.linger = 3.5; this.attackCooldown = 0; this.attackDamage = Math.round(25 * scale); this.flashTimer = 0; 
     this.thinkTimer = Math.random() * 0.5; this.state = 'PUSH'; this.currentTarget = null;
     this.knockbackTimer = 0; this.knockbackVel = {x:0, y:0};
+    this.stunTimer = 0; this.silenceTimer = 0;
   }
   think() {
     if (this.atTarget || (this.currentTarget && (this.currentTarget.dead || this.currentTarget.hp <= 0 || dist(this.pos, this.currentTarget.pos) > (this.isSummon ? 800 : 200)))) {
@@ -179,6 +186,7 @@ export class Minion{
     if(this.hp <= 0 && !this.dead) { this.dead = true; return; }
     if(dist(this.pos, spawnPoints[1-this.team]) < 200 && (!socket || game.isHost)) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) { this.dead=true; return; } }
     if(this.flashTimer > 0) this.flashTimer -= dt;
+    if(this.stunTimer > 0) this.stunTimer -= dt;
     if(this.attackCooldown>0) this.attackCooldown -= dt;
     
     if (this.knockbackTimer > 0) {
@@ -186,6 +194,7 @@ export class Minion{
         if (!socket || game.isHost) moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt); // Pohyb minionů řídí Host
         return;
     }
+    if(this.stunTimer > 0) return;
     
     this.thinkTimer -= dt; if (this.thinkTimer <= 0) { this.thinkTimer = 0.4 + Math.random() * 0.2; this.think(); }
     let dx = 0, dy = 0;
