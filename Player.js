@@ -897,19 +897,13 @@ export class BotPlayer extends Player {
     // Vrací WinProbability (0.0 = Jistá prohra, 0.5 = Vyrovnané, 1.0 = Jistá výhra)
     predictFightOutcome(target) {
         if (!target) return 0.5;
-        let myTeamHp = 0, myTeamDps = 0;
-        let enTeamHp = 0, enTeamDps = 0;
         let myTeamHp = 0, myTeamDps = 0, myTeamHps = 0;
         let enTeamHp = 0, enTeamDps = 0, enTeamHps = 0;
         
         // Extrakce hrubých statistik hrdiny (velmi zjednodušeno pro rychlost)
-        const getStats = (p) => {
+        con st getStats = (p) => {
             let dps = (p.AD * Math.max(0.5, p.attackSpeed)) + (p.AP * 0.4) + 20; 
             if (p.role === 'HEALER' || p.role === 'SUPPORT') dps += 25; // Kompenzace za healy
-            // Započítání burst damage z aktuálně připravených kouzel
-            if (p.spells && p.spells.Q && p.spells.Q.cd <= 0) dps += (p.spells.Q.baseDamage || 0) / 3;
-            if (p.spells && p.spells.E && p.spells.E.cd <= 0) dps += (p.spells.E.baseDamage || 0) / 3;
-            return { hp: p.hp, dps: dps };
             let hps = p.hpRegen || 2;
             
             if (p.regenBuffTimer > 0) hps += p.regenBuffAmount || 0;
@@ -936,10 +930,8 @@ export class BotPlayer extends Player {
         for (let p of game.players) {
             if (!p.alive) continue;
             if (p.team === this.team && dist(this.pos, p.pos) < 800) {
-                let s = getStats(p); myTeamHp += s.hp; myTeamDps += s.dps;
                 let s = getStats(p); myTeamHp += s.hp; myTeamDps += s.dps; myTeamHps += s.hps;
             } else if (p.team !== this.team && dist(target.pos, p.pos) < 800) {
-                let s = getStats(p); enTeamHp += s.hp; enTeamDps += s.dps;
                 let s = getStats(p); enTeamHp += s.hp; enTeamDps += s.dps; enTeamHps += s.hps;
             }
         }
