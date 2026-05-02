@@ -515,8 +515,7 @@ export class Player{
           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ if(dist(this.pos, p.pos) <= meleeRange){ applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 2, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } }
       } else {
           // hit minions in cone
-          const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = Math.PI/2; // 90deg
-              const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = isEmpowered ? (60 * Math.PI / 180) : (70 * Math.PI / 180); // 70deg základní, 60deg pro posílené (Reaper Q)
+            const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = isEmpowered ? (60 * Math.PI / 180) : (70 * Math.PI / 180); // 70deg základní, 60deg pro posílené (Reaper Q)
           let pColor = isEmpowered ? '#800080' : '#fff';
           let mGlyph = isEmpowered ? '}' : ')';
           let finalSize = isEmpowered ? 180 : 120; // Velikost pokrývající celou šířku kuželu
