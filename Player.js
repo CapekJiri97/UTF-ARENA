@@ -516,15 +516,20 @@ export class Player{
       } else {
           // hit minions in cone
           const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = Math.PI/2; // 90deg
+              const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = isEmpowered ? (60 * Math.PI / 180) : (70 * Math.PI / 180); // 70deg základní, 60deg pro posílené (Reaper Q)
           let pColor = isEmpowered ? '#800080' : '#fff';
           let mGlyph = isEmpowered ? '}' : ')';
-          let mSize = isEmpowered ? 40 : 30;
+          let finalSize = isEmpowered ? 180 : 120; // Velikost pokrývající celou šířku kuželu
+          let startSize = 30;
           let mSpeed = (meleeRange - 20) / 0.15; // Závorka přesně doletí na okraj dosahu
-          spawnParticles(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, 1, pColor, { angle: ang, speed: mSpeed, life: 0.15, glyph: mGlyph, size: mSize, rotate: true });
-          // Jasně vykreslená hranice dosahu pomocí oblouku
-          game.particles.push(new Particle(this.pos.x, this.pos.y, pColor, { shape: 'arc', radius: meleeRange, angle: ang, cone: cone, life: 0.2, speed: 0, lineWidth: 2 }));
-          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, damage, this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = 0.4; } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) { this.gold += 10; this.totalGold += 10; this.exp += 15; this.totalExp = (this.totalExp||0) + 15; } } } } } }
-          for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); if(isEmpowered){ p.slowTimer = Math.max(p.slowTimer||0, 1.5); p.slowMod = 0.4; } spawnParticles(p.pos.x, p.pos.y, 2, pColor); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } } }
+          let growRate = (finalSize - startSize) / 0.15; // Rychlost zvětšování během letu
+          
+          // Letící a dynamicky se zvětšující útok (Kužel / Výseč)
+          game.particles.push(new Particle(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, pColor, { angle: ang, speed: mSpeed, life: 0.15, glyph: mGlyph, size: startSize, grow: growRate, rotate: true }));
+          // Statická závorka na okraji dosahu (Místo původní kulaté čáry)
+          game.particles.push(new Particle(this.pos.x + Math.cos(ang)*(meleeRange - 15), this.pos.y + Math.sin(ang)*(meleeRange - 15), pColor, { angle: ang, speed: 0, life: 0.2, glyph: mGlyph, size: finalSize, rotate: true }));
+          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, damage, this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.0); m.slowMod = 0.6; } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) { this.gold += 10; this.totalGold += 10; this.exp += 15; this.totalExp = (this.totalExp||0) + 15; } } } } } }
+          for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); if(isEmpowered){ p.slowTimer = Math.max(p.slowTimer||0, 1.0); p.slowMod = 0.6; } spawnParticles(p.pos.x, p.pos.y, 2, pColor); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } } }
       }
     } }
 
@@ -895,6 +900,8 @@ export class BotPlayer extends Player {
         if (!target) return 0.5;
         let myTeamHp = 0, myTeamDps = 0;
         let enTeamHp = 0, enTeamDps = 0;
+        let myTeamHp = 0, myTeamDps = 0, myTeamHps = 0;
+        let enTeamHp = 0, enTeamDps = 0, enTeamHps = 0;
         
         // Extrakce hrubých statistik hrdiny (velmi zjednodušeno pro rychlost)
         const getStats = (p) => {
@@ -904,14 +911,37 @@ export class BotPlayer extends Player {
             if (p.spells && p.spells.Q && p.spells.Q.cd <= 0) dps += (p.spells.Q.baseDamage || 0) / 3;
             if (p.spells && p.spells.E && p.spells.E.cd <= 0) dps += (p.spells.E.baseDamage || 0) / 3;
             return { hp: p.hp, dps: dps };
+            let hps = p.hpRegen || 2;
+            
+            if (p.regenBuffTimer > 0) hps += p.regenBuffAmount || 0;
+            if (p.summonerSpell === 'Heal' && p.summonerCooldown <= 0) hps += (150 + p.level * 20) / 15; // Predikce léčení
+            
+            // Započítání burst damage a plošného healingu
+            if (p.spells) {
+                for (let key of ['Q', 'E']) {
+                    let sp = p.spells[key];
+                    if (sp) {
+                        if (['heal_self', 'heal_aoe', 'dash_heal_silence', 'summon_healers'].includes(sp.type)) {
+                            let cd = sp.baseCooldown || 8;
+                            let amt = (sp.amount || 0) + (p.AP * (sp.scaleAP || 0)) + (p.AD * (sp.scaleAD || 0)) + (sp.level * 10);
+                            hps += amt / cd; // Healing Per Second (HPS)
+                        } else if (sp.cd <= 0) {
+                            dps += (sp.baseDamage || 0) / 3;
+                        }
+                    }
+                }
+            }
+            return { hp: p.hp, dps: dps, hps: hps };
         };
 
         for (let p of game.players) {
             if (!p.alive) continue;
             if (p.team === this.team && dist(this.pos, p.pos) < 800) {
                 let s = getStats(p); myTeamHp += s.hp; myTeamDps += s.dps;
+                let s = getStats(p); myTeamHp += s.hp; myTeamDps += s.dps; myTeamHps += s.hps;
             } else if (p.team !== this.team && dist(target.pos, p.pos) < 800) {
                 let s = getStats(p); enTeamHp += s.hp; enTeamDps += s.dps;
+                let s = getStats(p); enTeamHp += s.hp; enTeamDps += s.dps; enTeamHps += s.hps;
             }
         }
         
@@ -932,6 +962,9 @@ export class BotPlayer extends Player {
         if (nearEnTower) enTeamDps += 80;
 
         if (myTeamDps <= 0) myTeamDps = 1; if (enTeamDps <= 0) enTeamDps = 1;
+        // Aplikace Healingu proti DPS
+        myTeamDps = Math.max(1, myTeamDps - enTeamHps);
+        enTeamDps = Math.max(1, enTeamDps - myTeamHps);
 
         let ttkEnemy = enTeamHp / myTeamDps; // Za jak dlouho umřou oni
         let ttkUs = myTeamHp / enTeamDps;    // Za jak dlouho umřeme my
@@ -981,6 +1014,7 @@ export class BotPlayer extends Player {
             const myTowersCount = game.towers.filter(t => t.owner === bot.team).length;
             const enemyTowersCount = game.towers.filter(t => t.owner === 1 - bot.team).length;
             bot.isGlobalLosing = myTowersCount < enemyTowersCount;
+            bot.isDesperate = myTowersCount <= 1 && enemyTowersCount >= 3; // Jsme drceni!
         }
 
         let unassigned = teamBots.filter(b => b.alive);
@@ -1204,6 +1238,10 @@ export class BotPlayer extends Player {
               score += 4600; // Zvýšeno o 15%
               if (t.owner === 1 - this.team) score += 3450; // Zvýšeno o 15%
           }
+          if (this.isDesperate) {
+              score += 15000; // Zoufalství: Brutální priorita věží (přebije potyčky i lékárničky)
+              if (t.owner === 1 - this.team) score += 5000;
+          }
 
           if (this.role === 'SUPPORT') {
               let alliedFighters = game.players.some(p => p instanceof BotPlayer && p.team === this.team && p.role === 'FIGHTER' && p.objective === t);
@@ -1344,6 +1382,10 @@ export class BotPlayer extends Player {
                   else if (this.role === 'TANK') cowardiceThreshold = 0.25; // Tank se nebojí, i když má nevýhodu
                   else if (this.role === 'SLAYER') cowardiceThreshold = 0.45; 
 
+                  if (this.isDesperate) {
+                      cowardiceThreshold -= 0.15; // Zoufalství: Budou riskovat i vyloženě špatné souboje o cíle!
+                  }
+
                   // ZVLÁŠTNÍ PRAVIDLO: Kradení věží -> Zbabělec utíká hned jak někoho vidí!
                   if (this.macroOrder && this.macroOrder.type === 'SNEAK_CAPTURE') {
                       cowardiceThreshold = 0.8;
@@ -1425,6 +1467,7 @@ export class BotPlayer extends Player {
 
               // PŘIDÁNO: Snížení priority boje, pokud tým prohrává (soustředění na záchranu věží)
               if (this.isGlobalLosing) score -= 3450; // Posílena averze k boji o 15%
+              if (this.isDesperate) score -= 8000; // Absolutní averze k nesmyslným bojům v lese (jen objektivy)
 
               // PŘIDÁNO: Ztráta priority, pokud ho bot dlouho nahání ale nedal mu dmg
               // OPRAVA: Ignorujeme Anti-Chase pro lovené cíle, volání o pomoc a low HP cíle (Bloodlust)!

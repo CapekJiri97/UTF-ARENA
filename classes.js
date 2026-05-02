@@ -201,7 +201,7 @@ export const CLASSES = {
       baseCooldown: 10.0, castTime: 0.15,
       baseDamage: 20, scaleAP: 0.3, scaleAD: 0.15,
       type: 'reaper_q', charges: 3,
-      desc: 'Na 4 sekundy posílí další 3 základní útoky. Získají větší dosah, masivní bonusové poškození a zpomalí cíl o 60% na 1.5s.'
+      desc: 'Na 4 sekundy posílí další 3 základní útoky. Získají větší dosah, masivní bonusové poškození a zpomalí cíl o 40% na 1s.'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.05,

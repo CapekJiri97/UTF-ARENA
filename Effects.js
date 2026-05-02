@@ -8,13 +8,14 @@ export class Particle {
     this.vel = {x: Math.cos(this.angle)*spd, y: Math.sin(this.angle)*spd};
     this.life = opts.life || (0.3 + Math.random() * 0.3); this.maxLife = this.life; this.color = color;
     this.glyph = opts.glyph || '.'; this.size = opts.size || 10;
+    this.grow = opts.grow || 0;
     this.rotate = opts.rotate || false;
     this.shape = opts.shape || 'text';
     this.radius = opts.radius || 0;
     this.lineWidth = opts.lineWidth || 2;
     this.cone = opts.cone || Math.PI/2;
   }
-  update(dt) { this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; }
+  update(dt) { this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; this.size = Math.max(1, this.size + this.grow * dt); }
   draw(ctx) { 
     ctx.save(); ctx.globalAlpha = Math.max(0, this.life/this.maxLife); 
     if(this.shape === 'ring') {

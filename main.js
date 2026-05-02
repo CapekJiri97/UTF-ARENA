@@ -481,21 +481,69 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
 
   export let player = null;
   
+  // DRAFTING LOGIKA: Inteligentní výběr postav pro boty
+  export function getSmartBotClass(myTeamPicked, enemyTeamPicked) {
+      const roles = {
+          'Zephyr': 'SPLITPUSHER', 'Reaper': 'SPLITPUSHER',
+          'Assassin': 'SLAYER', 'Marksman': 'SLAYER', 'Mage': 'SLAYER', 'Kratoma': 'SLAYER', 'Summoner': 'SLAYER',
+          'Tank': 'TANK', 'Goliath': 'TANK', 'Hana': 'TANK',
+          'Healer': 'SUPPORT', 'Acolyte': 'SUPPORT', 'Keeper': 'SUPPORT',
+          'Bruiser': 'FIGHTER', 'Vanguard': 'FIGHTER', 'Jirina': 'FIGHTER'
+      };
+      let roleCounts = { 'SPLITPUSHER': 0, 'SLAYER': 0, 'TANK': 0, 'SUPPORT': 0, 'FIGHTER': 0 };
+      for (let c of myTeamPicked) { if(roles[c]) roleCounts[roles[c]]++; }
+
+      let candidates = Object.keys(CLASSES).map(c => {
+          let weight = 100;
+          let role = roles[c];
+
+          if (role === 'SUPPORT') {
+              if (roleCounts['SUPPORT'] === 0) weight *= 3.0; // Extrémní priorita, pokud chybí
+              else if (roleCounts['SUPPORT'] === 1) weight *= 0.05; // 5% šance na double supporta
+              else weight = 0; // 3. support zakázán
+          }
+          if (role === 'TANK') {
+              if (roleCounts['TANK'] === 0) weight *= 3.0; // Extrémní priorita
+              else if (roleCounts['TANK'] >= 2) weight *= 0.1; // Další tank jen výjimečně
+          }
+          if (role === 'SLAYER') {
+              if (roleCounts['SLAYER'] === 0) weight *= 2.0; 
+              else if (roleCounts['SLAYER'] >= 2) weight *= 0.4;
+          }
+          if (role === 'FIGHTER') {
+              if (roleCounts['FIGHTER'] === 0) weight *= 2.0;
+              else if (roleCounts['FIGHTER'] >= 2) weight *= 0.4;
+          }
+          
+          if (myTeamPicked.includes(c)) weight = 0; // Vlastní tým nesmí mít stejné postavy
+          if (enemyTeamPicked.includes(c)) weight *= 0.10; // Anti-Mirror: Pouze 10% šance, že zrcadlově vybere to co nepřítel
+
+          return { className: c, weight: weight };
+      });
+
+      let totalWeight = candidates.reduce((sum, c) => sum + c.weight, 0);
+      if (totalWeight <= 0) return Object.keys(CLASSES)[0]; // Fallback
+      
+      let rand = Math.random() * totalWeight;
+      for (let c of candidates) {
+          if (rand < c.weight) return c.className;
+          rand -= c.weight;
+      }
+      return Object.keys(CLASSES)[0];
+  }
+
   export function startGame(playerClass, playerTeam = 0, isSpectator = false) {
     game.players = []; game.minions = []; game.projectiles = [];
     game.isSpectator = isSpectator;
     game.isHost = true; // Důležité: Aby boti a hra nečekali na síťové příkazy!
     
-    const classKeys = Object.keys(CLASSES);
-    function shuffle(arr) { let a=arr.slice(); for(let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-    
-    let blueClasses = shuffle(classKeys);
-    let redClasses = shuffle(classKeys);
+    let bluePicked = [];
+    let redPicked = [];
     const spellsArray = Object.keys(SUMMONER_SPELLS);
     
     if (!isSpectator) {
-        if (playerTeam === 0) blueClasses = blueClasses.filter(c => c !== playerClass);
-        else redClasses = redClasses.filter(c => c !== playerClass);
+        if (playerTeam === 0) bluePicked.push(playerClass);
+        else redPicked.push(playerClass);
 
         player = new Player(spawnPoints[playerTeam].x, spawnPoints[playerTeam].y, { team: playerTeam, id:'player0', className: playerClass });
         // summonerSpell has been synced in server, assuming default is 'Heal' if not specified
@@ -509,16 +557,23 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     const getBotLane = (idx) => { if(idx <= 3) return 'top'; if(idx === 4) return 'bottom'; return Math.random() > 0.5 ? 'top' : 'bottom'; };
 
     let blueBotCount = (!isSpectator && playerTeam === 0) ? 4 : 5;
-    for (let i = 1; i <= blueBotCount; i++) {
-        const c = blueClasses.pop();
-        let bot = new BotPlayer(spawnPoints[0].x + Math.random()*50, spawnPoints[0].y + Math.random()*50, {team:0, id:'bot0_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
-        game.players.push(bot);
-    }
     let redBotCount = (!isSpectator && playerTeam === 1) ? 4 : 5;
-    for (let i = 1; i <= redBotCount; i++) {
-        const c = redClasses.pop();
-        let bot = new BotPlayer(spawnPoints[1].x + Math.random()*50, spawnPoints[1].y + Math.random()*50, {team:1, id:'bot1_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
-        game.players.push(bot);
+    let totalBots = Math.max(blueBotCount, redBotCount);
+
+    // Boti si vybírají na střídačku, aby dokázali reagovat na kompozici nepřítele a nebrali zrcadlové postavy
+    for (let i = 1; i <= totalBots; i++) {
+        if (i <= blueBotCount) {
+            const c = getSmartBotClass(bluePicked, redPicked);
+            bluePicked.push(c);
+            let bot = new BotPlayer(spawnPoints[0].x + Math.random()*50, spawnPoints[0].y + Math.random()*50, {team:0, id:'bot0_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
+            game.players.push(bot);
+        }
+        if (i <= redBotCount) {
+            const c = getSmartBotClass(redPicked, bluePicked);
+            redPicked.push(c);
+            let bot = new BotPlayer(spawnPoints[1].x + Math.random()*50, spawnPoints[1].y + Math.random()*50, {team:1, id:'bot1_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
+            game.players.push(bot);
+        }
     }
 
     game.started = true;
@@ -547,9 +602,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     }
     game.isSpectator = isSpectator;
 
-    const classKeys = Object.keys(CLASSES);
-    function shuffle(arr) { let a=arr.slice(); for(let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-    let blueClasses = shuffle(classKeys); let redClasses = shuffle(classKeys);
+    let bluePicked = []; let redPicked = [];
     const spellsArray = Object.keys(SUMMONER_SPELLS);
     
     let humansBlue = 0; let humansRed = 0;
@@ -558,8 +611,8 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         if (pData.team === -1) return; // Skip spectators
         let p = new Player(spawnPoints[pData.team].x, spawnPoints[pData.team].y, { team: pData.team, id: pData.id, className: pData.className, summonerSpell: pData.summonerSpell });
         game.players.push(p);
-        if (pData.team === 0) { humansBlue++; blueClasses = blueClasses.filter(c => c !== pData.className); }
-        else { humansRed++; redClasses = redClasses.filter(c => c !== pData.className); }
+        if (pData.team === 0) { humansBlue++; bluePicked.push(pData.className); }
+        else { humansRed++; redPicked.push(pData.className); }
         if (socket && pData.id === socket.id) { player = p; }
     });
 
@@ -572,14 +625,22 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     const getBotLane = (idx) => { if(idx <= 3) return 'top'; if(idx === 4) return 'bottom'; return Math.random() > 0.5 ? 'top' : 'bottom'; };
 
     let blueBotCount = Math.max(0, 5 - humansBlue);
-    for (let i = 1; i <= blueBotCount; i++) {
-        let bot = new BotPlayer(spawnPoints[0].x + Math.random()*50, spawnPoints[0].y + Math.random()*50, {team:0, id:'bot0_'+i, className: blueClasses.pop(), lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
-        game.players.push(bot);
-    }
     let redBotCount = Math.max(0, 5 - humansRed);
-    for (let i = 1; i <= redBotCount; i++) {
-        let bot = new BotPlayer(spawnPoints[1].x + Math.random()*50, spawnPoints[1].y + Math.random()*50, {team:1, id:'bot1_'+i, className: redClasses.pop(), lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
-        game.players.push(bot);
+    let totalBots = Math.max(blueBotCount, redBotCount);
+
+    for (let i = 1; i <= totalBots; i++) {
+        if (i <= blueBotCount) {
+            const c = getSmartBotClass(bluePicked, redPicked);
+            bluePicked.push(c);
+            let bot = new BotPlayer(spawnPoints[0].x + Math.random()*50, spawnPoints[0].y + Math.random()*50, {team:0, id:'bot0_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
+            game.players.push(bot);
+        }
+        if (i <= redBotCount) {
+            const c = getSmartBotClass(redPicked, bluePicked);
+            redPicked.push(c);
+            let bot = new BotPlayer(spawnPoints[1].x + Math.random()*50, spawnPoints[1].y + Math.random()*50, {team:1, id:'bot1_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
+            game.players.push(bot);
+        }
     }
 
     game.started = true; updateSpellLabels();
