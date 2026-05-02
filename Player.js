@@ -1317,6 +1317,7 @@ export class BotPlayer extends Player {
                   } else if (winProb > 0.65) {
                       score += 8000; // Tým má masivní výhodu, agresivní útok
                   }
+              }
 
               if (e.className) {
                   score += this.personalWeights.heroKillScore;
