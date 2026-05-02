@@ -75,6 +75,14 @@ export class Player{
     this.aimAngle = 0; // Uchovává směr, kam hráč míří
 
     this.items = [];
+    
+    this.macroOrder = null; // Rozkaz od Centrálního Mozku (pro UI nebo boty)
+    
+    if (['Zephyr', 'Reaper'].includes(this.className)) this.role = 'SPLITPUSHER';
+    else if (['Assassin', 'Marksman', 'Mage', 'Kratoma', 'Summoner'].includes(this.className)) this.role = 'SLAYER';
+    else if (['Tank', 'Goliath', 'Hana'].includes(this.className)) this.role = 'TANK';
+    else if (['Healer', 'Acolyte', 'Keeper'].includes(this.className)) this.role = 'SUPPORT';
+    else this.role = 'FIGHTER'; // Bruiser, Vanguard, Jirina
   }
 
   get effectiveMaxHp() { return Math.round(this.maxHp * (this.hasPowerup ? 1.2 : 1.0)); }
@@ -518,15 +526,15 @@ export class Player{
             const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = isEmpowered ? (60 * Math.PI / 180) : (70 * Math.PI / 180); // 70deg základní, 60deg pro posílené (Reaper Q)
           let pColor = isEmpowered ? '#800080' : '#fff';
           let mGlyph = isEmpowered ? '}' : ')';
-          let finalSize = isEmpowered ? 180 : 120; // Velikost pokrývající celou šířku kuželu
-          let startSize = 30;
+          let finalSize = isEmpowered ? 160 : 130; // Zvětšeno na pokrytí kuželu, ale zúženo přes stretchX
+          let startSize = 20;
           let mSpeed = (meleeRange - 20) / 0.15; // Závorka přesně doletí na okraj dosahu
           let growRate = (finalSize - startSize) / 0.15; // Rychlost zvětšování během letu
           
           // Letící a dynamicky se zvětšující útok (Kužel / Výseč)
-          game.particles.push(new Particle(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, pColor, { angle: ang, speed: mSpeed, life: 0.15, glyph: mGlyph, size: startSize, grow: growRate, rotate: true }));
+          game.particles.push(new Particle(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, pColor, { angle: ang, speed: mSpeed, life: 0.15, glyph: mGlyph, size: startSize, grow: growRate, rotate: true, stretchX: 0.3 }));
           // Statická závorka na okraji dosahu (Místo původní kulaté čáry)
-          game.particles.push(new Particle(this.pos.x + Math.cos(ang)*(meleeRange - 15), this.pos.y + Math.sin(ang)*(meleeRange - 15), pColor, { angle: ang, speed: 0, life: 0.2, glyph: mGlyph, size: finalSize, rotate: true }));
+          game.particles.push(new Particle(this.pos.x + Math.cos(ang)*(meleeRange - 10), this.pos.y + Math.sin(ang)*(meleeRange - 10), pColor, { angle: ang, speed: 0, life: 0.2, glyph: mGlyph, size: finalSize, rotate: true, stretchX: 0.3 }));
           for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, damage, this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.0); m.slowMod = 0.6; } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) { this.gold += 10; this.totalGold += 10; this.exp += 15; this.totalExp = (this.totalExp||0) + 15; } } } } } }
           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); if(isEmpowered){ p.slowTimer = Math.max(p.slowTimer||0, 1.0); p.slowMod = 0.6; } spawnParticles(p.pos.x, p.pos.y, 2, pColor); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } } }
       }
@@ -838,17 +846,10 @@ export class BotPlayer extends Player {
       this.state = 'SEARCHING'; // Výchozí stav pro nový State Machine
       this.target = null;
       this.objective = null;
-      this.macroOrder = null; // Rozkaz od Centrálního Mozku
       this.tacticTimer = 0;
       this.microDodgeMod = 0.8 + Math.random() * 0.4; // Náhodná schopnost reflexů bota pro uhýbání (80% až 120%)
       this.maxGroupSize = Math.random() > 0.5 ? 3 : 2; // 50% šance snést 3člennou skupinu na stejné věži
       this.lane = opts.lane || null;
-      
-      if (['Zephyr', 'Reaper'].includes(this.className)) this.role = 'SPLITPUSHER';
-      else if (['Assassin', 'Marksman', 'Mage', 'Kratoma', 'Summoner'].includes(this.className)) this.role = 'SLAYER';
-      else if (['Tank', 'Goliath', 'Hana'].includes(this.className)) this.role = 'TANK';
-      else if (['Healer', 'Acolyte', 'Keeper'].includes(this.className)) this.role = 'SUPPORT';
-      else this.role = 'FIGHTER'; // Bruiser, Vanguard, Jirina
 
       this.personalWeights = {};
       for(let key in BOT_WEIGHTS) {
@@ -974,8 +975,9 @@ export class BotPlayer extends Player {
     static runCentralBrain(team) {
         if (!game.isHost) return;
         let teamBots = game.players.filter(p => p instanceof BotPlayer && p.team === team);
+        let teamPlayers = game.players.filter(p => p.team === team); // Včetně živých hráčů
         
-        // 0. Údržba všech vojáků (Nakupování a levelování)
+        // 0. Údržba vojáků (Nakupování a levelování) JEN PRO BOTY
         for (let bot of teamBots) {
             const inBase = dist(bot.pos, spawnPoints[bot.team]) < 250;
             if ((!bot.alive || inBase) && bot.gold >= 300 && bot.items.length < 25) {
@@ -1000,15 +1002,17 @@ export class BotPlayer extends Player {
                 }
             }
             while(bot.spellPoints > 0) bot.allocateSpellPoint(Math.random() > 0.5 ? 'Q' : 'E');
-            
-            // Aktualizace globálního pohledu pro bota
-            const myTowersCount = game.towers.filter(t => t.owner === bot.team).length;
-            const enemyTowersCount = game.towers.filter(t => t.owner === 1 - bot.team).length;
-            bot.isGlobalLosing = myTowersCount < enemyTowersCount;
-            bot.isDesperate = myTowersCount <= 1 && enemyTowersCount >= 3; // Jsme drceni!
         }
 
-        let unassigned = teamBots.filter(b => b.alive);
+        // Aktualizace globálního pohledu (Makro stavy i pro živé lidi!)
+        for (let p of teamPlayers) {
+            const myTowersCount = game.towers.filter(t => t.owner === p.team).length;
+            const enemyTowersCount = game.towers.filter(t => t.owner === 1 - p.team).length;
+            p.isGlobalLosing = myTowersCount < enemyTowersCount;
+            p.isDesperate = myTowersCount <= 1 && enemyTowersCount >= 3; 
+        }
+
+        let unassigned = teamPlayers.filter(b => b.alive);
         if (unassigned.length === 0) return;
         let enemies = game.players.filter(p => p.team !== team && p.alive);
 
@@ -2127,3 +2131,4 @@ export class BotPlayer extends Player {
       }
     }
   }
+  

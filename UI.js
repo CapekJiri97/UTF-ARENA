@@ -389,6 +389,11 @@ export function draw(){
     if (!isMobile) {
         ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = '12px monospace'; ctx.fillStyle = '#888';
         ctx.fillText('B - SHOP', 20, 20); ctx.fillText('C - CHAR. INFO', 20, 36); ctx.fillText('M - GENERAL INFO', 20, 52);
+        
+        if (player && player.macroOrder) {
+            ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 12px monospace';
+            ctx.fillText(`AI SUGGEST: ${player.macroOrder.type.replace('_', ' ')}`, 20, 76);
+        }
     }
 
     // --- TOP CENTER SCORE ---

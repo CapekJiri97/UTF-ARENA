@@ -14,6 +14,8 @@ export class Particle {
     this.radius = opts.radius || 0;
     this.lineWidth = opts.lineWidth || 2;
     this.cone = opts.cone || Math.PI/2;
+    this.stretchX = opts.stretchX || 1;
+    this.stretchY = opts.stretchY || 1;
   }
   update(dt) { this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; this.size = Math.max(1, this.size + this.grow * dt); }
   draw(ctx) { 
@@ -26,7 +28,10 @@ export class Particle {
       ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, this.angle - this.cone/2, this.angle + this.cone/2); ctx.stroke();
     } else {
       ctx.fillStyle = this.color; ctx.font = this.size+'px monospace'; 
-      if(this.rotate) { ctx.translate(this.pos.x, this.pos.y); ctx.rotate(this.angle); ctx.fillText(this.glyph, 0, 0); } else { ctx.fillText(this.glyph, this.pos.x, this.pos.y); } 
+      ctx.translate(this.pos.x, this.pos.y);
+      if(this.rotate) ctx.rotate(this.angle);
+      if(this.stretchX !== 1 || this.stretchY !== 1) ctx.scale(this.stretchX, this.stretchY);
+      ctx.fillText(this.glyph, 0, 0);
     }
     ctx.restore(); 
   }

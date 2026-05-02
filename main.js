@@ -167,6 +167,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                       if (hData.slowT !== undefined) p.slowTimer = hData.slowT;
                       if (hData.boostT !== undefined) p.boostTimer = hData.boostT;
                       if (hData.hanaT !== undefined) p.hanaBuffTimer = hData.hanaT;
+                      if (hData.macro !== undefined) p.macroOrder = hData.macro ? { type: hData.macro } : null;
                       if (hData.stats && p.stats) { p.stats.dmgDealt = hData.stats.dmgDealt; p.stats.dmgTaken = hData.stats.dmgTaken; p.stats.hpHealed = hData.stats.hpHealed; }
                       if (!p.alive && hData.alive) p.revive(); else if (p.alive && !hData.alive) { p.hp = 0; p.die(); }
                   }
@@ -855,7 +856,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
                     }),
                     humans: game.players.filter(p => !(p instanceof BotPlayer)).map(p => ({
                         id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
-                        kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive
+                        kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null
                     })),
                     minions: game.minions.map(m => ({
                         id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, maxHp: m.maxHp, dead: m.dead, team: m.team, 
