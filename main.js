@@ -206,7 +206,11 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
         let t = game.players.find(p => p.id === data.targetId) || game.minions.find(m => m.id === data.targetId);
         if (t) {
             let isLocal = (player && (data.sourceId === player.id || data.targetId === player.id));
-            let color = isLocal ? '#ffffff' : '#ffc83c';
+            let color = '#ffffff';
+            if (data.dmgType === 'physical') color = isLocal ? '#ffdddd' : '#ff8888';
+            else if (data.dmgType === 'magical') color = isLocal ? '#ddddff' : '#88bbff';
+            else color = isLocal ? '#ffffff' : '#ffc83c';
+            
             game.damageNumbers.push(new DamageNumber(t.pos.x, t.pos.y-6, data.amount, color));
             let pCount = Math.min(30, Math.max(3, Math.floor(data.amount / 10)));
             spawnParticles(t.pos.x, t.pos.y, pCount, '#f00', { speed: 100 + (data.amount / 2) });
@@ -368,9 +372,14 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
 
         if (!socket || game.isHost) {
             let isLocal = (player && (sourceId === player.id || target.id === player.id));
-            let color = finalDamage < actualDamage ? '#aaaaaa' : (isLocal ? '#ffffff' : '#ffc83c');
+            let color = '#ffffff';
+            if (finalDamage < actualDamage) color = '#aaaaaa';
+            else if (type === 'physical') color = isLocal ? '#ffdddd' : '#ff8888';
+            else if (type === 'magical') color = isLocal ? '#ddddff' : '#88bbff';
+            else color = isLocal ? '#ffffff' : '#ffc83c';
+            
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-6, actualDamage, color));
-            if (socket) socket.emit('host_event', { type: 'show_damage', targetId: target.id, amount: actualDamage, sourceId: sourceId });
+            if (socket) socket.emit('host_event', { type: 'show_damage', targetId: target.id, amount: actualDamage, sourceId: sourceId, dmgType: type });
         }
     }
 
