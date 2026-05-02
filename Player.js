@@ -901,7 +901,7 @@ export class BotPlayer extends Player {
         let enTeamHp = 0, enTeamDps = 0, enTeamHps = 0;
         
         // Extrakce hrubých statistik hrdiny (velmi zjednodušeno pro rychlost)
-        con st getStats = (p) => {
+        const getStats = (p) => {
             let dps = (p.AD * Math.max(0.5, p.attackSpeed)) + (p.AP * 0.4) + 20; 
             if (p.role === 'HEALER' || p.role === 'SUPPORT') dps += 25; // Kompenzace za healy
             let hps = p.hpRegen || 2;
