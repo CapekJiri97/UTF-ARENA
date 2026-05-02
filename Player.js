@@ -987,6 +987,15 @@ export class BotPlayer extends Player {
         if (unassigned.length === 0) return;
         let enemies = game.players.filter(p => p.team !== team && p.alive);
 
+        // DND (Do Not Disturb): Pokud bot už úspěšně obsazuje věž a není v ohrožení, mozek ho nechá pracovat
+        unassigned = unassigned.filter(b => {
+            if (b.state === 'CAPTURE' && b.objective && b.objective.owner !== team && dist(b.pos, b.objective.pos) <= (b.objective.captureRadius || 80)) {
+                let enemiesAround = enemies.filter(e => dist(e.pos, b.pos) < 800).length;
+                if (enemiesAround === 0) return false; // Není v ohrožení, vyřazen z přidělování úkolů (zůstane na věži)
+            }
+            return true;
+        });
+
         const assign = (bot, type, target) => {
             bot.macroOrder = { type, target };
             unassigned = unassigned.filter(b => b.id !== bot.id);
@@ -999,7 +1008,12 @@ export class BotPlayer extends Player {
                 if (winProb < 0.4) {
                     let helpers = unassigned.filter(b => dist(b.pos, ally.pos) < 2000);
                     if (helpers.length > 0) {
-                        let bestHelper = helpers.sort((a,b) => dist(a.pos, ally.pos) - dist(b.pos, ally.pos))[0];
+                        // Preferujeme Slayery (Assassiny) a Fightery pro záchranu parťáka
+                        let bestHelper = helpers.sort((a,b) => {
+                            let scoreA = dist(a.pos, ally.pos) - (['SLAYER', 'FIGHTER'].includes(a.role) ? 1500 : 0);
+                            let scoreB = dist(b.pos, ally.pos) - (['SLAYER', 'FIGHTER'].includes(b.role) ? 1500 : 0);
+                            return scoreA - scoreB;
+                        })[0];
                         assign(bestHelper, 'HUNT', ally.target);
                     }
                 }
@@ -1053,17 +1067,36 @@ export class BotPlayer extends Player {
         let totalEnemiesCount = game.players.filter(p => p.team !== team).length;
         let massiveAdvantage = (totalEnemiesCount > 0 && enemies.length <= Math.floor(totalEnemiesCount / 2)); // Např. žijí jen 2 z 5
 
-        if (ownedTowers.length >= 3 && !massiveAdvantage && unassigned.length > 0) {
+        // DOMINION TAKTIKA: Minimalizace cestování (Center of Mass)
+        // Cílovou věž nevybíráme podle vzdálenosti od spawnu, ale podle aktuální polohy volné armády
+        let cx = spawnPoints[team].x, cy = spawnPoints[team].y;
+        if (unassigned.length > 0) {
+            cx = 0; cy = 0;
+            for (let b of unassigned) { cx += b.pos.x; cy += b.pos.y; }
+            cx /= unassigned.length; cy /= unassigned.length;
+        }
+        let remainingTowers = unownedTowers.sort((a,b) => dist(a.pos, {x: cx, y: cy}) - dist(b.pos, {x: cx, y: cy}));
+        let targetTower = remainingTowers.length > 0 ? remainingTowers[0] : null;
+
+        // Pokud držíme 3 věže, útočíme na další JEN POKUD je neutrální (Free), nebo máme masivní výhodu.
+        let shouldHold = (ownedTowers.length >= 3 && !massiveAdvantage && targetTower && targetTower.owner !== -1);
+
+        if (shouldHold && unassigned.length > 0) {
             // Pošleme volné boty preventivně hlídkovat na naše hraniční věže (ty nejblíže k nepříteli)
             let borderTowers = ownedTowers.sort((a,b) => dist(a.pos, spawnPoints[1-team]) - dist(b.pos, spawnPoints[1-team]));
             for (let b of unassigned) assign(b, 'DEFEND', borderTowers[0]);
-        } else {
-            let remainingTowers = unownedTowers.sort((a,b) => dist(a.pos, spawnPoints[team]) - dist(b.pos, spawnPoints[team]));
-            if (remainingTowers.length > 0 && unassigned.length > 0) {
-                let targetTower = remainingTowers[0]; // Nejbližší neobsazená
-                let assaultTeam = unassigned.sort((a,b) => dist(a.pos, targetTower.pos) - dist(b.pos, targetTower.pos)).slice(0, 3);
-                for (let b of assaultTeam) assign(b, 'ASSAULT', targetTower);
-            }
+        } else if (targetTower && unassigned.length > 0) {
+                let assaultTeam = unassigned.sort((a,b) => {
+                    // Frontline (Tanci/Fighter) jdou dopředu, Support se drží vzadu, pokud nemá s kým jít
+                    let scoreA = dist(a.pos, targetTower.pos) - (['TANK', 'FIGHTER'].includes(a.role) ? 1000 : 0) + (a.role === 'SUPPORT' ? 2000 : 0);
+                    let scoreB = dist(b.pos, targetTower.pos) - (['TANK', 'FIGHTER'].includes(b.role) ? 1000 : 0) + (b.role === 'SUPPORT' ? 2000 : 0);
+                    return scoreA - scoreB;
+                }).slice(0, 3);
+                
+                // Pojistka: Nepošleme samotného SUPPORTA útočit na věž, raději ho pošleme pomáhat s farmou (kde narazí na spojence)
+                if (!(assaultTeam.length === 1 && assaultTeam[0].role === 'SUPPORT')) {
+                    for (let b of assaultTeam) assign(b, 'ASSAULT', targetTower);
+                }
         }
 
         // 6. FARM / PUSH WAVES (Zbylí jdou farmit)
@@ -1145,11 +1178,18 @@ export class BotPlayer extends Player {
               score += 18000; 
           }
 
+          // Vyhodnocení obránců na věži (Zabránění sebevražedným náběhům do přečíslení)
+          let defenders = aliveEnemies.filter(p => dist(p.pos, t.pos) < t.captureRadius + 400); // Širší okruh obránců
+          let alliesNear = aliveAllies.filter(p => dist(p.pos, t.pos) < t.captureRadius + 400);
+          if (t.owner !== this.team && defenders.length > alliesNear.length) {
+              score -= (defenders.length - alliesNear.length) * 6000; // Masivní penalizace za přečíslení na cizí věži
+          }
+
           // Rozdílná logika obsazování pro Melee vs Range
-          let defenders = aliveEnemies.filter(p => dist(p.pos, t.pos) < t.captureRadius + 150);
-          if (defenders.length > 0) {
-              let hasRangedDef = defenders.some(d => d.range);
-              let hasMeleeDef = defenders.some(d => !d.range);
+          let closeDefenders = defenders.filter(p => dist(p.pos, t.pos) < t.captureRadius + 150);
+          if (closeDefenders.length > 0) {
+              let hasRangedDef = closeDefenders.some(d => d.range);
+              let hasMeleeDef = closeDefenders.some(d => !d.range);
               if (this.range) { if (hasMeleeDef && !hasRangedDef) score += 1800; } // Ranged bot se nebojí Melee obránce
               else { if (hasRangedDef) score -= 1800; } // Melee bot se obává pokeování od Ranged obránce
           }
@@ -1321,6 +1361,7 @@ export class BotPlayer extends Player {
 
               if (e.className) {
                   score += this.personalWeights.heroKillScore;
+                  if (this.target === e) score += 2500; // Cílová hystereze (Zabraňuje trhavému překlikávání mezi cíli v teamfightu)
                   if (this.huntTarget === e) score += 30000; // Terminátor mód - neoblomná gigantická priorita
                   if (this.macroOrder && this.macroOrder.type === 'HUNT' && this.macroOrder.target === e) score += 60000; // Rozkaz k záchraně kolegy
                   
@@ -1420,14 +1461,14 @@ export class BotPlayer extends Player {
 
       // 8. Odeslání žádosti o pomoc
       let isStalemate = (this.state === 'ATTACK' && this.target && this.tankStalemateTarget === this.target);
-      if (this.state === 'ATTACK' && this.target && (isStalemate || this.hp / this.effectiveMaxHp < 0.6)) {
-          let enemyHpPct = this.target.hp / (this.target.effectiveMaxHp || this.target.maxHp);
+      if (this.state === 'ATTACK' && this.target) {
           let now = performance.now();
           
           // Zkontrolujeme cooldown na volání o pomoc (5 vteřin)
           if (!this.lastHelpCallTime || now - this.lastHelpCallTime > 5000) {
-              // Voláme pomoc pokud je to Stalemate, NEBO pokud prohráváme HP souboj
-              if (isStalemate || (this.hp / this.effectiveMaxHp) < enemyHpPct) {
+              let winProb = this.predictFightOutcome(this.target);
+              // Voláme pomoc pokud je to Stalemate, NEBO pokud reálně prohráváme souboj (WinProb < 45%)
+              if (isStalemate || winProb < 0.45) {
                   this.lastHelpCallTime = now;
                   if (isStalemate || Math.random() < 0.5) { // 100% šance při stalemate, jinak 50%
                       let allies = aliveAllies.filter(p => p instanceof BotPlayer && p.id !== this.id);
@@ -1493,13 +1534,14 @@ export class BotPlayer extends Player {
           // Pokud máme málo HP a jdeme si pro lékárničku, ignorujeme boj na dálku a jdeme se léčit
           let isDesperateForHeal = (bestState === 'PICKUP' && bestObjective && bestObjective.type === 'heal' && this.hp / this.effectiveMaxHp < 0.6);
           // PŘIDÁNO: Pokud běžíme zabrat blízkou věž, ignorujeme boj do doby, než vlezeme do kruhu
+          let isTravelingToMacro = (this.macroOrder !== null && bestObjScore > 50000 && dist(this.pos, bestObjective.pos) > 200); // Cestuje na příkaz mozku
           let isDesperateForTower = (bestState === 'CAPTURE' && bestObjective && bestObjective.owner !== this.team && dist(this.pos, bestObjective.pos) > (bestObjective.captureRadius || 80));
           let isDefendingTower = ((bestState === 'CAPTURE' || bestState === 'DEFEND') && bestObjective && dist(this.pos, bestObjective.pos) < 200 && d < 400);
           
           if (isDesperateForHeal) {
               if (d < 150) shouldAttack = true; // Bráníme se jen v sebeobraně nablízko
-          } else if (isDesperateForTower && !isUnderAttack) {
-              if (d < 150 || isLowHp) shouldAttack = true; // Sprintujeme do kruhu, bojujeme jen ve velké blízkosti
+          } else if ((isDesperateForTower || isTravelingToMacro) && !isUnderAttack) {
+              if (d < 200 || isLowHp) shouldAttack = true; // Máme klapky na oči a plníme rozkaz, ignorujeme rvačky v dálce
           } else {
               // Útočíme, pokud je cíl blízko, má low HP, nic jiného nehoří, běžíme na pomoc NEBO DO NÁS NĚKDO STŘÍLÍ
               if (d < 400 || isLowHp || bestObjScore < this.personalWeights.objectiveFocusThreshold || bestTargetScore >= 20000 || isDefendingTower || isUnderAttack) shouldAttack = true;
@@ -1812,6 +1854,19 @@ export class BotPlayer extends Player {
               let tx = this.target.pos.x;
               let ty = this.target.pos.y;
               let d = dist(this.pos, this.target.pos);
+
+              // --- PRO GAMER: PREDIKCE MÍŘENÍ (LEADING) ---
+              if (this.target.vel && (Math.abs(this.target.vel.x) > 10 || Math.abs(this.target.vel.y) > 10)) {
+                  // Šance na predikci roste s levelem bota (Lvl 1 = 50%, Lvl 10 = 90%)
+                  if (Math.random() < 0.46 + (this.level * 0.04)) {
+                      let pSpeed = this.range ? 800 : 1000; // Průměrná rychlost střely (Basic attack / Spelly)
+                      let travelTime = d / pSpeed;
+                      let errorMod = 0.8 + Math.random() * 0.4; // 80% až 120% přesnost (Lidský faktor pro občasné minutí)
+                      tx += this.target.vel.x * travelTime * errorMod;
+                      ty += this.target.vel.y * travelTime * errorMod;
+                  }
+              }
+
               let atkRange = this.range ? Math.max(100, this.attackRange - 50) : Math.max(40, this.attackRange - 30);
               if (this.reaperCharge > 0) atkRange += 70; // Bot ví, že má s Q mnohem delší dosah
               

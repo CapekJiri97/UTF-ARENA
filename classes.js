@@ -1,7 +1,7 @@
 export const SUMMONER_SPELLS = {
   Heal: { name: 'Heal', desc: 'Léčí 150 HP + 20 za level.', cd: 60 },
   Ghost: { name: 'Ghost', desc: 'Zvýší rychlost o +40% na 5s.', cd: 45 },
-  Boost: { name: 'Boost', desc: 'Zvýší staty (+10%) na 5s.', cd: 45 },
+  Boost: { name: 'Boost', desc: 'Zvýší staty (+10%) na 5s.', cd: 30 },
   Rally: { name: 'Rally', desc: 'Zrychlí obsazování, léčí a posílí okolní miniony.', cd: 60 },
   Revive: { name: 'Revive', desc: 'Okamžité oživení při smrti.', cd: 90 },
   Exhaust: { name: 'Exhaust', desc: 'Zpomalí nepřátele (300 unitů) o 40% na 2s.', cd: 45 }
@@ -194,19 +194,19 @@ export const CLASSES = {
 
   Reaper: {
     glyph: 'R', range: false, dmgType: 'magical',
-    hp: 520, speed: 125, attackDelay: 0.72,
+    hp: 500, speed: 120, attackDelay: 0.82,
     baseAtk: 25, baseAD: 0, baseAP: 40,
     baseArmor: 18, baseMR: 20,
     Q: {
-      baseCooldown: 10.0, castTime: 0.1,
-      baseDamage: 20, scaleAP: 0.35, scaleAD: 0.2,
+      baseCooldown: 10.0, castTime: 0.15,
+      baseDamage: 20, scaleAP: 0.3, scaleAD: 0.15,
       type: 'reaper_q', charges: 3,
       desc: 'Na 4 sekundy posílí další 3 základní útoky. Získají větší dosah, masivní bonusové poškození a zpomalí cíl o 60% na 1.5s.'
     },
     E: {
-      baseCooldown: 13.0, castTime: 0.05,
+      baseCooldown: 14.0, castTime: 0.05,
       baseDamage: 0, scaleAP: 0.7, scaleAD: 0.25, amount: 60,
-      type: 'reaper_e', distance: 100, duration: 1.5,
+      type: 'reaper_e', distance: 80, duration: 1.5,
       desc: 'Krátký úskok (100). Získá štít a 40% rychlost pohybu na 1.5s. Okamžitě resetuje cooldown kouzla Q!'
     }
   },
