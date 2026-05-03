@@ -196,30 +196,39 @@ export class Player{
         this.flamethrowerTimer -= dt;
         this.flamethrowerTick -= dt;
         if (this.flamethrowerTick <= 0) {
-            this.flamethrowerTick = 0.15;
+            this.flamethrowerTick = 0.10;
             if (this.flamethrowerData) {
                 let fd = this.flamethrowerData;
                 if (Math.random() < 0.5) playSound('shoot', this.pos, { pitch: 0.3 + Math.random()*0.2 });
-                let colors = ['#ff0000', '#ff4500', '#ff8c00', '#ffd700', '#555555'];
-                for(let i=0; i<4; i++) {
-                    let a = this.aimAngle + (Math.random() - 0.5) * fd.cone;
-                    let spd = 300 + Math.random() * 200;
+                let isBlue = this.team === 0;
+                let colors = isBlue ? ['#486FED', '#8A2BE2', '#9370DB', '#00FFFF', '#ffffff'] : ['#FF4E4E', '#ff4500', '#ff8c00', '#ffd700', '#ffffff'];
+                let fx = Math.cos(this.aimAngle), fy = Math.sin(this.aimAngle);
+                let rx = Math.cos(this.aimAngle + Math.PI/2), ry = Math.sin(this.aimAngle + Math.PI/2);
+                for(let i=0; i<6; i++) {
+                    let offset = (Math.random() - 0.5) * fd.width;
+                    if (Math.random() < 0.5) offset *= 0.5; // Koncentrace do středu paprsku
+                    let px = this.pos.x + fx*this.radius + rx*offset;
+                    let py = this.pos.y + fy*this.radius + ry*offset;
+                    let a = this.aimAngle + (Math.random() - 0.5) * 0.1; // Malinký rozptyl pro přirozenější let
+                    let spd = 350 + Math.random() * 250;
                     let pCol = colors[Math.floor(Math.random() * colors.length)];
-                    game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['f','~','*','@'][Math.floor(Math.random()*4)], size: 10 + Math.random()*10, grow: 40, rotate: true }));
+                    game.particles.push(new Particle(px, py, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['≈','~','≡','-','*'][Math.floor(Math.random()*5)], size: 16 + Math.random()*12, grow: 25, rotate: true }));
                 }
                 
                 for(let m of game.minions){ 
-                    if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
-                        const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
-                        const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                        if(da <= fd.cone/2){ applyDamage(m, fd.damage, fd.dmgType, fd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 10, 15); } } 
+                    if(!m.dead && m.team !== this.team){ 
+                        let dx = m.pos.x - this.pos.x, dy = m.pos.y - this.pos.y;
+                        let fDist = dx * fx + dy * fy;
+                        let lDist = Math.abs(dx * rx + dy * ry);
+                        if(fDist > 0 && fDist <= fd.range && lDist <= fd.width/2 + m.radius){ applyDamage(m, fd.damage, fd.dmgType, fd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 10, 15); } } 
                     } 
                 }
                 for(let p of game.players){ 
-                    if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){ 
-                        const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); 
-                        const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                        if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
+                    if(p !== this && p.team !== this.team && p.alive){ 
+                        let dx = p.pos.x - this.pos.x, dy = p.pos.y - this.pos.y;
+                        let fDist = dx * fx + dy * fy;
+                        let lDist = Math.abs(dx * rx + dy * ry);
+                        if(fDist > 0 && fDist <= fd.range && lDist <= fd.width/2 + p.radius){ applyDamage(p, fd.damage, fd.dmgType, fd.id); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
                     } 
                 }
             }
@@ -739,10 +748,10 @@ export class Player{
     } else if (sp.type === 'flamethrower') {
         this.flamethrowerTimer = sp.duration || 2.5;
         this.flamethrowerTick = 0;
-        let ticks = (sp.duration || 2.5) / (sp.tickRate || 0.15);
+        let ticks = (sp.duration || 2.5) / (sp.tickRate || 0.10);
         this.flamethrowerData = { 
             damage: damage / ticks, dmgType: this.dmgType, id: this.id, 
-            range: sp.range || 300, cone: sp.cone || (60 * Math.PI / 180) 
+            range: sp.range || 300, width: sp.width || 80 
         };
     } else if (sp.type === 'dash_heal_silence') {
         let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10));
@@ -1818,30 +1827,39 @@ export class BotPlayer extends Player {
               this.flamethrowerTimer -= dt;
               this.flamethrowerTick -= dt;
               if (this.flamethrowerTick <= 0) {
-                  this.flamethrowerTick = 0.15;
+                  this.flamethrowerTick = 0.10;
                   if (this.flamethrowerData) {
                       let fd = this.flamethrowerData;
                       if (Math.random() < 0.5) playSound('shoot', this.pos, { pitch: 0.3 + Math.random()*0.2 });
-                      let colors = ['#ff0000', '#ff4500', '#ff8c00', '#ffd700', '#555555'];
-                      for(let i=0; i<4; i++) {
-                          let a = this.aimAngle + (Math.random() - 0.5) * fd.cone;
-                          let spd = 300 + Math.random() * 200;
+                      let isBlue = this.team === 0;
+                      let colors = isBlue ? ['#486FED', '#8A2BE2', '#9370DB', '#00FFFF', '#ffffff'] : ['#FF4E4E', '#ff4500', '#ff8c00', '#ffd700', '#ffffff'];
+                      let fx = Math.cos(this.aimAngle), fy = Math.sin(this.aimAngle);
+                      let rx = Math.cos(this.aimAngle + Math.PI/2), ry = Math.sin(this.aimAngle + Math.PI/2);
+                      for(let i=0; i<6; i++) {
+                          let offset = (Math.random() - 0.5) * fd.width;
+                          if (Math.random() < 0.5) offset *= 0.5;
+                          let px = this.pos.x + fx*this.radius + rx*offset;
+                          let py = this.pos.y + fy*this.radius + ry*offset;
+                          let a = this.aimAngle + (Math.random() - 0.5) * 0.1;
+                          let spd = 350 + Math.random() * 250;
                           let pCol = colors[Math.floor(Math.random() * colors.length)];
-                          game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['f','~','*','@'][Math.floor(Math.random()*4)], size: 10 + Math.random()*10, grow: 40, rotate: true }));
+                          game.particles.push(new Particle(px, py, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['≈','~','≡','-','*'][Math.floor(Math.random()*5)], size: 16 + Math.random()*12, grow: 25, rotate: true }));
                       }
                       
                       for(let m of game.minions){ 
-                          if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
-                              const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
-                              const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                              if(da <= fd.cone/2){ applyDamage(m, fd.damage, fd.dmgType, fd.id); } 
+                          if(!m.dead && m.team !== this.team){ 
+                              let dx = m.pos.x - this.pos.x, dy = m.pos.y - this.pos.y;
+                              let fDist = dx * fx + dy * fy;
+                              let lDist = Math.abs(dx * rx + dy * ry);
+                              if(fDist > 0 && fDist <= fd.range && lDist <= fd.width/2 + m.radius){ applyDamage(m, fd.damage, fd.dmgType, fd.id); } 
                           } 
                       }
                       for(let p of game.players){ 
-                          if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){ 
-                              const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); 
-                              const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                              if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id); } 
+                          if(p !== this && p.team !== this.team && p.alive){ 
+                              let dx = p.pos.x - this.pos.x, dy = p.pos.y - this.pos.y;
+                              let fDist = dx * fx + dy * fy;
+                              let lDist = Math.abs(dx * rx + dy * ry);
+                              if(fDist > 0 && fDist <= fd.range && lDist <= fd.width/2 + p.radius){ applyDamage(p, fd.damage, fd.dmgType, fd.id); } 
                           } 
                       }
                   }
@@ -1897,30 +1915,39 @@ export class BotPlayer extends Player {
           this.flamethrowerTimer -= dt;
           this.flamethrowerTick -= dt;
           if (this.flamethrowerTick <= 0) {
-              this.flamethrowerTick = 0.15;
+              this.flamethrowerTick = 0.10;
               if (this.flamethrowerData) {
                   let fd = this.flamethrowerData;
                   if (Math.random() < 0.5) playSound('shoot', this.pos, { pitch: 0.3 + Math.random()*0.2 });
-                  let colors = ['#ff0000', '#ff4500', '#ff8c00', '#ffd700', '#555555'];
-                  for(let i=0; i<4; i++) {
-                      let a = this.aimAngle + (Math.random() - 0.5) * fd.cone;
-                      let spd = 300 + Math.random() * 200;
+                  let isBlue = this.team === 0;
+                  let colors = isBlue ? ['#486FED', '#8A2BE2', '#9370DB', '#00FFFF', '#ffffff'] : ['#FF4E4E', '#ff4500', '#ff8c00', '#ffd700', '#ffffff'];
+                  let fx = Math.cos(this.aimAngle), fy = Math.sin(this.aimAngle);
+                  let rx = Math.cos(this.aimAngle + Math.PI/2), ry = Math.sin(this.aimAngle + Math.PI/2);
+                  for(let i=0; i<6; i++) {
+                      let offset = (Math.random() - 0.5) * fd.width;
+                      if (Math.random() < 0.5) offset *= 0.5;
+                      let px = this.pos.x + fx*this.radius + rx*offset;
+                      let py = this.pos.y + fy*this.radius + ry*offset;
+                      let a = this.aimAngle + (Math.random() - 0.5) * 0.1;
+                      let spd = 350 + Math.random() * 250;
                       let pCol = colors[Math.floor(Math.random() * colors.length)];
-                      game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['f','~','*','@'][Math.floor(Math.random()*4)], size: 10 + Math.random()*10, grow: 40, rotate: true }));
+                      game.particles.push(new Particle(px, py, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['≈','~','≡','-','*'][Math.floor(Math.random()*5)], size: 16 + Math.random()*12, grow: 25, rotate: true }));
                   }
                   
                   for(let m of game.minions){ 
-                      if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
-                          const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
-                          const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                          if(da <= fd.cone/2){ applyDamage(m, fd.damage, fd.dmgType, fd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 10, 15); } } 
+                      if(!m.dead && m.team !== this.team){ 
+                          let dx = m.pos.x - this.pos.x, dy = m.pos.y - this.pos.y;
+                          let fDist = dx * fx + dy * fy;
+                          let lDist = Math.abs(dx * rx + dy * ry);
+                          if(fDist > 0 && fDist <= fd.range && lDist <= fd.width/2 + m.radius){ applyDamage(m, fd.damage, fd.dmgType, fd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 10, 15); } } 
                       } 
                   }
                   for(let p of game.players){ 
-                      if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){ 
-                          const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); 
-                          const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                          if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
+                      if(p !== this && p.team !== this.team && p.alive){ 
+                          let dx = p.pos.x - this.pos.x, dy = p.pos.y - this.pos.y;
+                          let fDist = dx * fx + dy * fy;
+                          let lDist = Math.abs(dx * rx + dy * ry);
+                          if(fDist > 0 && fDist <= fd.range && lDist <= fd.width/2 + p.radius){ applyDamage(p, fd.damage, fd.dmgType, fd.id); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
                       } 
                   }
               }

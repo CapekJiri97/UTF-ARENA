@@ -291,10 +291,10 @@ export const CLASSES = {
     baseAtk: 30, baseAD: 0, baseAP: 75,
     baseArmor: 18, baseMR: 25,
     Q: {
-      baseCooldown: 6.0, castTime: 0.0,
+      baseCooldown: 8.0, castTime: 0.0,
       baseDamage: 250, scaleAP: 1.20, scaleAD: 0, scaleLevel: 45,
-      type: 'flamethrower', duration: 2.5, range: 300, cone: 60 * Math.PI / 180, tickRate: 0.15,
-      desc: 'Plamenomet: Na 2.5 sekundy před sebe chrlí nepřetržitý proud ohně. Masivně zraňuje nepřátele v kuželu a umožňuje ti se u toho plynule pohybovat!'
+      type: 'flamethrower', duration: 3.0, range: 150, width: 80, tickRate: 0.10,
+      desc: 'Plamenomet: Na 3.0 sekundy před sebe chrlí nepřetržitý ohnivý paprsek ve tvaru obdélníku. Masivně zraňuje nepřátele a umožňuje ti se u toho plynule pohybovat!'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.2,
