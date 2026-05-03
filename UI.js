@@ -104,7 +104,7 @@ export function requestLandscapeFullscreen() {
         }).catch(e => console.warn('Fullscreen ignored by browser'));
     }
 }
-export function updateLobbyUI(playersData, roomName = "OFFLINE") {
+export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null) {
   const rb = document.getElementById('roomBrowser'); if (rb) rb.style.display = 'none';
   const rl = document.getElementById('roomLobby'); if (rl) rl.style.display = 'block';
   
@@ -166,6 +166,25 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE") {
           btn.style.borderColor = '#444';
       }
   });
+
+  if (settings) {
+      const blueSlider = document.getElementById('blueBotSlider');
+      const blueLabel = document.getElementById('blueBotLabel');
+      if (blueSlider && blueLabel && blueSlider.value != settings.blueBotDiff) {
+          blueSlider.value = settings.blueBotDiff;
+          blueLabel.textContent = settings.blueBotDiff + '%';
+      }
+      const redSlider = document.getElementById('redBotSlider');
+      const redLabel = document.getElementById('redBotLabel');
+      if (redSlider && redLabel && redSlider.value != settings.redBotDiff) {
+          redSlider.value = settings.redBotDiff;
+          redLabel.textContent = settings.redBotDiff + '%';
+      }
+      if (!socket) {
+          game.blueBotDifficulty = settings.blueBotDiff / 100;
+          game.redBotDifficulty = settings.redBotDiff / 100;
+      }
+  }
 
   const startBtn = document.getElementById('startBtn');
   const readyBtn = document.getElementById('readyBtn');
@@ -763,6 +782,11 @@ export function draw(){
                 lines.push(...buildBreakdown('Chicken Heal', amt || 25, scLvl, 0, scAP));
                 lines.push({ t: `    Heal Interval: Every ${sp.healInterval||1.0}s`, c: '#aaa' });
                 lines.push({ t: `    Pulse Dmg: ${Math.round(10 + pAP*0.15)} (+15% AP)`, c: '#aaa' });
+        } else if (sp.type === 'flamethrower') {
+            let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 45;
+            lines.push(...buildBreakdown('Total Damage', bDmg, scLvl, scAD, scAP));
+            lines.push({ t: `    Duration: ${sp.duration}s | Range: ${sp.range}`, c: '#fff' });
+            lines.push({ t: `    Fires continuously in a cone. Castable while moving!`, c: '#aaa' });
             } else {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
                 lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
@@ -1020,6 +1044,18 @@ export function buildMenu() {
           <ul id="lobbyList" style="list-style: none; padding: 0; margin: 0; font-family: monospace;"><li>Offline or Connecting...</li></ul>
         </div>
       </div>
+      <div style="display:flex; justify-content:space-between; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; gap: 10px;">
+          <div style="flex:1; text-align:center; background:#000; padding: 10px; border-radius: 4px; border: 1px solid #333;">
+              <p style="color:#486FED; margin:0 0 5px 0; font-weight:bold; font-size:12px;">BLUE BOTS DIFFICULTY</p>
+              <input type="range" id="blueBotSlider" min="50" max="200" step="10" value="100" style="width:80%; cursor:pointer;">
+              <div id="blueBotLabel" style="color:#fff; font-weight:bold; margin-top:5px;">100%</div>
+          </div>
+          <div style="flex:1; text-align:center; background:#000; padding: 10px; border-radius: 4px; border: 1px solid #333;">
+              <p style="color:#FF4E4E; margin:0 0 5px 0; font-weight:bold; font-size:12px;">RED BOTS DIFFICULTY</p>
+              <input type="range" id="redBotSlider" min="50" max="200" step="10" value="100" style="width:80%; cursor:pointer;">
+              <div id="redBotLabel" style="color:#fff; font-weight:bold; margin-top:5px;">100%</div>
+          </div>
+      </div>
       <div style="display:flex; gap:10px; margin-top:25px; padding-bottom:20px;">
          <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:15px 24px; flex-grow:1; font-size:18px; font-weight:bold; cursor:pointer; background:#222; color:#fff; border:2px solid #555;">READY</button>
          <button id="startBtn" style="padding:15px 24px; flex-grow:1; width: 100%; font-size:18px; font-weight:bold; cursor:pointer; background:#222; color:#0f0; border:2px solid #0f0;">START MATCH</button>
@@ -1067,7 +1103,7 @@ export function buildMenu() {
       'TANK': ['Tank', 'Goliath', 'Hana'], 
       'ASSASSIN': ['Assassin', 'Zephyr', 'Reaper'],
       'RANGED': ['Marksman', 'Kratoma'],
-      'MAGE': ['Mage', 'Summoner'], 
+      'MAGE': ['Mage', 'Summoner', 'Pyromancer'], 
       'SUPPORT': ['Healer', 'Acolyte', 'Keeper'] 
   };
   const allBtns = [];
@@ -1102,6 +1138,25 @@ export function buildMenu() {
 
   function notifyServer() { if(socket) socket.emit('update_selection', { className: selectedClass, team: selectedTeam, summonerSpell: selectedSpell }); }
   startBtn.addEventListener('click', () => { requestLandscapeFullscreen(); if(socket) socket.emit('start_game'); else { m.style.display = 'none'; startGame(selectedClass, selectedTeam, isSpectator); } });
+
+  let blueBotDiff = 100, redBotDiff = 100;
+  const blueSlider = document.getElementById('blueBotSlider');
+  const blueLabel = document.getElementById('blueBotLabel');
+  const redSlider = document.getElementById('redBotSlider');
+  const redLabel = document.getElementById('redBotLabel');
+
+  if (blueSlider) {
+      blueSlider.oninput = () => { blueLabel.textContent = blueSlider.value + '%'; };
+      blueSlider.onchange = () => { blueBotDiff = parseInt(blueSlider.value);
+          if (socket) socket.emit('update_settings', { blueBotDiff, redBotDiff }); else game.blueBotDifficulty = blueBotDiff / 100;
+      };
+  }
+  if (redSlider) {
+      redSlider.oninput = () => { redLabel.textContent = redSlider.value + '%'; };
+      redSlider.onchange = () => { redBotDiff = parseInt(redSlider.value);
+          if (socket) socket.emit('update_settings', { blueBotDiff, redBotDiff }); else game.redBotDifficulty = redBotDiff / 100;
+      };
+  }
 
   const lobbyUpBtn = document.getElementById('lobbyUpBtn');
   const lobbyDownBtn = document.getElementById('lobbyDownBtn');

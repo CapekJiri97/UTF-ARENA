@@ -35,12 +35,16 @@ import { initAudio, playSound } from './Audio.js';
     });
     
     socket.on('room_list', (data) => { if(typeof updateRoomListUI === 'function') updateRoomListUI(data); });
-    socket.on('lobby_update', (data) => { if(typeof updateLobbyUI === 'function') updateLobbyUI(data.players, data.roomName); });
+    socket.on('lobby_update', (data) => { if(typeof updateLobbyUI === 'function') updateLobbyUI(data.players, data.roomName, data.settings); });
     socket.on('game_start', (data) => {
       const m = document.getElementById('menu'); if(m) m.style.display = 'none';
       // Extrahujeme data správně a určíme, kdo je Host
       game.isHost = (socket.id === data.hostId);
       game.hostId = data.hostId; // Zapamatujeme si ID hosta pro případ odpojení
+      if (data.settings) {
+          game.blueBotDifficulty = data.settings.blueBotDiff / 100;
+          game.redBotDifficulty = data.settings.redBotDiff / 100;
+      }
       if(typeof startGameNetworked === 'function') startGameNetworked(data.players);
     });
     socket.on('network_player_update', (data) => {

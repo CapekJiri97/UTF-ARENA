@@ -1,0 +1,3074 @@
+[
+  {
+    "className": "Vanguard",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 276,
+    "basicDPS": 48.6,
+    "spellDPS": 29.9,
+    "summonDPS": 0,
+    "totalDPS": 78.5,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 8.06,
+      "Tank": 20.74
+    }
+  },
+  {
+    "className": "Vanguard",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 292,
+    "basicDPS": 53.6,
+    "spellDPS": 31.2,
+    "summonDPS": 0,
+    "totalDPS": 84.8,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 7.47,
+      "Tank": 19.2
+    }
+  },
+  {
+    "className": "Vanguard",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 309,
+    "basicDPS": 71.1,
+    "spellDPS": 32.5,
+    "summonDPS": 0,
+    "totalDPS": 103.6,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 6.11,
+      "Tank": 15.71
+    }
+  },
+  {
+    "className": "Vanguard",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 342,
+    "basicDPS": 98,
+    "spellDPS": 35,
+    "summonDPS": 0,
+    "totalDPS": 133,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 4.76,
+      "Tank": 12.24
+    }
+  },
+  {
+    "className": "Vanguard",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 314,
+    "basicDPS": 50,
+    "spellDPS": 35.2,
+    "summonDPS": 0,
+    "totalDPS": 85.2,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 8.24,
+      "Tank": 20.16
+    }
+  },
+  {
+    "className": "Vanguard",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 330,
+    "basicDPS": 55,
+    "spellDPS": 36.5,
+    "summonDPS": 0,
+    "totalDPS": 91.5,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 7.68,
+      "Tank": 18.77
+    }
+  },
+  {
+    "className": "Vanguard",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 347,
+    "basicDPS": 72.9,
+    "spellDPS": 37.8,
+    "summonDPS": 0,
+    "totalDPS": 110.6,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 6.35,
+      "Tank": 15.52
+    }
+  },
+  {
+    "className": "Vanguard",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 380,
+    "basicDPS": 100,
+    "spellDPS": 40.3,
+    "summonDPS": 0,
+    "totalDPS": 140.3,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 5,
+      "Tank": 12.24
+    }
+  },
+  {
+    "className": "Vanguard",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 352,
+    "basicDPS": 51.4,
+    "spellDPS": 40.4,
+    "summonDPS": 0,
+    "totalDPS": 91.8,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 8.58,
+      "Tank": 19.9
+    }
+  },
+  {
+    "className": "Vanguard",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 370,
+    "basicDPS": 57.1,
+    "spellDPS": 41.8,
+    "summonDPS": 0,
+    "totalDPS": 99,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 7.96,
+      "Tank": 18.47
+    }
+  },
+  {
+    "className": "Vanguard",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 386,
+    "basicDPS": 74.6,
+    "spellDPS": 43.1,
+    "summonDPS": 0,
+    "totalDPS": 117.7,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 6.7,
+      "Tank": 15.53
+    }
+  },
+  {
+    "className": "Vanguard",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 418,
+    "basicDPS": 102,
+    "spellDPS": 45.5,
+    "summonDPS": 0,
+    "totalDPS": 147.5,
+    "hps": 0,
+    "utility": 23.3,
+    "ttk": {
+      "Marksman": 5.34,
+      "Tank": 12.39
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 193,
+    "basicDPS": 47.5,
+    "spellDPS": 22,
+    "summonDPS": 0,
+    "totalDPS": 69.5,
+    "hps": 13.9,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 9.1,
+      "Tank": 22.62
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 213,
+    "basicDPS": 50.8,
+    "spellDPS": 24.3,
+    "summonDPS": 0,
+    "totalDPS": 75.1,
+    "hps": 14.8,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 8.42,
+      "Tank": 20.93
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 251,
+    "basicDPS": 58.3,
+    "spellDPS": 28.5,
+    "summonDPS": 0,
+    "totalDPS": 86.8,
+    "hps": 16.7,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 7.29,
+      "Tank": 18.12
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 310,
+    "basicDPS": 70,
+    "spellDPS": 34.9,
+    "summonDPS": 0,
+    "totalDPS": 104.9,
+    "hps": 19.4,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 6.04,
+      "Tank": 15
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 231,
+    "basicDPS": 48.3,
+    "spellDPS": 27.4,
+    "summonDPS": 0,
+    "totalDPS": 75.8,
+    "hps": 16.5,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 9.27,
+      "Tank": 21.9
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 250,
+    "basicDPS": 51.7,
+    "spellDPS": 29.6,
+    "summonDPS": 0,
+    "totalDPS": 81.3,
+    "hps": 17.4,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 8.64,
+      "Tank": 20.42
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 290,
+    "basicDPS": 59.2,
+    "spellDPS": 34,
+    "summonDPS": 0,
+    "totalDPS": 93.2,
+    "hps": 19.2,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 7.53,
+      "Tank": 17.8
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 349,
+    "basicDPS": 70.8,
+    "spellDPS": 40.4,
+    "summonDPS": 0,
+    "totalDPS": 111.3,
+    "hps": 21.9,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 6.31,
+      "Tank": 14.91
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 272,
+    "basicDPS": 49.2,
+    "spellDPS": 33.3,
+    "summonDPS": 0,
+    "totalDPS": 82.4,
+    "hps": 19.1,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 9.56,
+      "Tank": 21.42
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 291,
+    "basicDPS": 53.3,
+    "spellDPS": 35.3,
+    "summonDPS": 0,
+    "totalDPS": 88.6,
+    "hps": 20,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 8.89,
+      "Tank": 19.93
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 330,
+    "basicDPS": 60.8,
+    "spellDPS": 39.6,
+    "summonDPS": 0,
+    "totalDPS": 100.4,
+    "hps": 21.8,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 7.85,
+      "Tank": 17.59
+    }
+  },
+  {
+    "className": "Jirina",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 388,
+    "basicDPS": 71.7,
+    "spellDPS": 46,
+    "summonDPS": 0,
+    "totalDPS": 117.7,
+    "hps": 24.6,
+    "utility": 18.2,
+    "ttk": {
+      "Marksman": 6.7,
+      "Tank": 15.01
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 259,
+    "basicDPS": 72.7,
+    "spellDPS": 25.3,
+    "summonDPS": 0,
+    "totalDPS": 98.1,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 6.46,
+      "Tank": 16.6
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 284,
+    "basicDPS": 80.9,
+    "spellDPS": 27.6,
+    "summonDPS": 0,
+    "totalDPS": 108.5,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 5.83,
+      "Tank": 15
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 308,
+    "basicDPS": 105.8,
+    "spellDPS": 29.8,
+    "summonDPS": 0,
+    "totalDPS": 135.7,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 4.67,
+      "Tank": 12
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 355,
+    "basicDPS": 143.8,
+    "spellDPS": 34.2,
+    "summonDPS": 0,
+    "totalDPS": 178,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 3.56,
+      "Tank": 9.15
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 299,
+    "basicDPS": 74.5,
+    "spellDPS": 30.6,
+    "summonDPS": 0,
+    "totalDPS": 105.2,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 6.68,
+      "Tank": 16.33
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 324,
+    "basicDPS": 82.7,
+    "spellDPS": 32.9,
+    "summonDPS": 0,
+    "totalDPS": 115.6,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 6.07,
+      "Tank": 14.85
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 348,
+    "basicDPS": 108,
+    "spellDPS": 35.1,
+    "summonDPS": 0,
+    "totalDPS": 143.1,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 4.91,
+      "Tank": 12
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 395,
+    "basicDPS": 146.4,
+    "spellDPS": 39.4,
+    "summonDPS": 0,
+    "totalDPS": 185.8,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 3.78,
+      "Tank": 9.24
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 341,
+    "basicDPS": 77.3,
+    "spellDPS": 36.1,
+    "summonDPS": 0,
+    "totalDPS": 113.3,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 6.95,
+      "Tank": 16.13
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 365,
+    "basicDPS": 84.5,
+    "spellDPS": 38.3,
+    "summonDPS": 0,
+    "totalDPS": 122.8,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 6.42,
+      "Tank": 14.88
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 390,
+    "basicDPS": 111.3,
+    "spellDPS": 40.6,
+    "summonDPS": 0,
+    "totalDPS": 151.8,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 5.19,
+      "Tank": 12.04
+    }
+  },
+  {
+    "className": "Bruiser",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 437,
+    "basicDPS": 150.2,
+    "spellDPS": 44.9,
+    "summonDPS": 0,
+    "totalDPS": 195.1,
+    "hps": 0,
+    "utility": 8.9,
+    "ttk": {
+      "Marksman": 4.04,
+      "Tank": 9.37
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 254,
+    "basicDPS": 44.3,
+    "spellDPS": 20.3,
+    "summonDPS": 0,
+    "totalDPS": 64.6,
+    "hps": 0,
+    "utility": 33.9,
+    "ttk": {
+      "Marksman": 9.8,
+      "Tank": 25.21
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 267,
+    "basicDPS": 48.6,
+    "spellDPS": 21,
+    "summonDPS": 0,
+    "totalDPS": 69.6,
+    "hps": 0,
+    "utility": 34.4,
+    "ttk": {
+      "Marksman": 9.09,
+      "Tank": 23.39
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 279,
+    "basicDPS": 62.6,
+    "spellDPS": 21.8,
+    "summonDPS": 0,
+    "totalDPS": 84.4,
+    "hps": 0,
+    "utility": 34.9,
+    "ttk": {
+      "Marksman": 7.5,
+      "Tank": 19.3
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 302,
+    "basicDPS": 83,
+    "spellDPS": 23.2,
+    "summonDPS": 0,
+    "totalDPS": 106.2,
+    "hps": 0,
+    "utility": 35.9,
+    "ttk": {
+      "Marksman": 5.96,
+      "Tank": 15.33
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 291,
+    "basicDPS": 45.7,
+    "spellDPS": 24,
+    "summonDPS": 0,
+    "totalDPS": 69.7,
+    "hps": 0,
+    "utility": 38.7,
+    "ttk": {
+      "Marksman": 10.07,
+      "Tank": 24.63
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 303,
+    "basicDPS": 49.3,
+    "spellDPS": 24.7,
+    "summonDPS": 0,
+    "totalDPS": 74,
+    "hps": 0,
+    "utility": 39.2,
+    "ttk": {
+      "Marksman": 9.48,
+      "Tank": 23.19
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 315,
+    "basicDPS": 63.4,
+    "spellDPS": 25.5,
+    "summonDPS": 0,
+    "totalDPS": 88.9,
+    "hps": 0,
+    "utility": 39.7,
+    "ttk": {
+      "Marksman": 7.89,
+      "Tank": 19.31
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 339,
+    "basicDPS": 85,
+    "spellDPS": 26.9,
+    "summonDPS": 0,
+    "totalDPS": 111.9,
+    "hps": 0,
+    "utility": 40.7,
+    "ttk": {
+      "Marksman": 6.27,
+      "Tank": 15.34
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 329,
+    "basicDPS": 46.4,
+    "spellDPS": 27.9,
+    "summonDPS": 0,
+    "totalDPS": 74.3,
+    "hps": 0,
+    "utility": 43.4,
+    "ttk": {
+      "Marksman": 10.6,
+      "Tank": 24.59
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 341,
+    "basicDPS": 50.7,
+    "spellDPS": 28.6,
+    "summonDPS": 0,
+    "totalDPS": 79.3,
+    "hps": 0,
+    "utility": 43.9,
+    "ttk": {
+      "Marksman": 9.94,
+      "Tank": 23.06
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 353,
+    "basicDPS": 65.1,
+    "spellDPS": 29.3,
+    "summonDPS": 0,
+    "totalDPS": 94.5,
+    "hps": 0,
+    "utility": 44.4,
+    "ttk": {
+      "Marksman": 8.34,
+      "Tank": 19.35
+    }
+  },
+  {
+    "className": "Tank",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 377,
+    "basicDPS": 86,
+    "spellDPS": 30.8,
+    "summonDPS": 0,
+    "totalDPS": 116.8,
+    "hps": 0,
+    "utility": 45.4,
+    "ttk": {
+      "Marksman": 6.75,
+      "Tank": 15.65
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 206,
+    "basicDPS": 104.2,
+    "spellDPS": 13.9,
+    "summonDPS": 0,
+    "totalDPS": 118,
+    "hps": 12,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 5.36,
+      "Tank": 13.33
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 219,
+    "basicDPS": 109.4,
+    "spellDPS": 14.9,
+    "summonDPS": 0,
+    "totalDPS": 124.3,
+    "hps": 13.5,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 5.09,
+      "Tank": 12.65
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 244,
+    "basicDPS": 119.8,
+    "spellDPS": 16.9,
+    "summonDPS": 0,
+    "totalDPS": 136.7,
+    "hps": 16.5,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 4.63,
+      "Tank": 11.5
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 282,
+    "basicDPS": 136.5,
+    "spellDPS": 19.9,
+    "summonDPS": 0,
+    "totalDPS": 156.3,
+    "hps": 21,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 4.05,
+      "Tank": 10.06
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 243,
+    "basicDPS": 106.3,
+    "spellDPS": 18,
+    "summonDPS": 0,
+    "totalDPS": 124.3,
+    "hps": 16.4,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 5.65,
+      "Tank": 13.35
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 256,
+    "basicDPS": 111.5,
+    "spellDPS": 19.1,
+    "summonDPS": 0,
+    "totalDPS": 130.5,
+    "hps": 17.9,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 5.38,
+      "Tank": 12.71
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 282,
+    "basicDPS": 122.9,
+    "spellDPS": 21.1,
+    "summonDPS": 0,
+    "totalDPS": 144,
+    "hps": 20.9,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 4.88,
+      "Tank": 11.52
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 319,
+    "basicDPS": 138.5,
+    "spellDPS": 24,
+    "summonDPS": 0,
+    "totalDPS": 162.5,
+    "hps": 25.4,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 4.32,
+      "Tank": 10.21
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 284,
+    "basicDPS": 111.5,
+    "spellDPS": 22.3,
+    "summonDPS": 0,
+    "totalDPS": 133.7,
+    "hps": 20.9,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 5.89,
+      "Tank": 13.21
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 296,
+    "basicDPS": 116.7,
+    "spellDPS": 23.2,
+    "summonDPS": 0,
+    "totalDPS": 139.9,
+    "hps": 22.4,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 5.63,
+      "Tank": 12.63
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 321,
+    "basicDPS": 127.1,
+    "spellDPS": 25.2,
+    "summonDPS": 0,
+    "totalDPS": 152.3,
+    "hps": 25.4,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 5.17,
+      "Tank": 11.6
+    }
+  },
+  {
+    "className": "Hana",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 360,
+    "basicDPS": 143.8,
+    "spellDPS": 28.3,
+    "summonDPS": 0,
+    "totalDPS": 172,
+    "hps": 29.9,
+    "utility": 18.7,
+    "ttk": {
+      "Marksman": 4.58,
+      "Tank": 10.27
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 205,
+    "basicDPS": 44.4,
+    "spellDPS": 15.4,
+    "summonDPS": 0,
+    "totalDPS": 59.8,
+    "hps": 8.2,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 10.59,
+      "Tank": 27.23
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 218,
+    "basicDPS": 48.1,
+    "spellDPS": 16.3,
+    "summonDPS": 0,
+    "totalDPS": 64.5,
+    "hps": 8.2,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 9.82,
+      "Tank": 25.25
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 231,
+    "basicDPS": 62.2,
+    "spellDPS": 17.3,
+    "summonDPS": 0,
+    "totalDPS": 79.5,
+    "hps": 8.2,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 7.96,
+      "Tank": 20.47
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 256,
+    "basicDPS": 83.1,
+    "spellDPS": 19,
+    "summonDPS": 0,
+    "totalDPS": 102.1,
+    "hps": 8.2,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 6.2,
+      "Tank": 15.94
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 243,
+    "basicDPS": 45.6,
+    "spellDPS": 19.5,
+    "summonDPS": 0,
+    "totalDPS": 65.1,
+    "hps": 10.1,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 10.78,
+      "Tank": 26.37
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 255,
+    "basicDPS": 49.4,
+    "spellDPS": 20.3,
+    "summonDPS": 0,
+    "totalDPS": 69.7,
+    "hps": 10.1,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 10.08,
+      "Tank": 24.65
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 268,
+    "basicDPS": 63.7,
+    "spellDPS": 21.2,
+    "summonDPS": 0,
+    "totalDPS": 85,
+    "hps": 10.1,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 8.26,
+      "Tank": 20.21
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 294,
+    "basicDPS": 84.9,
+    "spellDPS": 23.1,
+    "summonDPS": 0,
+    "totalDPS": 108,
+    "hps": 10.1,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 6.5,
+      "Tank": 15.9
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 281,
+    "basicDPS": 46.9,
+    "spellDPS": 23.6,
+    "summonDPS": 0,
+    "totalDPS": 70.4,
+    "hps": 12,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 11.19,
+      "Tank": 25.95
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 294,
+    "basicDPS": 50.6,
+    "spellDPS": 24.5,
+    "summonDPS": 0,
+    "totalDPS": 75.1,
+    "hps": 12,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 10.49,
+      "Tank": 24.33
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 306,
+    "basicDPS": 65.2,
+    "spellDPS": 25.3,
+    "summonDPS": 0,
+    "totalDPS": 90.5,
+    "hps": 12,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 8.7,
+      "Tank": 20.19
+    }
+  },
+  {
+    "className": "Goliath",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 332,
+    "basicDPS": 86.6,
+    "spellDPS": 27.2,
+    "summonDPS": 0,
+    "totalDPS": 113.8,
+    "hps": 12,
+    "utility": 31.6,
+    "ttk": {
+      "Marksman": 6.93,
+      "Tank": 16.06
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 292,
+    "basicDPS": 100,
+    "spellDPS": 32.8,
+    "summonDPS": 0,
+    "totalDPS": 132.8,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.77,
+      "Tank": 12.26
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 311,
+    "basicDPS": 111.3,
+    "spellDPS": 34.3,
+    "summonDPS": 0,
+    "totalDPS": 145.5,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.35,
+      "Tank": 11.19
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 328,
+    "basicDPS": 145.5,
+    "spellDPS": 35.6,
+    "summonDPS": 0,
+    "totalDPS": 181.1,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 3.49,
+      "Tank": 8.99
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 364,
+    "basicDPS": 197.7,
+    "spellDPS": 38.6,
+    "summonDPS": 0,
+    "totalDPS": 236.3,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 2.68,
+      "Tank": 6.89
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 330,
+    "basicDPS": 102.5,
+    "spellDPS": 38.6,
+    "summonDPS": 0,
+    "totalDPS": 141.1,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.98,
+      "Tank": 12.17
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 348,
+    "basicDPS": 113.8,
+    "spellDPS": 39.9,
+    "summonDPS": 0,
+    "totalDPS": 153.7,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.57,
+      "Tank": 11.17
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 366,
+    "basicDPS": 148.5,
+    "spellDPS": 41.4,
+    "summonDPS": 0,
+    "totalDPS": 189.9,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 3.7,
+      "Tank": 9.04
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 402,
+    "basicDPS": 201.2,
+    "spellDPS": 44.4,
+    "summonDPS": 0,
+    "totalDPS": 245.6,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 2.86,
+      "Tank": 6.99
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 370,
+    "basicDPS": 106.3,
+    "spellDPS": 44.5,
+    "summonDPS": 0,
+    "totalDPS": 150.8,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 5.23,
+      "Tank": 12.12
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 388,
+    "basicDPS": 116.3,
+    "spellDPS": 46,
+    "summonDPS": 0,
+    "totalDPS": 162.3,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.86,
+      "Tank": 11.26
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 407,
+    "basicDPS": 153,
+    "spellDPS": 47.5,
+    "summonDPS": 0,
+    "totalDPS": 200.5,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 3.93,
+      "Tank": 9.12
+    }
+  },
+  {
+    "className": "Assassin",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 442,
+    "basicDPS": 206.5,
+    "spellDPS": 50.3,
+    "summonDPS": 0,
+    "totalDPS": 256.8,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 3.07,
+      "Tank": 7.12
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 181,
+    "basicDPS": 56.7,
+    "spellDPS": 25.2,
+    "summonDPS": 0,
+    "totalDPS": 81.9,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 7.73,
+      "Tank": 19.21
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 194,
+    "basicDPS": 60,
+    "spellDPS": 27.2,
+    "summonDPS": 0,
+    "totalDPS": 87.2,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 7.26,
+      "Tank": 18.04
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 221,
+    "basicDPS": 66.7,
+    "spellDPS": 31.4,
+    "summonDPS": 0,
+    "totalDPS": 98.1,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 6.45,
+      "Tank": 16.04
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 262,
+    "basicDPS": 76.7,
+    "spellDPS": 37.8,
+    "summonDPS": 0,
+    "totalDPS": 114.5,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 5.53,
+      "Tank": 13.74
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 217,
+    "basicDPS": 57.8,
+    "spellDPS": 30.6,
+    "summonDPS": 0,
+    "totalDPS": 88.4,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 7.94,
+      "Tank": 18.77
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 231,
+    "basicDPS": 61.1,
+    "spellDPS": 32.8,
+    "summonDPS": 0,
+    "totalDPS": 93.9,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 7.48,
+      "Tank": 17.67
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 258,
+    "basicDPS": 67.8,
+    "spellDPS": 37,
+    "summonDPS": 0,
+    "totalDPS": 104.8,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 6.7,
+      "Tank": 15.83
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 298,
+    "basicDPS": 77.8,
+    "spellDPS": 43.2,
+    "summonDPS": 0,
+    "totalDPS": 121,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 5.8,
+      "Tank": 13.71
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 255,
+    "basicDPS": 58.9,
+    "spellDPS": 36.4,
+    "summonDPS": 0,
+    "totalDPS": 95.3,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 8.27,
+      "Tank": 18.53
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 268,
+    "basicDPS": 62.2,
+    "spellDPS": 38.4,
+    "summonDPS": 0,
+    "totalDPS": 100.6,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 7.83,
+      "Tank": 17.55
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 295,
+    "basicDPS": 68.9,
+    "spellDPS": 42.6,
+    "summonDPS": 0,
+    "totalDPS": 111.5,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 7.07,
+      "Tank": 15.84
+    }
+  },
+  {
+    "className": "Zephyr",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 336,
+    "basicDPS": 78.9,
+    "spellDPS": 49,
+    "summonDPS": 0,
+    "totalDPS": 127.9,
+    "hps": 0,
+    "utility": 28,
+    "ttk": {
+      "Marksman": 6.16,
+      "Tank": 13.81
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 109,
+    "basicDPS": 54.9,
+    "spellDPS": 13.8,
+    "summonDPS": 0,
+    "totalDPS": 68.6,
+    "hps": 0,
+    "utility": 7.7,
+    "ttk": {
+      "Marksman": 9.22,
+      "Tank": 22.91
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 132,
+    "basicDPS": 64.6,
+    "spellDPS": 16.2,
+    "summonDPS": 0,
+    "totalDPS": 80.8,
+    "hps": 0,
+    "utility": 8.5,
+    "ttk": {
+      "Marksman": 7.84,
+      "Tank": 19.47
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 175,
+    "basicDPS": 82.9,
+    "spellDPS": 20.5,
+    "summonDPS": 0,
+    "totalDPS": 103.4,
+    "hps": 0,
+    "utility": 10,
+    "ttk": {
+      "Marksman": 6.12,
+      "Tank": 15.22
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 240,
+    "basicDPS": 109.8,
+    "spellDPS": 27.5,
+    "summonDPS": 0,
+    "totalDPS": 137.2,
+    "hps": 0,
+    "utility": 12.2,
+    "ttk": {
+      "Marksman": 4.61,
+      "Tank": 11.46
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 149,
+    "basicDPS": 57.3,
+    "spellDPS": 22.4,
+    "summonDPS": 0,
+    "totalDPS": 79.7,
+    "hps": 0,
+    "utility": 10.8,
+    "ttk": {
+      "Marksman": 8.81,
+      "Tank": 20.81
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 170,
+    "basicDPS": 67.1,
+    "spellDPS": 24.3,
+    "summonDPS": 0,
+    "totalDPS": 91.4,
+    "hps": 0,
+    "utility": 11.5,
+    "ttk": {
+      "Marksman": 7.68,
+      "Tank": 18.15
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 214,
+    "basicDPS": 85.4,
+    "spellDPS": 29,
+    "summonDPS": 0,
+    "totalDPS": 114.4,
+    "hps": 0,
+    "utility": 13,
+    "ttk": {
+      "Marksman": 6.14,
+      "Tank": 14.5
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 279,
+    "basicDPS": 112.2,
+    "spellDPS": 35.7,
+    "summonDPS": 0,
+    "totalDPS": 147.9,
+    "hps": 0,
+    "utility": 15.3,
+    "ttk": {
+      "Marksman": 4.75,
+      "Tank": 11.22
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 191,
+    "basicDPS": 61,
+    "spellDPS": 31.1,
+    "summonDPS": 0,
+    "totalDPS": 92.1,
+    "hps": 0,
+    "utility": 13.9,
+    "ttk": {
+      "Marksman": 8.56,
+      "Tank": 19.18
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 211,
+    "basicDPS": 69.5,
+    "spellDPS": 33,
+    "summonDPS": 0,
+    "totalDPS": 102.5,
+    "hps": 0,
+    "utility": 14.6,
+    "ttk": {
+      "Marksman": 7.69,
+      "Tank": 17.22
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 255,
+    "basicDPS": 87.8,
+    "spellDPS": 37.7,
+    "summonDPS": 0,
+    "totalDPS": 125.5,
+    "hps": 0,
+    "utility": 16.1,
+    "ttk": {
+      "Marksman": 6.28,
+      "Tank": 14.07
+    }
+  },
+  {
+    "className": "Reaper",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 321,
+    "basicDPS": 115.9,
+    "spellDPS": 44.4,
+    "summonDPS": 0,
+    "totalDPS": 160.3,
+    "hps": 0,
+    "utility": 18.4,
+    "ttk": {
+      "Marksman": 4.92,
+      "Tank": 11.02
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 183,
+    "basicDPS": 85,
+    "spellDPS": 11.4,
+    "summonDPS": 44.2,
+    "totalDPS": 140.5,
+    "hps": 0,
+    "utility": 17.9,
+    "ttk": {
+      "Marksman": 4.5,
+      "Tank": 11.58
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 201,
+    "basicDPS": 93.8,
+    "spellDPS": 12.5,
+    "summonDPS": 46.7,
+    "totalDPS": 152.9,
+    "hps": 0,
+    "utility": 18.4,
+    "ttk": {
+      "Marksman": 4.14,
+      "Tank": 10.65
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 220,
+    "basicDPS": 124.5,
+    "spellDPS": 13.6,
+    "summonDPS": 49.2,
+    "totalDPS": 187.2,
+    "hps": 0,
+    "utility": 18.9,
+    "ttk": {
+      "Marksman": 3.38,
+      "Tank": 8.7
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 258,
+    "basicDPS": 171.5,
+    "spellDPS": 15.9,
+    "summonDPS": 54.2,
+    "totalDPS": 241.5,
+    "hps": 0,
+    "utility": 19.8,
+    "ttk": {
+      "Marksman": 2.62,
+      "Tank": 6.74
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 221,
+    "basicDPS": 87.5,
+    "spellDPS": 14.7,
+    "summonDPS": 44.8,
+    "totalDPS": 147,
+    "hps": 0,
+    "utility": 20.6,
+    "ttk": {
+      "Marksman": 4.77,
+      "Tank": 11.68
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 239,
+    "basicDPS": 96.3,
+    "spellDPS": 15.8,
+    "summonDPS": 47.3,
+    "totalDPS": 159.4,
+    "hps": 0,
+    "utility": 21,
+    "ttk": {
+      "Marksman": 4.4,
+      "Tank": 10.77
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 258,
+    "basicDPS": 127.5,
+    "spellDPS": 16.9,
+    "summonDPS": 49.8,
+    "totalDPS": 194.2,
+    "hps": 0,
+    "utility": 21.5,
+    "ttk": {
+      "Marksman": 3.61,
+      "Tank": 8.84
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 296,
+    "basicDPS": 175,
+    "spellDPS": 19.2,
+    "summonDPS": 54.8,
+    "totalDPS": 249,
+    "hps": 0,
+    "utility": 22.4,
+    "ttk": {
+      "Marksman": 2.82,
+      "Tank": 6.89
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 260,
+    "basicDPS": 90,
+    "spellDPS": 18.1,
+    "summonDPS": 45.7,
+    "totalDPS": 153.8,
+    "hps": 0,
+    "utility": 23.2,
+    "ttk": {
+      "Marksman": 5.12,
+      "Tank": 11.89
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 279,
+    "basicDPS": 100,
+    "spellDPS": 19.2,
+    "summonDPS": 48.2,
+    "totalDPS": 167.4,
+    "hps": 0,
+    "utility": 23.7,
+    "ttk": {
+      "Marksman": 4.71,
+      "Tank": 10.92
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 297,
+    "basicDPS": 130.5,
+    "spellDPS": 20.3,
+    "summonDPS": 50.7,
+    "totalDPS": 201.5,
+    "hps": 0,
+    "utility": 24.2,
+    "ttk": {
+      "Marksman": 3.91,
+      "Tank": 9.07
+    }
+  },
+  {
+    "className": "Kratoma",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 335,
+    "basicDPS": 178.5,
+    "spellDPS": 22.6,
+    "summonDPS": 55.7,
+    "totalDPS": 256.8,
+    "hps": 0,
+    "utility": 25.1,
+    "ttk": {
+      "Marksman": 3.07,
+      "Tank": 7.12
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 227,
+    "basicDPS": 79.2,
+    "spellDPS": 31.6,
+    "summonDPS": 0,
+    "totalDPS": 110.8,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 5.71,
+      "Tank": 14.7
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 246,
+    "basicDPS": 85.8,
+    "spellDPS": 34.4,
+    "summonDPS": 0,
+    "totalDPS": 120.2,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 5.27,
+      "Tank": 13.54
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 263,
+    "basicDPS": 110,
+    "spellDPS": 36.9,
+    "summonDPS": 0,
+    "totalDPS": 146.9,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 4.31,
+      "Tank": 11.08
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 299,
+    "basicDPS": 145.8,
+    "spellDPS": 42.1,
+    "summonDPS": 0,
+    "totalDPS": 187.9,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 3.37,
+      "Tank": 8.66
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 265,
+    "basicDPS": 80.8,
+    "spellDPS": 37.8,
+    "summonDPS": 0,
+    "totalDPS": 118.7,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 5.92,
+      "Tank": 14.47
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 283,
+    "basicDPS": 87.5,
+    "spellDPS": 40.3,
+    "summonDPS": 0,
+    "totalDPS": 127.8,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 5.49,
+      "Tank": 13.43
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 301,
+    "basicDPS": 112,
+    "spellDPS": 43.1,
+    "summonDPS": 0,
+    "totalDPS": 155.1,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 4.53,
+      "Tank": 11.07
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 337,
+    "basicDPS": 148.2,
+    "spellDPS": 48.3,
+    "summonDPS": 0,
+    "totalDPS": 196.5,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 3.57,
+      "Tank": 8.74
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 305,
+    "basicDPS": 83.3,
+    "spellDPS": 44.3,
+    "summonDPS": 0,
+    "totalDPS": 127.7,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 6.17,
+      "Tank": 14.32
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 322,
+    "basicDPS": 89.2,
+    "spellDPS": 46.8,
+    "summonDPS": 0,
+    "totalDPS": 136,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 5.79,
+      "Tank": 13.44
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 341,
+    "basicDPS": 115,
+    "spellDPS": 49.6,
+    "summonDPS": 0,
+    "totalDPS": 164.6,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 4.79,
+      "Tank": 11.11
+    }
+  },
+  {
+    "className": "Marksman",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 377,
+    "basicDPS": 151.7,
+    "spellDPS": 54.8,
+    "summonDPS": 0,
+    "totalDPS": 206.5,
+    "hps": 0,
+    "utility": 6.2,
+    "ttk": {
+      "Marksman": 3.82,
+      "Tank": 8.85
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 361,
+    "basicDPS": 35,
+    "spellDPS": 65,
+    "summonDPS": 0,
+    "totalDPS": 100,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 6.33,
+      "Tank": 15.72
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 381,
+    "basicDPS": 37.1,
+    "spellDPS": 68.4,
+    "summonDPS": 0,
+    "totalDPS": 105.6,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 5.99,
+      "Tank": 14.9
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 421,
+    "basicDPS": 41.4,
+    "spellDPS": 75.3,
+    "summonDPS": 0,
+    "totalDPS": 116.7,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 5.42,
+      "Tank": 13.48
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 482,
+    "basicDPS": 47.9,
+    "spellDPS": 85.8,
+    "summonDPS": 0,
+    "totalDPS": 133.6,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.74,
+      "Tank": 11.77
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 399,
+    "basicDPS": 35.7,
+    "spellDPS": 72.6,
+    "summonDPS": 0,
+    "totalDPS": 108.3,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 6.48,
+      "Tank": 15.32
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 420,
+    "basicDPS": 37.9,
+    "spellDPS": 76.3,
+    "summonDPS": 0,
+    "totalDPS": 114.1,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 6.15,
+      "Tank": 14.54
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 460,
+    "basicDPS": 42.1,
+    "spellDPS": 83.1,
+    "summonDPS": 0,
+    "totalDPS": 125.2,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 5.61,
+      "Tank": 13.25
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 521,
+    "basicDPS": 48.6,
+    "spellDPS": 93.6,
+    "summonDPS": 0,
+    "totalDPS": 142.2,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.94,
+      "Tank": 11.67
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 440,
+    "basicDPS": 36.4,
+    "spellDPS": 80.8,
+    "summonDPS": 0,
+    "totalDPS": 117.2,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 6.72,
+      "Tank": 15.07
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 460,
+    "basicDPS": 38.6,
+    "spellDPS": 84.2,
+    "summonDPS": 0,
+    "totalDPS": 122.8,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 6.42,
+      "Tank": 14.39
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 501,
+    "basicDPS": 42.9,
+    "spellDPS": 91.3,
+    "summonDPS": 0,
+    "totalDPS": 134.1,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 5.87,
+      "Tank": 13.17
+    }
+  },
+  {
+    "className": "Mage",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 561,
+    "basicDPS": 49.3,
+    "spellDPS": 101.5,
+    "summonDPS": 0,
+    "totalDPS": 150.8,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 5.23,
+      "Tank": 11.71
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 304,
+    "basicDPS": 35.4,
+    "spellDPS": 47.8,
+    "summonDPS": 50.9,
+    "totalDPS": 134.1,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.72,
+      "Tank": 11.73
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 328,
+    "basicDPS": 37.7,
+    "spellDPS": 51.5,
+    "summonDPS": 55.8,
+    "totalDPS": 144.9,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.37,
+      "Tank": 10.86
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 376,
+    "basicDPS": 42.3,
+    "spellDPS": 58.9,
+    "summonDPS": 65,
+    "totalDPS": 166.2,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 3.81,
+      "Tank": 9.46
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 449,
+    "basicDPS": 49.2,
+    "spellDPS": 70.2,
+    "summonDPS": 79.5,
+    "totalDPS": 198.9,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 3.18,
+      "Tank": 7.91
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 344,
+    "basicDPS": 36.2,
+    "spellDPS": 54.5,
+    "summonDPS": 60.1,
+    "totalDPS": 150.8,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.66,
+      "Tank": 11
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 368,
+    "basicDPS": 38.5,
+    "spellDPS": 58.2,
+    "summonDPS": 65,
+    "totalDPS": 161.6,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.34,
+      "Tank": 10.27
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 416,
+    "basicDPS": 43.1,
+    "spellDPS": 65.7,
+    "summonDPS": 74.2,
+    "totalDPS": 182.9,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 3.84,
+      "Tank": 9.07
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 488,
+    "basicDPS": 50,
+    "spellDPS": 76.6,
+    "summonDPS": 88.7,
+    "totalDPS": 215.4,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 3.26,
+      "Tank": 7.7
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 386,
+    "basicDPS": 36.9,
+    "spellDPS": 61.6,
+    "summonDPS": 69.8,
+    "totalDPS": 168.3,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.68,
+      "Tank": 10.49
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 410,
+    "basicDPS": 39.2,
+    "spellDPS": 65.3,
+    "summonDPS": 74.7,
+    "totalDPS": 179.1,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 4.4,
+      "Tank": 9.86
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 457,
+    "basicDPS": 43.8,
+    "spellDPS": 72.5,
+    "summonDPS": 83.9,
+    "totalDPS": 200.2,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 3.94,
+      "Tank": 8.82
+    }
+  },
+  {
+    "className": "Summoner",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 530,
+    "basicDPS": 50.8,
+    "spellDPS": 83.7,
+    "summonDPS": 98.4,
+    "totalDPS": 232.9,
+    "hps": 0,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 3.38,
+      "Tank": 7.58
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 225,
+    "basicDPS": 30,
+    "spellDPS": 36.8,
+    "summonDPS": 0,
+    "totalDPS": 66.8,
+    "hps": 26.5,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 9.47,
+      "Tank": 23.54
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 248,
+    "basicDPS": 31.8,
+    "spellDPS": 40.3,
+    "summonDPS": 0,
+    "totalDPS": 72.2,
+    "hps": 28,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 8.77,
+      "Tank": 21.8
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 294,
+    "basicDPS": 35.5,
+    "spellDPS": 47.3,
+    "summonDPS": 0,
+    "totalDPS": 82.8,
+    "hps": 31,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 7.65,
+      "Tank": 19
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 363,
+    "basicDPS": 40.9,
+    "spellDPS": 57.8,
+    "summonDPS": 0,
+    "totalDPS": 98.7,
+    "hps": 35.5,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 6.41,
+      "Tank": 15.93
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 265,
+    "basicDPS": 30.9,
+    "spellDPS": 43.6,
+    "summonDPS": 0,
+    "totalDPS": 74.5,
+    "hps": 29.5,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 9.43,
+      "Tank": 22.28
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 288,
+    "basicDPS": 32.7,
+    "spellDPS": 47.1,
+    "summonDPS": 0,
+    "totalDPS": 79.8,
+    "hps": 31,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 8.8,
+      "Tank": 20.79
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 334,
+    "basicDPS": 36.4,
+    "spellDPS": 54.1,
+    "summonDPS": 0,
+    "totalDPS": 90.4,
+    "hps": 34,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 7.76,
+      "Tank": 18.35
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 403,
+    "basicDPS": 41.8,
+    "spellDPS": 64.6,
+    "summonDPS": 0,
+    "totalDPS": 106.4,
+    "hps": 38.5,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 6.6,
+      "Tank": 15.6
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 307,
+    "basicDPS": 31.8,
+    "spellDPS": 50.6,
+    "summonDPS": 0,
+    "totalDPS": 82.4,
+    "hps": 32.6,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 9.56,
+      "Tank": 21.42
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 330,
+    "basicDPS": 33.6,
+    "spellDPS": 54.1,
+    "summonDPS": 0,
+    "totalDPS": 87.8,
+    "hps": 34.1,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 8.98,
+      "Tank": 20.12
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 375,
+    "basicDPS": 36.4,
+    "spellDPS": 61.1,
+    "summonDPS": 0,
+    "totalDPS": 97.5,
+    "hps": 37.1,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 8.08,
+      "Tank": 18.11
+    }
+  },
+  {
+    "className": "Healer",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 444,
+    "basicDPS": 41.8,
+    "spellDPS": 71.6,
+    "summonDPS": 0,
+    "totalDPS": 113.4,
+    "hps": 41.6,
+    "utility": 13.3,
+    "ttk": {
+      "Marksman": 6.95,
+      "Tank": 15.57
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 216,
+    "basicDPS": 34.2,
+    "spellDPS": 27.7,
+    "summonDPS": 0,
+    "totalDPS": 61.9,
+    "hps": 23.7,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 10.23,
+      "Tank": 25.43
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 239,
+    "basicDPS": 36.7,
+    "spellDPS": 30.9,
+    "summonDPS": 0,
+    "totalDPS": 67.6,
+    "hps": 25.3,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 9.37,
+      "Tank": 23.28
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 283,
+    "basicDPS": 41.7,
+    "spellDPS": 37,
+    "summonDPS": 0,
+    "totalDPS": 78.7,
+    "hps": 28.5,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 8.05,
+      "Tank": 20
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 352,
+    "basicDPS": 49.2,
+    "spellDPS": 46.6,
+    "summonDPS": 0,
+    "totalDPS": 95.8,
+    "hps": 33.4,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 6.61,
+      "Tank": 16.42
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 255,
+    "basicDPS": 35,
+    "spellDPS": 33.8,
+    "summonDPS": 0,
+    "totalDPS": 68.8,
+    "hps": 27.6,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 10.21,
+      "Tank": 24.12
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 278,
+    "basicDPS": 37.5,
+    "spellDPS": 37,
+    "summonDPS": 0,
+    "totalDPS": 74.5,
+    "hps": 29.2,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 9.42,
+      "Tank": 22.27
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 323,
+    "basicDPS": 42.5,
+    "spellDPS": 43.2,
+    "summonDPS": 0,
+    "totalDPS": 85.7,
+    "hps": 32.4,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 8.19,
+      "Tank": 19.35
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 391,
+    "basicDPS": 50,
+    "spellDPS": 52.7,
+    "summonDPS": 0,
+    "totalDPS": 102.7,
+    "hps": 37.3,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 6.84,
+      "Tank": 16.16
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 297,
+    "basicDPS": 35.8,
+    "spellDPS": 40.4,
+    "summonDPS": 0,
+    "totalDPS": 76.2,
+    "hps": 31.6,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 10.34,
+      "Tank": 23.18
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 319,
+    "basicDPS": 38.3,
+    "spellDPS": 43.4,
+    "summonDPS": 0,
+    "totalDPS": 81.7,
+    "hps": 33.2,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 9.64,
+      "Tank": 21.61
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 364,
+    "basicDPS": 43.3,
+    "spellDPS": 49.7,
+    "summonDPS": 0,
+    "totalDPS": 93,
+    "hps": 36.5,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 8.47,
+      "Tank": 18.99
+    }
+  },
+  {
+    "className": "Acolyte",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 432,
+    "basicDPS": 50.8,
+    "spellDPS": 59.1,
+    "summonDPS": 0,
+    "totalDPS": 109.9,
+    "hps": 41.4,
+    "utility": 15.4,
+    "ttk": {
+      "Marksman": 7.17,
+      "Tank": 16.06
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 1,
+    "items": 0,
+    "burstDmg": 159,
+    "basicDPS": 32.5,
+    "spellDPS": 13,
+    "summonDPS": 20.4,
+    "totalDPS": 65.9,
+    "hps": 36.7,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 9.61,
+      "Tank": 23.88
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 1,
+    "items": 1,
+    "burstDmg": 178,
+    "basicDPS": 35,
+    "spellDPS": 14.6,
+    "summonDPS": 22.7,
+    "totalDPS": 72.3,
+    "hps": 43.1,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 8.75,
+      "Tank": 21.75
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 1,
+    "items": 3,
+    "burstDmg": 215,
+    "basicDPS": 40,
+    "spellDPS": 17.9,
+    "summonDPS": 27.3,
+    "totalDPS": 85.2,
+    "hps": 55.8,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 7.43,
+      "Tank": 18.46
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 1,
+    "items": 6,
+    "burstDmg": 271,
+    "basicDPS": 47.5,
+    "spellDPS": 22.9,
+    "summonDPS": 34.3,
+    "totalDPS": 104.6,
+    "hps": 74.8,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 6.05,
+      "Tank": 15.04
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 5,
+    "items": 0,
+    "burstDmg": 197,
+    "basicDPS": 33.3,
+    "spellDPS": 16.4,
+    "summonDPS": 21,
+    "totalDPS": 70.7,
+    "hps": 44.2,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 9.93,
+      "Tank": 23.47
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 5,
+    "items": 1,
+    "burstDmg": 216,
+    "basicDPS": 35.8,
+    "spellDPS": 18.1,
+    "summonDPS": 23.3,
+    "totalDPS": 77.2,
+    "hps": 50.6,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 9.09,
+      "Tank": 21.48
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 5,
+    "items": 3,
+    "burstDmg": 253,
+    "basicDPS": 40.8,
+    "spellDPS": 21.3,
+    "summonDPS": 27.9,
+    "totalDPS": 90.1,
+    "hps": 63.3,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 7.79,
+      "Tank": 18.41
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 5,
+    "items": 6,
+    "burstDmg": 310,
+    "basicDPS": 48.3,
+    "spellDPS": 26.4,
+    "summonDPS": 34.9,
+    "totalDPS": 109.6,
+    "hps": 82.3,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 6.41,
+      "Tank": 15.14
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 10,
+    "items": 0,
+    "burstDmg": 237,
+    "basicDPS": 34.2,
+    "spellDPS": 20,
+    "summonDPS": 21.8,
+    "totalDPS": 75.9,
+    "hps": 52.2,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 10.38,
+      "Tank": 23.26
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 10,
+    "items": 1,
+    "burstDmg": 256,
+    "basicDPS": 36.7,
+    "spellDPS": 21.6,
+    "summonDPS": 24.1,
+    "totalDPS": 82.4,
+    "hps": 58.5,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 9.57,
+      "Tank": 21.44
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 10,
+    "items": 3,
+    "burstDmg": 294,
+    "basicDPS": 41.7,
+    "spellDPS": 25,
+    "summonDPS": 28.7,
+    "totalDPS": 95.4,
+    "hps": 71.2,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 8.26,
+      "Tank": 18.52
+    }
+  },
+  {
+    "className": "Keeper",
+    "level": 10,
+    "items": 6,
+    "burstDmg": 350,
+    "basicDPS": 49.2,
+    "spellDPS": 30,
+    "summonDPS": 35.6,
+    "totalDPS": 114.8,
+    "hps": 90.2,
+    "utility": 0,
+    "ttk": {
+      "Marksman": 6.86,
+      "Tank": 15.38
+    }
+  }
+]

@@ -4,7 +4,8 @@ export const game = {
   players: [], projectiles: [], minions: [], towers: [], damageNumbers: [], particles: [], effectTexts: [], walls: [],
   shake: 0, screenDamageFlash: 0, screenHealFlash: 0, nexus: {0:500, 1:500}, gameOver: false, winner: null, startDelay: 10.0,
   heals: [], powerup: null, isHost: false, isSpectator: false,
-  killFeed: []
+  killFeed: [],
+  blueBotDifficulty: 1.0, redBotDifficulty: 1.0
 };
 
 export const camera = { x: 0, y: 0, scale: 1.52 }; // Přiblíženo o 10%

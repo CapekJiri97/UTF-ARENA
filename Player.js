@@ -67,6 +67,10 @@ export class Player{
     this.knockbackTimer = 0; this.knockbackVel = {x:0, y:0};
     this.msBuffTimer = 0; this.msBuffAmount = 0;
 
+    this.flamethrowerTimer = 0;
+    this.flamethrowerTick = 0;
+    this.flamethrowerData = null;
+
     // basic attack
 
 
@@ -99,6 +103,7 @@ export class Player{
     this.hanaBuffTimer = 0; this.adAsBuffTimer = 0; this.defBuffTimer = 0;
     this.invulnerableTimer = 0; this.boostTimer = 0; this.rallyTimer = 0;
     this.reaperCharge = 0; this.reaperTimer = 0;
+    this.flamethrowerTimer = 0;
 
     // PŘIDÁNO: Odpočet se musí nastavit pro všechny, aby i klient lokálně správně čekal a poslal scoreboard status
     this.deaths++; this.respawnTimer = (CLASSES[this.className].respawnBase || 7) + this.level * (CLASSES[this.className].respawnPerLevel || 1);
@@ -184,6 +189,40 @@ export class Player{
             spawnParticles(this.pos.x, this.pos.y, 10, '#aaa');
             this.shieldExplodeData = null;
             this.shield = 0;
+        }
+    }
+
+    if (this.flamethrowerTimer > 0) {
+        this.flamethrowerTimer -= dt;
+        this.flamethrowerTick -= dt;
+        if (this.flamethrowerTick <= 0) {
+            this.flamethrowerTick = 0.15;
+            if (this.flamethrowerData) {
+                let fd = this.flamethrowerData;
+                if (Math.random() < 0.5) playSound('shoot', this.pos, { pitch: 0.3 + Math.random()*0.2 });
+                let colors = ['#ff0000', '#ff4500', '#ff8c00', '#ffd700', '#555555'];
+                for(let i=0; i<4; i++) {
+                    let a = this.aimAngle + (Math.random() - 0.5) * fd.cone;
+                    let spd = 300 + Math.random() * 200;
+                    let pCol = colors[Math.floor(Math.random() * colors.length)];
+                    game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['f','~','*','@'][Math.floor(Math.random()*4)], size: 10 + Math.random()*10, grow: 40, rotate: true }));
+                }
+                
+                for(let m of game.minions){ 
+                    if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
+                        const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
+                        const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
+                        if(da <= fd.cone/2){ applyDamage(m, fd.damage, fd.dmgType, fd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 10, 15); } } 
+                    } 
+                }
+                for(let p of game.players){ 
+                    if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){ 
+                        const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); 
+                        const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
+                        if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
+                    } 
+                }
+            }
         }
     }
 
@@ -697,6 +736,14 @@ export class Player{
         this.shield = (sp.amount || 0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 20);
         this.shieldExplodeData = { timer: sp.duration, damage: damage, radius: sp.radius, dmgType: this.dmgType };
         spawnParticles(this.pos.x, this.pos.y, 15, '#ccc', {speed: 100});
+    } else if (sp.type === 'flamethrower') {
+        this.flamethrowerTimer = sp.duration || 2.5;
+        this.flamethrowerTick = 0;
+        let ticks = (sp.duration || 2.5) / (sp.tickRate || 0.15);
+        this.flamethrowerData = { 
+            damage: damage / ticks, dmgType: this.dmgType, id: this.id, 
+            range: sp.range || 300, cone: sp.cone || (60 * Math.PI / 180) 
+        };
     } else if (sp.type === 'dash_heal_silence') {
         let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10));
         let healed = applyHeal(this, healAmount); 
@@ -920,6 +967,16 @@ export class BotPlayer extends Player {
       if (!game.teamIntents) game.teamIntents = { 0: {}, 1: {} }; // Týmová nástěnka
       this.strategy = 'NORMAL';
       this.randomizePokeThresholds();
+
+      this.difficultyMod = this.team === 0 ? (game.blueBotDifficulty || 1.0) : (game.redBotDifficulty || 1.0);
+      if (this.difficultyMod !== 1.0) {
+          this.maxHp = Math.round(this.maxHp * this.difficultyMod);
+          this.hp = this.maxHp;
+          this.AD = Math.round(this.AD * this.difficultyMod);
+          this.AP = Math.round(this.AP * this.difficultyMod);
+          this.armor = Math.round(this.armor * this.difficultyMod);
+          this.mr = Math.round(this.mr * this.difficultyMod);
+      }
     }
 
     randomizePokeThresholds() {
@@ -1043,6 +1100,18 @@ export class BotPlayer extends Player {
       this.randomizePokeThresholds();
     }
 
+    levelUp() {
+        super.levelUp();
+        let extraMod = (this.difficultyMod || 1.0) - 1.0;
+        if (extraMod !== 0 && (!socket || game.isHost)) {
+            this.maxHp += Math.round(15 * extraMod);
+            this.hp += Math.round(15 * extraMod);
+            this.AD += Math.round(1 * extraMod);
+            this.AP += Math.round(1 * extraMod);
+            this.isDirty = true;
+        }
+    }
+
     // ==========================================
     // VRSTVA 1: CENTRÁLNÍ MOZEK (RTS Makro - Běží každé 1.5 vteřiny pro celý tým najednou)
     // ==========================================
@@ -1072,7 +1141,18 @@ export class BotPlayer extends Player {
                     else { if (bot.role === 'SLAYER' && bot.range) pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr'); }
                     let chosenId = pool[Math.floor(Math.random() * pool.length)];
                     let item = shopItems.find(it => it.id === chosenId);
-                    if (item && bot.gold >= item.cost) { bot.gold -= item.cost; bot.items.push(item.id); item.apply(bot); bot.isDirty = true; }
+                    if (item && bot.gold >= item.cost) { 
+                        bot.gold -= item.cost; bot.items.push(item.id); 
+                        let oldHp = bot.maxHp, oldAD = bot.AD, oldAP = bot.AP, oldArmor = bot.armor, oldMR = bot.mr;
+                        item.apply(bot); 
+                        let extraMod = (bot.difficultyMod || 1.0) - 1.0;
+                        if (extraMod !== 0) {
+                            bot.maxHp += Math.round((bot.maxHp - oldHp) * extraMod); bot.hp += Math.round((bot.maxHp - oldHp) * extraMod);
+                            bot.AD += Math.round((bot.AD - oldAD) * extraMod); bot.AP += Math.round((bot.AP - oldAP) * extraMod);
+                            bot.armor += Math.round((bot.armor - oldArmor) * extraMod); bot.mr += Math.round((bot.mr - oldMR) * extraMod);
+                        }
+                        bot.isDirty = true; 
+                    }
                 }
             }
             while(bot.spellPoints > 0) {
@@ -1733,6 +1813,41 @@ export class BotPlayer extends Player {
               }
           }
 
+          // Lokální vykreslení plamenometu u cizích botů
+          if (this.flamethrowerTimer > 0) {
+              this.flamethrowerTimer -= dt;
+              this.flamethrowerTick -= dt;
+              if (this.flamethrowerTick <= 0) {
+                  this.flamethrowerTick = 0.15;
+                  if (this.flamethrowerData) {
+                      let fd = this.flamethrowerData;
+                      if (Math.random() < 0.5) playSound('shoot', this.pos, { pitch: 0.3 + Math.random()*0.2 });
+                      let colors = ['#ff0000', '#ff4500', '#ff8c00', '#ffd700', '#555555'];
+                      for(let i=0; i<4; i++) {
+                          let a = this.aimAngle + (Math.random() - 0.5) * fd.cone;
+                          let spd = 300 + Math.random() * 200;
+                          let pCol = colors[Math.floor(Math.random() * colors.length)];
+                          game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['f','~','*','@'][Math.floor(Math.random()*4)], size: 10 + Math.random()*10, grow: 40, rotate: true }));
+                      }
+                      
+                      for(let m of game.minions){ 
+                          if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
+                              const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
+                              const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
+                              if(da <= fd.cone/2){ applyDamage(m, fd.damage, fd.dmgType, fd.id); } 
+                          } 
+                      }
+                      for(let p of game.players){ 
+                          if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){ 
+                              const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); 
+                              const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
+                              if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id); } 
+                          } 
+                      }
+                  }
+              }
+          }
+
           // Lokální vykreslení plynulého dashe a exploze na konci dashe u cizích botů
           if (this.dashTimer > 0) {
               this.dashTimer -= dt;
@@ -1776,6 +1891,40 @@ export class BotPlayer extends Player {
       if(this.shieldTimer > 0) { 
           this.shieldTimer -= dt; 
           if(this.shieldTimer <= 0 && !this.shieldExplodeData) this.shield = 0; 
+      }
+      
+      if (this.flamethrowerTimer > 0) {
+          this.flamethrowerTimer -= dt;
+          this.flamethrowerTick -= dt;
+          if (this.flamethrowerTick <= 0) {
+              this.flamethrowerTick = 0.15;
+              if (this.flamethrowerData) {
+                  let fd = this.flamethrowerData;
+                  if (Math.random() < 0.5) playSound('shoot', this.pos, { pitch: 0.3 + Math.random()*0.2 });
+                  let colors = ['#ff0000', '#ff4500', '#ff8c00', '#ffd700', '#555555'];
+                  for(let i=0; i<4; i++) {
+                      let a = this.aimAngle + (Math.random() - 0.5) * fd.cone;
+                      let spd = 300 + Math.random() * 200;
+                      let pCol = colors[Math.floor(Math.random() * colors.length)];
+                      game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['f','~','*','@'][Math.floor(Math.random()*4)], size: 10 + Math.random()*10, grow: 40, rotate: true }));
+                  }
+                  
+                  for(let m of game.minions){ 
+                      if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
+                          const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
+                          const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
+                          if(da <= fd.cone/2){ applyDamage(m, fd.damage, fd.dmgType, fd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 10, 15); } } 
+                      } 
+                  }
+                  for(let p of game.players){ 
+                      if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){ 
+                          const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); 
+                          const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
+                          if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
+                      } 
+                  }
+              }
+          }
       }
       if(this.silenceTimer > 0) this.silenceTimer -= dt;
       if(this.stunTimer > 0) this.stunTimer -= dt;
@@ -2050,6 +2199,7 @@ export class BotPlayer extends Player {
                   else if (this.spells.Q.type === 'aoe' || this.spells.Q.type === 'aoe_knockback') castQ = (d < (this.spells.Q.radius || 200));
                   else if (this.spells.Q.type === 'projectile_egg') castQ = (d < 260);
                   else if (this.spells.Q.type === 'reaper_q') castQ = (d < 350 && this.reaperCharge === 0);
+                  else if (this.spells.Q.type === 'flamethrower') castQ = (d < (this.spells.Q.range || 300));
                   else castQ = (d < 450);
                   if (castQ) this.castSpell('Q', qtx, qty);
               }
@@ -2067,6 +2217,7 @@ export class BotPlayer extends Player {
                       else { if (d > 150 && d < 400) castE = true; }
                   } else if (this.spells.E.type === 'aoe' || this.spells.E.type === 'aoe_knockback') castE = (d < (this.spells.E.radius || 200));
                   else if (this.spells.E.type === 'reaper_e') castE = (d > 100 && d < 350) || (this.spells.Q.cd > 2.0 && d < 200);
+                  else if (this.spells.E.type === 'flamethrower') castE = (d < (this.spells.E.range || 300));
                   else castE = (d < (this.spells.E.radius || 250));
                   if (castE) this.castSpell('E', etx, ety);
               }

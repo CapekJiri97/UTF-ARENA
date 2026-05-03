@@ -285,6 +285,25 @@ export const CLASSES = {
     }
   },
 
+  Pyromancer: {
+    glyph: 'P', role: 'SLAYER', range: true, dmgType: 'magical', aaScale: 0.20,
+    hp: 600, speed: 110, attackDelay: 1.3,
+    baseAtk: 30, baseAD: 0, baseAP: 75,
+    baseArmor: 18, baseMR: 25,
+    Q: {
+      baseCooldown: 6.0, castTime: 0.0,
+      baseDamage: 250, scaleAP: 1.20, scaleAD: 0, scaleLevel: 45,
+      type: 'flamethrower', duration: 2.5, range: 300, cone: 60 * Math.PI / 180, tickRate: 0.15,
+      desc: 'Plamenomet: Na 2.5 sekundy před sebe chrlí nepřetržitý proud ohně. Masivně zraňuje nepřátele v kuželu a umožňuje ti se u toho plynule pohybovat!'
+    },
+    E: {
+      baseCooldown: 9.0, castTime: 0.2,
+      baseDamage: 80, scaleAP: 0.60, scaleAD: 0, scaleLevel: 15,
+      type: 'aoe_knockback', radius: 140,
+      desc: 'Spalující vlna: Okamžitá ohnivá exploze kolem sebe, která masivně zraní a odhodí všechny dotírající nepřátele.'
+    }
+  },
+
   // ==========================================
   // SUPPORT
   // ==========================================
