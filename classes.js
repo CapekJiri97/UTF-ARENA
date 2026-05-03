@@ -292,13 +292,13 @@ export const CLASSES = {
     baseArmor: 18, baseMR: 25,
     Q: {
       baseCooldown: 8.0, castTime: 0.0,
-      baseDamage: 250, scaleAP: 1.20, scaleAD: 0, scaleLevel: 45,
-      type: 'flamethrower', duration: 3.0, range: 150, width: 80, tickRate: 0.10,
-      desc: 'Plamenomet: Na 3.0 sekundy před sebe chrlí nepřetržitý ohnivý paprsek ve tvaru obdélníku. Masivně zraňuje nepřátele a umožňuje ti se u toho plynule pohybovat!'
+      baseDamage: 250, scaleAP: 0.80, scaleAD: 0, scaleLevel: 25,
+      type: 'flamethrower', duration: 3.0, range: 160, cone: 40 * Math.PI / 180, tickRate: 0.10,
+      desc: 'Plamenomet: Na 3.0 sekundy před sebe chrlí nepřetržitý proud ohně v kuželu. Masivně zraňuje nepřátele a umožňuje ti se u toho plynule pohybovat!'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.2,
-      baseDamage: 80, scaleAP: 0.60, scaleAD: 0, scaleLevel: 15,
+      baseDamage: 80, scaleAP: 0.45, scaleAD: 0, scaleLevel: 10,
       type: 'aoe_knockback', radius: 140,
       desc: 'Spalující vlna: Okamžitá ohnivá exploze kolem sebe, která masivně zraní a odhodí všechny dotírající nepřátele.'
     }

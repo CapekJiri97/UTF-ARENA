@@ -8,7 +8,9 @@ export function dist(a, b) {
 }
 
 export function expForLevel(l) {
-  return 20 + (l - 1) * 20;
+  let baseExp = 20 + (l - 1) * 20;
+  if (l <= 10) return baseExp * 1.3;
+  return baseExp * 1.4;
 }
 
 export function isPointInPoly(px, py, pts) {

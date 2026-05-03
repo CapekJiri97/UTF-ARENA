@@ -783,10 +783,10 @@ export function draw(){
                 lines.push({ t: `    Heal Interval: Every ${sp.healInterval||1.0}s`, c: '#aaa' });
                 lines.push({ t: `    Pulse Dmg: ${Math.round(10 + pAP*0.15)} (+15% AP)`, c: '#aaa' });
         } else if (sp.type === 'flamethrower') {
-            let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 45;
+            let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 25;
             lines.push(...buildBreakdown('Total Damage', bDmg, scLvl, scAD, scAP));
-            lines.push({ t: `    Duration: ${sp.duration}s | Range: ${sp.range} | Width: ${sp.width || 80}`, c: '#fff' });
-            lines.push({ t: `    Fires continuously in a rectangular beam. Castable while moving!`, c: '#aaa' });
+            lines.push({ t: `    Duration: ${sp.duration}s | Range: ${sp.range} | Cone: ${Math.round((sp.cone||0) * 180 / Math.PI)}°`, c: '#fff' });
+            lines.push({ t: `    Fires continuously in a cone. Castable while moving!`, c: '#aaa' });
             } else {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
                 lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
