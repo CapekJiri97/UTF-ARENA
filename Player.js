@@ -201,14 +201,14 @@ export class Player{
                 let fd = this.flamethrowerData;
                 if (Math.random() < 0.5) playSound('shoot', this.pos, { pitch: 0.3 + Math.random()*0.2 });
                 let isBlue = this.team === 0;
-                let colors = isBlue ? ['#486FED', '#8A2BE2', '#9370DB', '#00FFFF', '#ffffff'] : ['#FF4E4E', '#ff4500', '#ff8c00', '#ffd700', '#ffffff'];
+                let colors = isBlue ? ['#486FED', '#8A2BE2', '#9370DB', '#00FFFF'] : ['#FF4E4E', '#ff4500', '#ff8c00', '#ffd700'];
                 for(let i=0; i<6; i++) {
                     let spread = (Math.random() - 0.5) * fd.cone;
                     if (Math.random() < 0.5) spread *= 0.4;
                     let a = this.aimAngle + spread;
                     let spd = 350 + Math.random() * 250;
                     let pCol = colors[Math.floor(Math.random() * colors.length)];
-                    game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['≈','~','≡','-','*'][Math.floor(Math.random()*5)], size: 16 + Math.random()*12, grow: 25, rotate: true }));
+                    game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['≈','~','≡','-','*','@','f','p'][Math.floor(Math.random()*8)], size: 16 + Math.random()*12, grow: 25, rotate: true }));
                 }
                 
                 for(let m of game.minions){ 
@@ -1826,14 +1826,14 @@ export class BotPlayer extends Player {
                       let fd = this.flamethrowerData;
                       if (Math.random() < 0.5) playSound('shoot', this.pos, { pitch: 0.3 + Math.random()*0.2 });
                       let isBlue = this.team === 0;
-                      let colors = isBlue ? ['#486FED', '#8A2BE2', '#9370DB', '#00FFFF', '#ffffff'] : ['#FF4E4E', '#ff4500', '#ff8c00', '#ffd700', '#ffffff'];
+                      let colors = isBlue ? ['#486FED', '#8A2BE2', '#9370DB', '#00FFFF'] : ['#FF4E4E', '#ff4500', '#ff8c00', '#ffd700'];
                       for(let i=0; i<6; i++) {
                           let spread = (Math.random() - 0.5) * fd.cone;
                           if (Math.random() < 0.5) spread *= 0.4;
                           let a = this.aimAngle + spread;
                           let spd = 350 + Math.random() * 250;
                           let pCol = colors[Math.floor(Math.random() * colors.length)];
-                          game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['≈','~','≡','-','*'][Math.floor(Math.random()*5)], size: 16 + Math.random()*12, grow: 25, rotate: true }));
+                          game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['≈','~','≡','-','*','@','f','p'][Math.floor(Math.random()*8)], size: 16 + Math.random()*12, grow: 25, rotate: true }));
                       }
                       
                       for(let m of game.minions){ 
@@ -1908,14 +1908,14 @@ export class BotPlayer extends Player {
                   let fd = this.flamethrowerData;
                   if (Math.random() < 0.5) playSound('shoot', this.pos, { pitch: 0.3 + Math.random()*0.2 });
                   let isBlue = this.team === 0;
-                  let colors = isBlue ? ['#486FED', '#8A2BE2', '#9370DB', '#00FFFF', '#ffffff'] : ['#FF4E4E', '#ff4500', '#ff8c00', '#ffd700', '#ffffff'];
+                  let colors = isBlue ? ['#486FED', '#8A2BE2', '#9370DB', '#00FFFF'] : ['#FF4E4E', '#ff4500', '#ff8c00', '#ffd700'];
                   for(let i=0; i<6; i++) {
                       let spread = (Math.random() - 0.5) * fd.cone;
                       if (Math.random() < 0.5) spread *= 0.4;
                       let a = this.aimAngle + spread;
                       let spd = 350 + Math.random() * 250;
                       let pCol = colors[Math.floor(Math.random() * colors.length)];
-                      game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['≈','~','≡','-','*'][Math.floor(Math.random()*5)], size: 16 + Math.random()*12, grow: 25, rotate: true }));
+                      game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['≈','~','≡','-','*','@','f','p'][Math.floor(Math.random()*8)], size: 16 + Math.random()*12, grow: 25, rotate: true }));
                   }
                   
                   for(let m of game.minions){ 
