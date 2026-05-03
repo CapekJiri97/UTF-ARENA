@@ -1,5 +1,5 @@
 import { dist, distToPoly, expForLevel } from './Utils.js';
-import { CLASSES, SUMMONER_SPELLS, AA_SCALES } from './classes.js';
+import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { shopItems } from './items.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
@@ -7,6 +7,7 @@ import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
 import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards } from './main.js';
 import { updateSpellLabels } from './UI.js';
+import { playSound } from './Audio.js';
 
 export class Player{
   constructor(x,y,opts={}){
@@ -25,7 +26,7 @@ export class Player{
     this.reaperTimer = 0;
 
     // stats
-    this.maxHp = cData.hp; this.hp = this.maxHp; this.hpRegen = 2.0; 
+    this.maxHp = cData.hp; this.hp = this.maxHp; this.hpRegen = cData.hpRegen || 2.0; 
     this.AD = cData.baseAD; this.AP = cData.baseAP; this.attackSpeed = 1.0; this.abilityHaste = 0; this.armor = cData.baseArmor; this.mr = cData.baseMR;
     
     // economy & stats
@@ -79,11 +80,7 @@ export class Player{
     
     this.macroOrder = null; // Rozkaz od Centrálního Mozku (pro UI nebo boty)
     
-    if (['Zephyr', 'Reaper'].includes(this.className)) this.role = 'SPLITPUSHER';
-    else if (['Assassin', 'Marksman', 'Mage', 'Kratoma', 'Summoner'].includes(this.className)) this.role = 'SLAYER';
-    else if (['Tank', 'Goliath', 'Hana'].includes(this.className)) this.role = 'TANK';
-    else if (['Healer', 'Acolyte', 'Keeper'].includes(this.className)) this.role = 'SUPPORT';
-    else this.role = 'FIGHTER'; // Bruiser, Vanguard, Jirina
+    this.role = cData.role || 'FIGHTER';
   }
 
   get effectiveMaxHp() { return Math.round(this.maxHp * (this.hasPowerup ? 1.2 : 1.0)); }
@@ -104,7 +101,7 @@ export class Player{
     this.reaperCharge = 0; this.reaperTimer = 0;
 
     // PŘIDÁNO: Odpočet se musí nastavit pro všechny, aby i klient lokálně správně čekal a poslal scoreboard status
-    this.deaths++; this.respawnTimer = 7 + this.level; // Lvl 1 = 8s, Lvl 10 = 17s
+    this.deaths++; this.respawnTimer = (CLASSES[this.className].respawnBase || 7) + this.level * (CLASSES[this.className].respawnPerLevel || 1);
     console.log(`[DEBUG] ${this.id} died. Respawning in ${this.respawnTimer}s.`); 
     if(player && this.id === player.id) { game.shake = 0.5; flashMessage('You died — respawning...'); } 
   }
@@ -134,6 +131,7 @@ export class Player{
   }
 
   levelUp(){
+    if (this === player) playSound('levelup');
     if (!socket || game.isHost || this === player) { this.level += 1; this.spellPoints += 1; this.maxHp += 15; this.hp = Math.min(this.effectiveMaxHp, this.hp + 15); this.AD += 1; this.AP += 1; this.isDirty = true; }
     this.levelUpTimer = 2.0; spawnParticles(this.pos.x, this.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0});
     console.log(`[DEBUG] ${this.id} leveled up to ${this.level}`); 
@@ -208,9 +206,9 @@ export class Player{
                 for (let e of enemies) { if (e.dmgType === 'physical') enemyPhys++; else enemyMag++; }
 
                 let pool = [];
-                const isTank = ['Tank', 'Goliath', 'Hana'].includes(this.className);
-                const isFighter = ['Bruiser', 'Vanguard', 'Jirina', 'Assassin', 'Reaper'].includes(this.className);
-                const isMageSupport = ['Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper', 'Zephyr'].includes(this.className);
+                const isTank = this.role === 'TANK';
+                const isFighter = this.role === 'FIGHTER' || this.role === 'SPLITPUSHER';
+                const isMageSupport = this.role === 'SUPPORT' || (this.role === 'SLAYER' && this.dmgType === 'magical') || (this.role === 'SPLITPUSHER' && this.dmgType === 'magical');
                 
                 if (isTank) {
                     pool.push('hp', 'hp');
@@ -223,7 +221,7 @@ export class Player{
                 } else if (isMageSupport) {
                     pool.push('ap', 'ap', 'ah', 'ah'); if (Math.random() < 0.25) pool.push('hp'); 
                 } else { 
-                    if (this.className === 'Marksman' || this.className === 'Kratoma') pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); 
+                    if (this.role === 'SLAYER' && this.range) pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); 
                     if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr');
                 }
                 let chosenId = pool[Math.floor(Math.random() * pool.length)];
@@ -333,7 +331,16 @@ export class Player{
       }
 
       if (bestTarget) {
-          intendedAngle = Math.atan2(bestTarget.pos.y - this.pos.y, bestTarget.pos.x - this.pos.x);
+          let tx = bestTarget.pos.x;
+          let ty = bestTarget.pos.y;
+          if (bestTarget.vel && (Math.abs(bestTarget.vel.x) > 5 || Math.abs(bestTarget.vel.y) > 5)) {
+              let d = dist(this.pos, bestTarget.pos);
+              let pSpeed = this.range ? 800 : 1000;
+              let travelTime = d / pSpeed;
+              tx += bestTarget.vel.x * travelTime;
+              ty += bestTarget.vel.y * travelTime;
+          }
+          intendedAngle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
       }
       this.currentTarget = bestTarget; // Uložení pro vykreslení HUD
     } else if (this === player && game.mouseTarget) {
@@ -389,7 +396,7 @@ export class Player{
     }
     if (this.stunTimer > 0) wantAttack = false;
     let effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0);
-    if (this.hanaBuffTimer > 0) effAS *= 1.25;
+    if (this.hanaBuffTimer > 0) effAS *= (this.spells.Q.bonusAsMult || 1.25);
     if(this === player && wantAttack && this.attackCooldown<=0){ this.shoot(this.pos.x + Math.cos(this.aimAngle)*100, this.pos.y + Math.sin(this.aimAngle)*100); this.attackCooldown = this.attackDelay / effAS; }
 
     // spells cooldowns
@@ -510,6 +517,7 @@ export class Player{
 
   shoot(tx,ty, isNetwork = false){ 
     if(!this.alive) return; 
+    if (this === player && !isNetwork) playSound('shoot');
     this.attackPenaltyTimer = 0.5; 
     
     // Odeslání akce na server (Host odesílá za sebe i za své boty)
@@ -522,16 +530,16 @@ export class Player{
     const buffAdMult = 1.0 + (this.adAsBuffTimer > 0 ? this.adAsBuffAmount : 0);
     const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0) * buffAdMult; 
     const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0);
-    const aaScale = AA_SCALES[this.className] || 0.3;
+    const aaScale = CLASSES[this.className].aaScale || 0.3;
     let damage = Math.round(CLASSES[this.className].baseAtk + ((this.dmgType === 'magical' ? pAP : pAD) * aaScale));
-    if (this.hanaBuffTimer > 0) damage += Math.round(this.effectiveMaxHp * 0.03);
+    if (this.hanaBuffTimer > 0) damage += Math.round(this.effectiveMaxHp * (this.spells.Q.bonusHpDmg || 0.03));
 
     let isEmpowered = false;
     if (this.reaperCharge > 0) {
         isEmpowered = true;
         this.reaperCharge--;
         const spQ = this.spells.Q;
-        damage += Math.round((spQ.baseDamage||0) + (pAP * (spQ.scaleAP||0)) + spQ.level*8);
+        damage += Math.round((spQ.baseDamage||0) + (pAP * (spQ.scaleAP||0)) + spQ.level*(spQ.scaleLevel !== undefined ? spQ.scaleLevel : 8));
     }
 
     if(this.range){ // ranged - projectile with limited range
@@ -544,10 +552,10 @@ export class Player{
           const p = new Projectile(this.pos.x + Math.cos(a)*(this.radius+6), this.pos.y + Math.sin(a)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:'-' , life:life, radius: 8}); game.projectiles.push(p);
       }
     } else { // melee basic
-      const meleeRange = isEmpowered ? this.attackRange + 70 : this.attackRange; 
-      if (this.className === 'Hana') {
+      const meleeRange = isEmpowered ? this.attackRange + (this.spells.Q.bonusRange || 70) : this.attackRange; 
+      if (CLASSES[this.className].customMeleeAoE === 'ring') {
           spawnParticles(this.pos.x, this.pos.y, 2, '#f0f', { shape: 'ring', radius: meleeRange, life: 0.2, speed: 0, lineWidth: 2 });
-          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ if(dist(this.pos, m.pos) <= meleeRange){ applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 10, 15); } } } }
+          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ if(dist(this.pos, m.pos) <= meleeRange){ applyDamage(m, Math.round(damage * 0.6), this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 10, 15); } } } }
           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ if(dist(this.pos, p.pos) <= meleeRange){ applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 2, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } }
       } else {
           // hit minions in cone
@@ -563,7 +571,7 @@ export class Player{
           game.particles.push(new Particle(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, pColor, { angle: ang, speed: mSpeed, life: 0.15, glyph: mGlyph, size: startSize, grow: growRate, rotate: true, stretchX: 0.3 }));
           // Statická závorka na okraji dosahu (Místo původní kulaté čáry)
           game.particles.push(new Particle(this.pos.x + Math.cos(ang)*(meleeRange - 10), this.pos.y + Math.sin(ang)*(meleeRange - 10), pColor, { angle: ang, speed: 0, life: 0.2, glyph: mGlyph, size: finalSize, rotate: true, stretchX: 0.3 }));
-          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, damage, this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.0); m.slowMod = 0.6; } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 10, 15); } } } } }
+          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, Math.round(damage * 0.6), this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.0); m.slowMod = 0.6; } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 10, 15); } } } } }
           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); if(isEmpowered){ p.slowTimer = Math.max(p.slowTimer||0, 1.0); p.slowMod = 0.6; } spawnParticles(p.pos.x, p.pos.y, 2, pColor); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } } }
       }
     } }
@@ -575,6 +583,8 @@ export class Player{
     if(!isNetwork && this.silenceTimer > 0) return; 
     if(!isNetwork && this.stunTimer > 0) return; 
     
+    if (this === player && !isNetwork) playSound('shoot');
+
     let tx = targetX, ty = targetY; 
     if(tx === undefined){ 
         let useAim = true;
@@ -604,7 +614,7 @@ export class Player{
 
     const buffAdMult = 1.0 + (this.adAsBuffTimer > 0 ? this.adAsBuffAmount : 0);
     const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0) * buffAdMult; const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0);
-    const damage = Math.round(sp.baseDamage + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*8); // Damage calculation is fine on client for display
+    const damage = Math.round((sp.baseDamage || 0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 8)); // Damage calculation is fine on client for display
     
     // Odebráno globální omezení 'Host-only', aby klienti viděli letící projektily a mohli vizuálně dashovat
     if (sp.type === 'projectile') {
@@ -628,7 +638,7 @@ export class Player{
     } else if (sp.type === 'buff_ad_as') {
         this.adAsBuffTimer = sp.duration;
         this.adAsBuffAmount = sp.amount;
-        if (sp.shieldAmount) { this.shield = sp.shieldAmount + (pAD * 0.3) + sp.level * 15; this.shieldTimer = sp.duration; }
+        if (sp.shieldAmount) { this.shield = sp.shieldAmount + (pAD * 0.3) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 15); this.shieldTimer = sp.duration; }
         spawnParticles(this.pos.x, this.pos.y, 15, '#f00', {speed: 150});
     } else if (sp.type === 'aoe') {
         const range = sp.radius; 
@@ -637,17 +647,17 @@ export class Player{
         for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, damage, this.dmgType, this.id); if (sp.slowDuration) { p.slowTimer = Math.max(p.slowTimer||0, sp.slowDuration); p.slowMod = sp.slowMod || 0.6; } if (sp.stunDuration) { p.stunTimer = Math.max(p.stunTimer||0, sp.stunDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "STUNNED", '#ffcc00')); } if (sp.silenceDuration) { p.silenceTimer = Math.max(p.silenceTimer||0, sp.silenceDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "SILENCED", '#fff')); } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } }
         spawnParticles(this.pos.x, this.pos.y, 10, '#ccf');
     } else if (sp.type === 'heal_self') {
-        let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*10);
+        let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10));
         let healed = applyHeal(this, healAmount); 
         if(this.stats && (!socket || game.isHost)) this.stats.hpHealed += healed;
         spawnParticles(this.pos.x, this.pos.y, 8, '#0f0');
     } else if (sp.type === 'heal_aoe') {
-        let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*10);
+        let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10));
         game.particles.push(new Particle(this.pos.x, this.pos.y, '#0f0', {shape: 'ring', radius: sp.radius, life: 0.4, speed: 0, lineWidth: 4}));
         for(let p of game.players){ 
             if(p.team === this.team && p.alive && dist(this.pos, p.pos) <= sp.radius){ 
                 let currentHeal = healAmount;
-                if (this.className === 'Acolyte' && p === this) { currentHeal *= 0.7; }
+                if (p === this && sp.selfHealPenalty) { currentHeal *= sp.selfHealPenalty; }
                 let healed = applyHeal(p, currentHeal); 
                 if(this.stats && (!socket || game.isHost)) this.stats.hpHealed += healed; 
                 spawnParticles(p.pos.x, p.pos.y, 6, '#0f0'); 
@@ -671,11 +681,11 @@ export class Player{
         spawnParticles(this.pos.x, this.pos.y, 10, '#f55');
     } else if (sp.type === 'hana_q') {
         this.hanaBuffTimer = sp.duration || 5.0; this.regenBuffTimer = sp.duration || 5.0; 
-        this.regenBuffAmount = 5 + (pAP * 0.1) + sp.level * 2; spawnParticles(this.pos.x, this.pos.y, 15, '#f0f', {speed: 150});
+        this.regenBuffAmount = 5 + (pAP * 0.1) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 2); spawnParticles(this.pos.x, this.pos.y, 15, '#f0f', {speed: 150});
     } else if (sp.type === 'dash' || sp.type === 'dash_def') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
         const distToMove = sp.distance || 250;
-        const dashTime = 0.2; 
+        const dashTime = sp.dashTime || 0.2; 
         this.dashTimer = dashTime;
         this.dashVel = { x: Math.cos(angle)*(distToMove/dashTime), y: Math.sin(angle)*(distToMove/dashTime) };
         spawnParticles(this.pos.x, this.pos.y, 8, '#fff');
@@ -684,17 +694,17 @@ export class Player{
             this.dashEndExplosion = { radius: sp.radius, damage: damage, dmgType: this.dmgType, id: this.id, slowDuration: sp.slowDuration, slowMod: sp.slowMod, silenceDuration: sp.silenceDuration };
         }
     } else if (sp.type === 'shield_explode') {
-        this.shield = (sp.amount || 0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level * 20;
+        this.shield = (sp.amount || 0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 20);
         this.shieldExplodeData = { timer: sp.duration, damage: damage, radius: sp.radius, dmgType: this.dmgType };
         spawnParticles(this.pos.x, this.pos.y, 15, '#ccc', {speed: 100});
     } else if (sp.type === 'dash_heal_silence') {
-        let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*10);
+        let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10));
         let healed = applyHeal(this, healAmount); 
         if(this.stats && (!socket || game.isHost)) this.stats.hpHealed += healed; 
         
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
         const distToMove = sp.distance || 80;
-        const dashTime = 0.15; 
+        const dashTime = sp.dashTime || 0.15; 
         this.dashTimer = dashTime;
         this.dashVel = { x: Math.cos(angle)*(distToMove/dashTime), y: Math.sin(angle)*(distToMove/dashTime) };
         spawnParticles(this.pos.x, this.pos.y, 8, '#fff');
@@ -725,16 +735,16 @@ export class Player{
     } else if (sp.type === 'reaper_e') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
         const distToMove = sp.distance || 100;
-        const dashTime = 0.15; 
+        const dashTime = sp.dashTime || 0.15; 
         this.dashTimer = dashTime;
         this.dashVel = { x: Math.cos(angle)*(distToMove/dashTime), y: Math.sin(angle)*(distToMove/dashTime) };
         this.msBuffTimer = sp.duration || 1.5; this.msBuffAmount = 0.4;
-        this.shield = (sp.amount || 0) + (pAP * (sp.scaleAP||0)) + sp.level * 20;
+        this.shield = (sp.amount || 0) + (pAP * (sp.scaleAP||0)) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 20);
         this.shieldTimer = sp.duration || 1.5;
         this.spells.Q.cd = 0; // Okamžitý reset Q!
         spawnParticles(this.pos.x, this.pos.y, 15, '#800080', {speed: 120});
     } else if (sp.type === 'summon_healers') {
-        let healAmount = Math.round((sp.amount || 15) + pAP * (sp.scaleAP || 0) + sp.level * 2);
+        let healAmount = Math.round((sp.amount || 15) + pAP * (sp.scaleAP || 0) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 2));
         let pulseDmg = Math.round(5 + pAP * 0.10);
         if (!socket || game.isHost) {
             for(let i=0; i<3; i++) {
@@ -780,7 +790,7 @@ export class Player{
                     }
 
                     if (this.healTimer <= 0) {
-                        this.healTimer = 1.0;
+                        this.healTimer = sp.healInterval || 1.0;
                         if (this.targetHeroId) {
                             let targetHero = game.players.find(p => p.id === this.targetHeroId);
                             if (targetHero && dist(this.pos, targetHero.pos) < 500 && targetHero.hp < targetHero.effectiveMaxHp) { 
@@ -824,7 +834,7 @@ export class Player{
 
                     let m = new Minion(this.pos.x, this.pos.y, this.ownerTeam, 0);
                     m.maxHp = Math.round(80 + pAP * 0.30); m.hp = m.maxHp; m.attackDamage = 0; m.glyph = 'C'; m.isSummon = true; m.ownerId = this.ownerId; m.speed = 210;
-                    m.isBigChicken = true; m.healAmount = Math.round((sp.amount || 25) + pAP * (sp.scaleAP || 0) + sp.level * 4); m.healTimer = 2.0;
+                    m.isBigChicken = true; m.healAmount = Math.round((sp.amount || 25) + pAP * (sp.scaleAP || 0) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 4)); m.healTimer = 2.0;
                     m.lifeTime = 6.0;
                     m.pulseDmg = pulseDmg;
                     m.targetHeroId = this.ownerId;
@@ -845,7 +855,7 @@ export class Player{
                         } else { this.hp -= 20 * dt; this.targetHeroId = null; }
 
                         if (this.healTimer <= 0) { 
-                            this.healTimer = 1.0; 
+                            this.healTimer = sp.healInterval || 1.0; 
                             if (targetHero && dist(this.pos, targetHero.pos) < 500 && targetHero.hp < targetHero.effectiveMaxHp) { 
                                 let healed = applyHeal(targetHero, this.healAmount); 
                                 let owner = game.players.find(p => p.id === this.ownerId);
@@ -853,8 +863,8 @@ export class Player{
                                 spawnParticles(this.pos.x, this.pos.y, 6, '#0f0'); 
                             } 
                             let hit = false;
-                            for(let ep of game.players) { if(ep.team !== this.team && ep.alive && dist(this.pos, ep.pos) <= 65) { applyDamage(ep, this.pulseDmg, 'magical', this.ownerId); hit = true; } }
-                            for(let em of game.minions) { if(em.team !== this.team && !em.dead && dist(this.pos, em.pos) <= 65) { applyDamage(em, this.pulseDmg, 'magical', this.ownerId); hit = true; } }
+                            for(let ep of game.players) { if(ep.team !== this.team && ep.alive && dist(this.pos, ep.pos) <= 65) { applyDamage(ep, this.pulseDmg, 'magical', this.ownerId); if(ep.hp <= 0) handlePlayerKill(ep, this.ownerId); hit = true; } }
+                            for(let em of game.minions) { if(em.team !== this.team && !em.dead && dist(this.pos, em.pos) <= 65) { applyDamage(em, this.pulseDmg, 'magical', this.ownerId); if(em.hp <= 0) em.dead = true; hit = true; } }
                             if (hit) spawnParticles(this.pos.x, this.pos.y, 5, '#ff4e4e');
                         }
                     };
@@ -937,12 +947,12 @@ export class BotPlayer extends Player {
             let pAD = p.AD * (p.hasPowerup ? 1.2 : 1.0) * (p.boostTimer > 0 ? 1.1 : 1.0) * buffAdMult;
             let pAP = p.AP * (p.hasPowerup ? 1.2 : 1.0) * (p.boostTimer > 0 ? 1.1 : 1.0);
             
-            let aaScale = AA_SCALES[p.className] || 0.3;
+            let aaScale = CLASSES[p.className].aaScale || 0.3;
             let basicDmg = Math.round(CLASSES[p.className].baseAtk + ((p.dmgType === 'magical' ? pAP : pAD) * aaScale));
-            if (p.hanaBuffTimer > 0) basicDmg += Math.round(p.effectiveMaxHp * 0.03);
+            if (p.hanaBuffTimer > 0) basicDmg += Math.round(p.effectiveMaxHp * (p.spells.Q.bonusHpDmg || 0.03));
             
             let effAS = p.attackSpeed * buffAsMult;
-            if (p.hanaBuffTimer > 0) effAS *= 1.25;
+            if (p.hanaBuffTimer > 0) effAS *= (p.spells.Q.bonusAsMult || 1.25);
             let atkPerSec = effAS / p.attackDelay;
             
             let dps = basicDmg * atkPerSec;
@@ -957,26 +967,28 @@ export class BotPlayer extends Player {
                     if (!sp) continue;
                     
                     let cd = Math.max(1.0, sp.baseCooldown);
-                    let spellDmg = Math.round((sp.baseDamage||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*8);
+                    let spellDmg = Math.round((sp.baseDamage||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 8));
                     
                     dps += (spellDmg / cd); // Boti nyní počítají se stabilním průměrným DPS, takže nepanikaří, když dají spell na cooldown
                     
                     if (sp.type && sp.type.includes('heal')) { 
-                        let healAmt = (sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*10; 
+                        let healAmt = (sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10); 
                         hps += (healAmt / cd); 
                     }
-                    if (sp.type === 'hana_q') hps += (5 + pAP * 0.1 + sp.level*2);
+                    if (sp.type === 'hana_q') hps += (5 + pAP * 0.1 + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 2));
                     if (sp.type === 'reaper_q') dps += (spellDmg * 3) / cd;
 
                     // Započítání vyvolávačů a jejich HPS/DPS
                     if (sp.type === 'summon_healers') {
-                        let healAmt = (sp.amount || 15) + pAP * (sp.scaleAP || 0) + sp.level*2;
-                        hps += ((healAmt * 3) / 2) * (5 / cd);
-                        dps += ((5 + pAP * 0.1) * 3 / 2) * (5 / cd);
+                        let healAmt = (sp.amount || 15) + pAP * (sp.scaleAP || 0) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 2);
+                        let interval = sp.healInterval || 1.0;
+                        hps += ((healAmt * 3) / 2) * ((5 / interval) / cd);
+                        dps += ((5 + pAP * 0.1) * 3 / 2) * ((5 / interval) / cd);
                     }
                     if (sp.type === 'projectile_egg') {
-                        hps += (((sp.amount || 25) + pAP * (sp.scaleAP || 0) + sp.level*4) / 2.0) * (6 / cd);
-                        dps += (10 + pAP * 0.15) * (6 / cd);
+                        let interval = sp.healInterval || 1.0;
+                        hps += (((sp.amount || 25) + pAP * (sp.scaleAP || 0) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 4)) / 2.0) * ((6 / interval) / cd);
+                        dps += (10 + pAP * 0.15) * ((6 / interval) / cd);
                     }
                     if (sp.type === 'summon') dps += (((spellDmg * 0.4) / 1.2) * (sp.count||1)) * (8 / cd);
                     if (sp.type === 'projectile_summon') dps += (((sp.summonAd || 50) + pAD * 0.2) / 1.2) * (8 / cd);
@@ -1050,14 +1062,14 @@ export class BotPlayer extends Player {
                     let enemyPhys = 0, enemyMag = 0;
                     for (let e of game.players.filter(p => p.team !== bot.team)) { if (e.dmgType === 'physical') enemyPhys++; else enemyMag++; }
                     let pool = [];
-                    const isTank = ['Tank', 'Goliath', 'Hana'].includes(bot.className);
-                    const isFighter = ['Bruiser', 'Vanguard', 'Jirina', 'Assassin', 'Reaper'].includes(bot.className);
-                    const isMageSupport = ['Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper', 'Zephyr'].includes(bot.className);
+                    const isTank = bot.role === 'TANK';
+                    const isFighter = bot.role === 'FIGHTER' || bot.role === 'SPLITPUSHER';
+                    const isMageSupport = bot.role === 'SUPPORT' || (bot.role === 'SLAYER' && bot.dmgType === 'magical') || (bot.role === 'SPLITPUSHER' && bot.dmgType === 'magical');
                     
                     if (isTank) { pool.push('hp', 'hp'); if (enemyPhys >= enemyMag) pool.push('armor'); if (enemyMag >= enemyPhys) pool.push('mr'); } 
                     else if (isFighter) { pool.push('hp'); if (bot.dmgType === 'magical') pool.push('ap', 'ah'); else pool.push('ad', 'ah'); if (enemyPhys > enemyMag) pool.push('armor'); else if (enemyMag > enemyPhys) pool.push('mr'); } 
                     else if (isMageSupport) { pool.push('ap', 'ap', 'ah', 'ah'); if (Math.random() < 0.25) pool.push('hp'); } 
-                    else { if (bot.className === 'Marksman' || bot.className === 'Kratoma') pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr'); }
+                    else { if (bot.role === 'SLAYER' && bot.range) pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr'); }
                     let chosenId = pool[Math.floor(Math.random() * pool.length)];
                     let item = shopItems.find(it => it.id === chosenId);
                     if (item && bot.gold >= item.cost) { bot.gold -= item.cost; bot.items.push(item.id); item.apply(bot); bot.isDirty = true; }
@@ -2138,7 +2150,7 @@ export class BotPlayer extends Player {
       for (let proj of game.projectiles) {
           if (proj.ownerTeam !== this.team && !proj.dead) {
               let pdDist = dist(this.pos, proj.pos);
-              if (pdDist < 350 * this.microDodgeMod) { // Vidí letící hrozbu z větší dálky (více času na reakci)
+              if (pdDist < 250 * this.microDodgeMod) { // Sníženo vidění hrozeb z 350 na 250
                   let pLen = Math.hypot(proj.vel.x, proj.vel.y);
                   if (pLen > 0) {
                       let pDirX = proj.vel.x / pLen, pDirY = proj.vel.y / pLen;
@@ -2152,11 +2164,11 @@ export class BotPlayer extends Player {
                               
                               // HUMAN FACTOR ROZHODOVÁNÍ
                               if (this.dodgeFocusTimer <= 0) {
-                                  // 70% základní šance, že si letící střely včas všimne
-                                  if (Math.random() < 0.70 * this.microDodgeMod) {
+                                  // 35% základní šance, že si letící střely včas všimne (Sníženo z 70%)
+                                  if (Math.random() < 0.35 * this.microDodgeMod) {
                                       this.dodgeFocusTimer = 1.0; // Úspěšný postřeh! Uhýbá perfektně další 1 vteřinu
                                   } else {
-                                      this.dodgeBlindTimer = 0.4 + Math.random() * 0.4; // Zazmatkoval, na půl vteřiny ztuhne a neudělá nic
+                                      this.dodgeBlindTimer = 0.5 + Math.random() * 0.5; // Zazmatkoval, ztuhne na delší dobu
                                       break; // Neprovede se dodge
                                   }
                               }

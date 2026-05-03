@@ -7,6 +7,7 @@ import { Particle, spawnParticles, DamageNumber, EffectText } from './Effects.js
 import { Projectile, Tower, Minion, HealPickup, PowerUp } from './Entities.js';
 import { Player, BotPlayer } from './Player.js';
 import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, updateSpellLabels, updateInventory, updateRoomListUI } from './UI.js';
+import { initAudio, playSound } from './Audio.js';
 
   export const canvas = document.getElementById('gameCanvas');
   export const ctx = canvas.getContext('2d');
@@ -272,6 +273,10 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   export const keys = {};
   window.addEventListener('keydown', e=>{ if(e.target.tagName === 'INPUT') return; keys[e.key.toLowerCase()] = true; if(['w','a','s','d','tab','c','m','j','k','arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault(); });
   window.addEventListener('keyup', e=>{ if(e.target.tagName === 'INPUT') return; keys[e.key.toLowerCase()] = false; });
+  
+  // Prohlížeče vyžadují k aktivaci audia akci uživatele
+  window.addEventListener('click', () => initAudio(), { once: true });
+  window.addEventListener('keydown', () => initAudio(), { once: true });
 
   // action keys (non-repeat)
   window.addEventListener('keydown', e=>{
@@ -388,6 +393,7 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
     target.flashTimer = 0.1;
     
     if (finalDamage > 0 || actualDamage > 0) {
+        if (player && (sourceId === player.id || target.id === player.id)) playSound('hit');
         if (target === player && (!socket || game.isHost || isNetwork)) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + finalDamage / 450);
         
         if (!socket || game.isHost || isNetwork) {
@@ -436,12 +442,36 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   }
 
   export function handlePlayerKill(victim, killerId) {
+      if (!victim || !victim.alive) return; // Zamezení vícenásobného započítání smrti z vícero zdrojů poškození
+      if (player && (killerId === player.id || victim.id === player.id)) playSound('kill');
       victim.hp = 0; if (victim.die) victim.die(); else victim.dead = true;
       
+      let killer = game.players.find(p => p.id === killerId);
+
+      // Pokud zabil minion, věž, laser nebo spojenec, zkusíme najít asistenci hrdiny
+      if (!killer || killer.team === victim.team) {
+          let lastHeroAttackerId = null;
+          let lastTime = 0;
+          let now = performance.now();
+          if (victim.recentAttackers) {
+              victim.recentAttackers.forEach((data, attackerId) => {
+                  let t = data.time || data;
+                  let p = game.players.find(x => x.id === attackerId);
+                  if (p && p.team !== victim.team && (now - t) < 10000 && t > lastTime) {
+                      lastTime = t;
+                      lastHeroAttackerId = attackerId;
+                  }
+              });
+          }
+          if (lastHeroAttackerId) {
+              killerId = lastHeroAttackerId;
+              killer = game.players.find(p => p.id === killerId);
+          }
+      }
+
       // Oznámení všem klientům, že hráč zemřel (Pouze Host smí odeslat tento event)
       if (socket && game.isHost) socket.emit('host_event', { type: 'player_died', id: victim.id, killerId: killerId });
 
-      let killer = game.players.find(p => p.id === killerId);
       let killerName = killer ? killer.className : (killerId === 'laser' ? 'Laser' : (killerId === 'tower' ? 'Tower' : 'Minion'));
       let killerTeam = killer ? killer.team : -1;
       
@@ -508,19 +538,15 @@ import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, upda
   
   // DRAFTING LOGIKA: Inteligentní výběr postav pro boty
   export function getSmartBotClass(myTeamPicked, enemyTeamPicked) {
-      const roles = {
-          'Zephyr': 'SPLITPUSHER', 'Reaper': 'SPLITPUSHER',
-          'Assassin': 'SLAYER', 'Marksman': 'SLAYER', 'Mage': 'SLAYER', 'Kratoma': 'SLAYER', 'Summoner': 'SLAYER',
-          'Tank': 'TANK', 'Goliath': 'TANK', 'Hana': 'TANK',
-          'Healer': 'SUPPORT', 'Acolyte': 'SUPPORT', 'Keeper': 'SUPPORT',
-          'Bruiser': 'FIGHTER', 'Vanguard': 'FIGHTER', 'Jirina': 'FIGHTER'
-      };
       let roleCounts = { 'SPLITPUSHER': 0, 'SLAYER': 0, 'TANK': 0, 'SUPPORT': 0, 'FIGHTER': 0 };
-      for (let c of myTeamPicked) { if(roles[c]) roleCounts[roles[c]]++; }
+      for (let c of myTeamPicked) { 
+          let r = CLASSES[c] ? CLASSES[c].role : null;
+          if(r && roleCounts[r] !== undefined) roleCounts[r]++; 
+      }
 
       let candidates = Object.keys(CLASSES).map(c => {
           let weight = 100;
-          let role = roles[c];
+          let role = CLASSES[c].role || 'FIGHTER';
 
           if (role === 'SUPPORT') {
               if (roleCounts['SUPPORT'] === 0) weight *= 3.0; // Extrémní priorita, pokud chybí

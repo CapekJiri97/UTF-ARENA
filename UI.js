@@ -1,6 +1,6 @@
 import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
 import { shopItems } from './items.js';
-import { CLASSES, SUMMONER_SPELLS, AA_SCALES } from './classes.js';
+import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
 import { canvas, ctx, keys, player, socket, startGame, buyItem, drawHealthBar } from './main.js';
@@ -146,7 +146,7 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE") {
       if (!p.ready) allReady = false;
   });
 
-  const myTeamTakenByOthers = myTeam === 0 ? blueTaken : redTaken;
+  const myTeamTakenByOthers = myTeam === 0 ? blueTaken : (myTeam === 1 ? redTaken : new Set());
   
   const allClassBtns = document.querySelectorAll('#classBtns button');
   allClassBtns.forEach(btn => {
@@ -666,7 +666,7 @@ export function draw(){
         ctx.fillText(`A.Spd: ${String(asVal).padEnd(5, ' ')} | Speed: ${msVal}`, leftM, startY); startY += 18;
         ctx.fillText(`Haste: ${String(ahVal).padEnd(5, ' ')} |`, leftM, startY); startY += 25;
         
-        let baScale = AA_SCALES[player.className] || 0.3;
+        let baScale = CLASSES[player.className].aaScale || 0.3;
         let baDmg = Math.round(CLASSES[player.className].baseAtk + ((player.dmgType === 'magical' ? player.AP : player.AD) * baScale)); 
         ctx.fillStyle = '#fff'; ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, leftM, startY); startY += 35;
         
@@ -690,55 +690,89 @@ export function draw(){
             let pAP = player.AP * (player.hasPowerup ? 1.2 : 1.0) * (player.boostTimer > 0 ? 1.1 : 1.0);
             let bDmg = sp.baseDamage || 0; let amt = sp.amount || 0; let scAD = sp.scaleAD || 0; let scAP = sp.scaleAP || 0; let lvl = sp.level || 1;
             
+            let lines = [];
+
             if (sp.type === 'heal_self' || sp.type === 'heal_aoe') {
-                let total = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * 10);
-                return `    Heal: Base ${amt} + (${Math.round(scAD*100)}% AD) + (${Math.round(scAP*100)}% AP) = ${total} HP`;
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 10;
+                let total = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * scLvl);
+                lines.push(`    Heal: Base ${amt} (+${scLvl}/Lvl) + (${Math.round(scAD*100)}% AD) + (${Math.round(scAP*100)}% AP) = ${total} HP`);
             } else if (sp.type === 'shield_explode') {
-                let shield = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * 20);
-                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
-                return `    Shield: ${shield} | Explode Dmg: ${dmg}`;
+                let scLvlSh = sp.scaleLevel !== undefined ? sp.scaleLevel : 20;
+                let scLvlDmg = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
+                let shield = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * scLvlSh);
+                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvlDmg);
+                lines.push(`    Shield: Base ${amt} (+${scLvlSh}/Lvl) + scaling = ${shield}`);
+                lines.push(`    Explode Dmg: Base ${bDmg} (+${scLvlDmg}/Lvl) + scaling = ${dmg}`);
             } else if (sp.type === 'buff_ad_as') {
-                let sh = Math.round((sp.shieldAmount||0) + (pAD * 0.3) + lvl * 15);
-                return `    Buff: +${Math.round((sp.amount||0)*100)}% AD/AS | Shield: ${sh}`;
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 15;
+                let sh = Math.round((sp.shieldAmount||0) + (pAD * 0.3) + lvl * scLvl);
+                lines.push(`    Buff: +${Math.round((sp.amount||0)*100)}% AD/AS (Duration: ${sp.duration}s)`);
+                lines.push(`    Shield: Base ${sp.shieldAmount||0} (+${scLvl}/Lvl) + (30% AD) = ${sh}`);
             } else if (sp.type === 'buff_ms') {
                 let spd = Math.round(((sp.amount||0) + (pAP * (sp.scaleAP||0))) * 100);
-                return `    Buff: +${spd}% Speed for ${sp.duration}s`;
+                lines.push(`    Buff: +${spd}% Speed for ${sp.duration}s`);
             } else if (sp.type === 'summon') {
-                let totalDmg = bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8;
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
+                let totalDmg = bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvl;
                 let mHp = Math.round(totalDmg * 1.5);
                 let mAd = Math.round(totalDmg * 0.4);
-                return `    Summons: ${sp.count||1}x Ghoul (HP: ${mHp}, AD: ${mAd})`;
+                lines.push(`    Summons: ${sp.count||1}x Ghoul`);
+                lines.push(`    Ghoul Stats: HP ${mHp} | AD ${mAd} (Scales with spell Dmg)`);
             } else if (sp.type === 'projectile_summon') {
-                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
+                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvl);
                 let sumHp = Math.round((sp.summonHp || 120) + pAD * 0.5);
                 let sumAd = Math.round((sp.summonAd || 50) + pAD * 0.2);
-                return `    Dmg: ${dmg} | Summons 1x (HP: ${sumHp}, AD: ${sumAd})`;
+                lines.push(`    Dmg: Base ${bDmg} (+${scLvl}/Lvl) + scaling = ${dmg}`);
+                lines.push(`    Summons 1x Pet (HP: ${sumHp}, AD: ${sumAd} scaling with AD)`);
             } else if (sp.type === 'dash_heal_silence') {
-                let heal = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * 10);
-                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
-                return `    Dmg: ${dmg} | Heal: ${heal} | Silence: ${sp.silenceDuration}s`;
+                let scLvlH = sp.scaleLevel !== undefined ? sp.scaleLevel : 10;
+                let scLvlD = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
+                let heal = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * scLvlH);
+                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvlD);
+                lines.push(`    Dmg: Base ${bDmg} (+${scLvlD}/Lvl) + scaling = ${dmg}`);
+                lines.push(`    Heal: Base ${amt} (+${scLvlH}/Lvl) + scaling = ${heal}`);
+                lines.push(`    Silence: ${sp.silenceDuration}s`);
             } else if (sp.type === 'hana_q') {
-                let regen = Math.round(5 + (pAP * 0.1) + lvl * 2);
-                return `    Regen: ${regen} HP/s | Duration: ${sp.duration}s`;
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 2;
+                let regen = Math.round(5 + (pAP * 0.1) + lvl * scLvl);
+                lines.push(`    Regen: Base 5 (+${scLvl}/Lvl) + (10% AP) = ${regen} HP/s`);
+                lines.push(`    Duration: ${sp.duration}s | +25% Attack Speed`);
+                lines.push(`    Basic Attacks deal +3% Max HP bonus damage.`);
             } else if (sp.type === 'dash_def') {
-                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
-                return `    Dmg: ${dmg} | Def Buff 4s | Slow: ${sp.slowDuration}s`;
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
+                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvl);
+                lines.push(`    Dmg: Base ${bDmg} (+${scLvl}/Lvl) + scaling = ${dmg}`);
+                lines.push(`    Def Buff: +50 Armor/MR for 4s | Slows enemies: ${sp.slowDuration}s`);
             } else if (sp.type === 'aoe_knockback') {
-                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
-                return `    Dmg: ${dmg} | Knockback enemies`;
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
+                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvl);
+                lines.push(`    Dmg: Base ${bDmg} (+${scLvl}/Lvl) + scaling = ${dmg}`);
+                lines.push(`    Knockback enemies away.`);
             } else {
-                let total = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * 8);
-                return `    Dmg: Base ${bDmg} + (${Math.round(scAD*100)}% AD) + (${Math.round(scAP*100)}% AP) = ${total}`;
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
+                let total = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvl);
+                lines.push(`    Dmg: Base ${bDmg} (+${scLvl}/Lvl) + (${Math.round(scAD*100)}% AD) + (${Math.round(scAP*100)}% AP) = ${total}`);
+                if (sp.slowDuration) lines.push(`    Slows target for ${sp.slowDuration}s`);
+                if (sp.stunDuration) lines.push(`    Stuns target for ${sp.stunDuration}s`);
+                if (sp.silenceDuration) lines.push(`    Silences target for ${sp.silenceDuration}s`);
             }
+            return lines;
         };
 
         ctx.fillStyle = '#fff'; ctx.fillText(`[Q] Level ${q.level} - Cooldown: ${player.computeSpellCooldown('Q').toFixed(1)}s`, leftM, startY); startY += 18;
         ctx.fillStyle = '#aaa'; startY = wrapText(`    ${q.desc}`, leftM, startY, panelW - 40, 16) + 16;
-        ctx.fillStyle = '#fff'; ctx.fillText(getSpellStatString(q, player), leftM, startY); startY += 28;
+        ctx.fillStyle = '#fff'; 
+        let linesQ = getSpellStatString(q, player);
+        for(let l of linesQ) { ctx.fillText(l, leftM, startY); startY += 18; }
+        startY += 10;
         
         ctx.fillText(`[E] Level ${e.level} - Cooldown: ${player.computeSpellCooldown('E').toFixed(1)}s`, leftM, startY); startY += 18;
         ctx.fillStyle = '#aaa'; startY = wrapText(`    ${e.desc}`, leftM, startY, panelW - 40, 16) + 16;
-        ctx.fillStyle = '#fff'; ctx.fillText(getSpellStatString(e, player), leftM, startY); startY += 28;
+        ctx.fillStyle = '#fff'; 
+        let linesE = getSpellStatString(e, player);
+        for(let l of linesE) { ctx.fillText(l, leftM, startY); startY += 18; }
+        startY += 10;
 
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`SUMMONER SPELL`, leftM, startY); startY += 20;
         let sumSpell = SUMMONER_SPELLS[player.summonerSpell];
@@ -1017,14 +1051,13 @@ export function buildMenu() {
   btnSpec.onclick = (e) => { selectedTeam = -1; isSpectator = true; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#aaa'; selectionDivs.forEach(d=>d.style.opacity=0.3); if(!socket){ startBtn.disabled = false; startBtn.style.opacity = 1; } notifyServer(); };
 
   const cBtns = document.getElementById('classBtns');
-  const catGroups = { 
-      'FIGHTER': ['Bruiser', 'Vanguard', 'Jirina'], 
-      'TANK': ['Tank', 'Goliath', 'Hana'], 
-      'ASSASSIN': ['Assassin', 'Zephyr', 'Reaper'],
-      'RANGED': ['Marksman', 'Kratoma'],
-      'MAGE': ['Mage', 'Summoner'], 
-      'SUPPORT': ['Healer', 'Acolyte', 'Keeper'] 
-  };
+  const catGroups = {};
+  // Dynamické načtení hrdinů přímo z classes.js podle jejich role
+  for (let c in CLASSES) {
+      let role = CLASSES[c].role || 'FIGHTER';
+      if (!catGroups[role]) catGroups[role] = [];
+      catGroups[role].push(c);
+  }
   const allBtns = [];
   for(let cat in catGroups) {
       let col = document.createElement('div'); col.style.display = 'flex'; col.style.flexDirection = 'column'; col.style.gap = '5px'; col.style.flexGrow = '1';

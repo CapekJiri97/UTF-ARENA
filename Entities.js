@@ -1,8 +1,9 @@
 import { dist, isPointInPoly, distToPoly } from './Utils.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { mapBoundary, spawnPoints } from './MapConfig.js';
-import { spawnParticles } from './Effects.js';
+import { spawnParticles, EffectText } from './Effects.js';
 import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, grantRewards } from './main.js';
+import { playSound } from './Audio.js';
 
 export class Projectile{
   constructor(x,y,vx,vy,ownerId,ownerTeam,opts={}){ this.pos={x,y}; this.vel={x:vx,y:vy}; 
@@ -81,9 +82,12 @@ export class Tower{
       if (this.owner === 1 && this.control > 0) { this.owner = -1; }
       if (this.control >= 100 && this.owner !== 0){ 
           this.owner = 0; this.control = 100; game.shake = 0.3; 
+          playSound('capture');
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 0 && dist(p.pos, this.pos) <= this.captureRadius);
-                  for (let p of caps) grantRewards(p, 50, 75);
+              let gShare = Math.round(150 / Math.max(1, caps.length));
+              let eShare = Math.round(200 / Math.max(1, caps.length));
+              for (let p of caps) grantRewards(p, gShare, eShare);
               let kName = caps.length > 0 ? caps[0].className : 'Blue Team';
               let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 0, victimTeam: -1, isCapture: true };
               if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
@@ -91,9 +95,12 @@ export class Tower{
       } 
       if (this.control <= -100 && this.owner !== 1){ 
           this.owner = 1; this.control = -100; game.shake = 0.3; 
+          playSound('capture');
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 1 && dist(p.pos, this.pos) <= this.captureRadius);
-                  for (let p of caps) grantRewards(p, 50, 75);
+              let gShare = Math.round(150 / Math.max(1, caps.length));
+              let eShare = Math.round(200 / Math.max(1, caps.length));
+              for (let p of caps) grantRewards(p, gShare, eShare);
               let kName = caps.length > 0 ? caps[0].className : 'Red Team';
               let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 1, victimTeam: -1, isCapture: true };
               if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
@@ -145,7 +152,7 @@ export class Minion{
     let scale = 1 + Math.max(0, avgLevel - 1) * 0.08; // +15% stats za každý průměrný level hrdinů
     
     this.maxHp = Math.round(250 * scale); this.hp = this.maxHp; 
-    this.dead = false; this.targetIndex = targetIndex; this.atTarget = false; this.linger = 3.5; this.attackCooldown = 0; this.attackDamage = Math.round(25 * scale); this.flashTimer = 0; 
+    this.dead = false; this.targetIndex = targetIndex; this.atTarget = false; this.linger = 3.5; this.attackCooldown = 0; this.attackDamage = Math.round(14 * scale); this.flashTimer = 0; 
     this.thinkTimer = Math.random() * 0.5; this.state = 'PUSH'; this.currentTarget = null;
     this.knockbackTimer = 0; this.knockbackVel = {x:0, y:0};
     this.stunTimer = 0; this.silenceTimer = 0;
@@ -201,7 +208,7 @@ export class Minion{
         const d = dist(this.pos, this.currentTarget.pos); // Klient si může spočítat vzdálenost
         if (this.attackCooldown <= 0 && d <= 55) {
             if (!socket || game.isHost) { applyDamage(this.currentTarget, this.attackDamage, 'physical', this.id); this.attackCooldown = 1.2; } // Pouze Host aplikuje damage
-            if (this.currentTarget.hp <= 0 && (!socket || game.isHost)) { if (this.currentTarget.die) this.currentTarget.die(); else this.currentTarget.dead = true; this.currentTarget = null; this.state = 'PUSH'; } // Pouze Host rozhoduje o smrti
+            if (this.currentTarget.hp <= 0 && (!socket || game.isHost)) { if (this.currentTarget.className) handlePlayerKill(this.currentTarget, this.id); else { if (this.currentTarget.die) this.currentTarget.die(); else this.currentTarget.dead = true; } this.currentTarget = null; this.state = 'PUSH'; } // Pouze Host rozhoduje o smrti
         }
         if (this.currentTarget && d > 45) { dx = this.currentTarget.pos.x - this.pos.x; dy = this.currentTarget.pos.y - this.pos.y; }
     } else {

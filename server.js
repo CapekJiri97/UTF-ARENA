@@ -61,11 +61,8 @@ io.on('connection', (socket) => {
       leaveCurrentRoom();
       currentRoom = roomName;
       socket.join(currentRoom);
-      const team0Players = Object.values(rooms[currentRoom].players).filter(p => p.team === 0);
-      const takenClasses = team0Players.map(p => p.className);
-      const allClasses = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Zephyr', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper', 'Reaper'];
-      const availableClass = allClasses.find(cls => !takenClasses.includes(cls)) || 'Bruiser';
-      rooms[currentRoom].players[socket.id] = { id: socket.id, className: availableClass, summonerSpell: 'Heal', team: 0, x: 0, y: 0, ready: false };
+      // Univerzální fallback, na Klientovi se to případně automaticky přepne, pokud je Bruiser zabraný
+      rooms[currentRoom].players[socket.id] = { id: socket.id, className: 'Bruiser', summonerSpell: 'Heal', team: 0, x: 0, y: 0, ready: false };
       io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: rooms[currentRoom].players });
   }
 
@@ -93,11 +90,9 @@ io.on('connection', (socket) => {
     // Případ 1: Hráč mění tým. Musíme zkontrolovat, jestli jeho postava není v novém týmu už zabraná.
     if (newTeam !== player.team) {
         if (isClassTakenOnNewTeam(player.className)) {
-            // Postava je zabraná, najdeme první volnou.
             const allClassNames = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Zephyr', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Healer', 'Acolyte', 'Keeper', 'Reaper'];
-            const takenClassNames = teamPlayers.map(p => p.className);
-            const availableClass = allClassNames.find(cls => !takenClassNames.includes(cls));
-            newClass = availableClass || 'Bruiser'; // Bezpečný statický fallback, zabrání vložení undefined
+            const availableClass = allClassNames.find(cls => !isClassTakenOnNewTeam(cls));
+            newClass = availableClass || 'Bruiser'; // Najde první volnou postavu. Pokud by náhodou bylo vše plné, až pak použije fallback
         } else {
             // Postava je volná, může si ji nechat.
             newClass = player.className;
