@@ -146,7 +146,7 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE") {
       if (!p.ready) allReady = false;
   });
 
-  const myTeamTakenByOthers = myTeam === 0 ? blueTaken : (myTeam === 1 ? redTaken : new Set());
+  const myTeamTakenByOthers = myTeam === 0 ? blueTaken : redTaken;
   
   const allClassBtns = document.querySelectorAll('#classBtns button');
   allClassBtns.forEach(btn => {
@@ -627,12 +627,12 @@ export function draw(){
     if (keys['c'] && player) {
         ctx.save();
         let isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        // Pokud je obrazovka menší než 650px na výšku, okno se oddálí (zmenší se scale), aby se vešlo
-        let uiScale = isMobile ? Math.min(1, ch / 650) : 1; 
+        // Zmenšíme měřítko, pokud je obrazovka na výšku menší než 850px (pro PC i mobily), aby se detailní texty vždy vešly
+        let uiScale = Math.min(1, ch / 850); 
         ctx.scale(uiScale, uiScale);
         let invScale = 1 / uiScale;
 
-        let panelW = Math.max(400, (cw * 0.35) * invScale); 
+        let panelW = Math.max(480, (cw * 0.38) * invScale); 
         let panelH = ch * invScale;
         
         ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, panelW, panelH);
@@ -667,8 +667,8 @@ export function draw(){
         ctx.fillText(`Haste: ${String(ahVal).padEnd(5, ' ')} |`, leftM, startY); startY += 25;
         
         let baScale = CLASSES[player.className].aaScale || 0.3;
-        let baDmg = Math.round(CLASSES[player.className].baseAtk + ((player.dmgType === 'magical' ? player.AP : player.AD) * baScale)); 
-        ctx.fillStyle = '#fff'; ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, leftM, startY); startY += 35;
+        let baDmg = Math.round(CLASSES[player.className].baseAtk + ((player.dmgType === 'magical' ? apVal : adVal) * baScale)); 
+        ctx.fillStyle = '#fff'; ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, leftM, startY); startY += 25;
         
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`SPELLS`, leftM, startY); startY += 20;
         const q = player.spells.Q, e = player.spells.E;
@@ -692,92 +692,103 @@ export function draw(){
             
             let lines = [];
 
+            const buildBreakdown = (name, baseVal, sLvl, sAD, sAP) => {
+                let vLvl = lvl * sLvl; let vAD = Math.round(pAD * sAD); let vAP = Math.round(pAP * sAP);
+                let total = baseVal + vLvl + vAD + vAP;
+                let parts = [`Base:${baseVal}`, `Lvl(+${sLvl}):+${vLvl}`];
+                if (sAD > 0) parts.push(`${Math.round(sAD*100)}%AD:+${vAD}`);
+                if (sAP > 0) parts.push(`${Math.round(sAP*100)}%AP:+${vAP}`);
+                return [
+                    { t: `    ${name}: ${total}`, c: '#fff' },
+                    { t: `     ↳ ` + parts.join(' | '), c: '#aaa' }
+                ];
+            };
+
             if (sp.type === 'heal_self' || sp.type === 'heal_aoe') {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 10;
-                let total = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * scLvl);
-                lines.push(`    Heal: Base ${amt} (+${scLvl}/Lvl) + (${Math.round(scAD*100)}% AD) + (${Math.round(scAP*100)}% AP) = ${total} HP`);
+                lines.push(...buildBreakdown('Heal', amt, scLvl, scAD, scAP));
             } else if (sp.type === 'shield_explode') {
                 let scLvlSh = sp.scaleLevel !== undefined ? sp.scaleLevel : 20;
                 let scLvlDmg = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
-                let shield = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * scLvlSh);
-                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvlDmg);
-                lines.push(`    Shield: Base ${amt} (+${scLvlSh}/Lvl) + scaling = ${shield}`);
-                lines.push(`    Explode Dmg: Base ${bDmg} (+${scLvlDmg}/Lvl) + scaling = ${dmg}`);
+                lines.push(...buildBreakdown('Shield', amt, scLvlSh, scAD, scAP));
+                lines.push(...buildBreakdown('Explode Dmg', bDmg, scLvlDmg, scAD, scAP));
             } else if (sp.type === 'buff_ad_as') {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 15;
-                let sh = Math.round((sp.shieldAmount||0) + (pAD * 0.3) + lvl * scLvl);
-                lines.push(`    Buff: +${Math.round((sp.amount||0)*100)}% AD/AS (Duration: ${sp.duration}s)`);
-                lines.push(`    Shield: Base ${sp.shieldAmount||0} (+${scLvl}/Lvl) + (30% AD) = ${sh}`);
+                lines.push({ t: `    Buff: +${Math.round((sp.amount||0)*100)}% AD/AS (Duration: ${sp.duration}s)`, c: '#fff' });
+                lines.push(...buildBreakdown('Shield', sp.shieldAmount||0, scLvl, 0.3, 0));
             } else if (sp.type === 'buff_ms') {
                 let spd = Math.round(((sp.amount||0) + (pAP * (sp.scaleAP||0))) * 100);
-                lines.push(`    Buff: +${spd}% Speed for ${sp.duration}s`);
+                lines.push({ t: `    Buff: +${spd}% Speed for ${sp.duration}s`, c: '#fff' });
+                if(sp.scaleAP > 0) lines.push({ t: `     ↳ Scales with AP (+${Math.round(sp.scaleAP*10000)}% per 100 AP)`, c: '#aaa' });
             } else if (sp.type === 'summon') {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
+                lines.push(...buildBreakdown('Summon Power', bDmg, scLvl, scAD, scAP));
                 let totalDmg = bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvl;
-                let mHp = Math.round(totalDmg * 1.5);
-                let mAd = Math.round(totalDmg * 0.4);
-                lines.push(`    Summons: ${sp.count||1}x Ghoul`);
-                lines.push(`    Ghoul Stats: HP ${mHp} | AD ${mAd} (Scales with spell Dmg)`);
+                lines.push({ t: `    Summons: ${sp.count||1}x Pet (HP: ${Math.round(totalDmg*1.5)} | AD: ${Math.round(totalDmg*0.4)})`, c: '#fff' });
             } else if (sp.type === 'projectile_summon') {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
-                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvl);
+                lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
                 let sumHp = Math.round((sp.summonHp || 120) + pAD * 0.5);
                 let sumAd = Math.round((sp.summonAd || 50) + pAD * 0.2);
-                lines.push(`    Dmg: Base ${bDmg} (+${scLvl}/Lvl) + scaling = ${dmg}`);
-                lines.push(`    Summons 1x Pet (HP: ${sumHp}, AD: ${sumAd} scaling with AD)`);
+                lines.push({ t: `    Summons 1x Pet (HP: ${sumHp} | AD: ${sumAd})`, c: '#fff' });
+                lines.push({ t: `     ↳ Pet scales with AD (HP: 50% AD | AD: 20% AD)`, c: '#aaa' });
             } else if (sp.type === 'dash_heal_silence') {
                 let scLvlH = sp.scaleLevel !== undefined ? sp.scaleLevel : 10;
                 let scLvlD = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
-                let heal = Math.round(amt + (pAP * scAP) + (pAD * scAD) + lvl * scLvlH);
-                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvlD);
-                lines.push(`    Dmg: Base ${bDmg} (+${scLvlD}/Lvl) + scaling = ${dmg}`);
-                lines.push(`    Heal: Base ${amt} (+${scLvlH}/Lvl) + scaling = ${heal}`);
-                lines.push(`    Silence: ${sp.silenceDuration}s`);
+                lines.push(...buildBreakdown('Damage', bDmg, scLvlD, scAD, scAP));
+                lines.push(...buildBreakdown('Heal', amt, scLvlH, scAD, scAP));
+                lines.push({ t: `    Silence: ${sp.silenceDuration}s`, c: '#ffcc00' });
             } else if (sp.type === 'hana_q') {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 2;
-                let regen = Math.round(5 + (pAP * 0.1) + lvl * scLvl);
-                lines.push(`    Regen: Base 5 (+${scLvl}/Lvl) + (10% AP) = ${regen} HP/s`);
-                lines.push(`    Duration: ${sp.duration}s | +25% Attack Speed`);
-                lines.push(`    Basic Attacks deal +3% Max HP bonus damage.`);
+                lines.push(...buildBreakdown('HP Regen/s', 5, scLvl, 0, 0.1));
+                lines.push({ t: `    Duration: ${sp.duration}s | +${Math.round(((sp.bonusAsMult||1.25) - 1)*100)}% Attack Speed`, c: '#fff' });
+                lines.push({ t: `    Attacks deal +${Math.round((sp.bonusHpDmg||0.03)*100)}% Max HP bonus damage.`, c: '#aaa' });
             } else if (sp.type === 'dash_def') {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
-                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvl);
-                lines.push(`    Dmg: Base ${bDmg} (+${scLvl}/Lvl) + scaling = ${dmg}`);
-                lines.push(`    Def Buff: +50 Armor/MR for 4s | Slows enemies: ${sp.slowDuration}s`);
+                lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
+                lines.push({ t: `    Def Buff: +50 Armor/MR for 4s`, c: '#0f0' });
+                if (sp.slowDuration) lines.push({ t: `    Slows enemies by ${Math.round((1-(sp.slowMod||0.6))*100)}% for ${sp.slowDuration}s`, c: '#ffcc00' });
             } else if (sp.type === 'aoe_knockback') {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
-                let dmg = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvl);
-                lines.push(`    Dmg: Base ${bDmg} (+${scLvl}/Lvl) + scaling = ${dmg}`);
-                lines.push(`    Knockback enemies away.`);
+                lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
+                lines.push({ t: `    Knockback enemies away.`, c: '#ffcc00' });
+            } else if (sp.type === 'summon_healers') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 2;
+                lines.push(...buildBreakdown('Heal per tick', amt || 15, scLvl, scAD, scAP));
+                lines.push({ t: `    Heal Interval: Every ${sp.healInterval||1.0}s`, c: '#aaa' });
+                lines.push({ t: `    Pulse Dmg: ${Math.round(5 + pAP*0.1)} (+10% AP)`, c: '#aaa' });
+            } else if (sp.type === 'projectile_egg') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 4;
+                lines.push(...buildBreakdown('Impact Damage', bDmg, 8, scAD, scAP));
+                lines.push(...buildBreakdown('Chicken Heal', amt || 25, scLvl, 0, scAP));
+                lines.push({ t: `    Heal Interval: Every ${sp.healInterval||1.0}s`, c: '#aaa' });
+                lines.push({ t: `    Pulse Dmg: ${Math.round(10 + pAP*0.15)} (+15% AP)`, c: '#aaa' });
             } else {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
-                let total = Math.round(bDmg + (pAP * scAP) + (pAD * scAD) + lvl * scLvl);
-                lines.push(`    Dmg: Base ${bDmg} (+${scLvl}/Lvl) + (${Math.round(scAD*100)}% AD) + (${Math.round(scAP*100)}% AP) = ${total}`);
-                if (sp.slowDuration) lines.push(`    Slows target for ${sp.slowDuration}s`);
-                if (sp.stunDuration) lines.push(`    Stuns target for ${sp.stunDuration}s`);
-                if (sp.silenceDuration) lines.push(`    Silences target for ${sp.silenceDuration}s`);
+                lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
+                if (sp.slowDuration) lines.push({ t: `    Slow: ${Math.round((1-(sp.slowMod||0.6))*100)}% for ${sp.slowDuration}s`, c: '#ffcc00' });
+                if (sp.stunDuration) lines.push({ t: `    Stun: ${sp.stunDuration}s`, c: '#ffcc00' });
+                if (sp.silenceDuration) lines.push({ t: `    Silence: ${sp.silenceDuration}s`, c: '#ffcc00' });
             }
             return lines;
         };
 
-        ctx.fillStyle = '#fff'; ctx.fillText(`[Q] Level ${q.level} - Cooldown: ${player.computeSpellCooldown('Q').toFixed(1)}s`, leftM, startY); startY += 18;
-        ctx.fillStyle = '#aaa'; startY = wrapText(`    ${q.desc}`, leftM, startY, panelW - 40, 16) + 16;
-        ctx.fillStyle = '#fff'; 
+        ctx.fillStyle = '#fff'; ctx.fillText(`[Q] Lvl ${q.level} | CD: ${player.computeSpellCooldown('Q').toFixed(1)}s (-5%/Lvl) | Cast: ${q.castTime || 0}s`, leftM, startY); startY += 16;
+        ctx.fillStyle = '#ddd'; startY = wrapText(`    "${q.desc}"`, leftM, startY, panelW - 40, 14) + 8;
         let linesQ = getSpellStatString(q, player);
-        for(let l of linesQ) { ctx.fillText(l, leftM, startY); startY += 18; }
-        startY += 10;
+        for(let l of linesQ) { ctx.fillStyle = l.c; ctx.fillText(l.t, leftM, startY); startY += 15; }
+        startY += 8;
         
-        ctx.fillText(`[E] Level ${e.level} - Cooldown: ${player.computeSpellCooldown('E').toFixed(1)}s`, leftM, startY); startY += 18;
-        ctx.fillStyle = '#aaa'; startY = wrapText(`    ${e.desc}`, leftM, startY, panelW - 40, 16) + 16;
-        ctx.fillStyle = '#fff'; 
+        ctx.fillStyle = '#fff'; ctx.fillText(`[E] Lvl ${e.level} | CD: ${player.computeSpellCooldown('E').toFixed(1)}s (-5%/Lvl) | Cast: ${e.castTime || 0}s`, leftM, startY); startY += 16;
+        ctx.fillStyle = '#ddd'; startY = wrapText(`    "${e.desc}"`, leftM, startY, panelW - 40, 14) + 8;
         let linesE = getSpellStatString(e, player);
-        for(let l of linesE) { ctx.fillText(l, leftM, startY); startY += 18; }
-        startY += 10;
+        for(let l of linesE) { ctx.fillStyle = l.c; ctx.fillText(l.t, leftM, startY); startY += 15; }
+        startY += 8;
 
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`SUMMONER SPELL`, leftM, startY); startY += 20;
         let sumSpell = SUMMONER_SPELLS[player.summonerSpell];
-        ctx.fillStyle = '#fff'; ctx.fillText(`[F / L] ${player.summonerSpell} - Cooldown: ${sumSpell.cd}s`, leftM, startY); startY += 18;
-        ctx.fillStyle = '#aaa'; startY = wrapText(`    ${sumSpell.desc}`, leftM, startY, panelW - 40, 16) + 16;
+        ctx.fillStyle = '#fff'; ctx.fillText(`[F / L] ${player.summonerSpell} - Cooldown: ${sumSpell.cd}s`, leftM, startY); startY += 16;
+        ctx.fillStyle = '#ddd'; startY = wrapText(`    "${sumSpell.desc}"`, leftM, startY, panelW - 40, 14) + 8;
 
         ctx.restore();
     }
@@ -1051,13 +1062,14 @@ export function buildMenu() {
   btnSpec.onclick = (e) => { selectedTeam = -1; isSpectator = true; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#aaa'; selectionDivs.forEach(d=>d.style.opacity=0.3); if(!socket){ startBtn.disabled = false; startBtn.style.opacity = 1; } notifyServer(); };
 
   const cBtns = document.getElementById('classBtns');
-  const catGroups = {};
-  // Dynamické načtení hrdinů přímo z classes.js podle jejich role
-  for (let c in CLASSES) {
-      let role = CLASSES[c].role || 'FIGHTER';
-      if (!catGroups[role]) catGroups[role] = [];
-      catGroups[role].push(c);
-  }
+  const catGroups = { 
+      'FIGHTER': ['Bruiser', 'Vanguard', 'Jirina'], 
+      'TANK': ['Tank', 'Goliath', 'Hana'], 
+      'ASSASSIN': ['Assassin', 'Zephyr', 'Reaper'],
+      'RANGED': ['Marksman', 'Kratoma'],
+      'MAGE': ['Mage', 'Summoner'], 
+      'SUPPORT': ['Healer', 'Acolyte', 'Keeper'] 
+  };
   const allBtns = [];
   for(let cat in catGroups) {
       let col = document.createElement('div'); col.style.display = 'flex'; col.style.flexDirection = 'column'; col.style.gap = '5px'; col.style.flexGrow = '1';

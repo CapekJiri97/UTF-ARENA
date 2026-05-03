@@ -82,7 +82,7 @@ export class Tower{
       if (this.owner === 1 && this.control > 0) { this.owner = -1; }
       if (this.control >= 100 && this.owner !== 0){ 
           this.owner = 0; this.control = 100; game.shake = 0.3; 
-          playSound('capture');
+          playSound('capture', this.pos);
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 0 && dist(p.pos, this.pos) <= this.captureRadius);
               let gShare = Math.round(150 / Math.max(1, caps.length));
@@ -95,7 +95,7 @@ export class Tower{
       } 
       if (this.control <= -100 && this.owner !== 1){ 
           this.owner = 1; this.control = -100; game.shake = 0.3; 
-          playSound('capture');
+          playSound('capture', this.pos);
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 1 && dist(p.pos, this.pos) <= this.captureRadius);
               let gShare = Math.round(150 / Math.max(1, caps.length));

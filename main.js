@@ -393,7 +393,10 @@ import { initAudio, playSound } from './Audio.js';
     target.flashTimer = 0.1;
     
     if (finalDamage > 0 || actualDamage > 0) {
-        if (player && (sourceId === player.id || target.id === player.id)) playSound('hit');
+        let isHeroInvolved = game.players.some(p => p.id === sourceId || p.id === target.id);
+        if (isHeroInvolved) { // Přehrává zvuk pouze pokud se boje účastní nějaký hrdina (redukce šumu z minionů)
+            playSound('hit', target.pos);
+        }
         if (target === player && (!socket || game.isHost || isNetwork)) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + finalDamage / 450);
         
         if (!socket || game.isHost || isNetwork) {
@@ -443,7 +446,7 @@ import { initAudio, playSound } from './Audio.js';
 
   export function handlePlayerKill(victim, killerId) {
       if (!victim || !victim.alive) return; // Zamezení vícenásobného započítání smrti z vícero zdrojů poškození
-      if (player && (killerId === player.id || victim.id === player.id)) playSound('kill');
+      playSound('kill', victim.pos);
       victim.hp = 0; if (victim.die) victim.die(); else victim.dead = true;
       
       let killer = game.players.find(p => p.id === killerId);
@@ -769,9 +772,17 @@ import { initAudio, playSound } from './Audio.js';
     // update mouse world
     const mw = screenToWorld(mouse.sx, mouse.sy); mouse.wx = mw.x; mouse.wy = mw.y;
 
-    for(let p of game.players) p.update(dt);
+    for(let p of game.players) {
+        let ox = p.pos.x, oy = p.pos.y;
+        p.update(dt);
+        if (dt > 0) p.vel = { x: (p.pos.x - ox) / dt, y: (p.pos.y - oy) / dt };
+    }
     for(let p of game.projectiles) p.update(dt);
-    for(let m of game.minions) m.update(dt);
+    for(let m of game.minions) {
+        let ox = m.pos.x, oy = m.pos.y;
+        m.update(dt);
+        if (dt > 0) m.vel = { x: (m.pos.x - ox) / dt, y: (m.pos.y - oy) / dt };
+    }
     for(let d of game.damageNumbers) d.update(dt);
     for(let t of game.towers) t.update(dt);
     for(let et of game.effectTexts) et.update(dt);

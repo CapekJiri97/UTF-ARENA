@@ -131,7 +131,7 @@ export class Player{
   }
 
   levelUp(){
-    if (this === player) playSound('levelup');
+    playSound('levelup', this.pos);
     if (!socket || game.isHost || this === player) { this.level += 1; this.spellPoints += 1; this.maxHp += 15; this.hp = Math.min(this.effectiveMaxHp, this.hp + 15); this.AD += 1; this.AP += 1; this.isDirty = true; }
     this.levelUpTimer = 2.0; spawnParticles(this.pos.x, this.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0});
     console.log(`[DEBUG] ${this.id} leveled up to ${this.level}`); 
@@ -517,7 +517,7 @@ export class Player{
 
   shoot(tx,ty, isNetwork = false){ 
     if(!this.alive) return; 
-    if (this === player && !isNetwork) playSound('shoot');
+    playSound('shoot', this.pos, { pitch: 0.8 + (this.className.charCodeAt(0) % 6) * 0.1 }); // Unikátní výška tónu pro útok hrdiny
     this.attackPenaltyTimer = 0.5; 
     
     // Odeslání akce na server (Host odesílá za sebe i za své boty)
@@ -583,7 +583,7 @@ export class Player{
     if(!isNetwork && this.silenceTimer > 0) return; 
     if(!isNetwork && this.stunTimer > 0) return; 
     
-    if (this === player && !isNetwork) playSound('shoot');
+    playSound('shoot', this.pos, { pitch: 0.6 + (this.className.charCodeAt(this.className.length - 1) % 6) * 0.15 }); // Mírně odlišný tón pro spelly
 
     let tx = targetX, ty = targetY; 
     if(tx === undefined){ 
