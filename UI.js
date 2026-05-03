@@ -640,16 +640,16 @@ export function draw(){
         
         let leftM = 20; let startY = 30;
         ctx.fillStyle = '#fff'; ctx.font = `bold 20px monospace`; ctx.textAlign = 'left';
-        ctx.fillText('CHARACTER INFO  ▲ ▼', leftM, startY); startY += 30;
+        ctx.fillText('CHARACTER INFO  ▲ ▼', leftM, startY); startY += 35;
         
         ctx.font = `13px monospace`;
-        ctx.fillText(`Class: ${player.className}`, leftM, startY); startY += 18;
-        ctx.fillText(`Level: ${player.level} (${Math.floor(player.exp)}/${expForLevel(player.level)} XP)`, leftM, startY); startY += 18;
-        ctx.fillText(`HP: ${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, leftM, startY); startY += 18;
-        ctx.fillText(`Gold: ${Math.floor(player.gold)}`, leftM, startY); startY += 18;
-        ctx.fillText(`Kills: ${player.kills} | Deaths: ${player.deaths} | Assists: ${player.assists}`, leftM, startY); startY += 30;
+        ctx.fillText(`Class: ${player.className}`, leftM, startY); startY += 22;
+        ctx.fillText(`Level: ${player.level} (${Math.floor(player.exp)}/${expForLevel(player.level)} XP)`, leftM, startY); startY += 22;
+        ctx.fillText(`HP: ${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, leftM, startY); startY += 22;
+        ctx.fillText(`Gold: ${Math.floor(player.gold)}`, leftM, startY); startY += 22;
+        ctx.fillText(`Kills: ${player.kills} | Deaths: ${player.deaths} | Assists: ${player.assists}`, leftM, startY); startY += 35;
         
-        ctx.fillStyle = '#ffcc00'; ctx.fillText(`ATTRIBUTES`, leftM, startY); startY += 20;
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`ATTRIBUTES`, leftM, startY); startY += 25;
         let buffAdMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
         let buffAsMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
         let adVal = Math.round(player.AD*(player.hasPowerup?1.2:1)*buffAdMultP);
@@ -661,16 +661,16 @@ export function draw(){
         let ahVal = player.abilityHaste;
         
         ctx.fillStyle = '#aaa';
-        ctx.fillText(`AD:    ${String(adVal).padEnd(5, ' ')} | AP:    ${apVal}`, leftM, startY); startY += 18;
-        ctx.fillText(`Armor: ${String(arVal).padEnd(5, ' ')} | MR:    ${mrVal}`, leftM, startY); startY += 18;
-        ctx.fillText(`A.Spd: ${String(asVal).padEnd(5, ' ')} | Speed: ${msVal}`, leftM, startY); startY += 18;
-        ctx.fillText(`Haste: ${String(ahVal).padEnd(5, ' ')} |`, leftM, startY); startY += 25;
+        ctx.fillText(`AD:    ${String(adVal).padEnd(5, ' ')} | AP:    ${apVal}`, leftM, startY); startY += 20;
+        ctx.fillText(`Armor: ${String(arVal).padEnd(5, ' ')} | MR:    ${mrVal}`, leftM, startY); startY += 20;
+        ctx.fillText(`A.Spd: ${String(asVal).padEnd(5, ' ')} | Speed: ${msVal}`, leftM, startY); startY += 20;
+        ctx.fillText(`Haste: ${String(ahVal).padEnd(5, ' ')} |`, leftM, startY); startY += 30;
         
         let baScale = CLASSES[player.className].aaScale || 0.3;
         let baDmg = Math.round(CLASSES[player.className].baseAtk + ((player.dmgType === 'magical' ? apVal : adVal) * baScale)); 
-        ctx.fillStyle = '#fff'; ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, leftM, startY); startY += 25;
+        ctx.fillStyle = '#fff'; ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, leftM, startY); startY += 30;
         
-        ctx.fillStyle = '#ffcc00'; ctx.fillText(`SPELLS`, leftM, startY); startY += 20;
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`SPELLS`, leftM, startY); startY += 25;
         const q = player.spells.Q, e = player.spells.E;
         
         const wrapText = (text, x, y, maxWidth, lineHeight) => {
@@ -773,22 +773,22 @@ export function draw(){
             return lines;
         };
 
-        ctx.fillStyle = '#fff'; ctx.fillText(`[Q] Lvl ${q.level} | CD: ${player.computeSpellCooldown('Q').toFixed(1)}s (-5%/Lvl) | Cast: ${q.castTime || 0}s`, leftM, startY); startY += 16;
-        ctx.fillStyle = '#ddd'; startY = wrapText(`    "${q.desc}"`, leftM, startY, panelW - 40, 14) + 8;
+        ctx.fillStyle = '#fff'; ctx.fillText(`[Q] Lvl ${q.level} | CD: ${player.computeSpellCooldown('Q').toFixed(1)}s (-5%/Lvl) | Cast: ${q.castTime || 0}s`, leftM, startY); startY += 20;
+        ctx.fillStyle = '#ddd'; startY = wrapText(`    "${q.desc}"`, leftM, startY, panelW - 40, 18) + 12;
         let linesQ = getSpellStatString(q, player);
-        for(let l of linesQ) { ctx.fillStyle = l.c; ctx.fillText(l.t, leftM, startY); startY += 15; }
-        startY += 8;
+        for(let l of linesQ) { ctx.fillStyle = l.c; ctx.fillText(l.t, leftM, startY); startY += 18; }
+        startY += 12;
         
-        ctx.fillStyle = '#fff'; ctx.fillText(`[E] Lvl ${e.level} | CD: ${player.computeSpellCooldown('E').toFixed(1)}s (-5%/Lvl) | Cast: ${e.castTime || 0}s`, leftM, startY); startY += 16;
-        ctx.fillStyle = '#ddd'; startY = wrapText(`    "${e.desc}"`, leftM, startY, panelW - 40, 14) + 8;
+        ctx.fillStyle = '#fff'; ctx.fillText(`[E] Lvl ${e.level} | CD: ${player.computeSpellCooldown('E').toFixed(1)}s (-5%/Lvl) | Cast: ${e.castTime || 0}s`, leftM, startY); startY += 20;
+        ctx.fillStyle = '#ddd'; startY = wrapText(`    "${e.desc}"`, leftM, startY, panelW - 40, 18) + 12;
         let linesE = getSpellStatString(e, player);
-        for(let l of linesE) { ctx.fillStyle = l.c; ctx.fillText(l.t, leftM, startY); startY += 15; }
-        startY += 8;
+        for(let l of linesE) { ctx.fillStyle = l.c; ctx.fillText(l.t, leftM, startY); startY += 18; }
+        startY += 12;
 
-        ctx.fillStyle = '#ffcc00'; ctx.fillText(`SUMMONER SPELL`, leftM, startY); startY += 20;
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`SUMMONER SPELL`, leftM, startY); startY += 25;
         let sumSpell = SUMMONER_SPELLS[player.summonerSpell];
-        ctx.fillStyle = '#fff'; ctx.fillText(`[F / L] ${player.summonerSpell} - Cooldown: ${sumSpell.cd}s`, leftM, startY); startY += 16;
-        ctx.fillStyle = '#ddd'; startY = wrapText(`    "${sumSpell.desc}"`, leftM, startY, panelW - 40, 14) + 8;
+        ctx.fillStyle = '#fff'; ctx.fillText(`[F / L] ${player.summonerSpell} - Cooldown: ${sumSpell.cd}s`, leftM, startY); startY += 20;
+        ctx.fillStyle = '#ddd'; startY = wrapText(`    "${sumSpell.desc}"`, leftM, startY, panelW - 40, 18) + 12;
 
         ctx.restore();
     }

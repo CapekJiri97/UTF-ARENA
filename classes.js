@@ -187,12 +187,12 @@ export const CLASSES = {
   Reaper: {
     glyph: 'R', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.50,
     hp: 500, speed: 120, attackDelay: 0.82,
-    baseAtk: 25, baseAD: 0, baseAP: 40,
+    baseAtk: 35, baseAD: 0, baseAP: 40,
     baseArmor: 18, baseMR: 20,
     Q: {
       baseCooldown: 10.0, castTime: 0.15,
-      baseDamage: 10, scaleAP: 0.25, scaleAD: 0.15,
-      type: 'reaper_q', charges: 3, bonusRange: 70, scaleLevel: 15,
+      baseDamage: 20, scaleAP: 0.40, scaleAD: 0.15,
+      type: 'reaper_q', charges: 3, bonusRange: 70, scaleLevel: 6,
       desc: 'Na 4 sekundy posílí další 3 základní útoky. Získají větší dosah, bonusové poškození a zpomalí cíl o 40% na 1s.'
     },
     E: {
