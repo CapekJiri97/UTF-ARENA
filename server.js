@@ -97,7 +97,7 @@ io.on('connection', (socket) => {
     // Případ 1: Hráč mění tým. Musíme zkontrolovat, jestli jeho postava není v novém týmu už zabraná.
     if (newTeam !== player.team) {
         if (isClassTakenOnNewTeam(player.className)) {
-            const allClassNames = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Assassin', 'Zephyr', 'Kratoma', 'Marksman', 'Mage', 'Summoner', 'Pyromancer', 'Healer', 'Acolyte', 'Keeper', 'Reaper'];
+            const allClassNames = ['Vanguard', 'Jirina', 'Bruiser', 'Tank', 'Hana', 'Goliath', 'Gaoler', 'Assassin', 'Zephyr', 'Kratoma', 'Marksman', 'Gunner', 'Mage', 'Summoner', 'Pyromancer', 'Tamer', 'Healer', 'Acolyte', 'Keeper', 'Reaper', 'Ronin', 'Oracle', 'Medic'];
             const availableClass = allClassNames.find(cls => !isClassTakenOnNewTeam(cls));
             newClass = availableClass || 'Bruiser'; // Najde první volnou postavu. Pokud by náhodou bylo vše plné, až pak použije fallback
         } else {

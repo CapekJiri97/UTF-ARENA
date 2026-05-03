@@ -122,6 +122,26 @@ export const CLASSES = {
     }
   },
 
+  Gaoler: {
+    glyph: 'J', role: 'TANK', range: false, dmgType: 'magical', aaScale: 0.30,
+    hp: 1150, speed: 105, attackDelay: 1.5,
+    baseAtk: 40, baseAD: 0, baseAP: 45,
+    baseArmor: 45, baseMR: 45,
+    Q: {
+      baseCooldown: 14.0, castTime: 0.3,
+      baseDamage: 80, scaleAP: 0.6, scaleAD: 0,
+      type: 'projectile', pGlyph: 'J', pSpeed: 700, life: 0.6,
+      pullToCaster: true,
+      desc: 'Vystřelí hák, který zraní prvního zasaženého nepřítele a přitáhne ho k sobě.'
+    },
+    E: {
+      baseCooldown: 8.0, castTime: 0.2,
+      baseDamage: 70, scaleAP: 0.4, scaleAD: 0,
+      type: 'aoe', radius: 160, slowDuration: 2.5, slowMod: 0.5,
+      desc: 'Udeří do země, zraní nepřátele v okolí a na 2.5 sekundy je zpomalí o 50%.'
+    }
+  },
+
   Goliath: {
     glyph: 'G', role: 'TANK', range: false, dmgType: 'physical', aaScale: 0.40,
     hp: 1200, speed: 96, attackDelay: 1.6,
@@ -203,6 +223,25 @@ export const CLASSES = {
     }
   },
 
+  Ronin: {
+    glyph: '⛩', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.50,
+    hp: 600, speed: 125, attackDelay: 0.9,
+    baseAtk: 45, baseAD: 65, baseAP: 0,
+    baseArmor: 25, baseMR: 25,
+    Q: {
+      baseCooldown: 9.0, castTime: 0.0,
+      baseDamage: 25, scaleAP: 0, scaleAD: 0.25, scaleLevel: 5,
+      type: 'spin_to_win', duration: 2.5, tickRate: 0.25, radius: 150,
+      desc: 'Čepelová smršť: Roztočí se, po 2.5 sekundy zraňuje nepřátele v okolí a má zvýšenou rychlost. Můžeš se u toho pohybovat!'
+    },
+    E: {
+      baseCooldown: 16.0, castTime: 0.1,
+      baseDamage: 60, scaleAP: 0, scaleAD: 0.60, scaleLevel: 10,
+      type: 'omnislash', count: 5, tickRate: 0.2, distance: 180, dashTime: 0.2,
+      desc: 'Všesek (Omnislash): Provede bleskový výpad vpřed. Pokud zasáhne nepřítele, stane se nezranitelným a 5x se teleportuje k náhodným cílům v okolí, kterým zasadí tvrdou ránu.'
+    }
+  },
+
   Kratoma: {
     glyph: 'K', role: 'SLAYER', range: true, attackRange: 160, dmgType: 'physical', aaScale: 0.40,
     hp: 600, speed: 115, attackDelay: 1.0,
@@ -240,6 +279,25 @@ export const CLASSES = {
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
       type: 'dash', distance: 297, dashTime: 0.2,
       desc: 'Provede dlouhý úskok, který jí umožní rychle změnit pozici.'
+    }
+  },
+
+  Gunner: {
+    glyph: 'F', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.40,
+    hp: 550, speed: 115, attackDelay: 0.95,
+    baseAtk: 35, baseAD: 70, baseAP: 0,
+    baseArmor: 15, baseMR: 15,
+    Q: {
+      baseCooldown: 5.0, castTime: 0.15,
+      baseDamage: 25, scaleAP: 0, scaleAD: 0.25,
+      type: 'projectile', count: 5, spread: 0.25, pGlyph: ':', pSpeed: 1100,
+      desc: 'Vystřelí salvu 5 projektilů v širokém kuželu. Skvělé pro plošné poškození nebo masivní "brokovnicový" burst zblízka.'
+    },
+    E: {
+      baseCooldown: 12.0, castTime: 0.1,
+      baseDamage: 50, scaleAP: 0, scaleAD: 0.5,
+      type: 'aoe_knockback', radius: 150,
+      desc: 'Odpálí výbušninu ve svém okolí, která zraní a prudce odhodí všechny dotírající nepřátele.'
     }
   },
 
@@ -292,7 +350,7 @@ export const CLASSES = {
     baseArmor: 18, baseMR: 25,
     Q: {
       baseCooldown: 8.0, castTime: 0.0,
-      baseDamage: 250, scaleAP: 0.80, scaleAD: 0, scaleLevel: 25,
+      baseDamage: 250, scaleAP: 0.90, scaleAD: 0, scaleLevel: 20,
       type: 'flamethrower', duration: 3.0, range: 160, cone: 40 * Math.PI / 180, tickRate: 0.10,
       desc: 'Plamenomet: Na 3.0 sekundy před sebe chrlí nepřetržitý proud ohně v kuželu. Masivně zraňuje nepřátele a umožňuje ti se u toho plynule pohybovat!'
     },
@@ -301,6 +359,25 @@ export const CLASSES = {
       baseDamage: 80, scaleAP: 0.45, scaleAD: 0, scaleLevel: 10,
       type: 'aoe_knockback', radius: 140,
       desc: 'Spalující vlna: Okamžitá ohnivá exploze kolem sebe, která masivně zraní a odhodí všechny dotírající nepřátele.'
+    }
+  },
+
+  Tamer: {
+    glyph: 'Y', role: 'MAGE', range: true, attackRange: 180, dmgType: 'magical', aaScale: 0.15,
+    hp: 550, speed: 110, attackDelay: 1.1,
+    baseAtk: 25, baseAD: 0, baseAP: 50,
+    baseArmor: 15, baseMR: 20,
+    Q: {
+      baseCooldown: 6.0, castTime: 0.2,
+      baseDamage: 60, scaleAP: 0.4, scaleAD: 0,
+      type: 'tamer_q', pGlyph: '°', pSpeed: 850,
+      desc: 'Vystřelí magickou sféru, která zraní nepřítele a označí ho. Tvůj Vlk (pet) bude označený cíl agresivně prioritizovat.'
+    },
+    E: {
+      baseCooldown: 12.0, castTime: 0.2,
+      baseDamage: 0, scaleAP: 0.6, scaleAD: 0, amount: 150, scaleLevel: 25,
+      type: 'tamer_e',
+      desc: 'Pokud tvůj Vlk žije, okamžitě ho výrazně vyléčí. Pokud zemřel, začneš 3 sekundy dlouhý rituál, který ho oživí s 50% HP (při stunu se přeruší a naskočí CD).'
     }
   },
 
@@ -363,6 +440,44 @@ export const CLASSES = {
       baseDamage: 0, amount: 5, scaleAP: 0.35, scaleAD: 0.15,
       type: 'summon_healers', healInterval: 2,
       desc: 'Vyvolá 3 malé podpůrné slepičky. Najdou si nejbližšího spojence (max 1 u Keepera, max 2 u jiného). Následují ho, léčí ho a každou sekundu zraňují blízké nepřátele.'
+    }
+  },
+
+  Oracle: {
+    glyph: 'Ω', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
+    hp: 610, speed: 106, attackDelay: 1.3,
+    baseAtk: 25, baseAD: 0, baseAP: 70,
+    baseArmor: 20, baseMR: 25,
+    Q: {
+      baseCooldown: 11.0, castTime: 0.25,
+      baseDamage: 70, scaleAP: 0.6, scaleAD: 0, scaleLevel: 10,
+      type: 'projectile_pull', pSpeed: 650, life: 0.6, radius: 220, pGlyph: 'O',
+      desc: 'Vystřelí sféru. Při dopadu nebo zasažení cíle exploduje, zraní nepřátele v oblasti a prudce je vcucne do svého středu.'
+    },
+    E: {
+      baseCooldown: 14.0, castTime: 0.2,
+      baseDamage: 0, scaleAP: 0.5, scaleAD: 0, amount: 80, scaleLevel: 15, duration: 5.0,
+      type: 'shield_aoe', radius: 250,
+      desc: 'Vytvoří kolem sebe magickou bariéru. Ty i všichni blízcí spojenci získáte silný štít na 5 sekund.'
+    }
+  },
+
+  Medic: {
+    glyph: '♥', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.15,
+    hp: 600, speed: 115, attackDelay: 1.2,
+    baseAtk: 20, baseAD: 0, baseAP: 60,
+    baseArmor: 20, baseMR: 20,
+    Q: {
+      baseCooldown: 4.0, castTime: 0.0,
+      baseDamage: 0, scaleAP: 0.05, scaleAD: 0, amount: 2, scaleLevel: 0.5, range: 150, tickRate: 0.1,
+      type: 'heal_beam',
+      desc: 'Léčivý paprsek: Přepínatelné kouzlo. Připojí se k nejbližšímu spojenci (150) a trvale ho léčí. Při přerušení (nebo opětovném Q) naběhne 4s cooldown.'
+    },
+    E: {
+      baseCooldown: 18.0, castTime: 0.2,
+      baseDamage: 0, scaleAP: 0, scaleAD: 0, duration: 3.0,
+      type: 'ubercharge',
+      desc: 'UberCharge: Lze použít pouze pokud nepřetržitě léčíš cíl alespoň 5 sekund! Ty a cíl získáte nezranitelnost a 30% rychlost na 3 sekundy.'
     }
   }
 };

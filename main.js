@@ -62,6 +62,9 @@ import { initAudio, playSound } from './Audio.js';
         netPlayer.stunTimer = data.stunT || 0;
         netPlayer.shield = data.shield || 0;
         netPlayer.hanaBuffTimer = data.hanaT || 0;
+        netPlayer.beamTimer = data.beamT || 0;
+        netPlayer.beamTargetId = data.beamId;
+        netPlayer.uberChargeTimer = data.uberT || 0;
 
         if (data.isFullUpdate) {
           if (data.level && data.level > netPlayer.level) { netPlayer.levelUpTimer = 2.0; spawnParticles(netPlayer.pos.x, netPlayer.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
@@ -103,6 +106,9 @@ import { initAudio, playSound } from './Audio.js';
           bot.stunTimer = bData.stunT || 0;
           bot.shield = bData.shield || 0;
           bot.hanaBuffTimer = bData.hanaT || 0;
+          bot.beamTimer = bData.beamT || 0;
+          bot.beamTargetId = bData.beamId;
+          bot.uberChargeTimer = bData.uberT || 0;
 
           if (bData.isFullUpdate) {
             if (bData.level && bData.level > bot.level) { bot.levelUpTimer = 2.0; spawnParticles(bot.pos.x, bot.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
@@ -175,6 +181,9 @@ import { initAudio, playSound } from './Audio.js';
                       if (hData.slowT !== undefined) p.slowTimer = hData.slowT;
                       if (hData.boostT !== undefined) p.boostTimer = hData.boostT;
                       if (hData.hanaT !== undefined) p.hanaBuffTimer = hData.hanaT;
+                      if (hData.beamT !== undefined) p.beamTimer = hData.beamT;
+                      p.beamTargetId = hData.beamId;
+                      if (hData.uberT !== undefined) p.uberChargeTimer = hData.uberT;
                       if (hData.macro !== undefined) p.macroOrder = hData.macro ? { type: hData.macro } : null;
                       if (hData.stats && p.stats) { p.stats.dmgDealt = hData.stats.dmgDealt; p.stats.dmgTaken = hData.stats.dmgTaken; p.stats.hpHealed = hData.stats.hpHealed; }
                       if (!p.alive && hData.alive) p.revive(); else if (p.alive && !hData.alive) { p.hp = 0; p.die(); }
@@ -885,7 +894,8 @@ import { initAudio, playSound } from './Audio.js';
                 const minimalState = {
                     id: player.id, x: player.pos.x, y: player.pos.y, aimAngle: player.aimAngle,
                     slowT: player.slowTimer, boostT: player.boostTimer, stunT: player.stunTimer,
-                    silenceT: player.silenceTimer, shield: player.shield, hanaT: player.hanaBuffTimer
+                    silenceT: player.silenceTimer, shield: player.shield, hanaT: player.hanaBuffTimer,
+                    beamT: player.beamTimer, beamId: player.beamTargetId, uberT: player.uberChargeTimer
                 };
                 if (player.isDirty) {
                     player.isDirty = false;
@@ -908,7 +918,7 @@ import { initAudio, playSound } from './Audio.js';
                 game.hostSyncTimer = 0;
                 socket.emit('host_state', {
                     bots: game.players.filter(p => p instanceof BotPlayer).map(b => {
-                        const minimalState = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, stunT: b.stunTimer, shield: b.shield, hanaT: b.hanaBuffTimer };
+                        const minimalState = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, stunT: b.stunTimer, shield: b.shield, hanaT: b.hanaBuffTimer, beamT: b.beamTimer, beamId: b.beamTargetId, uberT: b.uberChargeTimer };
                         if (b.isDirty) {
                             b.isDirty = false;
                             return { ...minimalState, isFullUpdate: true, className: b.className,
@@ -921,7 +931,7 @@ import { initAudio, playSound } from './Audio.js';
                     }),
                     humans: game.players.filter(p => !(p instanceof BotPlayer)).map(p => ({
                         id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, stunT: p.stunTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
-                        kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null
+                        kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null, beamT: p.beamTimer, beamId: p.beamTargetId, uberT: p.uberChargeTimer
                     })),
                     minions: game.minions.map(m => ({
                         id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, maxHp: m.maxHp, dead: m.dead, team: m.team, 

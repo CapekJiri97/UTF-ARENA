@@ -782,6 +782,44 @@ export function draw(){
                 lines.push(...buildBreakdown('Chicken Heal', amt || 25, scLvl, 0, scAP));
                 lines.push({ t: `    Heal Interval: Every ${sp.healInterval||1.0}s`, c: '#aaa' });
                 lines.push({ t: `    Pulse Dmg: ${Math.round(10 + pAP*0.15)} (+15% AP)`, c: '#aaa' });
+            } else if (sp.type === 'tamer_e') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 25;
+                lines.push(...buildBreakdown('Heal Pet', amt || 150, scLvl, scAD, scAP));
+                lines.push({ t: `    Revive Cast Time: 3.0s (Interruptible)`, c: '#ffcc00' });
+                lines.push({ t: `    Pet stats scale with your AP and Level!`, c: '#aaa' });
+            } else if (sp.type === 'tamer_q') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
+                lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
+                lines.push({ t: `    Marks target for your Pet.`, c: '#ffcc00' });
+            } else if (sp.type === 'spin_to_win') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 5;
+                lines.push(...buildBreakdown('Damage per tick', bDmg, scLvl, scAD, scAP));
+                lines.push({ t: `    Duration: ${sp.duration}s | Tick: ${sp.tickRate}s`, c: '#fff' });
+                lines.push({ t: `    Moves faster (+25%) while spinning.`, c: '#aaa' });
+            } else if (sp.type === 'omnislash') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 10;
+                lines.push(...buildBreakdown('Damage per hit', bDmg, scLvl, scAD, scAP));
+                lines.push({ t: `    Dash: ${sp.distance || 180} | Hits: ${sp.count}x`, c: '#ffcc00' });
+                lines.push({ t: `    Invulnerable during slashes.`, c: '#aaa' });
+            } else if (sp.type === 'projectile_pull') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 10;
+                lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
+                lines.push({ t: `    Pulls enemies towards the impact center.`, c: '#ffcc00' });
+            } else if (sp.type === 'shield_aoe') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 15;
+                lines.push(...buildBreakdown('Shield Amount', amt || 80, scLvl, scAD, scAP));
+                lines.push({ t: `    Duration: ${sp.duration || 5.0}s | AoE Radius: ${sp.radius}`, c: '#0ff' });
+            } else if (sp.type === 'heal_beam') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 0.5;
+                let tRate = sp.tickRate || 0.1;
+                lines.push(...buildBreakdown('Heal per tick', amt || 2, scLvl, scAD, scAP));
+                lines.push({ t: `    Duration: Toggle | Tick: Every ${tRate}s | Range: ${sp.range}`, c: '#0f0' });
+                lines.push({ t: `    Breaks if target is > ${sp.range + 50} away.`, c: '#aaa' });
+            } else if (sp.type === 'ubercharge') {
+                lines.push({ t: `    Duration: ${sp.duration}s`, c: '#ffcc00' });
+                lines.push({ t: `    Requires 5 seconds of active Heal Beam!`, c: '#ff4e4e' });
+                lines.push({ t: `    Grants Invulnerability and +30% Speed.`, c: '#fff' });
+                lines.push({ t: `    Applies to YOU and your beamed TARGET.`, c: '#aaa' });
         } else if (sp.type === 'flamethrower') {
             let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 25;
             lines.push(...buildBreakdown('Total Damage', bDmg, scLvl, scAD, scAP));
@@ -1100,11 +1138,11 @@ export function buildMenu() {
   const cBtns = document.getElementById('classBtns');
   const catGroups = { 
       'FIGHTER': ['Bruiser', 'Vanguard', 'Jirina'], 
-      'TANK': ['Tank', 'Goliath', 'Hana'], 
-      'ASSASSIN': ['Assassin', 'Zephyr', 'Reaper'],
-      'RANGED': ['Marksman', 'Kratoma'],
-      'MAGE': ['Mage', 'Summoner', 'Pyromancer'], 
-      'SUPPORT': ['Healer', 'Acolyte', 'Keeper'] 
+      'TANK': ['Tank', 'Goliath', 'Hana', 'Gaoler'], 
+      'ASSASSIN': ['Assassin', 'Zephyr', 'Reaper', 'Ronin'],
+      'RANGED': ['Marksman', 'Kratoma', 'Gunner'],
+      'MAGE': ['Mage', 'Summoner', 'Pyromancer', 'Tamer'], 
+      'SUPPORT': ['Healer', 'Acolyte', 'Keeper', 'Oracle', 'Medic'] 
   };
   const allBtns = [];
   for(let cat in catGroups) {

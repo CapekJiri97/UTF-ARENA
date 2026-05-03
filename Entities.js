@@ -38,6 +38,22 @@ export class Projectile{
       if (this.opts.slowDuration) {
           target.slowTimer = Math.max(target.slowTimer || 0, this.opts.slowDuration);
       }
+      if (this.opts.markPetTarget && (!socket || game.isHost)) {
+          const owner = game.players.find(p => p.id === this.ownerId);
+          if (owner) {
+              owner.petTargetId = target.id;
+              spawnParticles(target.pos.x, target.pos.y, 10, '#ff0', {shape: 'ring', radius: 25});
+          }
+      }
+      if (this.opts.pullToCaster && (!socket || game.isHost)) {
+          const owner = game.players.find(p => p.id === this.ownerId);
+          if (owner && target.knockbackTimer <= 0) { // Don't override existing knockback
+              const angle = Math.atan2(owner.pos.y - target.pos.y, owner.pos.x - target.pos.x);
+              const pullSpeed = 1200;
+              target.knockbackTimer = dist(owner.pos, target.pos) / pullSpeed;
+              target.knockbackVel = { x: Math.cos(angle) * pullSpeed, y: Math.sin(angle) * pullSpeed };
+          }
+      }
       if (this.opts.stunDuration) { target.stunTimer = Math.max(target.stunTimer || 0, this.opts.stunDuration); if(target.className) game.effectTexts.push(new EffectText(target.pos.x, target.pos.y-20, "STUNNED", '#ffcc00')); }
       if (this.opts.silenceDuration) { target.silenceTimer = Math.max(target.silenceTimer || 0, this.opts.silenceDuration); if(target.className) game.effectTexts.push(new EffectText(target.pos.x, target.pos.y-20, "SILENCED", '#fff')); }
       if (this.opts.spawnMinion && (!socket || game.isHost)) {
@@ -199,6 +215,11 @@ export class Minion{
         this.knockbackTimer -= dt;
         if (!socket || game.isHost) moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt); // Pohyb minionů řídí Host
         return;
+    }
+    if (this.regenBuffTimer > 0) {
+        this.regenBuffTimer -= dt;
+        if (!socket || game.isHost) { this.hp = Math.min(this.maxHp, this.hp + this.regenBuffAmount * dt); }
+        if (Math.random() < 0.1) spawnParticles(this.pos.x, this.pos.y, 1, '#0f0', {life: 0.3});
     }
     if(this.stunTimer > 0) return;
     
