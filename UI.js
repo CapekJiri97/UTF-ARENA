@@ -771,6 +771,11 @@ export function draw(){
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
                 lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
                 lines.push({ t: `    Knockback enemies away.`, c: '#ffcc00' });
+            } else if (sp.type === 'cone_knockback') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
+                let coneDeg = Math.round((sp.cone || 0) * 180 / Math.PI);
+                lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
+                lines.push({ t: `    Cone: ${coneDeg}° | Range: ${sp.radius}`, c: '#ffcc00' });
             } else if (sp.type === 'summon_healers') {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 2;
                 lines.push(...buildBreakdown('Heal per tick', amt || 15, scLvl, scAD, scAP));
@@ -795,7 +800,7 @@ export function draw(){
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 5;
                 lines.push(...buildBreakdown('Damage per tick', bDmg, scLvl, scAD, scAP));
                 lines.push({ t: `    Duration: ${sp.duration}s | Tick: ${sp.tickRate}s`, c: '#fff' });
-                lines.push({ t: `    Moves faster (+25%) while spinning.`, c: '#aaa' });
+                lines.push({ t: `    Moves faster (+5%) while spinning.`, c: '#aaa' });
             } else if (sp.type === 'omnislash') {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 10;
                 lines.push(...buildBreakdown('Damage per hit', bDmg, scLvl, scAD, scAP));
@@ -805,6 +810,7 @@ export function draw(){
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 10;
                 lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
                 lines.push({ t: `    Pulls enemies towards the impact center.`, c: '#ffcc00' });
+                if (sp.stunDuration) lines.push({ t: `    Stun: ${sp.stunDuration}s`, c: '#ffcc00' });
             } else if (sp.type === 'shield_aoe') {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 15;
                 lines.push(...buildBreakdown('Shield Amount', amt || 80, scLvl, scAD, scAP));

@@ -42,7 +42,6 @@ export class Projectile{
           const owner = game.players.find(p => p.id === this.ownerId);
           if (owner) {
               owner.petTargetId = target.id;
-              spawnParticles(target.pos.x, target.pos.y, 10, '#ff0', {shape: 'ring', radius: 25});
           }
       }
       if (this.opts.pullToCaster && (!socket || game.isHost)) {

@@ -53,6 +53,7 @@ export class Player{
     this.petInitialized = false;
     this.revivingPet = false;
     this.petTargetId = null;
+    this.lastAutoTargetId = null;
     // progression
     this.level = 1; this.exp = 0; this.totalExp = 0; this.spellPoints = 0;
 
@@ -80,6 +81,9 @@ export class Player{
     this.omnislashTick = 0;
     this.omnislashData = null;
     this.dashOmnislashData = null;
+    this.omniLastTargetId = null;
+    this.omniConsecutiveHits = 0;
+    this.omniHitCounts = null;
     this.beamTimer = 0;
     this.beamTick = 0;
     this.beamTargetId = null;
@@ -104,7 +108,8 @@ export class Player{
 
   spawnTamerPet(hpPct = 1.0) {
       let m = new Minion(this.pos.x + (Math.random()-0.5)*40, this.pos.y + (Math.random()-0.5)*40, this.team, 0);
-      m.isTamerPet = true; m.ownerId = this.id; m.glyph = 'W'; m.speed = 145;
+      m.isTamerPet = true; m.ownerId = this.id; m.glyph = 'W'; m.speed = 160; m.baseSpeed = 160;
+      m.speedBoostTimer = 0; m.lastTargetId = null;
       m.maxHp = Math.round(400 + this.AP * 1.5 + this.level * 40);
       m.hp = m.maxHp * hpPct;
       m.attackDamage = Math.round(20 + this.AP * 0.4 + this.level * 5);
@@ -128,7 +133,12 @@ export class Player{
 
           // UI Logika cílů Vlka
           let target = null;
-          if (owner.petTargetId) {
+          if (owner.lastAutoTargetId) {
+              let t = game.players.find(p => p.id === owner.lastAutoTargetId && p.alive);
+              if (!t) t = game.minions.find(min => min.id === owner.lastAutoTargetId && !min.dead);
+              if (t && dist(this.pos, t.pos) < 1200) target = t;
+          }
+          if (!target && owner.petTargetId) {
               let t = game.players.find(p => p.id === owner.petTargetId && p.alive);
               if (!t) t = game.minions.find(min => min.id === owner.petTargetId && !min.dead);
               if (t && dist(this.pos, t.pos) < 1200) target = t;
@@ -144,7 +154,24 @@ export class Player{
               }
           }
 
+          if (target && target.id !== this.lastTargetId) {
+              if (this.lastTargetId !== null) this.speedBoostTimer = 0.6;
+              this.lastTargetId = target.id;
+          } else if (!target) {
+              this.lastTargetId = null;
+          }
+
+          if (this.speedBoostTimer > 0) this.speedBoostTimer -= dt;
+          let moveSpeed = this.baseSpeed;
+          if (this.speedBoostTimer > 0) moveSpeed = 300;
+
           let dx = 0, dy = 0;
+          const ownerDist = dist(this.pos, owner.pos);
+          if (ownerDist > 300) {
+              target = null;
+              dx = owner.pos.x - this.pos.x; dy = owner.pos.y - this.pos.y;
+              moveSpeed = 300;
+          }
           if (target) {
               let d = dist(this.pos, target.pos);
               if (d <= 55) {
@@ -156,11 +183,19 @@ export class Player{
                   }
               } else { dx = target.pos.x - this.pos.x; dy = target.pos.y - this.pos.y; }
           } else {
-              let d = dist(this.pos, owner.pos);
-              if (d > 120) { dx = owner.pos.x - this.pos.x; dy = owner.pos.y - this.pos.y; if (d > 1200) { this.pos.x = owner.pos.x; this.pos.y = owner.pos.y; } }
+              if (ownerDist > 300) {
+                  dx = owner.pos.x - this.pos.x; dy = owner.pos.y - this.pos.y;
+              } else {
+                  let fAng = owner.aimAngle !== undefined ? owner.aimAngle : Math.atan2(owner.vel.y || 0, owner.vel.x || 1);
+                  let fx = owner.pos.x + Math.cos(fAng) * 120;
+                  let fy = owner.pos.y + Math.sin(fAng) * 120;
+                  let d = dist(this.pos, {x: fx, y: fy});
+                  if (d > 40) { dx = fx - this.pos.x; dy = fy - this.pos.y; }
+                  if (ownerDist > 600) { this.pos.x = owner.pos.x + Math.cos(fAng) * 200; this.pos.y = owner.pos.y + Math.sin(fAng) * 200; }
+              }
           }
 
-          if (dx !== 0 || dy !== 0) { let l = Math.hypot(dx, dy); for(let w of game.walls) { let info = distToPoly(this.pos.x, this.pos.y, w.pts); if (info.minDist < w.r + 20 && !info.inside) { dx += info.closestNorm.x * 3.0; dy += info.closestNorm.y * 3.0; let tx = -info.closestNorm.y; let ty = info.closestNorm.x; if (dx * tx + dy * ty < 0) { tx = -tx; ty = -ty; } dx += tx * 1.5; dy += ty * 1.5; } } l = Math.hypot(dx, dy); if (l > 0) moveEntityWithCollision(this, (dx/l)*this.speed, (dy/l)*this.speed, dt); }
+          if (dx !== 0 || dy !== 0) { let l = Math.hypot(dx, dy); for(let w of game.walls) { let info = distToPoly(this.pos.x, this.pos.y, w.pts); if (info.minDist < w.r + 20 && !info.inside) { dx += info.closestNorm.x * 3.0; dy += info.closestNorm.y * 3.0; let tx = -info.closestNorm.y; let ty = info.closestNorm.x; if (dx * tx + dy * ty < 0) { tx = -tx; ty = -ty; } dx += tx * 1.5; dy += ty * 1.5; } } l = Math.hypot(dx, dy); if (l > 0) moveEntityWithCollision(this, (dx/l)*moveSpeed, (dy/l)*moveSpeed, dt); }
       };
       game.minions.push(m);
   }
@@ -168,6 +203,10 @@ export class Player{
   get effectiveMaxHp() { return Math.round(this.maxHp * (this.hasPowerup ? 1.2 : 1.0)); }
 
   computeSpellCooldown(spKey){ const sp = this.spells[spKey]; const base = sp.baseCooldown; const hasteFactor = 100 / (100 + this.abilityHaste); const levelFactor = Math.pow(0.95, sp.level-1); return Math.max(1.0, base * hasteFactor * levelFactor); }
+
+    canBasicAttack() {
+            return this.alive && this.stunTimer <= 0 && this.omnislashCount <= 0 && this.spinTimer <= 0 && this.flamethrowerTimer <= 0 && !this.dashOmnislashData;
+    }
 
   processBeam(dt) {
       if (this.beamTimer > 0) {
@@ -205,6 +244,7 @@ export class Player{
     this.flamethrowerTimer = 0;
     this.spinTimer = 0; this.spinData = null;
     this.omnislashCount = 0; this.omnislashData = null; this.dashOmnislashData = null;
+    this.omniLastTargetId = null; this.omniConsecutiveHits = 0; this.omniHitCounts = null;
     this.beamTimer = 0; this.beamTargetId = null; this.beamData = null;
     this.uberChargeTimer = 0;
 
@@ -361,12 +401,32 @@ export class Player{
             this.omnislashTick = this.omnislashData ? (this.omnislashData.tickRate || 0.2) : 0.2;
             this.omnislashCount--;
 
-            let targets = [];
-            for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 450) targets.push(p);
-            for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 450) targets.push(m);
+            let allTargets = [];
+            for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 450) allTargets.push(p);
+            for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 450) allTargets.push(m);
 
-            if (targets.length > 0) {
-                let t = targets[Math.floor(Math.random() * targets.length)];
+            let closeTargets = allTargets.filter(t => dist(this.pos, t.pos) <= 50);
+            if (this.omniLastTargetId && this.omniConsecutiveHits >= 2) {
+                let hasOther = closeTargets.some(t => t.id !== this.omniLastTargetId);
+                if (!hasOther) closeTargets = [];
+                else closeTargets = closeTargets.filter(t => t.id !== this.omniLastTargetId);
+            }
+
+            if (closeTargets.length > 0) {
+                let heroes = closeTargets.filter(t => t.className);
+                let pool = heroes.length > 0 ? heroes : closeTargets;
+                let minHits = Infinity;
+                for (let t of pool) {
+                    let h = (this.omniHitCounts && this.omniHitCounts.get(t.id)) || 0;
+                    if (h < minHits) minHits = h;
+                }
+                let bestPool = pool.filter(t => (((this.omniHitCounts && this.omniHitCounts.get(t.id)) || 0) === minHits));
+                let t = bestPool[Math.floor(Math.random() * bestPool.length)];
+
+                if (!this.omniHitCounts) this.omniHitCounts = new Map();
+                this.omniHitCounts.set(t.id, ((this.omniHitCounts.get(t.id)) || 0) + 1);
+                if (this.omniLastTargetId === t.id) this.omniConsecutiveHits += 1; else { this.omniLastTargetId = t.id; this.omniConsecutiveHits = 1; }
+
                 this.pos.x = t.pos.x + (Math.random()-0.5)*40;
                 this.pos.y = t.pos.y + (Math.random()-0.5)*40;
                 
@@ -441,6 +501,10 @@ export class Player{
     }
 
     if(this.msBuffTimer > 0) this.msBuffTimer -= dt;
+
+    if (!socket || game.isHost || this === player) {
+        this.processBeam(dt);
+    }
 
     // movement
     if(this.attackPenaltyTimer > 0) this.attackPenaltyTimer -= dt;
@@ -610,10 +674,11 @@ export class Player{
         let diff = Math.abs(Math.atan2(Math.sin(targetAngle - this.aimAngle), Math.cos(targetAngle - this.aimAngle)));
         if (d <= atkRange && diff < 0.3) wantAttack = true;
     }
-    if (this.stunTimer > 0 || this.omnislashCount > 0) wantAttack = false;
+    const canAttack = this.canBasicAttack();
+    if (!canAttack) wantAttack = false;
     let effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0);
     if (this.hanaBuffTimer > 0) effAS *= (this.spells.Q.bonusAsMult || 1.25);
-    if(this === player && wantAttack && this.attackCooldown<=0){ this.shoot(this.pos.x + Math.cos(this.aimAngle)*100, this.pos.y + Math.sin(this.aimAngle)*100); this.attackCooldown = this.attackDelay / effAS; }
+    if(this === player && wantAttack && this.attackCooldown<=0 && canAttack){ this.shoot(this.pos.x + Math.cos(this.aimAngle)*100, this.pos.y + Math.sin(this.aimAngle)*100); this.attackCooldown = this.attackDelay / effAS; }
 
     // spells cooldowns
     for(let k of Object.keys(this.spells)){ const sp = this.spells[k]; if(sp.cd>0){ sp.cd = Math.max(0, sp.cd - dt); } }
@@ -722,11 +787,11 @@ export class Player{
             ctx.beginPath();
             ctx.moveTo(this.pos.x, this.pos.y);
             ctx.lineTo(target.pos.x, target.pos.y);
-            ctx.strokeStyle = 'rgba(0, 255, 100, 0.6)';
-            ctx.lineWidth = 6;
+            ctx.strokeStyle = 'rgba(0, 255, 100, 0.35)';
+            ctx.lineWidth = 3;
             ctx.stroke();
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.lineWidth = 1;
             ctx.setLineDash([10, 10]);
             ctx.lineDashOffset = -performance.now() / 20;
             ctx.stroke();
@@ -772,7 +837,13 @@ export class Player{
   }
 
   shoot(tx,ty, isNetwork = false){ 
-    if(!this.alive) return; 
+        if(!this.alive || !this.canBasicAttack()) return; 
+        if (this.className === 'Tamer') {
+                let aaTarget = null;
+                if (this instanceof BotPlayer && this.target && this.target.team !== this.team) aaTarget = this.target;
+                else if (this.currentTarget && this.currentTarget.team !== this.team && this.currentTarget.alive && !this.currentTarget.dead) aaTarget = this.currentTarget;
+                if (aaTarget) this.lastAutoTargetId = aaTarget.id;
+        }
     playSound('shoot', this.pos, { pitch: 0.8 + (this.className.charCodeAt(0) % 6) * 0.1 }); // Unikátní výška tónu pro útok hrdiny
     this.attackPenaltyTimer = 0.5; 
     
@@ -935,6 +1006,32 @@ export class Player{
             if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } 
         } } 
         spawnParticles(this.pos.x, this.pos.y, 10, '#f55');
+    } else if (sp.type === 'cone_knockback') {
+        const range = sp.radius || 120;
+        const cone = sp.cone || (90 * Math.PI / 180);
+        const ang = Math.atan2(ty - this.pos.y, tx - this.pos.x);
+        game.particles.push(new Particle(this.pos.x, this.pos.y, '#f55', {shape: 'ring', radius: range, life: 0.35, speed: 0, lineWidth: 3}));
+        for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){
+            const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
+            const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
+            if (da <= cone/2) {
+                applyDamage(m, damage, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
+                let angle = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
+                m.knockbackTimer = 0.2; m.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
+                if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 10, 15); }
+            }
+        } }
+        for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){
+            const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
+            const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
+            if (da <= cone/2) {
+                applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
+                let angle = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
+                p.knockbackTimer = 0.2; p.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
+                if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); }
+            }
+        } }
+        spawnParticles(this.pos.x, this.pos.y, 8, '#f55');
     } else if (sp.type === 'hana_q') {
         this.hanaBuffTimer = sp.duration || 5.0; this.regenBuffTimer = sp.duration || 5.0; 
         this.regenBuffAmount = 5 + (pAP * 0.1) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 2); spawnParticles(this.pos.x, this.pos.y, 15, '#f0f', {speed: 150});
@@ -1159,7 +1256,7 @@ export class Player{
         this.spinTick = 0;
         this.spinData = { damage: damage, dmgType: this.dmgType, id: this.id, radius: sp.radius || 150, tickRate: sp.tickRate || 0.25 };
         this.msBuffTimer = sp.duration || 2.5;
-        this.msBuffAmount = 0.25;
+        this.msBuffAmount = 0.05;
         spawnParticles(this.pos.x, this.pos.y, 20, '#ccc', {speed: 150});
     } else if (sp.type === 'omnislash') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
@@ -1168,6 +1265,7 @@ export class Player{
         this.dashTimer = dashTime;
         this.dashVel = { x: Math.cos(angle)*(distToMove/dashTime), y: Math.sin(angle)*(distToMove/dashTime) };
         this.dashOmnislashData = { damage: damage, dmgType: this.dmgType, count: sp.count || 5, tickRate: sp.tickRate || 0.2 };
+        this.omniLastTargetId = null; this.omniConsecutiveHits = 0; this.omniHitCounts = new Map();
         spawnParticles(this.pos.x, this.pos.y, 8, '#fff');
     } else if (sp.type === 'projectile_pull') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
@@ -1176,7 +1274,7 @@ export class Player{
         let p = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {
             damage: 0, dmgType: this.dmgType, glyph: sp.pGlyph || 'O', life: life, radius: 12
         });
-        const pullRadius = sp.radius || 220; const casterId = this.id; const dmgType = this.dmgType; const oTeam = this.team;
+        const pullRadius = sp.radius || 220; const casterId = this.id; const dmgType = this.dmgType; const oTeam = this.team; const stunDur = sp.stunDuration || 0;
         let origUpdate = p.update.bind(p);
         p.update = function(dt) {
             let wasDead = this.dead; origUpdate(dt);
@@ -1184,8 +1282,8 @@ export class Player{
                 game.particles.push(new Particle(this.pos.x, this.pos.y, '#800080', {shape: 'ring', radius: pullRadius, life: 0.4, speed: 0, lineWidth: 5}));
                 spawnParticles(this.pos.x, this.pos.y, 20, '#800080', {speed: 100, life: 0.5});
                 if (!socket || game.isHost) {
-                    for(let m of game.minions){ if(!m.dead && m.team !== oTeam && dist(this.pos, m.pos) <= pullRadius){ applyDamage(m, damage, dmgType, casterId); let a = Math.atan2(this.pos.y - m.pos.y, this.pos.x - m.pos.x); m.knockbackTimer = 0.3; m.knockbackVel = { x: Math.cos(a)*550, y: Math.sin(a)*550 }; spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; let owner = game.players.find(x=>x.id===casterId); if(owner) grantRewards(owner, 10, 15); } } }
-                    for(let ep of game.players){ if(ep.id !== casterId && ep.team !== oTeam && ep.alive && dist(this.pos, ep.pos) <= pullRadius){ applyDamage(ep, damage, dmgType, casterId); let a = Math.atan2(this.pos.y - ep.pos.y, this.pos.x - ep.pos.x); ep.knockbackTimer = 0.3; ep.knockbackVel = { x: Math.cos(a)*550, y: Math.sin(a)*550 }; spawnParticles(ep.pos.x, ep.pos.y, 4, '#fff'); if(ep.hp<=0) handlePlayerKill(ep, casterId); } }
+                    for(let m of game.minions){ if(!m.dead && m.team !== oTeam && dist(this.pos, m.pos) <= pullRadius){ applyDamage(m, damage, dmgType, casterId); let a = Math.atan2(this.pos.y - m.pos.y, this.pos.x - m.pos.x); m.knockbackTimer = 0.3; m.knockbackVel = { x: Math.cos(a)*550, y: Math.sin(a)*550 }; if (stunDur > 0) m.stunTimer = Math.max(m.stunTimer || 0, stunDur); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; let owner = game.players.find(x=>x.id===casterId); if(owner) grantRewards(owner, 10, 15); } } }
+                    for(let ep of game.players){ if(ep.id !== casterId && ep.team !== oTeam && ep.alive && dist(this.pos, ep.pos) <= pullRadius){ applyDamage(ep, damage, dmgType, casterId); let a = Math.atan2(this.pos.y - ep.pos.y, this.pos.x - ep.pos.x); ep.knockbackTimer = 0.3; ep.knockbackVel = { x: Math.cos(a)*550, y: Math.sin(a)*550 }; if (stunDur > 0) { ep.stunTimer = Math.max(ep.stunTimer || 0, stunDur); game.effectTexts.push(new EffectText(ep.pos.x, ep.pos.y-20, "STUNNED", '#ffcc00')); } spawnParticles(ep.pos.x, ep.pos.y, 4, '#fff'); if(ep.hp<=0) handlePlayerKill(ep, casterId); } }
                 }
             }
         };
@@ -2307,11 +2405,32 @@ export class BotPlayer extends Player {
           if (this.omnislashTick <= 0) {
               this.omnislashTick = this.omnislashData ? (this.omnislashData.tickRate || 0.2) : 0.2;
               this.omnislashCount--;
-              let targets = [];
-              for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 450) targets.push(p);
-              for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 450) targets.push(m);
-              if (targets.length > 0) {
-                  let t = targets[Math.floor(Math.random() * targets.length)];
+              let allTargets = [];
+              for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 450) allTargets.push(p);
+              for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 450) allTargets.push(m);
+
+              let closeTargets = allTargets.filter(t => dist(this.pos, t.pos) <= 50);
+              if (this.omniLastTargetId && this.omniConsecutiveHits >= 2) {
+                  let hasOther = closeTargets.some(t => t.id !== this.omniLastTargetId);
+                  if (!hasOther) closeTargets = [];
+                  else closeTargets = closeTargets.filter(t => t.id !== this.omniLastTargetId);
+              }
+
+              if (closeTargets.length > 0) {
+                  let heroes = closeTargets.filter(t => t.className);
+                  let pool = heroes.length > 0 ? heroes : closeTargets;
+                  let minHits = Infinity;
+                  for (let t of pool) {
+                      let h = (this.omniHitCounts && this.omniHitCounts.get(t.id)) || 0;
+                      if (h < minHits) minHits = h;
+                  }
+                  let bestPool = pool.filter(t => (((this.omniHitCounts && this.omniHitCounts.get(t.id)) || 0) === minHits));
+                  let t = bestPool[Math.floor(Math.random() * bestPool.length)];
+
+                  if (!this.omniHitCounts) this.omniHitCounts = new Map();
+                  this.omniHitCounts.set(t.id, ((this.omniHitCounts.get(t.id)) || 0) + 1);
+                  if (this.omniLastTargetId === t.id) this.omniConsecutiveHits += 1; else { this.omniLastTargetId = t.id; this.omniConsecutiveHits = 1; }
+
                   this.pos.x = t.pos.x + (Math.random()-0.5)*40; this.pos.y = t.pos.y + (Math.random()-0.5)*40;
                   spawnParticles(this.pos.x, this.pos.y, 6, '#fff', { shape: 'line', speed: 250 });
                   playSound('hit', this.pos);
@@ -2507,7 +2626,7 @@ export class BotPlayer extends Player {
           if (Math.random() < 0.65) { // 65% šance, že plošné kouzlo na miniony vůbec vyplýtvá
               for (let key of ['Q', 'E']) {
                   let sp = this.spells[key];
-                  if (sp && sp.cd <= 0 && (sp.type === 'aoe' || sp.type === 'aoe_knockback')) {
+                  if (sp && sp.cd <= 0 && (sp.type === 'aoe' || sp.type === 'aoe_knockback' || sp.type === 'cone_knockback')) {
                       let hitCount = 0;
                       let r = sp.radius || 150;
                       for (let m of game.minions) {
@@ -2601,7 +2720,7 @@ export class BotPlayer extends Player {
               this.aimAngle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
               
               // Basic Attack
-              if (this.attackCooldown <= 0 && d <= atkRange + 20) { 
+              if (this.attackCooldown <= 0 && d <= atkRange + 20 && this.canBasicAttack()) { 
                   this.shoot(tx, ty); 
                   let effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0);
                   this.attackCooldown = this.attackDelay / effAS; 
@@ -2618,11 +2737,11 @@ export class BotPlayer extends Player {
                       else if (this.range) { if (d < 250) { castQ = true; qtx = this.pos.x + (this.pos.x - tx); qty = this.pos.y + (this.pos.y - ty); } }
                       else { if (d > 150 && d < 400) castQ = true; }
                   } else if (this.spells.Q.type === 'buff_ms') castQ = (d < 600);
-                  else if (this.spells.Q.type === 'aoe' || this.spells.Q.type === 'aoe_knockback') castQ = (d < (this.spells.Q.radius || 200));
+                  else if (this.spells.Q.type === 'aoe' || this.spells.Q.type === 'aoe_knockback' || this.spells.Q.type === 'cone_knockback') castQ = (d < (this.spells.Q.radius || 200));
                   else if (this.spells.Q.type === 'projectile_egg') castQ = (d < 260);
                   else if (this.spells.Q.type === 'reaper_q') castQ = (d < 350 && this.reaperCharge === 0);
                   else if (this.spells.Q.type === 'flamethrower') castQ = (d < (this.spells.Q.range || 300));
-                  else if (this.spells.Q.type === 'tamer_q') castQ = (d < 700);
+                  else if (this.spells.Q.type === 'tamer_q') castQ = (d < 350);
                   else if (this.spells.Q.type === 'spin_to_win') castQ = (d < (this.spells.Q.radius || 150));
                   else if (this.spells.Q.type === 'projectile_pull') castQ = (d < (this.spells.Q.pSpeed * this.spells.Q.life || 390));
                   else if (this.spells.Q.type === 'heal_beam') {
@@ -2646,7 +2765,7 @@ export class BotPlayer extends Player {
                       if (isMeleeVsRanged) { if (d > this.attackRange && d < this.attackRange + 250) castE = true; } // Chytré zkrácení vzdálenosti
                       else if (this.range) { if (d < 250) { castE = true; etx = this.pos.x + (this.pos.x - tx); ety = this.pos.y + (this.pos.y - ty); } }
                       else { if (d > 150 && d < 400) castE = true; }
-                  } else if (this.spells.E.type === 'aoe' || this.spells.E.type === 'aoe_knockback') castE = (d < (this.spells.E.radius || 200));
+                  } else if (this.spells.E.type === 'aoe' || this.spells.E.type === 'aoe_knockback' || this.spells.E.type === 'cone_knockback') castE = (d < (this.spells.E.radius || 200));
                   else if (this.spells.E.type === 'reaper_e') castE = (d > 100 && d < 350) || (this.spells.Q.cd > 2.0 && d < 200);
                   else if (this.spells.E.type === 'flamethrower') castE = (d < (this.spells.E.range || 300));
                   else if (this.spells.E.type === 'tamer_e') {
@@ -2717,7 +2836,7 @@ export class BotPlayer extends Player {
               if (this.range || d <= this.attackRange + 20) { // Melee boti nemáchají zbraní do prázdna, když utíkají
                   isKiting = true;
                   this.aimAngle = Math.atan2(kitingTarget.pos.y - this.pos.y, kitingTarget.pos.x - this.pos.x);
-                  if (this.attackCooldown <= 0) { 
+                  if (this.attackCooldown <= 0 && this.canBasicAttack()) { 
                       this.shoot(kitingTarget.pos.x, kitingTarget.pos.y); 
                       let effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0);
                       this.attackCooldown = this.attackDelay / effAS; 
@@ -2727,11 +2846,13 @@ export class BotPlayer extends Player {
                       this.kitingSpellTimer = 0.8 + Math.random() * 0.8; // Rozhodne se zkusit kouzlo za sebe hodit max 1x za ~1s
                       let isMinion = !kitingTarget.className;
                       if (this.spells.Q && this.spells.Q.cd <= 0 && !['dash', 'dash_def', 'buff_ms', 'heal_self', 'hana_q'].includes(this.spells.Q.type)) {
-                          let chance = (isMinion && this.spells.Q.type === 'aoe') ? 1.0 : 0.60;
+                          let aoeQ = ['aoe', 'aoe_knockback', 'cone_knockback'].includes(this.spells.Q.type);
+                          let chance = (isMinion && aoeQ) ? 1.0 : 0.60;
                           if (Math.random() < chance) this.castSpell('Q', kitingTarget.pos.x, kitingTarget.pos.y);
                       }
                       else if (this.spells.E && this.spells.E.cd <= 0 && !['dash', 'dash_def', 'buff_ms', 'heal_self', 'hana_q'].includes(this.spells.E.type)) {
-                          let chance = (isMinion && this.spells.E.type === 'aoe') ? 1.0 : 0.60;
+                          let aoeE = ['aoe', 'aoe_knockback', 'cone_knockback'].includes(this.spells.E.type);
+                          let chance = (isMinion && aoeE) ? 1.0 : 0.60;
                           if (Math.random() < chance) this.castSpell('E', kitingTarget.pos.x, kitingTarget.pos.y);
                       }
                   }

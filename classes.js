@@ -130,15 +130,15 @@ export const CLASSES = {
     Q: {
       baseCooldown: 14.0, castTime: 0.3,
       baseDamage: 80, scaleAP: 0.6, scaleAD: 0,
-      type: 'projectile', pGlyph: 'J', pSpeed: 700, life: 0.6,
+      type: 'projectile', pGlyph: 'J', pSpeed: 820, life: 0.6,
       pullToCaster: true,
       desc: 'Vystřelí hák, který zraní prvního zasaženého nepřítele a přitáhne ho k sobě.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.2,
       baseDamage: 70, scaleAP: 0.4, scaleAD: 0,
-      type: 'aoe', radius: 160, slowDuration: 2.5, slowMod: 0.5,
-      desc: 'Udeří do země, zraní nepřátele v okolí a na 2.5 sekundy je zpomalí o 50%.'
+      type: 'aoe', radius: 130, slowDuration: 3.0, slowMod: 0.45,
+      desc: 'Udeří do země, zraní nepřátele v okolí a na 3 sekundy je zpomalí o 55%.'
     }
   },
 
@@ -290,14 +290,14 @@ export const CLASSES = {
     Q: {
       baseCooldown: 5.0, castTime: 0.15,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.25,
-      type: 'projectile', count: 5, spread: 0.25, pGlyph: ':', pSpeed: 1100,
+      type: 'projectile', count: 5, spread: 0.25, pGlyph: ':', pSpeed: 1100, life: 0.35,
       desc: 'Vystřelí salvu 5 projektilů v širokém kuželu. Skvělé pro plošné poškození nebo masivní "brokovnicový" burst zblízka.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.1,
       baseDamage: 50, scaleAP: 0, scaleAD: 0.5,
-      type: 'aoe_knockback', radius: 150,
-      desc: 'Odpálí výbušninu ve svém okolí, která zraní a prudce odhodí všechny dotírající nepřátele.'
+      type: 'cone_knockback', radius: 110, cone: 90 * Math.PI / 180,
+      desc: 'Vypálí výseč před sebou, která zraní a prudce odhodí nepřátele.'
     }
   },
 
@@ -364,13 +364,13 @@ export const CLASSES = {
 
   Tamer: {
     glyph: 'Y', role: 'MAGE', range: true, attackRange: 180, dmgType: 'magical', aaScale: 0.15,
-    hp: 550, speed: 110, attackDelay: 1.1,
+    hp: 500, speed: 110, attackDelay: 1.1,
     baseAtk: 25, baseAD: 0, baseAP: 50,
     baseArmor: 15, baseMR: 20,
     Q: {
       baseCooldown: 6.0, castTime: 0.2,
       baseDamage: 60, scaleAP: 0.4, scaleAD: 0,
-      type: 'tamer_q', pGlyph: '°', pSpeed: 850,
+      type: 'tamer_q', pGlyph: '°', pSpeed: 850, life: 0.4,
       desc: 'Vystřelí magickou sféru, která zraní nepřítele a označí ho. Tvůj Vlk (pet) bude označený cíl agresivně prioritizovat.'
     },
     E: {
@@ -451,19 +451,19 @@ export const CLASSES = {
     Q: {
       baseCooldown: 11.0, castTime: 0.25,
       baseDamage: 70, scaleAP: 0.6, scaleAD: 0, scaleLevel: 10,
-      type: 'projectile_pull', pSpeed: 650, life: 0.6, radius: 220, pGlyph: 'O',
-      desc: 'Vystřelí sféru. Při dopadu nebo zasažení cíle exploduje, zraní nepřátele v oblasti a prudce je vcucne do svého středu.'
+      type: 'projectile_pull', pSpeed: 650, life: 0.5, radius: 80, pGlyph: 'O', stunDuration: 1.0,
+      desc: 'Vystřelí sféru. Při dopadu nebo zasažení cíle exploduje, zraní nepřátele v oblasti, vcucne je do středu a krátce omráčí.'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.2,
       baseDamage: 0, scaleAP: 0.5, scaleAD: 0, amount: 80, scaleLevel: 15, duration: 5.0,
-      type: 'shield_aoe', radius: 250,
-      desc: 'Vytvoří kolem sebe magickou bariéru. Ty i všichni blízcí spojenci získáte silný štít na 5 sekund.'
+      type: 'spin_to_win', duration: 2.5, tickRate: 0.25, radius: 80,
+      desc: 'Čepelová smršť: Roztočí se, po 2.5 sekundy zraňuje nepřátele v okolí a má mírně zvýšenou rychlost. Můžeš se u toho pohybovat!'
     }
   },
 
   Medic: {
-    glyph: '♥', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.15,
+      type: 'omnislash', count: 5, tickRate: 0.2, distance: 180, dashTime: 0.12,
     hp: 600, speed: 115, attackDelay: 1.2,
     baseAtk: 20, baseAD: 0, baseAP: 60,
     baseArmor: 20, baseMR: 20,
