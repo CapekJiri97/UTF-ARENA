@@ -463,15 +463,15 @@ export const CLASSES = {
   },
 
   Doctor: {
-    glyph: 'D', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.25,
+    glyph: 'D', role: 'SUPPORT', range: false, dmgType: 'magical', aaScale: 0.25,
     hp: 600, speed: 115, attackDelay: 1.2,
     baseAtk: 30, baseAD: 0, baseAP: 60,
     baseArmor: 20, baseMR: 20,
     Q: {
       baseCooldown: 6.2, castTime: 0.0,
-      baseDamage: 0, scaleAP: 0.05, scaleAD: 0, amount: 2, scaleLevel: 0.5, range: 150, tickRate: 0.1,
+      baseDamage: 0, scaleAP: 0.065, scaleAD: 0, amount: 2.6, scaleLevel: 0.65, range: 200, tickRate: 0.1,
       type: 'heal_beam',
-      desc: 'Léčivý paprsek: Přepínatelné kouzlo. Připojí se k nejbližšímu spojenci (150) a trvale ho léčí. Po 5s se automaticky spustí krátký Uber efekt.'
+      desc: 'Léčivý paprsek: Přepínatelné kouzlo. Připojí se k nejbližšímu spojenci (200) a trvale léčí jeho i tebe. Po 5s se automaticky spustí krátký Uber efekt.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.15,

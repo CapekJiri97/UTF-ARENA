@@ -22,7 +22,7 @@ export class Projectile{
       if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){ 
         hitTarget = m; applyDamage(m, this.damage, this.dmgType, this.ownerId); 
         if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
-        if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantRewards(owner, 10, 15); } } break; 
+        if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantRewards(owner, 8, 11); } } break; 
       } 
     }
     if (hitTarget) { this.processOnHit(hitTarget); this.dead = true; return; }
@@ -102,8 +102,12 @@ export class Tower{
           playSound('capture', this.pos);
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 0 && dist(p.pos, this.pos) <= this.captureRadius);
-              let gShare = Math.round(150 / Math.max(1, caps.length));
-              let eShare = Math.round(200 / Math.max(1, caps.length));
+              let totalLvl = 0, pCount = 0;
+              for (let p of game.players) { if (p.team >= 0) { totalLvl += p.level; pCount++; } }
+              let avgLevel = pCount > 0 ? totalLvl / pCount : 1;
+              let scale = avgLevel / 7.0;
+              let gShare = Math.round((150 * scale) / Math.max(1, caps.length));
+              let eShare = Math.round((200 * scale) / Math.max(1, caps.length));
               for (let p of caps) grantRewards(p, gShare, eShare);
               let kName = caps.length > 0 ? caps[0].className : 'Blue Team';
               let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 0, victimTeam: -1, isCapture: true };
@@ -115,8 +119,12 @@ export class Tower{
           playSound('capture', this.pos);
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 1 && dist(p.pos, this.pos) <= this.captureRadius);
-              let gShare = Math.round(150 / Math.max(1, caps.length));
-              let eShare = Math.round(200 / Math.max(1, caps.length));
+              let totalLvl = 0, pCount = 0;
+              for (let p of game.players) { if (p.team >= 0) { totalLvl += p.level; pCount++; } }
+              let avgLevel = pCount > 0 ? totalLvl / pCount : 1;
+              let scale = avgLevel / 7.0;
+              let gShare = Math.round((150 * scale) / Math.max(1, caps.length));
+              let eShare = Math.round((200 * scale) / Math.max(1, caps.length));
               for (let p of caps) grantRewards(p, gShare, eShare);
               let kName = caps.length > 0 ? caps[0].className : 'Red Team';
               let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 1, victimTeam: -1, isCapture: true };
