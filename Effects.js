@@ -25,7 +25,11 @@ export class Particle {
       ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI*2); ctx.stroke();
     } else if (this.shape === 'arc') {
       ctx.strokeStyle = this.color; ctx.lineWidth = this.lineWidth;
-      ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, this.angle - this.cone/2, this.angle + this.cone/2); ctx.stroke();
+      ctx.beginPath(); 
+      ctx.moveTo(this.pos.x, this.pos.y);
+      ctx.arc(this.pos.x, this.pos.y, this.radius, this.angle - this.cone/2, this.angle + this.cone/2); 
+      ctx.closePath();
+      ctx.stroke();
     } else {
       ctx.fillStyle = this.color; ctx.font = this.size+'px monospace'; 
       ctx.translate(this.pos.x, this.pos.y);

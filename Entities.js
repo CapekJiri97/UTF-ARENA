@@ -20,7 +20,8 @@ export class Projectile{
     let hitTarget = null;
     for(let m of game.minions){ 
       if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){ 
-        hitTarget = m; applyDamage(m, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00');    
+        hitTarget = m; applyDamage(m, this.damage, this.dmgType, this.ownerId); 
+        if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
         if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantRewards(owner, 10, 15); } } break; 
       } 
     }
@@ -28,7 +29,8 @@ export class Projectile{
     
     for(let p of game.players){ 
       if(p.id !== this.ownerId && p.team !== this.ownerTeam && p.alive && dist(this.pos, p.pos) < this.radius + p.radius){ 
-        hitTarget = p; applyDamage(p, this.damage, this.dmgType, this.ownerId); spawnParticles(this.pos.x, this.pos.y, 4, '#f00'); 
+        hitTarget = p; applyDamage(p, this.damage, this.dmgType, this.ownerId); 
+        if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
         if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.ownerId); } break; 
       } 
     }

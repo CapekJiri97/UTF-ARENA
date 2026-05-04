@@ -84,8 +84,8 @@ export const CLASSES = {
   // TANK
   // ==========================================
 
-  Tank: {
-    glyph: 'T', role: 'TANK', range: false, dmgType: 'physical', aaScale: 0.35,
+  Ironclad: {
+    glyph: 'I', role: 'TANK', range: false, dmgType: 'physical', aaScale: 0.35,
     hp: 1100, speed: 100, attackDelay: 1.4,
     baseAtk: 50, baseAD: 35, baseAP: 0,
     baseArmor: 48, baseMR: 43,
@@ -122,7 +122,7 @@ export const CLASSES = {
     }
   },
 
-  Gaoler: {
+  Jailer: {
     glyph: 'J', role: 'TANK', range: false, dmgType: 'magical', aaScale: 0.30,
     hp: 1150, speed: 105, attackDelay: 1.5,
     baseAtk: 40, baseAD: 0, baseAP: 45,
@@ -137,8 +137,8 @@ export const CLASSES = {
     E: {
       baseCooldown: 8.0, castTime: 0.2,
       baseDamage: 70, scaleAP: 0.4, scaleAD: 0,
-      type: 'aoe', radius: 130, slowDuration: 3.0, slowMod: 0.45,
-      desc: 'Udeří do země, zraní nepřátele v okolí a na 3 sekundy je zpomalí o 55%.'
+      type: 'aoe', radius: 120, slowDuration: 2.0, slowMod: 0.45,
+      desc: 'Udeří do země, zraní nepřátele v okolí a na 2 sekundy je zpomalí o 55%.'
     }
   },
 
@@ -165,8 +165,8 @@ export const CLASSES = {
   // DPS
   // ==========================================
 
-  Assassin: {
-    glyph: 'A', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.55,
+  Lynx: {
+    glyph: 'L', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.55,
     hp: 580, speed: 130, attackDelay: 0.8,
     baseAtk: 50, baseAD: 55, baseAP: 0,
     baseArmor: 20, baseMR: 20,
@@ -223,21 +223,21 @@ export const CLASSES = {
     }
   },
 
-  Ronin: {
-    glyph: '⛩', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.50,
+  Wanderer: {
+    glyph: 'W', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.50,
     hp: 600, speed: 125, attackDelay: 0.9,
     baseAtk: 45, baseAD: 65, baseAP: 0,
     baseArmor: 25, baseMR: 25,
     Q: {
       baseCooldown: 9.0, castTime: 0.0,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.25, scaleLevel: 5,
-      type: 'spin_to_win', duration: 2.5, tickRate: 0.25, radius: 150,
-      desc: 'Čepelová smršť: Roztočí se, po 2.5 sekundy zraňuje nepřátele v okolí a má zvýšenou rychlost. Můžeš se u toho pohybovat!'
+      type: 'spin_to_win', duration: 2.5, tickRate: 0.25, radius: 80,
+      desc: 'Čepelová smršť: Roztočí se, po 2.5 sekundy zraňuje nepřátele v okolí a má mírně zvýšenou rychlost. Můžeš se u toho pohybovat!'
     },
     E: {
       baseCooldown: 16.0, castTime: 0.1,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.60, scaleLevel: 10,
-      type: 'omnislash', count: 5, tickRate: 0.2, distance: 180, dashTime: 0.2,
+      type: 'omnislash', count: 5, tickRate: 0.2, distance: 180, dashTime: 0.12,
       desc: 'Všesek (Omnislash): Provede bleskový výpad vpřed. Pokud zasáhne nepřítele, stane se nezranitelným a 5x se teleportuje k náhodným cílům v okolí, kterým zasadí tvrdou ránu.'
     }
   },
@@ -263,8 +263,8 @@ export const CLASSES = {
     }
   },
 
-  Marksman: {
-    glyph: 'N', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.50,
+  Quiller: {
+    glyph: 'Q', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.50,
     hp: 550, speed: 110, attackDelay: 1.2,
     baseAtk: 55, baseAD: 80, baseAP: 0,
     baseArmor: 15, baseMR: 15,
@@ -282,7 +282,7 @@ export const CLASSES = {
     }
   },
 
-  Gunner: {
+  Fusilier: {
     glyph: 'F', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.40,
     hp: 550, speed: 115, attackDelay: 0.95,
     baseAtk: 35, baseAD: 70, baseAP: 0,
@@ -290,7 +290,7 @@ export const CLASSES = {
     Q: {
       baseCooldown: 5.0, castTime: 0.15,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.25,
-      type: 'projectile', count: 5, spread: 0.25, pGlyph: ':', pSpeed: 1100, life: 0.35,
+      type: 'projectile', count: 5, spread: 0.25, pGlyph: ':', pSpeed: 1100, life: 0.25,
       desc: 'Vystřelí salvu 5 projektilů v širokém kuželu. Skvělé pro plošné poškození nebo masivní "brokovnicový" burst zblízka.'
     },
     E: {
@@ -363,14 +363,14 @@ export const CLASSES = {
   },
 
   Tamer: {
-    glyph: 'Y', role: 'MAGE', range: true, attackRange: 180, dmgType: 'magical', aaScale: 0.15,
+    glyph: 'T', role: 'MAGE', range: true, attackRange: 180, dmgType: 'magical', aaScale: 0.15,
     hp: 500, speed: 110, attackDelay: 1.1,
     baseAtk: 25, baseAD: 0, baseAP: 50,
     baseArmor: 15, baseMR: 20,
     Q: {
       baseCooldown: 6.0, castTime: 0.2,
       baseDamage: 60, scaleAP: 0.4, scaleAD: 0,
-      type: 'tamer_q', pGlyph: '°', pSpeed: 850, life: 0.4,
+      type: 'tamer_q', pGlyph: '°', pSpeed: 850, life: 0.4, noHitParticles: true,
       desc: 'Vystřelí magickou sféru, která zraní nepřítele a označí ho. Tvůj Vlk (pet) bude označený cíl agresivně prioritizovat.'
     },
     E: {
@@ -404,7 +404,7 @@ export const CLASSES = {
     }
   },
 
-  Acolyte: {
+  Cleric: {
     glyph: 'C', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 630, speed: 108, attackDelay: 1.2,
     baseAtk: 25, baseAD: 0, baseAP: 80,
@@ -424,7 +424,7 @@ export const CLASSES = {
     }
   },
 
-  Keeper: {
+  Eggchanter: {
     glyph: 'E', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 640, speed: 105, attackDelay: 1.2,
     baseAtk: 25, baseAD: 0, baseAP: 50,
@@ -444,40 +444,40 @@ export const CLASSES = {
   },
 
   Oracle: {
-    glyph: 'Ω', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
+    glyph: 'O', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 610, speed: 106, attackDelay: 1.3,
     baseAtk: 25, baseAD: 0, baseAP: 70,
     baseArmor: 20, baseMR: 25,
     Q: {
       baseCooldown: 11.0, castTime: 0.25,
       baseDamage: 70, scaleAP: 0.6, scaleAD: 0, scaleLevel: 10,
-      type: 'projectile_pull', pSpeed: 650, life: 0.5, radius: 80, pGlyph: 'O', stunDuration: 1.0,
+      type: 'projectile_pull', pSpeed: 650, life: 0.5, radius: 100, pGlyph: 'O', stunDuration: 1.0,
       desc: 'Vystřelí sféru. Při dopadu nebo zasažení cíle exploduje, zraní nepřátele v oblasti, vcucne je do středu a krátce omráčí.'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.2,
       baseDamage: 0, scaleAP: 0.5, scaleAD: 0, amount: 80, scaleLevel: 15, duration: 5.0,
-      type: 'spin_to_win', duration: 2.5, tickRate: 0.25, radius: 80,
-      desc: 'Čepelová smršť: Roztočí se, po 2.5 sekundy zraňuje nepřátele v okolí a má mírně zvýšenou rychlost. Můžeš se u toho pohybovat!'
+      type: 'shield_aoe', radius: 250,
+      desc: 'Vytvoří kolem sebe magickou bariéru. Ty i všichni blízcí spojenci získáte silný štít na 5 sekund.'
     }
   },
 
-  Medic: {
-      type: 'omnislash', count: 5, tickRate: 0.2, distance: 180, dashTime: 0.12,
+  Doctor: {
+    glyph: 'D', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.25,
     hp: 600, speed: 115, attackDelay: 1.2,
-    baseAtk: 20, baseAD: 0, baseAP: 60,
+    baseAtk: 30, baseAD: 0, baseAP: 60,
     baseArmor: 20, baseMR: 20,
     Q: {
-      baseCooldown: 4.0, castTime: 0.0,
+      baseCooldown: 6.2, castTime: 0.0,
       baseDamage: 0, scaleAP: 0.05, scaleAD: 0, amount: 2, scaleLevel: 0.5, range: 150, tickRate: 0.1,
       type: 'heal_beam',
-      desc: 'Léčivý paprsek: Přepínatelné kouzlo. Připojí se k nejbližšímu spojenci (150) a trvale ho léčí. Při přerušení (nebo opětovném Q) naběhne 4s cooldown.'
+      desc: 'Léčivý paprsek: Přepínatelné kouzlo. Připojí se k nejbližšímu spojenci (150) a trvale ho léčí. Po 5s se automaticky spustí krátký Uber efekt.'
     },
     E: {
-      baseCooldown: 18.0, castTime: 0.2,
-      baseDamage: 0, scaleAP: 0, scaleAD: 0, duration: 3.0,
-      type: 'ubercharge',
-      desc: 'UberCharge: Lze použít pouze pokud nepřetržitě léčíš cíl alespoň 5 sekund! Ty a cíl získáte nezranitelnost a 30% rychlost na 3 sekundy.'
+      baseCooldown: 12.0, castTime: 0.15,
+      baseDamage: 60, scaleAP: 0.2, scaleAD: 0.2, scaleLevel: 8,
+      type: 'cone_slow_shield', radius: 120, cone: 90 * Math.PI / 180, slowDuration: 1.5, slowMod: 0.6, shieldAmount: 90, duration: 2.5,
+      desc: 'Podpurny sek: Vysek pred sebou, zraní a zpomalí nepřátele. Medic získa štít.'
     }
   }
 };

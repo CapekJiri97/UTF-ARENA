@@ -776,6 +776,13 @@ export function draw(){
                 let coneDeg = Math.round((sp.cone || 0) * 180 / Math.PI);
                 lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
                 lines.push({ t: `    Cone: ${coneDeg}° | Range: ${sp.radius}`, c: '#ffcc00' });
+            } else if (sp.type === 'cone_slow_shield') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
+                let coneDeg = Math.round((sp.cone || 0) * 180 / Math.PI);
+                lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
+                lines.push({ t: `    Cone: ${coneDeg}° | Range: ${sp.radius}`, c: '#ffcc00' });
+                if (sp.slowDuration) lines.push({ t: `    Slow: ${Math.round((1-(sp.slowMod||0.6))*100)}% for ${sp.slowDuration}s`, c: '#ffcc00' });
+                if (sp.shieldAmount) lines.push({ t: `    Shield: ${sp.shieldAmount} for ${sp.duration||2.5}s`, c: '#0ff' });
             } else if (sp.type === 'summon_healers') {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 2;
                 lines.push(...buildBreakdown('Heal per tick', amt || 15, scLvl, scAD, scAP));
@@ -821,6 +828,7 @@ export function draw(){
                 lines.push(...buildBreakdown('Heal per tick', amt || 2, scLvl, scAD, scAP));
                 lines.push({ t: `    Duration: Toggle | Tick: Every ${tRate}s | Range: ${sp.range}`, c: '#0f0' });
                 lines.push({ t: `    Breaks if target is > ${sp.range + 50} away.`, c: '#aaa' });
+                lines.push({ t: `    Auto-Uber after 5s: 1.5s invuln + speed + 2x heal.`, c: '#ffcc00' });
             } else if (sp.type === 'ubercharge') {
                 lines.push({ t: `    Duration: ${sp.duration}s`, c: '#ffcc00' });
                 lines.push({ t: `    Requires 5 seconds of active Heal Beam!`, c: '#ff4e4e' });
@@ -1144,11 +1152,11 @@ export function buildMenu() {
   const cBtns = document.getElementById('classBtns');
   const catGroups = { 
       'FIGHTER': ['Bruiser', 'Vanguard', 'Jirina'], 
-      'TANK': ['Tank', 'Goliath', 'Hana', 'Gaoler'], 
-      'ASSASSIN': ['Assassin', 'Zephyr', 'Reaper', 'Ronin'],
-      'RANGED': ['Marksman', 'Kratoma', 'Gunner'],
+      'TANK': ['Ironclad', 'Goliath', 'Hana', 'Jailer'], 
+      'ASSASSIN': ['Lynx', 'Zephyr', 'Reaper', 'Wanderer'],
+      'RANGED': ['Quiller', 'Kratoma', 'Fusilier'],
       'MAGE': ['Mage', 'Summoner', 'Pyromancer', 'Tamer'], 
-      'SUPPORT': ['Healer', 'Acolyte', 'Keeper', 'Oracle', 'Medic'] 
+      'SUPPORT': ['Healer', 'Cleric', 'Eggchanter', 'Oracle', 'Doctor'] 
   };
   const allBtns = [];
   for(let cat in catGroups) {
