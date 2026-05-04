@@ -655,8 +655,7 @@ export class Player{
                   }
               }
           }
-      }
-
+      
       if (bestTarget) {
           let tx = bestTarget.pos.x;
           let ty = bestTarget.pos.y;
