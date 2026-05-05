@@ -45,12 +45,70 @@ const getTeamDominionSummary = (teamId) => {
     };
 };
 
-const SHOP_LINKS = [
-  ['ad', 'ad_ls'],
-  ['ad', 'ad_pen'],
-  ['ad_ls', 'ad_ls2'],
-  ['ad_pen', 'ad_pen2']
-];
+const SHOP_TREE_CONFIGS = {
+    ad: {
+        title: 'AD TREE',
+        note: 'Green links show the next item in the branch is currently buyable.',
+        columns: 3,
+        nodes: [
+            { id: 'ad', col: 2, row: 1 },
+            { id: 'ad_ls', col: 1, row: 2 },
+            { id: 'ad_pen', col: 3, row: 2 },
+            { id: 'ad_ls2', col: 1, row: 3 },
+            { id: 'ad_pen2', col: 3, row: 3 }
+        ],
+        links: [
+            ['ad', 'ad_ls'],
+            ['ad', 'ad_pen'],
+            ['ad_ls', 'ad_ls2'],
+            ['ad_pen', 'ad_pen2']
+        ]
+    },
+    ap: {
+        title: 'AP TREE',
+        note: 'Green links show the next item in the branch is currently buyable.',
+        columns: 3,
+        nodes: [
+            { id: 'ap', col: 2, row: 1 },
+            { id: 'ap_vamp', col: 1, row: 2 },
+            { id: 'ap_pen', col: 3, row: 2 },
+            { id: 'ap_vamp2', col: 1, row: 3 },
+            { id: 'ap_pen2', col: 3, row: 3 }
+        ],
+        links: [
+            ['ap', 'ap_vamp'],
+            ['ap', 'ap_pen'],
+            ['ap_vamp', 'ap_vamp2'],
+            ['ap_pen', 'ap_pen2']
+        ]
+    },
+    as: {
+        title: 'AS TREE',
+        note: 'Green links show the next item in the branch is currently buyable.',
+        columns: 2,
+        nodes: [
+            { id: 'as', col: 1, row: 1 },
+            { id: 'as_ms', col: 2, row: 1 }
+        ],
+        links: [
+            ['as', 'as_ms']
+        ]
+    },
+    ah: {
+        title: 'AH TREE',
+        note: 'Green links show the next item in the branch is currently buyable.',
+        columns: 2,
+        nodes: [
+            { id: 'ah', col: 1, row: 1 },
+            { id: 'ah_ms', col: 2, row: 1 }
+        ],
+        links: [
+            ['ah', 'ah_ms']
+        ]
+    }
+};
+
+const SHOP_TREE_ORDER = ['ad', 'ap', 'as', 'ah'];
 
 const formatShopStats = (desc = '') => desc.split(',').map((part) => part.trim()).filter(Boolean);
 
@@ -146,7 +204,7 @@ const renderShopSection = (container, title, itemIds, currentPlayer) => {
     container.appendChild(section);
 };
 
-const drawShopTreeLinks = (treeWrap, currentPlayer) => {
+const drawShopTreeLinks = (treeWrap, currentPlayer, config) => {
     if (!treeWrap) return;
     const svg = treeWrap.querySelector('.shop-tree-lines');
     const grid = treeWrap.querySelector('.shop-tree-grid');
@@ -161,7 +219,7 @@ const drawShopTreeLinks = (treeWrap, currentPlayer) => {
     svg.setAttribute('height', gridRect.height);
     svg.innerHTML = '';
 
-    for (const [fromId, toId] of SHOP_LINKS) {
+    for (const [fromId, toId] of (config?.links || [])) {
         const fromEl = grid.querySelector(`[data-shop-node="${fromId}"]`);
         const toEl = grid.querySelector(`[data-shop-node="${toId}"]`);
         if (!fromEl || !toEl) continue;
@@ -184,7 +242,10 @@ const drawShopTreeLinks = (treeWrap, currentPlayer) => {
     }
 };
 
-const renderAdTreeSection = (container, currentPlayer) => {
+const renderTreeSection = (container, currentPlayer, treeId) => {
+    const config = SHOP_TREE_CONFIGS[treeId];
+    if (!config) return;
+
     const section = document.createElement('section');
     section.className = 'shop-section shop-tree-section';
 
@@ -193,11 +254,11 @@ const renderAdTreeSection = (container, currentPlayer) => {
 
     const titleEl = document.createElement('div');
     titleEl.className = 'shop-section-title';
-    titleEl.textContent = 'AD TREE';
+    titleEl.textContent = config.title;
 
     const note = document.createElement('div');
     note.className = 'shop-section-note';
-    note.textContent = 'Green links mean the next item in the branch is currently buyable.';
+    note.textContent = config.note;
 
     head.appendChild(titleEl);
     head.appendChild(note);
@@ -205,6 +266,8 @@ const renderAdTreeSection = (container, currentPlayer) => {
 
     const treeWrap = document.createElement('div');
     treeWrap.className = 'shop-tree-wrap';
+    treeWrap.dataset.treeId = treeId;
+    treeWrap.style.setProperty('--shop-tree-cols', String(config.columns));
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.classList.add('shop-tree-lines');
@@ -213,21 +276,13 @@ const renderAdTreeSection = (container, currentPlayer) => {
     const grid = document.createElement('div');
     grid.className = 'shop-tree-grid';
 
-    const nodes = [
-        { id: 'ad', col: '2', row: '1' },
-        { id: 'ad_ls', col: '1', row: '2' },
-        { id: 'ad_pen', col: '3', row: '2' },
-        { id: 'ad_ls2', col: '1', row: '3' },
-        { id: 'ad_pen2', col: '3', row: '3' }
-    ];
-
-    for (const node of nodes) {
+    for (const node of config.nodes) {
         const item = getShopItem(node.id) || shopItems.find((shopItem) => shopItem.id === node.id);
         if (!item) continue;
         const card = createShopCard(item, currentPlayer, { tree: true });
         card.dataset.shopNode = node.id;
-        card.style.gridColumn = node.col;
-        card.style.gridRow = node.row;
+        card.style.gridColumn = String(node.col);
+        card.style.gridRow = String(node.row);
         grid.appendChild(card);
     }
 
@@ -236,7 +291,7 @@ const renderAdTreeSection = (container, currentPlayer) => {
     section.appendChild(treeWrap);
     container.appendChild(section);
 
-    requestAnimationFrame(() => drawShopTreeLinks(treeWrap, currentPlayer));
+    requestAnimationFrame(() => drawShopTreeLinks(treeWrap, currentPlayer, config));
 };
 
 const style = document.createElement('style');
@@ -293,22 +348,26 @@ style.innerHTML = `
   .shop-stat-pill { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; background: #171b22; border: 1px solid #2f3540; color: #cdd3dc; font-size: 10px; white-space: nowrap; }
   .shop-buy-btn { align-self: start; min-width: 72px; padding: 9px 12px; border-radius: 10px; border: 1px solid #3b414d; background: #1a1f28; color: #46f26b; font-weight: 800; cursor: pointer; }
   .shop-buy-btn:disabled { color: #848a95; cursor: not-allowed; }
+  .shop-tree-stack { display: flex; flex-direction: column; gap: 12px; }
   .shop-tree-wrap { position: relative; }
   .shop-tree-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-  .shop-tree-grid { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; padding: 2px 0 0 0; }
+  .shop-tree-grid { position: relative; display: grid; grid-template-columns: repeat(var(--shop-tree-cols, 3), minmax(0, 1fr)); gap: 10px 12px; padding: 2px 0 0 0; }
   .shop-tree-grid .shop-card { width: 100%; }
   .shop-tree-grid .shop-card-tree .shop-card-name { font-size: 13px; }
   .shop-tree-grid .shop-card-tree .shop-card-stats { gap: 3px; }
   @media screen and (max-width: 900px), screen and (max-height: 600px) {
-      #shopOverlay { width: 100% !important; padding: 12px 12px 30vh 12px !important; }
-      .shop-toolbar { top: -12px; }
+      #shopOverlay { width: clamp(340px, 70vw, 720px) !important; max-width: calc(100vw - 24px) !important; right: 12px !important; top: 12px !important; bottom: 12px !important; left: auto !important; height: auto !important; max-height: calc(100vh - 24px) !important; border-radius: 18px !important; padding: 12px 12px 20px 12px !important; box-shadow: -20px 0 45px rgba(0,0,0,0.35) !important; }
+      .shop-shell { gap: 12px; }
+      .shop-toolbar { top: -12px; padding: 12px 0 10px 0; }
       .shop-title { font-size: 18px; }
       .shop-nav-btn { padding: 9px 10px; font-size: 14px; }
       .shop-section { padding: 10px; border-radius: 14px; }
       .shop-card-grid { grid-template-columns: 1fr; }
       .shop-card { grid-template-columns: 1fr; gap: 8px; }
       .shop-buy-btn { width: 100%; }
-      .shop-tree-grid { gap: 8px; }
+      .shop-tree-stack { gap: 10px; }
+      .shop-tree-grid { gap: 8px 10px; }
+      .shop-tree-grid .shop-card-tree { padding: 8px; }
       .shop-tree-grid .shop-card-tree .shop-card-name { font-size: 12px; }
       .shop-tree-grid .shop-card-tree .shop-card-stats { gap: 2px; }
       .shop-stat-pill { font-size: 9px; padding: 2px 6px; }
@@ -600,7 +659,12 @@ export function populateShop() {
   downBtn.onclick = doScrollDown; downBtn.ontouchstart = doScrollDown;
 
     const treeMount = document.getElementById('shopTreeMount');
-    if (treeMount) renderAdTreeSection(treeMount, player);
+        if (treeMount) {
+            treeMount.className = 'shop-tree-stack';
+            for (const treeId of SHOP_TREE_ORDER) {
+                renderTreeSection(treeMount, player, treeId);
+            }
+        }
 
     const sectionsMount = document.getElementById('shopSections');
     if (sectionsMount) {
