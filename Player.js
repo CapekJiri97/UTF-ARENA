@@ -132,21 +132,22 @@ export class Player{
 
       for (let tower of game.towers) {
           const towerDistance = dist(this.pos, tower.pos);
-          if (towerDistance > tower.captureRadius + 220) continue;
+          if (towerDistance > tower.captureRadius + 420) continue;
 
           const enemyPressure = game.players.some(p => p.alive && p.team !== this.team && dist(p.pos, tower.pos) <= tower.captureRadius + 250);
           const alliedWavePressure = game.minions.some(m => !m.dead && m.team === this.team && dist(m.pos, tower.pos) <= tower.captureRadius + 250);
+          const isBotCaptureStance = this instanceof BotPlayer && this.state === 'CAPTURE' && this.objective === tower;
           const isHomeTower = (this.team === 0 && (tower.index === 0 || tower.index === 4)) || (this.team === 1 && (tower.index === 2 || tower.index === 3));
 
           if (tower.owner === this.team) {
-              if (enemyPressure) {
+              if (enemyPressure || isBotCaptureStance) {
                   this.towerDefends += dt * (isHomeTower ? 1.4 : 1.1);
                   this.objectivePresenceTime += dt * (isHomeTower ? 1.5 : 1.2);
               } else if (alliedWavePressure) {
                   this.objectivePresenceTime += dt * 0.25;
               }
           } else {
-              const contested = enemyPressure || alliedWavePressure;
+              const contested = enemyPressure || alliedWavePressure || isBotCaptureStance;
               this.towerAssaultTime += dt * (contested ? 1.15 : 0.55);
               this.objectivePresenceTime += dt * (contested ? 1.35 : 0.15);
           }
