@@ -14,7 +14,7 @@ style.innerHTML = `
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 50% !important; overflow: hidden !important; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
   #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 100% !important; max-width: 400px !important; height: 100% !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px 20px 25vh 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; -webkit-overflow-scrolling: touch !important; touch-action: auto !important; pointer-events: auto !important; }
   #shopOverlay.hidden { transform: translateX(100%) !important; }
-  #menu, #roomBrowser, #roomLobby, #endStats, #roomListContainer, #classBtns { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: auto !important; pointer-events: auto !important; }
+  #menu, #roomBrowser, #roomLobby, #endStats, #roomListContainer, #classBtns, .player-list { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: auto !important; pointer-events: auto !important; }
   #portraitWarning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #ffcc00; z-index: 9999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-family: monospace; }
   @media screen and (max-width: 900px) and (orientation: portrait) {
       #portraitWarning { display: flex !important; }
@@ -49,12 +49,12 @@ style.innerHTML = `
       .player-item { padding: 4px !important; font-size: 10px !important; margin-bottom: 2px !important; }
       #specList { max-height: 30px !important; font-size: 10px !important; }
       #lobbyUpBtn, #lobbyDownBtn { padding: 8px 12px !important; font-size: 14px !important; }
-      .footer-controls { flex-direction: column !important; align-items: stretch !important; gap: 5px !important; }
-      .footer-controls > div { justify-content: center !important; }
+      .team-box { flex: 0 0 200px !important; width: 200px !important; }
+      .center-roster { flex: 0 0 320px !important; width: 320px !important; min-width: 320px !important; }
   }
-  .three-col-layout { display: flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; }
-  .team-box { flex: 0 0 220px !important; width: 220px !important; background: #0a0a0c; border-radius: 4px; display: flex; flex-direction: column; border: 1px solid #222; }
-  .center-roster { flex: 1 1 400px !important; min-width: 300px; background: #0a0a0c; border: 1px solid #222; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; }
+  .three-col-layout { display: flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-behavior: smooth; }
+  .team-box { flex: 0 0 220px !important; width: 220px !important; background: #0a0a0c; border-radius: 4px; display: flex; flex-direction: column; border: 1px solid #222; scroll-snap-align: center; }
+  .center-roster { flex: 1 1 400px !important; min-width: 300px; background: #0a0a0c; border: 1px solid #222; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; scroll-snap-align: center; }
   .team-header { padding: 10px; font-weight: bold; text-align: center; letter-spacing: 1px; }
   .team-footer { padding: 10px; border-top: 1px solid #222; flex-shrink: 0; margin-top: auto; }
   .blue-header { background: linear-gradient(90deg, #1a2a5c, #0a0a0c); color: #486FED; border-bottom: 2px solid #486FED; }
@@ -1147,6 +1147,23 @@ export function buildMenu() {
           <div class="center-roster">
               <div style="background: #111; padding: 10px; font-weight: bold; border-bottom: 1px solid #222; color: #f0e6d2;">CHOOSE YOUR HERO</div>
               <div id="classBtns" style="flex-grow: 1; overflow-y: auto; padding: 10px; text-align: left;"></div>
+              
+              <!-- ZDE JE PŘESUNUTÝ FOOTER -->
+              <div style="flex-shrink: 0; background: #0a0a0c; padding: 10px; border-top: 1px solid #222; display:flex; flex-direction:column; align-items:center;">
+                  <div style="font-size: 12px; color: #aaa; margin-bottom: 4px; font-weight:bold;">SUMMONER SPELL</div>
+                  <div id="spellBtns" style="display:flex; gap: 5px; flex-wrap: wrap; justify-content:center;"></div>
+              </div>
+              <div class="footer-controls" style="flex-shrink: 0; background: #0a0a0c; padding: 10px; border-top: 1px solid #222; display:flex; flex-direction:column; gap: 10px;">
+                  <ul id="specList" style="list-style:none; padding:0; margin:0; font-size: 12px; color: #888; text-align: center; max-height: 40px; overflow-y:auto; display:flex; flex-direction:column;"></ul>
+                  <div style="display:flex; align-items:center; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                      <span style="display:flex; gap: 5px;">
+                          <button id="lobbyUpBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▲</button>
+                          <button id="lobbyDownBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▼</button>
+                      </span>
+                      <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background:#111; color:#fff; border:2px solid #555; border-radius: 4px; flex-grow:1;">READY</button>
+                      <button id="startBtn" style="padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background:#1a331a; color:#0f0; border:2px solid #0f0; border-radius: 4px; flex-grow:1;">START MATCH</button>
+                  </div>
+              </div>
           </div>
 
           <!-- Right: Red Team -->
@@ -1160,24 +1177,6 @@ export function buildMenu() {
                       <input type="range" id="redBotSlider" min="50" max="200" step="10" value="100" style="width:100%; margin-top: 5px;">
                   </details>
               </div>
-          </div>
-      </div>
-
-      <!-- Footer -->
-      <div style="flex-shrink: 0; background: #0a0a0c; padding: 10px; border: 1px solid #222; border-radius: 4px; margin-bottom: 10px; display:flex; flex-direction:column; align-items:center;">
-          <div style="font-size: 12px; color: #aaa; margin-bottom: 4px; font-weight:bold;">SUMMONER SPELL</div>
-          <div id="spellBtns" style="display:flex; gap: 5px; flex-wrap: wrap; justify-content:center;"></div>
-      </div>
-
-      <div class="footer-controls" style="flex-shrink: 0; display:flex; justify-content:space-between; align-items:center; background: #0a0a0c; padding: 10px; border: 1px solid #222; border-radius: 4px; flex-wrap: wrap; gap: 10px;">
-          <ul id="specList" style="list-style:none; padding:0; margin:0; font-size: 12px; color: #888; text-align: left; max-height: 40px; overflow-y:auto; display:flex; flex-direction:column;"></ul>
-          <div style="display:flex; align-items:center; gap: 15px; flex-grow: 1; justify-content: flex-end;">
-              <span style="display:flex; gap: 5px;">
-                  <button id="lobbyUpBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▲</button>
-                  <button id="lobbyDownBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▼</button>
-              </span>
-              <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:15px 30px; font-size:18px; font-weight:bold; cursor:pointer; background:#111; color:#fff; border:2px solid #555; border-radius: 4px;">READY</button>
-              <button id="startBtn" style="padding:15px 30px; font-size:18px; font-weight:bold; cursor:pointer; background:#1a331a; color:#0f0; border:2px solid #0f0; border-radius: 4px;">START MATCH</button>
           </div>
       </div>
     </div>`;
