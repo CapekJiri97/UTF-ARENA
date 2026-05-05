@@ -1575,6 +1575,19 @@ export class BotPlayer extends Player {
       }
     }
 
+    static pickBuyableItem(owner, candidateIds) {
+        const choices = [];
+        for (const candidateId of candidateIds) {
+            const candidate = getShopItem(candidateId);
+            if (!candidate) continue;
+            if (!canBuyShopItem(owner, candidate).ok) continue;
+            if (owner.gold < candidate.cost) continue;
+            choices.push(candidate);
+        }
+        if (!choices.length) return null;
+        return choices[Math.floor(Math.random() * choices.length)];
+    }
+
     randomizePokeThresholds() {
         const vary = () => 0.7 + Math.random() * 0.6; // Generuje odchylku +/- 30%
         this.pokeToleranceHits = Math.max(1, Math.round(3 * vary())); // cca 2 - 4 rány
@@ -2095,7 +2108,7 @@ export class BotPlayer extends Player {
                 else if (isFighter) { pool.push('hp'); if (bot.dmgType === 'magical') pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls', 'as_ms'); if (enemyPhys > enemyMag) pool.push('armor'); else if (enemyMag > enemyPhys) pool.push('mr'); } 
                 else if (isMageSupport) { if (isSupport) pool.push('ap', 'ap', 'ah', 'ah', 'hp'); else pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms', 'hp'); }  
                 else { if (bot.role === 'SLAYER' && bot.range) pool.push('ad', 'ad', 'ad', 'as', 'as', 'ah', 'ad_pen', 'ad_ls', 'as_ms', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls'); if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr'); }
-                let item = pickBuyableItem(bot, pool);
+                let item = BotPlayer.pickBuyableItem(bot, pool);
                 if (item) { 
                         bot.gold -= item.cost; bot.items.push(item.id); 
                         let oldHp = bot.maxHp, oldAD = bot.AD, oldAP = bot.AP, oldArmor = bot.armor, oldMR = bot.mr;
