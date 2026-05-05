@@ -109,6 +109,13 @@ export class Player{
   }
 
   spawnTamerPet(hpPct = 1.0) {
+      // OCHRANA PROTI DVOJITÉMU VLKOVI
+      let existing = game.minions.find(m => m.ownerId === this.id && m.isTamerPet && !m.dead);
+      if (existing) {
+          existing.hp = existing.maxHp * hpPct;
+          return;
+      }
+      
       let m = new Minion(this.pos.x + (Math.random()-0.5)*40, this.pos.y + (Math.random()-0.5)*40, this.team, 0);
       m.isTamerPet = true; m.ownerId = this.id; m.glyph = 'W'; m.speed = 160; m.baseSpeed = 160;
       m.speedBoostTimer = 0; m.lastTargetId = null;
@@ -154,6 +161,12 @@ export class Player{
                   if (p.team !== this.team && p.alive) {
                       let d = dist(this.pos, p.pos);
                       if (d < bestDist) { bestDist = d; target = p; }
+                  }
+              }
+              for (let min of game.minions) {
+                  if (min.team !== this.team && !min.dead) {
+                      let d = dist(this.pos, min.pos);
+                      if (d < bestDist) { bestDist = d; target = min; }
                   }
               }
           }
@@ -474,6 +487,14 @@ export class Player{
                 
                 if (!socket || game.isHost || this === player) {
                     applyDamage(t, this.omnislashData.damage, this.omnislashData.dmgType, this.id);
+                    if (t.hp <= 0) {
+                        if (t.className) {
+                            if (!socket || game.isHost) handlePlayerKill(t, this.id);
+                        } else {
+                            t.dead = true;
+                            if (!socket || game.isHost) grantRewards(this, 8, 11);
+                        }
+                    }
                 }
             } else {
                 this.omnislashCount = 0; // Konec, nejsou cíle
@@ -655,7 +676,7 @@ export class Player{
                   }
               }
           }
-      
+
       if (bestTarget) {
           let tx = bestTarget.pos.x;
           let ty = bestTarget.pos.y;
@@ -953,6 +974,7 @@ export class Player{
     if(!this.alive) return;
     const sp = this.spells[spKey]; if(!sp) return; 
     if(!isNetwork && sp.cd>0) return; // Zabráníme lokálnímu spamování
+    if(!isNetwork && this.castingTimeRemaining > 0) return; // Zabráníme přepsání cast time jiným spellem (př. Tamer E -> Q)
     if(!isNetwork && this.silenceTimer > 0) return; 
     if(!isNetwork && this.stunTimer > 0) return; 
     
@@ -1431,6 +1453,10 @@ export class BotPlayer extends Player {
       this.maxGroupSize = Math.random() > 0.5 ? 3 : 2; // 50% šance snést 3člennou skupinu na stejné věži
       this.lane = opts.lane || null;
 
+      this.panicThreshold = 0.10 + Math.random() * 0.15; // Panikaří na 10% až 25% HP
+      this.healDesireThreshold = 0.70 + Math.random() * 0.25; // Chce lékárničku na 70% až 95% HP
+      this.confidenceMod = 0.8 + Math.random() * 0.4; // 80% až 120% sebevědomí (Ochota bojovat v nevýhodě)
+
       this.personalWeights = {};
       for(let key in BOT_WEIGHTS) {
           this.personalWeights[key] = BOT_WEIGHTS[key] * (0.9 + Math.random() * 0.2);
@@ -1487,6 +1513,7 @@ export class BotPlayer extends Player {
     // Heuristická predikce souboje (Výpočet Time-To-Kill a DPS pro obě strany)
     // Vrací WinProbability (0.0 = Jistá prohra, 0.5 = Vyrovnané, 1.0 = Jistá výhra)
     predictFightOutcome(target) {
+        if (this.invulnerableTimer > 0) return 1.0; // Nezranitelnost (Ubercharge) znamená jistou výhru
         if (!target) return 0.5;
         let myTeamHp = 0, myTeamDps = 0, myTeamHps = 0;
         let enTeamHp = 0, enTeamDps = 0, enTeamHps = 0;
@@ -1511,6 +1538,9 @@ export class BotPlayer extends Player {
             
             if (p.regenBuffTimer > 0) hps += p.regenBuffAmount || 0;
             if (p.summonerSpell === 'Heal' && p.summonerCooldown <= 0) hps += (150 + p.level * 20) / 15; // Predikce léčení
+            if (p.beamTimer > 0 || game.players.some(doc => doc.beamTargetId === p.id && doc.beamTimer > 0)) {
+                hps += 26; // Virtuální HPS bonus za doktorův paprsek!
+            }
             
             if (p.spells) {
                 for (let key of ['Q', 'E']) {
@@ -1611,6 +1641,60 @@ export class BotPlayer extends Player {
     // ==========================================
     static runCentralBrain(team) {
         if (!game.isHost) return;
+
+        // --- INICIALIZACE STAVOVÉHO AUTOMATU A STRATEGIÍ ---
+        if (!game.macroState) game.macroState = { 0: null, 1: null };
+        if (!game.macroState[team]) {
+            game.macroState[team] = {
+                phase: 'EARLY',
+                timer: 120, // 2 minuty early game
+                currentStrat: 'META_4_1',
+                testIndex: 0,
+                strats: ['META_3_2', 'META_4_1', 'TURTLE', 'AGGRO_ALL', 'AGGRO_DEF', 'SPLIT_ROAM'],
+                scores: {},
+                panicTimer: 0,
+                lastPointDiff: 0,
+                snapshotDiff: 0
+            };
+        }
+
+        let mState = game.macroState[team];
+        let pointDiff = game.nexus[team] - game.nexus[1-team]; // KPI: Náš Nexus mínus Nepřátelský Nexus
+
+        // PANIC CHECK: Pokud ve vybrané strategii dostáváme na frak
+        if (mState.phase === 'EXPLOIT') {
+            if (pointDiff < mState.lastPointDiff) mState.panicTimer += 1.5;
+            else if (pointDiff > mState.lastPointDiff) mState.panicTimer = Math.max(0, mState.panicTimer - 1.5);
+            
+            if (mState.panicTimer > 45) { // Pokud 45 vteřin nepřetržitě krvácíme body
+                mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {};
+                mState.timer = 60; mState.panicTimer = 0; mState.currentStrat = mState.strats[0];
+                mState.snapshotDiff = pointDiff;
+            }
+        }
+        mState.lastPointDiff = pointDiff;
+
+        // ROTACE FÁZÍ MOZKU
+        if (mState.phase === 'EARLY') {
+            mState.timer -= 1.5;
+            if (mState.timer <= 0) { mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.timer = 60; mState.currentStrat = mState.strats[0]; mState.snapshotDiff = pointDiff; }
+        } else if (mState.phase === 'EXPLORE') {
+            mState.timer -= 1.5;
+            if (mState.timer <= 0) {
+                mState.scores[mState.currentStrat] = pointDiff - mState.snapshotDiff; // KPI Zápis
+                mState.testIndex++;
+                if (mState.testIndex < mState.strats.length) { mState.currentStrat = mState.strats[mState.testIndex]; mState.timer = 60; mState.snapshotDiff = pointDiff; } 
+                else {
+                    let best = mState.strats[0], bestScore = -Infinity;
+                    for (let s in mState.scores) { if (mState.scores[s] > bestScore) { bestScore = mState.scores[s]; best = s; } }
+                    mState.phase = 'EXPLOIT'; mState.currentStrat = best; mState.timer = 180; mState.panicTimer = 0;
+                }
+            }
+        } else if (mState.phase === 'EXPLOIT') {
+            mState.timer -= 1.5;
+            if (mState.timer <= 0) { mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.timer = 60; mState.currentStrat = mState.strats[0]; mState.snapshotDiff = pointDiff; }
+        }
+        
         let teamBots = game.players.filter(p => p instanceof BotPlayer && p.team === team);
         let teamPlayers = game.players.filter(p => p.team === team); // Včetně živých hráčů
         
@@ -1681,6 +1765,7 @@ export class BotPlayer extends Player {
         });
 
         const assign = (bot, type, target) => {
+            if (!bot) return; // Pojistka
             bot.macroOrder = { type, target };
             unassigned = unassigned.filter(b => b.id !== bot.id);
         };
@@ -1716,75 +1801,105 @@ export class BotPlayer extends Player {
 
         // 3. DEFEND (Obrana věží pod palbou)
         let ownedTowers = game.towers.filter(t => t.owner === team);
-        for (let t of ownedTowers) {
-            let attackers = enemies.filter(e => dist(e.pos, t.pos) < t.captureRadius + 400);
-            if (attackers.length > 0 && Math.abs(t.control) < 100) {
-                let needed = Math.min(unassigned.length, attackers.length);
-                for (let i = 0; i < needed; i++) {
-                    let best = unassigned.sort((a,b) => {
-                        let scoreA = (a.role === 'TANK' ? -2000 : 0) + dist(a.pos, t.pos);
-                        let scoreB = (b.role === 'TANK' ? -2000 : 0) + dist(b.pos, t.pos);
-                        return scoreA - scoreB;
-                    })[0];
-                    if (best) assign(best, 'DEFEND', t);
+        if (mState.currentStrat !== 'AGGRO_ALL') { // V módu čisté agrese se na obranu ignoruje
+            for (let t of ownedTowers) {
+                let attackers = enemies.filter(e => dist(e.pos, t.pos) < t.captureRadius + 400);
+                if (attackers.length > 0 && Math.abs(t.control) < 100) {
+                    let needed = (mState.currentStrat === 'AGGRO_DEF') ? 1 : Math.min(unassigned.length, attackers.length);
+                    for (let i = 0; i < needed; i++) {
+                        let best = unassigned.sort((a,b) => {
+                            let scoreA = (a.role === 'TANK' ? -2000 : 0) + dist(a.pos, t.pos);
+                            let scoreB = (b.role === 'TANK' ? -2000 : 0) + dist(b.pos, t.pos);
+                            return scoreA - scoreB;
+                        })[0];
+                        if (best) assign(best, 'DEFEND', t);
+                    }
                 }
             }
         }
 
-        // 4. SNEAK CAPTURE (Kradení prázdných věží)
+        // 4. SNEAK CAPTURE (Kradení prázdných věží v META režimech)
         let unownedTowers = game.towers.filter(t => t.owner !== team);
-        for (let t of unownedTowers) {
-            let enemiesNear = enemies.filter(e => dist(e.pos, t.pos) < 1200); // 1200 radius safe zone
-            if (enemiesNear.length === 0 && unassigned.length > 0) {
-                let best = unassigned.sort((a,b) => {
-                    let scoreA = (a.role === 'SPLITPUSHER' ? -3000 : 0) + (a.hp / a.effectiveMaxHp)*1000 + dist(a.pos, t.pos);
-                    let scoreB = (b.role === 'SPLITPUSHER' ? -3000 : 0) + (b.hp / b.effectiveMaxHp)*1000 + dist(b.pos, t.pos);
-                    return scoreA - scoreB;
-                })[0];
-                if (best) assign(best, 'SNEAK_CAPTURE', t);
+        if (['META_4_1', 'META_3_2'].includes(mState.currentStrat)) {
+            for (let t of unownedTowers) {
+                let enemiesNear = enemies.filter(e => dist(e.pos, t.pos) < 1200); // 1200 radius safe zone
+                if (enemiesNear.length === 0 && unassigned.length > 0) {
+                    let best = unassigned.sort((a,b) => {
+                        let scoreA = (a.role === 'SPLITPUSHER' ? -3000 : 0) + (a.hp / a.effectiveMaxHp)*1000 + dist(a.pos, t.pos);
+                        let scoreB = (b.role === 'SPLITPUSHER' ? -3000 : 0) + (b.hp / b.effectiveMaxHp)*1000 + dist(b.pos, t.pos);
+                        return scoreA - scoreB;
+                    })[0];
+                    if (best) assign(best, 'SNEAK_CAPTURE', t);
+                }
             }
         }
 
-        // 5. ASSAULT (Přímý útok na nepřátelskou věž)
-        // DOMINION TAKTIKA: "Rule of 3" & "Power Play"
-        // Pokud držíme 3 věže, neútočíme dál, POKUD nečekáme na respawn většiny nepřátel (Death Timer Advantage).
-        let totalEnemiesCount = game.players.filter(p => p.team !== team).length;
-        let massiveAdvantage = (totalEnemiesCount > 0 && enemies.length <= Math.floor(totalEnemiesCount / 2)); // Např. žijí jen 2 z 5
-
-        // DOMINION TAKTIKA: Minimalizace cestování (Center of Mass)
-        // Cílovou věž nevybíráme podle vzdálenosti od spawnu, ale podle aktuální polohy volné armády
+        // 5. DISTRIBUCE ÚKOLŮ DLE STRATEGIE (CÍLE)
+        let borderTowers = ownedTowers.sort((a,b) => dist(a.pos, spawnPoints[1-team]) - dist(b.pos, spawnPoints[1-team]));
         let cx = spawnPoints[team].x, cy = spawnPoints[team].y;
-        if (unassigned.length > 0) {
-            cx = 0; cy = 0;
-            for (let b of unassigned) { cx += b.pos.x; cy += b.pos.y; }
-            cx /= unassigned.length; cy /= unassigned.length;
-        }
+        if (unassigned.length > 0) { cx = 0; cy = 0; for (let b of unassigned) { cx += b.pos.x; cy += b.pos.y; } cx /= unassigned.length; cy /= unassigned.length; }
         let remainingTowers = unownedTowers.sort((a,b) => dist(a.pos, {x: cx, y: cy}) - dist(b.pos, {x: cx, y: cy}));
         let targetTower = remainingTowers.length > 0 ? remainingTowers[0] : null;
 
-        // Pokud držíme 3 věže, útočíme na další JEN POKUD je neutrální (Free), nebo máme masivní výhodu.
-        let shouldHold = (ownedTowers.length >= 3 && !massiveAdvantage && targetTower && targetTower.owner !== -1);
+        let topMidTower = game.towers.find(t => t.index === 1);
+        let enemyBotTower = game.towers.find(t => t.index === (team === 0 ? 3 : 4));
+        let mainTarget = (topMidTower && topMidTower.owner !== team) ? topMidTower : enemyBotTower;
+        if (!mainTarget || mainTarget.owner === team) mainTarget = targetTower;
 
-        if (shouldHold && unassigned.length > 0) {
-            // Pošleme volné boty preventivně hlídkovat na naše hraniční věže (ty nejblíže k nepříteli)
-            let borderTowers = ownedTowers.sort((a,b) => dist(a.pos, spawnPoints[1-team]) - dist(b.pos, spawnPoints[1-team]));
-            for (let b of unassigned) assign(b, 'DEFEND', borderTowers[0]);
-        } else if (targetTower && unassigned.length > 0) {
-                let assaultTeam = unassigned.sort((a,b) => {
-                    // Frontline (Tanci/Fighter) jdou dopředu, Support se drží vzadu, pokud nemá s kým jít
-                    let scoreA = dist(a.pos, targetTower.pos) - (['TANK', 'FIGHTER'].includes(a.role) ? 1000 : 0) + (a.role === 'SUPPORT' ? 2000 : 0);
-                    let scoreB = dist(b.pos, targetTower.pos) - (['TANK', 'FIGHTER'].includes(b.role) ? 1000 : 0) + (b.role === 'SUPPORT' ? 2000 : 0);
-                    return scoreA - scoreB;
-                }).slice(0, 3);
-                
-                // Pojistka: Nepošleme samotného SUPPORTA útočit na věž, raději ho pošleme pomáhat s farmou (kde narazí na spojence)
-                if (!(assaultTeam.length === 1 && assaultTeam[0].role === 'SUPPORT')) {
-                    for (let b of assaultTeam) assign(b, 'ASSAULT', targetTower);
+        if (mState.currentStrat === 'TURTLE') {
+            let toAssign = [...unassigned];
+            for (let i = 0; i < toAssign.length; i++) assign(toAssign[i], 'DEFEND', borderTowers[i % Math.max(1, borderTowers.length)]);
+        } 
+        else if (mState.currentStrat === 'AGGRO_ALL') {
+            let toAssign = [...unassigned];
+            for (let b of toAssign) assign(b, 'ASSAULT', targetTower);
+        }
+        else if (mState.currentStrat === 'AGGRO_DEF') {
+            if (unassigned.length > 0 && borderTowers.length > 0) {
+                let defender = unassigned.sort((a,b) => (a.role === 'TANK' ? -1000 : 0) - (b.role === 'TANK' ? -1000 : 0))[0];
+                assign(defender, 'DEFEND', borderTowers[0]);
+            }
+            let toAssign = [...unassigned];
+            for (let b of toAssign) assign(b, 'ASSAULT', targetTower);
+        }
+        else if (mState.currentStrat === 'SPLIT_ROAM') {
+            if (unassigned.length > 0) {
+                let roamer = unassigned.sort((a,b) => (a.role === 'SPLITPUSHER' ? -1000 : 0) - a.speed - ((b.role === 'SPLITPUSHER' ? -1000 : 0) - b.speed))[0];
+                if (unownedTowers.length > 0) {
+                    let sneakTarget = unownedTowers.sort((a,b) => dist(b.pos, mainTarget ? mainTarget.pos : spawnPoints[1-team]) - dist(a.pos, mainTarget ? mainTarget.pos : spawnPoints[1-team]))[0];
+                    assign(roamer, 'SNEAK_CAPTURE', sneakTarget);
                 }
+            }
+            let toAssign = [...unassigned];
+            for (let b of toAssign) assign(b, 'ASSAULT', targetTower);
+        }
+        else if (mState.currentStrat === 'META_3_2') {
+            let t1 = mainTarget;
+            let t2 = unownedTowers.find(t => t !== t1) || borderTowers[0];
+            let toAssign = [...unassigned];
+            for (let i = 0; i < toAssign.length; i++) {
+                if (i < 3) assign(toAssign[i], 'ASSAULT', t1);
+                else assign(toAssign[i], 'ASSAULT', t2);
+            }
+        }
+        else { // META_4_1
+            let splitPusher = unassigned.find(b => b.role === 'SPLITPUSHER') || unassigned[unassigned.length - 1];
+            if (splitPusher && unassigned.length > 1) {
+                let splitTarget = (mainTarget === topMidTower) ? enemyBotTower : topMidTower;
+                if (!splitTarget || splitTarget.owner === team) splitTarget = unownedTowers.find(t => t !== mainTarget);
+                if (splitTarget) assign(splitPusher, 'PUSH_LANE', splitTarget);
+            }
+            let assaultTeam = [...unassigned].sort((a,b) => {
+                let scoreA = (['TANK', 'FIGHTER'].includes(a.role) ? -1000 : 0) + (a.role === 'SUPPORT' ? 2000 : 0);
+                let scoreB = (['TANK', 'FIGHTER'].includes(b.role) ? -1000 : 0) + (b.role === 'SUPPORT' ? 2000 : 0);
+                return scoreA - scoreB;
+            });
+            for (let b of assaultTeam) assign(b, 'ASSAULT', mainTarget);
         }
 
-        // 6. FARM / PUSH WAVES (Zbylí jdou farmit)
-        for (let b of unassigned) assign(b, 'FARM', null);
+        // 6. ZÁLOHA (Zbytek jde farmit)
+        let leftovers = [...unassigned];
+        for (let b of leftovers) assign(b, 'FARM', null);
     }
 
     // ==========================================
@@ -1842,6 +1957,15 @@ export class BotPlayer extends Player {
               }
           }
 
+          // Statická obrana meta rozestavení
+          let isHomeTower = false;
+          if (this.team === 0 && (t.index === 0 || t.index === 4)) isHomeTower = true;
+          if (this.team === 1 && (t.index === 2 || t.index === 3)) isHomeTower = true;
+          if (t.owner === this.team && isHomeTower) {
+              score += 8000; // Drží 2 nejbližší
+              if (isUnderAttack || Math.abs(t.control) < 100) score += 30000; // Nedá domovskou věž napospas
+          }
+          
           let score = this.personalWeights.towerBaseScore - dist(this.pos, t.pos);
           if (dist(t.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Penalizace
           let isTopTower = (t.index === 0 || t.index === 1 || t.index === 2);
@@ -1918,6 +2042,9 @@ export class BotPlayer extends Player {
           if (this.macroOrder && ['DEFEND', 'SNEAK_CAPTURE', 'ASSAULT'].includes(this.macroOrder.type) && this.macroOrder.target === t) {
               score += 60000;
           }
+          if (this.macroOrder && this.macroOrder.type === 'PUSH_LANE' && this.macroOrder.target === t) {
+              score += 20000; // Cíl splitpushera, udržuje ho v přibližném směru, i když dojdou minioni
+          }
           
           if (score > bestObjScore) { bestObjScore = score; bestObjective = t; bestState = 'CAPTURE'; }
       }
@@ -1938,6 +2065,12 @@ export class BotPlayer extends Player {
                   let d = dist(this.pos, m.pos);
                   let score = this.personalWeights.minionPushBaseScore - d;
                   if (dist(m.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Nejdeme pro miniony do báze
+                  if (this.macroOrder && (this.macroOrder.type === 'PUSH_LANE' || this.macroOrder.type === 'FARM')) {
+                      score += 15000; // Preferuje eskort minionů místo bezcílného bloudění
+                      if (this.macroOrder.target && m.targetIndex === this.macroOrder.target.index) {
+                          score += 10000; // Jde za správnými miniony ve své lince
+                      }
+                  }
                   if (this.state === 'PUSH' && this.objective && this.objective.type === 'minions' && dist(this.objective.pos, m.pos) < 250) score += this.personalWeights.objectiveHysteresis;
                   
                   if (score > bestObjScore) { bestObjScore = score; bestObjective = { pos: m.pos, type: 'minions', captureRadius: 160, index: 'MINIONS' }; bestState = 'PUSH'; }
@@ -1945,7 +2078,7 @@ export class BotPlayer extends Player {
       }
 
       // 4. Hodnocení Sběratelských Předmětů (Healy a PowerUp)
-      if (this.hp / this.effectiveMaxHp < 0.85) { // Reagují dříve (na 85%)
+      if (this.hp / this.effectiveMaxHp < this.healDesireThreshold) { // Randomizovaná chuť po lékárničce
           for (let h of game.heals) {
               if (h.active) {
                   let d = dist(this.pos, h.pos);
@@ -2024,6 +2157,10 @@ export class BotPlayer extends Player {
               let score = this.personalWeights.enemyBaseScore - d;
               if (dist(e.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Neútočíme dovnitř báze
               
+              if (this.macroOrder && this.macroOrder.type === 'PUSH_LANE' && d > 400 && !isBloodlust) {
+                  score -= 15000; // Zamezí random fightům v lese, pokud tlačí linku
+              }
+              
               // ANALÝZA PŘESILY (Prevence sebevražedných 1v3)
               let winProb = this.predictFightOutcome(e);
               if (e.className && this.huntTarget !== e) {
@@ -2031,6 +2168,8 @@ export class BotPlayer extends Player {
                   if (this.role === 'SPLITPUSHER') cowardiceThreshold = 0.55; // Srubne jenom snadné cíle
                   else if (this.role === 'TANK') cowardiceThreshold = 0.25; // Tank se nebojí, i když má nevýhodu
                   else if (this.role === 'SLAYER') cowardiceThreshold = 0.45; 
+
+                  cowardiceThreshold *= (2.0 - this.confidenceMod); // Sebevědomější bot má nižší práh strachu
 
                   if (this.isDesperate) {
                       cowardiceThreshold -= 0.15; // Zoufalství: Budou riskovat i vyloženě špatné souboje o cíle!
@@ -2131,13 +2270,41 @@ export class BotPlayer extends Player {
 
       // 6. Pud sebezáchovy (Kritické HP)
       let myHpPct = this.hp / this.effectiveMaxHp;
-      if (myHpPct < 0.15) {
+      if (myHpPct < this.panicThreshold) { // Randomizovaný pud sebezáchovy
           let almostDone = false;
           if (bestState === 'CAPTURE' && bestObjective && bestObjective.control !== undefined) {
               let progressVal = (this.team === 0) ? (bestObjective.control + 100)/200 : (100 - bestObjective.control)/200;
               if (progressVal > 0.85) almostDone = true; // Riskne to a zkusí to dotáhnout
           }
           if (!almostDone) this.terrified = true; // Zpanikaří a utíká se zachránit
+      }
+
+      // Útěk vs. Započítání mobility (Boj do posledního dechu)
+      if (this.terrified && bestTarget && bestTarget.className) {
+          let attackerSpeed = bestTarget.speed * (bestTarget.msBuffTimer > 0 ? 1.3 : 1.0);
+          let mySpeed = this.speed * (this.msBuffTimer > 0 ? 1.3 : 1.0);
+          let hasDash = (bestTarget.spells?.Q?.type?.includes('dash') && bestTarget.spells.Q.cd <= 0) ||
+                        (bestTarget.spells?.E?.type?.includes('dash') && bestTarget.spells.E.cd <= 0) ||
+                        (bestTarget.spells?.E?.type === 'omnislash' && bestTarget.spells.E.cd <= 0) ||
+                        (bestTarget.spells?.Q?.type === 'projectile_pull' && bestTarget.spells.Q.cd <= 0); // Vcucnutí/Dash
+          if (attackerSpeed >= mySpeed * 1.1 || hasDash) {
+              this.terrified = false; // Utíkat nemá smysl, umřel by zády k nepříteli
+              bestTargetScore += 50000; // All-in Berserk mód
+          }
+      }
+
+      // DOCTOR SYNERGIE: Následuje Slayera nebo Fightera
+      if (this.role === 'SUPPORT' && this.className === 'Doctor' && !this.terrified) {
+          let protectTarget = aliveAllies.filter(p => ['SLAYER', 'FIGHTER'].includes(p.role) && p.id !== this.id)
+                                         .sort((a,b) => dist(this.pos, a.pos) - dist(this.pos, b.pos))[0];
+          if (protectTarget && dist(this.pos, protectTarget.pos) > 200) {
+              let score = 25000 - dist(this.pos, protectTarget.pos); 
+              if (score > bestObjScore) {
+                  bestObjScore = score;
+                  bestObjective = { pos: protectTarget.pos, type: 'escort', captureRadius: 150 };
+                  bestState = 'PUSH'; 
+              }
+          }
       }
 
       // 7. Hodnocení Volání o pomoc
@@ -2404,7 +2571,7 @@ export class BotPlayer extends Player {
           return;
       }
       if(game.gameOver) return;
-      if(game.startDelay > 0) return; // Boti čekají na start hry
+      // if(game.startDelay > 0) return; // REMOVED: Boti se mohou rozmístit už během odpočtu
       if(!this.alive){
           if (!socket || game.isHost) { // Respawn logika pouze na Hostovi
               if (this.summonerSpell === 'Revive' && this.summonerCooldown <= 0) { this.castSummonerSpell(); return; }
@@ -2508,7 +2675,13 @@ export class BotPlayer extends Player {
                   this.pos.x = t.pos.x + (Math.random()-0.5)*40; this.pos.y = t.pos.y + (Math.random()-0.5)*40;
                   spawnParticles(this.pos.x, this.pos.y, 6, '#fff', { shape: 'line', speed: 250 });
                   playSound('hit', this.pos);
-                  if (!socket || game.isHost) applyDamage(t, this.omnislashData.damage, this.omnislashData.dmgType, this.id);
+                  if (!socket || game.isHost) {
+                      applyDamage(t, this.omnislashData.damage, this.omnislashData.dmgType, this.id);
+                      if (t.hp <= 0) {
+                          if (t.className) handlePlayerKill(t, this.id);
+                          else { t.dead = true; grantRewards(this, 8, 11); }
+                      }
+                  }
               } else { this.omnislashCount = 0; }
               if (this.omnislashCount <= 0) this.invulnerableTimer = 0; else this.invulnerableTimer = 0.3;
           }
@@ -2541,7 +2714,7 @@ export class BotPlayer extends Player {
       if (this.summonerCooldown <= 0 && (!socket || game.isHost)) { 
           let castSumm = false;
           switch(this.summonerSpell) {
-              case 'Heal': if(this.hp / this.effectiveMaxHp < 0.3) castSumm = true; break;
+              case 'Heal': if(this.hp / this.effectiveMaxHp < (this.panicThreshold + 0.15)) castSumm = true; break;
               case 'Ghost': if(this.state === 'ATTACK' && this.target && dist(this.pos, this.target.pos) > 400 && this.target.hp / this.target.effectiveMaxHp < 0.5) castSumm = true; break;
               case 'Boost': if(this.state === 'ATTACK' && this.target && dist(this.pos, this.target.pos) < 300) castSumm = true; break;
               case 'Rally': if(this.state === 'CAPTURE' && this.objective && dist(this.pos, this.objective.pos) < 80) castSumm = true; break;
@@ -2820,8 +2993,13 @@ export class BotPlayer extends Player {
                   else if (this.spells.Q.type === 'projectile_pull') castQ = (d < (this.spells.Q.pSpeed * this.spells.Q.life || 390));
                   else if (this.spells.Q.type === 'heal_beam') {
                       if (this.beamTimer <= 0) {
-                          let injuredAlly = game.players.find(p => p.team === this.team && p.alive && p.id !== this.id && dist(p.pos, this.pos) < (this.spells.Q.range||150));
-                          if (injuredAlly && injuredAlly.hp/injuredAlly.effectiveMaxHp < 0.95) { castQ = true; qtx = injuredAlly.pos.x; qty = injuredAlly.pos.y; }
+                          let injuredAllies = game.players.filter(p => p.team === this.team && p.alive && p.id !== this.id && dist(p.pos, this.pos) < (this.spells.Q.range||150));
+                          let bestAlly = injuredAllies.sort((a,b) => {
+                              let scoreA = (['SLAYER', 'FIGHTER'].includes(a.role) ? 100 : 0) - (a.hp / a.effectiveMaxHp)*100;
+                              let scoreB = (['SLAYER', 'FIGHTER'].includes(b.role) ? 100 : 0) - (b.hp / b.effectiveMaxHp)*100;
+                              return scoreB - scoreA;
+                          })[0];
+                          if (bestAlly && bestAlly.hp/bestAlly.effectiveMaxHp < 0.95) { castQ = true; qtx = bestAlly.pos.x; qty = bestAlly.pos.y; }
                       }
                   }
                   else castQ = (d < 450);
@@ -2979,6 +3157,17 @@ export class BotPlayer extends Player {
       }
       }
       if (dodgeDx !== 0 || dodgeDy !== 0) { dx += dodgeDx; dy += dodgeDy; }
+
+      // --- MICRO: DOCTOR LEASH (Nenechávej doktora vzadu) ---
+      let myDoctor = game.players.find(p => p.team === this.team && p.className === 'Doctor' && p.beamTargetId === this.id);
+      if (myDoctor) {
+          let dToDoc = dist(this.pos, myDoctor.pos);
+          if (dToDoc > 150) { // Beam se utrhne na 250, začne to tahat už na 150
+              let pullForce = (dToDoc - 150) * 0.15; // Zpětný tah roste se vzdáleností (magnet)
+              dx += ((myDoctor.pos.x - this.pos.x) / dToDoc) * pullForce;
+              dy += ((myDoctor.pos.y - this.pos.y) / dToDoc) * pullForce;
+          }
+      }
 
       const l = Math.hypot(dx, dy);
        let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? (this.slowMod || 0.6) : 1.0);

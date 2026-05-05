@@ -1,0 +1,12 @@
+tamer když da E a pak Q tak se ressne wolf hned
+wolf asi ignoruje miniony nebo nevím
+přidat AI logiku - více jako modu ktery mozek behem hry zkouší (4/1) 3/2  hold aggresive capture , ignore and capture , cpature and fight atd
+wolf se asi ressne tam kde umřel, ne na spawnu
+minimalne dat na začatek že dokud se neobsadí všechny veže alespon nějakym tymem tak boti drží strategii 4/1 nebo 3/2 a važne ty veže rushujou + lanujou + přidat že boti se mužou hejbat už hned na začatku
+wanderevo spell nějaky je schopen nechat hrače na mínus hp a nepropsat kill a smrt
+zlepsit botí logiku pokud hraje doctor - tak at s ním někdo chodi a využívají toho uberchargu
+nechat boty občas proste jit jen po lajne (po okraji mapy) a pushovat miniony, farmit a dotlačit miniony pod vež.
+dat botum aby si vždy hlidali ty svoje 2 veže blízko spawnu a potom vybrali postupne jednu z tech zbylych
+at boti lepe počítají když vypočítavaji fight of fligth s movementspeedem a skokama danych hrdinu
+počitají boti když si počítají win probabilitu fightu s aktualníma hp?
+předělat champion select screen - více jako lolko - blue tym na levo red team na pravo, v tom vypís hraču v roomce co jsou online - pod tím talčítko join team , Hrdinove na vyber jsou mezi těmtito dvouma sloupci , pod tím je řadek se sellection of summoner spell a ready + start talčítka. obtížnost botu (v %) je schovana v dropdown menu pod talčítkem join team v obou dvou těch tymovych sloupícjc. nechat scrollovací šipky co jsou naohře u jmena roomyk  ale přidat je i velde těch start a ready tlačítka

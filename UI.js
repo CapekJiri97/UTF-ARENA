@@ -40,9 +40,27 @@ style.innerHTML = `
       #roomLobby h1, #roomBrowser h1 { font-size: 4vh !important; margin-bottom: 1vh !important; }
       #roomLobby p, #roomLobby li, #roomBrowser li, #roomLobby button, #roomBrowser button { font-size: 3vh !important; padding: 1vh 2vh !important; }
       #roomLobby h3 { font-size: 3vh !important; margin-bottom: 1vh !important; }
-      #classBtns button, #spellBtns button { padding: 1.5vh !important; font-size: 2.5vh !important; }
       .shop-col { margin-bottom: 5px !important; }
+      #roomLobby { padding: 1vh !important; }
+      .champ-grid { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)) !important; gap: 4px !important; padding-bottom: 5px !important; }
+      .champ-btn { padding: 5px 2px !important; gap: 2px !important; }
+      .champ-icon { font-size: 18px !important; }
+      .champ-name { font-size: 9px !important; }
+      .player-item { padding: 4px !important; font-size: 11px !important; }
   }
+  .team-box { background: #0a0a0c; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #222; }
+  .team-header { padding: 10px; font-weight: bold; text-align: center; letter-spacing: 1px; }
+  .blue-header { background: linear-gradient(90deg, #1a2a5c, #0a0a0c); color: #486FED; border-bottom: 2px solid #486FED; }
+  .red-header { background: linear-gradient(-90deg, #5c1a1a, #0a0a0c); color: #FF4E4E; border-bottom: 2px solid #FF4E4E; }
+  .player-list { list-style: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; text-align: left; }
+  .player-item { padding: 6px; margin-bottom: 4px; background: #111; border: 1px solid #333; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  .champ-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; padding-bottom: 15px; }
+  .champ-btn { background: #111; border: 2px solid #333; color: #fff; padding: 10px 5px; border-radius: 6px; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 5px; font-family: monospace; }
+  .champ-btn:hover:not(.taken) { background: #222; border-color: #f0e6d2; }
+  .champ-btn.selected { border-color: #0f0; background: rgba(0,255,0,0.1); box-shadow: 0 0 10px rgba(0,255,0,0.2) inset; }
+  .champ-btn.taken { opacity: 0.3; cursor: not-allowed; filter: grayscale(100%); border-color: #f00; }
+  .champ-icon { font-size: 24px; font-weight: bold; }
+  .champ-name { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 `;
 document.head.appendChild(style);
 
@@ -111,11 +129,16 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null
   const title = document.getElementById('lobbyTitle');
   if (title) title.textContent = `ROOM: ${roomName}`;
 
-  const list = document.getElementById('lobbyList'); if(!list) return;
-  list.innerHTML = '';
+  const blueList = document.getElementById('blueTeamList');
+  const redList = document.getElementById('redTeamList');
+  const specList = document.getElementById('specList');
+  if (blueList) blueList.innerHTML = '';
+  if (redList) redList.innerHTML = '';
+  if (specList) specList.innerHTML = '';
   
   let myTeam = -1;
   let myClass = '';
+  let mySpell = 'Heal';
   let myReady = false;
   let allReady = true;
   let playerCount = 0;
@@ -129,15 +152,23 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null
       if (isMe) {
           myTeam = p.team;
           myClass = p.className;
+          mySpell = p.summonerSpell;
           myReady = p.ready;
       }
       
-      const readyText = p.ready ? '<span style="color:#0f0;">[READY]</span>' : '<span style="color:#888;">[WAITING]</span>';
+      const readyHTML = p.ready ? '<span style="color:#0f0; font-size: 10px;">READY</span>' : '<span style="color:#888; font-size: 10px;">WAITING</span>';
+      const meTag = isMe ? '<span style="color:#ffcc00; font-size:10px; margin-left:4px;">(YOU)</span>' : '';
       
       if (p.team === -1) {
-          list.innerHTML += `<li style="color:#aaa; margin-bottom:6px; font-size:16px;">[SPECTATOR] ${p.id.substring(0,4)}... ${isMe ? ' (TY)' : ''} ${readyText}</li>`;
+          if (specList) specList.innerHTML += `<li>[SPECTATOR] ${p.id.substring(0,4)}... ${meTag}</li>`;
       } else {
-          list.innerHTML += `<li style="color:${tColor}; margin-bottom:6px; font-size:16px;">[${p.className} | ${p.summonerSpell}] ${p.id.substring(0,4)}... ${isMe ? ' (TY)' : ''} ${readyText}</li>`;
+          const targetList = p.team === 0 ? blueList : redList;
+          if (targetList) {
+              targetList.innerHTML += `<li class="player-item" style="border-left: 3px solid ${tColor};">
+                  <div><strong style="color:${tColor};">${p.className}</strong><span style="color:#aaa; font-size:10px; margin-left:4px;">[${p.summonerSpell}]</span>${meTag}</div>
+                  <div>${readyHTML}</div>
+              </li>`;
+          }
       }
       
       if (p.team === 0) blueTaken.add(p.className);
@@ -148,24 +179,32 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null
 
   const myTeamTakenByOthers = myTeam === 0 ? blueTaken : redTaken;
   
-  const allClassBtns = document.querySelectorAll('#classBtns button');
+  const allClassBtns = document.querySelectorAll('.champ-btn');
   allClassBtns.forEach(btn => {
       const className = btn.dataset.className;
       const isMyClass = className === myClass;
       const isTakenByOther = myTeamTakenByOthers.has(className) && !isMyClass;
       
       btn.disabled = isTakenByOther;
-      btn.style.opacity = isTakenByOther ? '0.4' : '1';
-      btn.style.cursor = isTakenByOther ? 'not-allowed' : 'pointer';
-
-      if (isMyClass) {
-          btn.style.borderColor = '#0f0';
-      } else if (isTakenByOther) {
-          btn.style.borderColor = '#f00';
+      if (isTakenByOther) {
+          btn.classList.add('taken');
+          btn.classList.remove('selected');
+      } else if (isMyClass) {
+          btn.classList.add('selected');
+          btn.classList.remove('taken');
       } else {
-          btn.style.borderColor = '#444';
+          btn.classList.remove('taken');
+          btn.classList.remove('selected');
       }
   });
+
+  const allSpellBtns = document.querySelectorAll('#spellBtns button');
+  if(allSpellBtns.length > 0) {
+      allSpellBtns.forEach(b => { 
+          b.style.borderColor = (b.dataset.spell === mySpell) ? '#0f0' : '#333'; 
+          b.style.background = (b.dataset.spell === mySpell) ? 'rgba(0,255,0,0.1)' : '#111';
+      });
+  }
 
   if (settings) {
       const blueSlider = document.getElementById('blueBotSlider');
@@ -1067,50 +1106,69 @@ export function buildMenu() {
               </ul>
           </div>
       </div>
-    <div id="roomLobby" style="zoom: 0.85; margin: 0 auto; display: ${socket ? 'none' : 'block'}; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1000px; box-sizing:border-box;">
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 15px;">
+      <div id="roomLobby" style="zoom: 0.85; margin: 0 auto; display: ${socket ? 'none' : 'block'}; background:#070709; padding:1vw; border:1px solid #222; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1200px; box-sizing:border-box; display:flex; flex-direction:column; max-height: 95vh; overflow-y: auto;">
+      <!-- Header -->
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #222; padding-bottom: 10px; margin-bottom: 10px;">
           <div style="display:flex; align-items:center; gap: 15px;">
-              <h1 id="lobbyTitle" style="margin:0;">OFFLINE MODE</h1>
+              <h1 id="lobbyTitle" style="margin:0; font-size: 24px; color: #f0e6d2;">OFFLINE MODE</h1>
               <span style="color:#aaa; font-size:24px;">
                   <span id="lobbyUpBtn" style="cursor:pointer; padding:0 10px;">▲</span>
                   <span id="lobbyDownBtn" style="cursor:pointer; padding:0 10px;">▼</span>
               </span>
           </div>
-          <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:8px 16px; cursor:pointer; background:#300; color:#ff6b6b; border:1px solid #ff6b6b; font-weight:bold; border-radius:4px;">LEAVE ROOM</button>
+          <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:6px 12px; cursor:pointer; background:#300; color:#ff6b6b; border:1px solid #ff6b6b; font-weight:bold; border-radius:4px;">LEAVE ROOM</button>
       </div>
-      <div style="display:flex; flex-wrap:wrap; justify-content: space-between; margin-top: 10px; gap: 10px;">
-        <div style="flex: 1 1 60%; min-width:300px; text-align: left;">
-          <p style="color:#aaa; margin-bottom: 5px;">1. Select Team:</p>
-          <div style="display:flex; gap: 5px; margin-bottom:15px;">
-            <button id="btnBlue" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#486FED; border:2px solid #486FED;">BLUE TEAM</button>
-            <button id="btnRed" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#FF4E4E; border:2px solid #444;">RED TEAM</button>
-            <button id="btnSpec" style="padding:10px; flex-grow:1; cursor:pointer; font-weight:bold; background:#000; color:#aaa; border:2px solid #444;">SPECTATE</button>
+      
+      <!-- 3 Columns Layout -->
+      <div style="display:flex; flex-wrap: wrap; flex-grow: 1; gap: 15px; min-height: 0; margin-bottom: 10px;">
+          <!-- Left: Blue Team -->
+          <div class="team-box" style="flex: 1; min-width: 200px;">
+              <div class="team-header blue-header">BLUE TEAM</div>
+              <ul id="blueTeamList" class="player-list"></ul>
+              <div style="padding: 10px; border-top: 1px solid #222;">
+                  <button id="btnBlue" style="width: 100%; padding:10px; cursor:pointer; font-weight:bold; background:#1a2a5c; color:#486FED; border:1px solid #486FED; border-radius: 4px; margin-bottom: 5px;">JOIN BLUE</button>
+                  <details style="text-align: left; background: #000; padding: 5px; border-radius: 4px; border: 1px solid #222;">
+                      <summary style="cursor:pointer; color:#aaa; font-size:12px; outline:none;">Bot Difficulty (<span id="blueBotLabel">100%</span>)</summary>
+                      <input type="range" id="blueBotSlider" min="50" max="200" step="10" value="100" style="width:100%; margin-top: 5px;">
+                  </details>
+              </div>
           </div>
-          <p style="color:#aaa; margin-bottom: 5px;">2. Select Class:</p>
-          <div id="classBtns" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:15px;"></div>
-          <p style="color:#aaa; margin-bottom: 5px;">3. Select Summoner Spell:</p>
-          <div id="spellBtns" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-        </div>
-        <div style="flex: 1 1 30%; min-width:200px; text-align: left; background:#000; padding: 15px; border:1px solid #333; border-radius: 4px; box-sizing:border-box;">
-          <h3 style="margin-top:0; color:#aaa; border-bottom:1px solid #444; padding-bottom:10px;">Players in Room:</h3>
-          <ul id="lobbyList" style="list-style: none; padding: 0; margin: 0; font-family: monospace;"><li>Offline or Connecting...</li></ul>
-        </div>
+
+          <!-- Center: Champion Roster -->
+          <div style="flex: 2; display:flex; flex-direction:column; min-width: 300px; background: #0a0a0c; border: 1px solid #222; border-radius: 4px; overflow: hidden;">
+              <div style="background: #111; padding: 10px; font-weight: bold; border-bottom: 1px solid #222; color: #f0e6d2;">CHOOSE YOUR HERO</div>
+              <div id="classBtns" style="flex-grow: 1; overflow-y: auto; padding: 10px; text-align: left;"></div>
+          </div>
+
+          <!-- Right: Red Team -->
+          <div class="team-box" style="flex: 1; min-width: 200px;">
+              <div class="team-header red-header">RED TEAM</div>
+              <ul id="redTeamList" class="player-list"></ul>
+              <div style="padding: 10px; border-top: 1px solid #222;">
+                  <button id="btnRed" style="width: 100%; padding:10px; cursor:pointer; font-weight:bold; background:#5c1a1a; color:#FF4E4E; border:1px solid #FF4E4E; border-radius: 4px; margin-bottom: 5px;">JOIN RED</button>
+                  <details style="text-align: left; background: #000; padding: 5px; border-radius: 4px; border: 1px solid #222;">
+                      <summary style="cursor:pointer; color:#aaa; font-size:12px; outline:none;">Bot Difficulty (<span id="redBotLabel">100%</span>)</summary>
+                      <input type="range" id="redBotSlider" min="50" max="200" step="10" value="100" style="width:100%; margin-top: 5px;">
+                  </details>
+              </div>
+          </div>
       </div>
-      <div style="display:flex; justify-content:space-between; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; gap: 10px;">
-          <div style="flex:1; text-align:center; background:#000; padding: 10px; border-radius: 4px; border: 1px solid #333;">
-              <p style="color:#486FED; margin:0 0 5px 0; font-weight:bold; font-size:12px;">BLUE BOTS DIFFICULTY</p>
-              <input type="range" id="blueBotSlider" min="50" max="200" step="10" value="100" style="width:80%; cursor:pointer;">
-              <div id="blueBotLabel" style="color:#fff; font-weight:bold; margin-top:5px;">100%</div>
+
+      <!-- Footer -->
+      <div style="display:flex; justify-content:space-between; align-items:center; background: #0a0a0c; padding: 10px; border: 1px solid #222; border-radius: 4px; flex-wrap: wrap; gap: 10px;">
+          <div style="display:flex; align-items:center; gap: 15px;">
+              <div style="text-align:left;">
+                  <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">SUMMONER SPELL</div>
+                  <div id="spellBtns" style="display:flex; gap: 5px; flex-wrap: wrap;"></div>
+              </div>
+              <button id="btnSpec" style="padding:8px 15px; cursor:pointer; font-weight:bold; background:#222; color:#aaa; border:1px solid #555; border-radius: 4px; height: fit-content;">SPECTATE</button>
           </div>
-          <div style="flex:1; text-align:center; background:#000; padding: 10px; border-radius: 4px; border: 1px solid #333;">
-              <p style="color:#FF4E4E; margin:0 0 5px 0; font-weight:bold; font-size:12px;">RED BOTS DIFFICULTY</p>
-              <input type="range" id="redBotSlider" min="50" max="200" step="10" value="100" style="width:80%; cursor:pointer;">
-              <div id="redBotLabel" style="color:#fff; font-weight:bold; margin-top:5px;">100%</div>
+          
+          <div style="display:flex; align-items:center; gap: 15px; flex-grow: 1; justify-content: flex-end;">
+              <ul id="specList" style="list-style:none; padding:0; margin:0; font-size: 12px; color: #888; text-align: right; max-height: 40px; overflow-y:auto; display:flex; flex-direction:column;"></ul>
+              <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:15px 30px; font-size:18px; font-weight:bold; cursor:pointer; background:#111; color:#fff; border:2px solid #555; border-radius: 4px;">READY</button>
+              <button id="startBtn" style="padding:15px 30px; font-size:18px; font-weight:bold; cursor:pointer; background:#1a331a; color:#0f0; border:2px solid #0f0; border-radius: 4px;">START MATCH</button>
           </div>
-      </div>
-      <div style="display:flex; gap:10px; margin-top:25px; padding-bottom:20px;">
-         <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:15px 24px; flex-grow:1; font-size:18px; font-weight:bold; cursor:pointer; background:#222; color:#fff; border:2px solid #555;">READY</button>
-         <button id="startBtn" style="padding:15px 24px; flex-grow:1; width: 100%; font-size:18px; font-weight:bold; cursor:pointer; background:#222; color:#0f0; border:2px solid #0f0;">START MATCH</button>
       </div>
     </div>`;
     
@@ -1160,17 +1218,25 @@ export function buildMenu() {
   };
   const allBtns = [];
   for(let cat in catGroups) {
-      let col = document.createElement('div'); col.style.display = 'flex'; col.style.flexDirection = 'column'; col.style.gap = '5px'; col.style.flexGrow = '1';
-      let title = document.createElement('div'); title.textContent = cat; title.style.color = '#ffcc00'; title.style.fontSize = '12px'; title.style.fontWeight = 'bold'; title.style.marginBottom = '2px'; title.style.textAlign = 'center';
-      col.appendChild(title);
+      let catTitle = document.createElement('div');
+      catTitle.textContent = cat;
+      catTitle.style.color = '#f0e6d2'; catTitle.style.fontSize = '12px'; catTitle.style.fontWeight = 'bold'; catTitle.style.marginBottom = '5px'; catTitle.style.borderBottom = '1px solid #333'; catTitle.style.paddingBottom = '3px';
+      cBtns.appendChild(catTitle);
+      
+      let grid = document.createElement('div');
+      grid.className = 'champ-grid';
+      
       catGroups[cat].forEach(c => {
           const classInfo = CLASSES[c]; if(!classInfo) return;
-          const type = classInfo.dmgType === 'physical' ? 'AD' : 'AP';
-          let btn = document.createElement('button'); btn.textContent = `${c} (${type})`; btn.dataset.className = c; btn.style.padding = '8px 10px'; btn.style.background = '#000'; btn.style.color = '#fff'; btn.style.border = '1px solid #444'; btn.style.cursor = 'pointer';
+          const type = classInfo.dmgType === 'physical' ? '#ff8888' : '#88bbff'; // Red for AD, Blue for AP
+          let btn = document.createElement('button'); 
+          btn.className = 'champ-btn';
+          btn.dataset.className = c; 
+          btn.innerHTML = `<div class="champ-icon" style="color:${type}">${classInfo.glyph}</div><div class="champ-name">${c}</div>`;
           btn.onclick = () => { selectedClass = c; notifyServer(); }; 
-          col.appendChild(btn); allBtns.push(btn);
+          grid.appendChild(btn); allBtns.push(btn);
       });
-      cBtns.appendChild(col);
+      cBtns.appendChild(grid);
   } setTimeout(() => { let b = allBtns.find(x => x.dataset.className === 'Bruiser'); if(b) b.click(); }, 50); // Default Bruiser
 
   const sBtns = document.getElementById('spellBtns');
@@ -1180,8 +1246,8 @@ export function buildMenu() {
   document.body.appendChild(tooltip);
 
   for (let s in SUMMONER_SPELLS) {
-      let btn = document.createElement('button'); btn.textContent = s; btn.dataset.spell = s; btn.style.padding = '8px 10px'; btn.style.background = '#000'; btn.style.color = '#fff'; btn.style.border = '1px solid #444'; btn.style.cursor = 'pointer'; btn.style.flexGrow = '1';
-      btn.onclick = () => { selectedSpell = s; allSpells.forEach(b => b.style.borderColor = '#444'); btn.style.borderColor = '#0f0'; notifyServer(); };
+      let btn = document.createElement('button'); btn.textContent = s; btn.dataset.spell = s; btn.style.padding = '8px 12px'; btn.style.background = '#111'; btn.style.color = '#fff'; btn.style.border = '2px solid #333'; btn.style.borderRadius = '4px'; btn.style.cursor = 'pointer'; btn.style.fontWeight = 'bold';
+      btn.onclick = () => { selectedSpell = s; allSpells.forEach(b => { b.style.borderColor = '#333'; b.style.background = '#111'; }); btn.style.borderColor = '#0f0'; btn.style.background = 'rgba(0,255,0,0.1)'; notifyServer(); };
       btn.onmouseover = (e) => { const spell = SUMMONER_SPELLS[s]; tooltip.innerHTML = `<b>${spell.name}</b><br>${spell.desc}<br><i>Cooldown: ${spell.cd}s</i>`; tooltip.style.display = 'block'; };
       btn.onmousemove = (e) => { tooltip.style.left = (e.clientX + 15) + 'px'; tooltip.style.top = (e.clientY + 15) + 'px'; };
       btn.onmouseout = () => { tooltip.style.display = 'none'; };
