@@ -9,16 +9,17 @@ const computeDominionPCS = (p) => {
     if (!p) return { total: 0, breakdown: {} };
 
     const breakdown = {
-        kills: (p.kills || 0) * 180,
-        assists: (p.assists || 0) * 90,
-        deaths: -(p.deaths || 0) * 120,
-        dmgDealt: (p.stats?.dmgDealt || 0) * 0.035,
-        hpHealed: (p.stats?.hpHealed || 0) * 0.04,
-        towerCaptures: (p.towerCaptures || 0) * 750,
-        towerDefends: (p.towerDefends || 0) * 18,
-        towerAssaultTime: (p.towerAssaultTime || 0) * 8,
-        powerupsCollected: (p.powerupsCollected || 0) * 250,
-        powerupUptime: (p.powerupUptime || 0) * 1.5
+        kills: (p.kills || 0) * 120,
+        assists: (p.assists || 0) * 75,
+        deaths: -(p.deaths || 0) * 180,
+        dmgDealt: (p.stats?.dmgDealt || 0) * 0.02,
+        hpHealed: (p.stats?.hpHealed || 0) * 0.05,
+        towerCaptures: (p.towerCaptures || 0) * 1400,
+        towerDefends: (p.towerDefends || 0) * 60,
+        towerAssaultTime: (p.towerAssaultTime || 0) * 16,
+        objectivePresenceTime: (p.objectivePresenceTime || 0) * 6,
+        powerupsCollected: (p.powerupsCollected || 0) * 300,
+        powerupUptime: (p.powerupUptime || 0) * 4
     };
 
     const total = Object.values(breakdown).reduce((sum, value) => sum + value, 0);
