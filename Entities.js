@@ -109,6 +109,10 @@ export class Tower{
               let gShare = Math.round((150 * scale) / Math.max(1, caps.length));
               let eShare = Math.round((200 * scale) / Math.max(1, caps.length));
               for (let p of caps) grantRewards(p, gShare, eShare);
+            for (let p of caps) {
+              if (p.towerCaptures !== undefined) p.towerCaptures += 1;
+              if (typeof p.refreshDominionPCS === 'function') p.refreshDominionPCS();
+            }
               let kName = caps.length > 0 ? caps[0].className : 'Blue Team';
               let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 0, victimTeam: -1, isCapture: true };
               if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
@@ -126,6 +130,10 @@ export class Tower{
               let gShare = Math.round((150 * scale) / Math.max(1, caps.length));
               let eShare = Math.round((200 * scale) / Math.max(1, caps.length));
               for (let p of caps) grantRewards(p, gShare, eShare);
+            for (let p of caps) {
+              if (p.towerCaptures !== undefined) p.towerCaptures += 1;
+              if (typeof p.refreshDominionPCS === 'function') p.refreshDominionPCS();
+            }
               let kName = caps.length > 0 ? caps[0].className : 'Red Team';
               let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 1, victimTeam: -1, isCapture: true };
               if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
@@ -308,6 +316,8 @@ export class PowerUp {
         capturingPlayer.hasPowerup = true; capturingPlayer.powerupTimer = 120.0; this.active = false; this.respawnTimer = 120.0;
         spawnParticles(this.pos.x, this.pos.y, 40, '#ff0', {speed: 250}); if(capturingPlayer === player) flashMessage("POWER UP OBTAINED! (+20% STATS)");
         if(socket && game.isHost) socket.emit('host_event', { type: 'powerup_pickup', playerId: capturingPlayer.id, x: this.pos.x, y: this.pos.y });
+          if (capturingPlayer.powerupsCollected !== undefined) capturingPlayer.powerupsCollected += 1;
+          if (typeof capturingPlayer.refreshDominionPCS === 'function') capturingPlayer.refreshDominionPCS();
       }
     } else { if(this.captureTimer > 0) this.captureTimer = Math.max(0, this.captureTimer - dt); }
   }

@@ -119,6 +119,8 @@ import { initAudio, playSound } from './Audio.js';
             bot.AD = bData.AD || bot.AD; bot.AP = bData.AP || bot.AP; bot.armor = bData.armor || bot.armor;
             bot.mr = bData.mr || bot.mr; bot.speed = bData.speed || bot.speed; bot.attackSpeed = bData.attackSpeed || bot.attackSpeed; bot.abilityHaste = bData.abilityHaste || bot.abilityHaste;
             bot.invulnerableTimer = bData.invTimer || 0; bot.defBuffTimer = bData.defTimer || 0;
+            bot.towerCaptures = bData.towerCaptures || 0; bot.towerDefends = bData.towerDefends || 0; bot.towerAssaultTime = bData.towerAssaultTime || 0;
+            bot.powerupsCollected = bData.powerupsCollected || 0; bot.powerupUptime = bData.powerupUptime || 0; bot.pcs = bData.pcs || 0; bot.pcsBreakdown = bData.pcsBreakdown || bot.pcsBreakdown;
             if (bot.spells) {
                 if (bData.qLvl) bot.spells.Q.level = bData.qLvl;
                 if (bData.eLvl) bot.spells.E.level = bData.eLvl;
@@ -186,6 +188,13 @@ import { initAudio, playSound } from './Audio.js';
                       if (hData.uberT !== undefined) p.uberChargeTimer = hData.uberT;
                       if (hData.macro !== undefined) p.macroOrder = hData.macro ? { type: hData.macro } : null;
                       if (hData.stats && p.stats) { p.stats.dmgDealt = hData.stats.dmgDealt; p.stats.dmgTaken = hData.stats.dmgTaken; p.stats.hpHealed = hData.stats.hpHealed; }
+                        if (hData.towerCaptures !== undefined) p.towerCaptures = hData.towerCaptures;
+                        if (hData.towerDefends !== undefined) p.towerDefends = hData.towerDefends;
+                        if (hData.towerAssaultTime !== undefined) p.towerAssaultTime = hData.towerAssaultTime;
+                        if (hData.powerupsCollected !== undefined) p.powerupsCollected = hData.powerupsCollected;
+                        if (hData.powerupUptime !== undefined) p.powerupUptime = hData.powerupUptime;
+                        if (hData.pcs !== undefined) p.pcs = hData.pcs;
+                        if (hData.pcsBreakdown) p.pcsBreakdown = hData.pcsBreakdown;
                       if (!p.alive && hData.alive) p.revive(); else if (p.alive && !hData.alive) { p.hp = 0; p.die(); }
                   }
               });
@@ -205,12 +214,12 @@ import { initAudio, playSound } from './Audio.js';
         if (p) { p.hp = data.hp; spawnParticles(game.heals[data.healIndex].pos.x, game.heals[data.healIndex].pos.y, 25, '#0f0', {speed: 150}); if(p === player) { flashMessage("+50% HP!"); game.screenHealFlash = 0.5; } }
       } else if (data.type === 'powerup_pickup') {
         let p = game.players.find(x => x.id === data.playerId);
-        if (p) { p.hasPowerup = true; p.powerupTimer = 120.0; spawnParticles(data.x, data.y, 40, '#ff0', {speed: 250}); if(p === player) flashMessage("POWER UP OBTAINED! (+20% STATS)"); }
+        if (p) { p.hasPowerup = true; p.powerupTimer = 120.0; if (p.powerupsCollected !== undefined) p.powerupsCollected += 1; if (typeof p.refreshDominionPCS === 'function') p.refreshDominionPCS(); spawnParticles(data.x, data.y, 40, '#ff0', {speed: 250}); if(p === player) flashMessage("POWER UP OBTAINED! (+20% STATS)"); }
       } else if (data.type === 'game_over') {
         if (data.finalStats) {
             data.finalStats.forEach(fs => {
                 let p = game.players.find(x => x.id === fs.id);
-                if (p) { p.stats = fs.stats; p.kills = fs.kills; p.deaths = fs.deaths; p.assists = fs.assists; p.totalGold = fs.totalGold; }
+                if (p) { p.stats = fs.stats; p.kills = fs.kills; p.deaths = fs.deaths; p.assists = fs.assists; p.totalGold = fs.totalGold; p.towerCaptures = fs.towerCaptures || 0; p.towerDefends = fs.towerDefends || 0; p.towerAssaultTime = fs.towerAssaultTime || 0; p.powerupsCollected = fs.powerupsCollected || 0; p.powerupUptime = fs.powerupUptime || 0; p.pcs = fs.pcs || 0; p.pcsBreakdown = fs.pcsBreakdown || p.pcsBreakdown; }
             });
         }
         game.gameOver = true; game.winner = data.winner; showEnd(game.winner); 
@@ -495,14 +504,14 @@ import { initAudio, playSound } from './Audio.js';
       if (game.killFeed) game.killFeed.push(killData);
 
       if (!socket || game.isHost) {
-          if (killer) { grantRewards(killer, 150, 50); killer.kills++; }
+          if (killer) { grantRewards(killer, 150, 50); killer.kills++; if (typeof killer.refreshDominionPCS === 'function') killer.refreshDominionPCS(); }
           let now = performance.now();
           if (victim.recentAttackers) {
               victim.recentAttackers.forEach((data, attackerId) => {
                   let t = data.time || data;
                   if (attackerId !== killerId && (now - t) < 10000) {
                       let assister = game.players.find(p => p.id === attackerId);
-                      if (assister && assister.team !== victim.team) { assister.assists++; grantRewards(assister, 50, 25); }
+                if (assister && assister.team !== victim.team) { assister.assists++; grantRewards(assister, 50, 25); if (typeof assister.refreshDominionPCS === 'function') assister.refreshDominionPCS(); }
                   }
               });
               victim.recentAttackers.clear();
@@ -863,8 +872,8 @@ import { initAudio, playSound } from './Audio.js';
     if (!socket || game.isHost) {
       const owned0 = game.towers.filter(t=>t.owner===0).length; const owned1 = game.towers.filter(t=>t.owner===1).length; const diff = owned0 - owned1; if(game.startDelay <= 0 && diff>0){ game.nexus[1] -= nexusDrainRate * diff * dt; } else if(game.startDelay <= 0 && diff<0){ game.nexus[0] -= nexusDrainRate * (-diff) * dt; }
       game.nexus[0] = Math.max(0, game.nexus[0]); game.nexus[1] = Math.max(0, game.nexus[1]);
-      if(game.nexus[0] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 1; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 1, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold}))}); }
-      if(game.nexus[1] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 0; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 0, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold}))}); }
+      if(game.nexus[0] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 1; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 1, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold, towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null}))}); }
+      if(game.nexus[1] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 0; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 0, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold, towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null}))}); }
     }
 
     // update camera to follow player or spectate
@@ -918,20 +927,24 @@ import { initAudio, playSound } from './Audio.js';
                 game.hostSyncTimer = 0;
                 socket.emit('host_state', {
                     bots: game.players.filter(p => p instanceof BotPlayer).map(b => {
-                        const minimalState = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, stunT: b.stunTimer, shield: b.shield, hanaT: b.hanaBuffTimer, beamT: b.beamTimer, beamId: b.beamTargetId, uberT: b.uberChargeTimer };
+                    const minimalState = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, stunT: b.stunTimer, shield: b.shield, hanaT: b.hanaBuffTimer, beamT: b.beamTimer, beamId: b.beamTargetId, uberT: b.uberChargeTimer, towerCaptures: b.towerCaptures || 0, towerDefends: b.towerDefends || 0, towerAssaultTime: b.towerAssaultTime || 0, powerupsCollected: b.powerupsCollected || 0, powerupUptime: b.powerupUptime || 0, pcs: b.pcs || 0 };
                         if (b.isDirty) {
                             b.isDirty = false;
                             return { ...minimalState, isFullUpdate: true, className: b.className,
                                 level: b.level, maxHp: b.effectiveMaxHp, kills: b.kills, deaths: b.deaths, assists: b.assists, gold: b.totalGold,
                         items: b.items.length,
                                 AD: b.AD, AP: b.AP, armor: b.armor, mr: b.mr, speed: b.speed, attackSpeed: b.attackSpeed, abilityHaste: b.abilityHaste,
-                                invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer, qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
-                                stats: b.stats, sumSpell: b.summonerSpell };
+                        invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer, qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
+                        stats: b.stats, sumSpell: b.summonerSpell,
+                        towerCaptures: b.towerCaptures || 0, towerDefends: b.towerDefends || 0, towerAssaultTime: b.towerAssaultTime || 0,
+                        powerupsCollected: b.powerupsCollected || 0, powerupUptime: b.powerupUptime || 0, pcs: b.pcs || 0, pcsBreakdown: b.pcsBreakdown || null };
                         } else { return minimalState; }
                     }),
                     humans: game.players.filter(p => !(p instanceof BotPlayer)).map(p => ({
                         id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, stunT: p.stunTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
-                        kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null, beamT: p.beamTimer, beamId: p.beamTargetId, uberT: p.uberChargeTimer
+                    kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null, beamT: p.beamTimer, beamId: p.beamTargetId, uberT: p.uberChargeTimer,
+                    towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0,
+                    powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null
                     })),
                     minions: game.minions.map(m => ({
                         id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, maxHp: m.maxHp, dead: m.dead, team: m.team, 

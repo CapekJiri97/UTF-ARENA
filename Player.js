@@ -106,6 +106,64 @@ export class Player{
     this.macroOrder = null; // Rozkaz od Centrálního Mozku (pro UI nebo boty)
     
     this.role = cData.role || 'FIGHTER';
+    this.towerCaptures = 0;
+    this.towerDefends = 0;
+    this.towerAssaultTime = 0;
+    this.powerupsCollected = 0;
+    this.powerupUptime = 0;
+    this.objectivePresenceTime = 0;
+    this.pcs = 0;
+    this.pcsBreakdown = null;
+  }
+
+  trackDominionPCS(dt) {
+      if ((socket && !game.isHost) || !this.alive || game.gameOver) return;
+
+      if (this.hasPowerup) {
+          this.powerupUptime += dt;
+      }
+
+      for (let tower of game.towers) {
+          const towerDistance = dist(this.pos, tower.pos);
+          if (towerDistance > tower.captureRadius + 220) continue;
+
+          const enemyPressure = game.players.some(p => p.alive && p.team !== this.team && dist(p.pos, tower.pos) <= tower.captureRadius + 250);
+          const isHomeTower = (this.team === 0 && (tower.index === 0 || tower.index === 4)) || (this.team === 1 && (tower.index === 2 || tower.index === 3));
+
+          if (tower.owner === this.team) {
+              if (enemyPressure) {
+                  this.towerDefends += dt * (isHomeTower ? 1.25 : 1.0);
+                  this.objectivePresenceTime += dt;
+              } else {
+                  this.objectivePresenceTime += dt * 0.25;
+              }
+          } else {
+              this.towerAssaultTime += dt;
+              this.objectivePresenceTime += dt;
+          }
+      }
+
+      this.refreshDominionPCS();
+  }
+
+  refreshDominionPCS() {
+      const breakdown = {
+          kills: (this.kills || 0) * 180,
+          assists: (this.assists || 0) * 90,
+          deaths: -(this.deaths || 0) * 120,
+          dmgDealt: (this.stats?.dmgDealt || 0) * 0.035,
+          hpHealed: (this.stats?.hpHealed || 0) * 0.04,
+          towerCaptures: (this.towerCaptures || 0) * 750,
+          towerDefends: (this.towerDefends || 0) * 18,
+          towerAssaultTime: (this.towerAssaultTime || 0) * 8,
+          powerupsCollected: (this.powerupsCollected || 0) * 250,
+          powerupUptime: (this.powerupUptime || 0) * 1.5
+      };
+
+      const total = Object.values(breakdown).reduce((sum, value) => sum + value, 0);
+      this.pcsBreakdown = breakdown;
+      this.pcs = Math.max(0, Math.round(total));
+      return this.pcs;
   }
 
   spawnTamerPet(hpPct = 1.0) {
@@ -300,15 +358,15 @@ export class Player{
 
     // PŘIDÁNO: Odpočet se musí nastavit pro všechny, aby i klient lokálně správně čekal a poslal scoreboard status
     this.deaths++; this.respawnTimer = (CLASSES[this.className].respawnBase || 7) + this.level * (CLASSES[this.className].respawnPerLevel || 1);
-    console.log(`[DEBUG] ${this.id} died. Respawning in ${this.respawnTimer}s.`); 
     if(player && this.id === player.id) { game.shake = 0.5; flashMessage('You died — respawning...'); } 
+        this.refreshDominionPCS();
   }
   revive(){ 
     this.alive = true; this.respawnTimer = 0;
     // OPRAVA: Zdraví a pozice do základny se musí resetovat lokálně všem hráčům! Nejen Hostovi.
       if (this.className === 'Tamer') this.spawnTamerPet(1.0);
     this.hp = this.effectiveMaxHp; const sp = spawnPoints[this.team]; if(sp) { this.pos.x = sp.x; this.pos.y = sp.y; this.targetPos = null; }
-    console.log(`[DEBUG] ${this.id} revived.`); 
+        this.refreshDominionPCS();
   }
 
   allocateSpellPoint(spKey){ 
@@ -333,10 +391,10 @@ export class Player{
     playSound('levelup', this.pos);
     if (!socket || game.isHost || this === player) { this.level += 1; this.spellPoints += 1; this.maxHp += 15; this.hp = Math.min(this.effectiveMaxHp, this.hp + 15); this.AD += 1; this.AP += 1; this.isDirty = true; }
     this.levelUpTimer = 2.0; spawnParticles(this.pos.x, this.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0});
-    console.log(`[DEBUG] ${this.id} leveled up to ${this.level}`); 
   }
 
   update(dt){ if(game.gameOver) return;
+        this.trackDominionPCS(dt);
     if (this.className === 'Tamer' && !this.petInitialized && (!socket || game.isHost)) {
         this.petInitialized = true;
         this.spawnTamerPet(1.0);
@@ -1668,12 +1726,15 @@ export class BotPlayer extends Player {
         const isHomeTower = (tower) => homeTowerIndexes.includes(tower.index);
 
         const buildMacroSnapshot = () => {
-            const teamHeroes = game.players.filter(p => p.alive && p.team === team && p.className);
-            const enemyHeroes = game.players.filter(p => p.alive && p.team !== team && p.className);
-            const deadEnemyHeroes = game.players.filter(p => !p.alive && p.team !== team && p.className);
+            const teamMembers = game.players.filter(p => p.team === team && p.className);
+            const enemyMembers = game.players.filter(p => p.team !== team && p.className);
+            const teamHeroes = teamMembers.filter(p => p.alive);
+            const enemyHeroes = enemyMembers.filter(p => p.alive);
+            const deadEnemyHeroes = enemyMembers.filter(p => !p.alive);
             const ownedTowers = game.towers.filter(t => t.owner === team);
             const enemyOwnedTowers = game.towers.filter(t => t.owner === 1 - team);
             const homeTowers = game.towers.filter(t => isHomeTower(t));
+            const teamAvg = (list, selector) => list.length > 0 ? list.reduce((sum, item) => sum + selector(item), 0) / list.length : 0;
 
             const estimateCombatPower = (p) => {
                 const maxHp = p.effectiveMaxHp || p.maxHp || 1;
@@ -1728,9 +1789,16 @@ export class BotPlayer extends Player {
                 towerPressure,
                 homeControlLead,
                 homeHeld,
+                homeTowerCount: homeTowers.length,
                 teamKillLead,
                 teamHeroCount: teamHeroes.length,
                 enemyHeroCount: enemyHeroes.length,
+                teamMemberCount: teamMembers.length,
+                enemyMemberCount: enemyMembers.length,
+                teamAvgLevel: teamAvg(teamMembers, p => p.level || 1),
+                enemyAvgLevel: teamAvg(enemyMembers, p => p.level || 1),
+                teamAvgGold: teamAvg(teamMembers, p => p.totalGold || p.gold || 0),
+                enemyAvgGold: teamAvg(enemyMembers, p => p.totalGold || p.gold || 0),
                 teamCombatPower,
                 enemyCombatPower,
                 powerLead: teamCombatPower - enemyCombatPower,
@@ -1738,6 +1806,11 @@ export class BotPlayer extends Player {
                 enemyRespawnSoonCount,
                 allyRoles: roleCounts
             };
+        };
+
+        const formatMacroSnapshot = (snap) => {
+            if (!snap) return 'no-snapshot';
+            return `nexus=${Math.round(snap.pointDiff)} towers=${snap.towerLead} home=${snap.homeHeld}/${snap.homeTowerCount} threat=${snap.homeThreat} pressure=${snap.towerPressure} power=${Math.round(snap.powerLead)} lvl=${snap.teamAvgLevel.toFixed(1)}/${snap.enemyAvgLevel.toFixed(1)} gold=${Math.round(snap.teamAvgGold)}/${Math.round(snap.enemyAvgGold)} dead=${snap.enemyDeadCount} soon=${snap.enemyRespawnSoonCount}`;
         };
 
         const buildStrategyOrder = (ctx) => {
@@ -1764,17 +1837,19 @@ export class BotPlayer extends Player {
 
         const scoreMacroSnapshot = (startSnap, endSnap) => {
             if (!startSnap || !endSnap) return 0;
-            let score = 0;
-            score += (endSnap.pointDiff - startSnap.pointDiff) * 120;
-            score += (endSnap.towerLead - startSnap.towerLead) * 6000;
-            score += (endSnap.homeHeld - startSnap.homeHeld) * 4000;
-            score += (endSnap.homeControlLead - startSnap.homeControlLead) * 25;
-            score += (endSnap.teamKillLead - startSnap.teamKillLead) * 600;
-            score += (endSnap.enemyDeadCount - startSnap.enemyDeadCount) * 500;
-            score += (endSnap.powerLead - startSnap.powerLead) * 120;
-            score -= (endSnap.homeThreat - startSnap.homeThreat) * 1800;
-            score -= (endSnap.towerPressure - startSnap.towerPressure) * 700;
-            return score;
+            const breakdown = [
+                { key: 'pointDiff', label: 'nexus', delta: endSnap.pointDiff - startSnap.pointDiff, weight: 120 },
+                { key: 'towerLead', label: 'towers', delta: endSnap.towerLead - startSnap.towerLead, weight: 6000 },
+                { key: 'homeHeld', label: 'homeHeld', delta: endSnap.homeHeld - startSnap.homeHeld, weight: 4000 },
+                { key: 'homeControlLead', label: 'homeCtrl', delta: endSnap.homeControlLead - startSnap.homeControlLead, weight: 25 },
+                { key: 'teamKillLead', label: 'kills', delta: endSnap.teamKillLead - startSnap.teamKillLead, weight: 600 },
+                { key: 'enemyDeadCount', label: 'deadEnemies', delta: endSnap.enemyDeadCount - startSnap.enemyDeadCount, weight: 500 },
+                { key: 'powerLead', label: 'power', delta: endSnap.powerLead - startSnap.powerLead, weight: 120 },
+                { key: 'homeThreat', label: 'homeThreat', delta: endSnap.homeThreat - startSnap.homeThreat, weight: -1800 },
+                { key: 'towerPressure', label: 'pressure', delta: endSnap.towerPressure - startSnap.towerPressure, weight: -700 }
+            ].map(item => ({ ...item, score: item.delta * item.weight }));
+            const total = breakdown.reduce((sum, item) => sum + item.score, 0);
+            return { total, breakdown };
         };
 
         const getCombatProfile = (bot) => {
@@ -1869,6 +1944,7 @@ export class BotPlayer extends Player {
             mState.snapshotMacro = macroSnapshot;
             mState.snapshotDiff = pointDiff;
             mState.timer = getPhaseDuration('EARLY', macroSnapshot);
+            console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] EARLY start | ${formatMacroSnapshot(macroSnapshot)}`);
         }
 
         // PANIC CHECK: Pokud ve vybrané strategii dostáváme na frak
@@ -1883,6 +1959,7 @@ export class BotPlayer extends Player {
             }
             
             if (mState.panicTimer > 45) { // Pokud 45 vteřin nepřetržitě krvácíme body
+                console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] PANIC! Strategy [${mState.currentStrat}] is failing. Resetting to EXPLORE | ${formatMacroSnapshot(macroSnapshot)}`);
                 mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {};
                 mState.strats = buildStrategyOrder(macroSnapshot);
                 mState.timer = getPhaseDuration('EXPLORE', macroSnapshot);
@@ -1896,11 +1973,21 @@ export class BotPlayer extends Player {
         // ROTACE FÁZÍ MOZKU
         if (mState.phase === 'EARLY') {
             mState.timer -= 1.5;
-            if (mState.timer <= 0) { mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {}; mState.strats = buildStrategyOrder(macroSnapshot); mState.timer = getPhaseDuration('EXPLORE', macroSnapshot); mState.currentStrat = mState.strats[0] || 'TOWER_FIRST'; mState.snapshotDiff = pointDiff; mState.snapshotMacro = macroSnapshot; }
+            if (mState.timer <= 0) {
+                mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {}; mState.strats = buildStrategyOrder(macroSnapshot); mState.timer = getPhaseDuration('EXPLORE', macroSnapshot); mState.currentStrat = mState.strats[0] || 'TOWER_FIRST'; mState.snapshotDiff = pointDiff; mState.snapshotMacro = macroSnapshot;
+                console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] EARLY ended -> EXPLORE start | ${formatMacroSnapshot(macroSnapshot)}`);
+            }
         } else if (mState.phase === 'EXPLORE') {
             mState.timer -= 1.5;
             if (mState.timer <= 0) {
-                mState.scores[mState.currentStrat] = scoreMacroSnapshot(mState.snapshotMacro, macroSnapshot); // KPI Zápis
+                const scoreResult = scoreMacroSnapshot(mState.snapshotMacro, macroSnapshot);
+                mState.scores[mState.currentStrat] = scoreResult.total; // KPI Zápis
+                const breakdownText = scoreResult.breakdown
+                    .filter(item => Math.abs(item.score) > 0.5)
+                    .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
+                    .map(item => `${item.label}:${item.score >= 0 ? '+' : ''}${Math.round(item.score)}`)
+                    .join(', ');
+                console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] Evaluated [${mState.currentStrat}] | score=${Math.round(scoreResult.total)} | ${formatMacroSnapshot(mState.snapshotMacro)} -> ${formatMacroSnapshot(macroSnapshot)}${breakdownText ? ` | breakdown: ${breakdownText}` : ''}`);
                 mState.testIndex++;
                 if (mState.testIndex < mState.strats.length) { mState.currentStrat = mState.strats[mState.testIndex]; mState.timer = getPhaseDuration('EXPLORE', macroSnapshot); mState.snapshotDiff = pointDiff; mState.snapshotMacro = macroSnapshot; } 
                 else {
@@ -1912,11 +1999,15 @@ export class BotPlayer extends Player {
                         if (stratScore + tieBreak > bestScore) { bestScore = stratScore + tieBreak; best = s; }
                     }
                     mState.phase = 'EXPLOIT'; mState.currentStrat = best; mState.timer = getPhaseDuration('EXPLOIT', macroSnapshot); mState.panicTimer = 0; mState.snapshotMacro = macroSnapshot;
+                    console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] >>> LOCKED BEST STRATEGY: [${best}] (Score: ${Math.round(bestScore)}) for ${mState.timer}s <<< | ${formatMacroSnapshot(macroSnapshot)}`);
                 }
             }
         } else if (mState.phase === 'EXPLOIT') {
             mState.timer -= 1.5;
-            if (mState.timer <= 0) { mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {}; mState.strats = buildStrategyOrder(macroSnapshot); mState.timer = getPhaseDuration('EXPLORE', macroSnapshot); mState.currentStrat = mState.strats[0] || 'TOWER_FIRST'; mState.snapshotDiff = pointDiff; mState.snapshotMacro = macroSnapshot; }
+            if (mState.timer <= 0) {
+                console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] EXPLOIT ended -> EXPLORE restart | ${formatMacroSnapshot(macroSnapshot)}`);
+                mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {}; mState.strats = buildStrategyOrder(macroSnapshot); mState.timer = getPhaseDuration('EXPLORE', macroSnapshot); mState.currentStrat = mState.strats[0] || 'TOWER_FIRST'; mState.snapshotDiff = pointDiff; mState.snapshotMacro = macroSnapshot; 
+            }
         }
         
         let teamBots = game.players.filter(p => p instanceof BotPlayer && p.team === team);

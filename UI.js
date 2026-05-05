@@ -5,6 +5,45 @@ import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
 import { canvas, ctx, keys, player, socket, startGame, buyItem, drawHealthBar } from './main.js';
 
+const computeDominionPCS = (p) => {
+    if (!p) return { total: 0, breakdown: {} };
+
+    const breakdown = {
+        kills: (p.kills || 0) * 180,
+        assists: (p.assists || 0) * 90,
+        deaths: -(p.deaths || 0) * 120,
+        dmgDealt: (p.stats?.dmgDealt || 0) * 0.035,
+        hpHealed: (p.stats?.hpHealed || 0) * 0.04,
+        towerCaptures: (p.towerCaptures || 0) * 750,
+        towerDefends: (p.towerDefends || 0) * 18,
+        towerAssaultTime: (p.towerAssaultTime || 0) * 8,
+        powerupsCollected: (p.powerupsCollected || 0) * 250,
+        powerupUptime: (p.powerupUptime || 0) * 1.5
+    };
+
+    const total = Object.values(breakdown).reduce((sum, value) => sum + value, 0);
+    return { total: Math.max(0, Math.round(total)), breakdown };
+};
+
+const getTeamDominionSummary = (teamId) => {
+    const members = game.players.filter(p => p.team === teamId && p.className);
+    const count = members.length;
+    if (count === 0) {
+        return { count: 0, avgLevel: 0, avgGold: 0, avgPCS: 0 };
+    }
+
+    const totalLevel = members.reduce((sum, p) => sum + (p.level || 1), 0);
+    const totalGold = members.reduce((sum, p) => sum + (p.totalGold || p.gold || 0), 0);
+    const totalPCS = members.reduce((sum, p) => sum + computeDominionPCS(p).total, 0);
+
+    return {
+        count,
+        avgLevel: totalLevel / count,
+        avgGold: totalGold / count,
+        avgPCS: totalPCS / count
+    };
+};
+
 const style = document.createElement('style');
 style.innerHTML = `
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; background: #070707; }
@@ -14,7 +53,7 @@ style.innerHTML = `
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 50% !important; overflow: hidden !important; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
   #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 100% !important; max-width: 400px !important; height: 100% !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px 20px 25vh 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; -webkit-overflow-scrolling: touch !important; touch-action: auto !important; pointer-events: auto !important; }
   #shopOverlay.hidden { transform: translateX(100%) !important; }
-  #menu, #roomBrowser, #roomLobby, #endStats, #roomListContainer, #classBtns, .player-list { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: auto !important; pointer-events: auto !important; }
+  #menu, #roomBrowser, #roomLobby, #endStats, #roomListContainer, #classBtns, .player-list, .roster-scroll-area { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: auto !important; pointer-events: auto !important; }
   #portraitWarning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #ffcc00; z-index: 9999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-family: monospace; }
   @media screen and (max-width: 900px) and (orientation: portrait) {
       #portraitWarning { display: flex !important; }
@@ -685,8 +724,8 @@ export function draw(){
             let p = blueTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; 
             ctx.fillStyle = (player && p.id === player.id) ? '#0f0' : '#486FED'; 
             let cStr = `${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level})`.padEnd(24, ' ');
-            let sStr = stat.padEnd(10, ' '); let iStr = `Items: ${p.items.length}`.padEnd(9, ' '); let kStr = `K/D/A: ${p.kills}/${p.deaths}/${p.assists}`.padEnd(14, ' ');
-            ctx.fillText(`${cStr} | ${sStr} | ${iStr} | ${kStr} | Gold: ${Math.floor(p.totalGold)}`, padX + 20, startY); 
+            let sStr = stat.padEnd(10, ' '); let iStr = `Items: ${p.items.length}`.padEnd(9, ' '); let kStr = `K/D/A: ${p.kills}/${p.deaths}/${p.assists}`.padEnd(14, ' '); let pcsStr = `PCS: ${computeDominionPCS(p).total}`.padEnd(12, ' ');
+            ctx.fillText(`${cStr} | ${sStr} | ${iStr} | ${kStr} | ${pcsStr} | Gold: ${Math.floor(p.totalGold)}`, padX + 20, startY); 
             startY += rowH;
         }
         
@@ -700,8 +739,8 @@ export function draw(){
             let p = redTeam[i]; let stat = p.alive ? 'ALIVE' : `DEAD(${Math.ceil(p.respawnTimer)}s)`; 
             ctx.fillStyle = '#FF4E4E'; 
             let cStr = `${p.className} [${p.dmgType === 'magical' ? 'AP' : 'AD'}] (LV${p.level})`.padEnd(24, ' ');
-            let sStr = stat.padEnd(10, ' '); let iStr = `Items: ${p.items.length}`.padEnd(9, ' '); let kStr = `K/D/A: ${p.kills}/${p.deaths}/${p.assists}`.padEnd(14, ' ');
-            ctx.fillText(`${cStr} | ${sStr} | ${iStr} | ${kStr} | Gold: ${Math.floor(p.totalGold)}`, padX + 20, startY); 
+            let sStr = stat.padEnd(10, ' '); let iStr = `Items: ${p.items.length}`.padEnd(9, ' '); let kStr = `K/D/A: ${p.kills}/${p.deaths}/${p.assists}`.padEnd(14, ' '); let pcsStr = `PCS: ${computeDominionPCS(p).total}`.padEnd(12, ' ');
+            ctx.fillText(`${cStr} | ${sStr} | ${iStr} | ${kStr} | ${pcsStr} | Gold: ${Math.floor(p.totalGold)}`, padX + 20, startY); 
             startY += rowH;
         }
     }
@@ -1102,11 +1141,24 @@ export function showEnd(winner){
               if (downB) { downB.onclick = doScrollDown; downB.ontouchstart = doScrollDown; }
           }, 50);
       }
-      let html = '<table style="width:100%; border-collapse: collapse;">'; html += '<tr style="border-bottom:1px solid #444;"><th>Hero</th><th>K/D/A</th><th>Dmg Dealt</th><th>Dmg Taken</th><th>Healed</th><th>Gold</th></tr>';
-      let sorted = [...game.players].sort((a,b)=>(b.kills*2+b.assists)-(a.kills*2+a.assists));
+            const blueSummary = getTeamDominionSummary(0);
+            const redSummary = getTeamDominionSummary(1);
+            let html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; font-size:13px;">
+                <div style="background:#0d1736; border:1px solid #486FED; padding:10px; border-radius:6px; color:#dbe6ff;">
+                    <div style="font-weight:bold; color:#486FED; margin-bottom:4px;">BLUE SUMMARY</div>
+                    <div>AVG LVL: ${blueSummary.avgLevel.toFixed(1)} | AVG GOLD: ${Math.round(blueSummary.avgGold)} | AVG PCS: ${Math.round(blueSummary.avgPCS)}</div>
+                </div>
+                <div style="background:#301111; border:1px solid #FF4E4E; padding:10px; border-radius:6px; color:#ffe0e0;">
+                    <div style="font-weight:bold; color:#FF4E4E; margin-bottom:4px;">RED SUMMARY</div>
+                    <div>AVG LVL: ${redSummary.avgLevel.toFixed(1)} | AVG GOLD: ${Math.round(redSummary.avgGold)} | AVG PCS: ${Math.round(redSummary.avgPCS)}</div>
+                </div>
+            </div>`;
+            html += '<table style="width:100%; border-collapse: collapse;">'; html += '<tr style="border-bottom:1px solid #444;"><th>Hero</th><th>K/D/A</th><th>Dmg Dealt</th><th>Dmg Taken</th><th>Healed</th><th>Gold</th><th>PCS</th></tr>';
+            let sorted = [...game.players].sort((a,b)=>computeDominionPCS(b).total - computeDominionPCS(a).total || (b.kills*2+b.assists)-(a.kills*2+a.assists));
       for(let p of sorted) {
           let color = p.team === 0 ? '#486FED' : '#FF4E4E'; if (p === player) color = '#0f0';
-          html += `<tr style="color:${color}; text-align:center;"><td style="text-align:left; padding:4px;">${p.className}</td><td>${p.kills}/${p.deaths}/${p.assists}</td><td>${p.stats.dmgDealt}</td><td>${p.stats.dmgTaken}</td><td>${Math.round(p.stats.hpHealed)}</td><td>${Math.floor(p.totalGold)}</td></tr>`;
+                    const pcs = computeDominionPCS(p);
+                    html += `<tr style="color:${color}; text-align:center;"><td style="text-align:left; padding:4px;">${p.className}</td><td>${p.kills}/${p.deaths}/${p.assists}</td><td>${p.stats.dmgDealt}</td><td>${p.stats.dmgTaken}</td><td>${Math.round(p.stats.hpHealed)}</td><td>${Math.floor(p.totalGold)}</td><td>${pcs.total}</td></tr>`;
       }
       html += '</table>'; statsDiv.innerHTML = html; overlay.classList.remove('hidden'); 
   }
@@ -1157,23 +1209,25 @@ export function buildMenu() {
 
           <!-- Center: Champion Roster -->
           <div class="center-roster">
-              <div style="background: #111; padding: 10px; font-weight: bold; border-bottom: 1px solid #222; color: #f0e6d2;">CHOOSE YOUR HERO</div>
-              <div id="classBtns" style="flex-grow: 1; overflow-y: auto; padding: 10px; text-align: left;"></div>
-              
-              <!-- ZDE JE PŘESUNUTÝ FOOTER -->
-              <div style="flex-shrink: 0; background: #0a0a0c; padding: 10px; border-top: 1px solid #222; display:flex; flex-direction:column; align-items:center;">
-                  <div style="font-size: 12px; color: #aaa; margin-bottom: 4px; font-weight:bold;">SUMMONER SPELL</div>
-                  <div id="spellBtns" style="display:flex; gap: 5px; flex-wrap: wrap; justify-content:center;"></div>
-              </div>
-              <div class="footer-controls" style="flex-shrink: 0; background: #0a0a0c; padding: 10px; border-top: 1px solid #222; display:flex; flex-direction:column; gap: 10px;">
-                  <ul id="specList" style="list-style:none; padding:0; margin:0; font-size: 12px; color: #888; text-align: center; max-height: 40px; overflow-y:auto; display:flex; flex-direction:column;"></ul>
-                  <div style="display:flex; align-items:center; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                      <span style="display:flex; gap: 5px;">
-                          <button id="lobbyUpBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▲</button>
-                          <button id="lobbyDownBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▼</button>
-                      </span>
-                      <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background:#111; color:#fff; border:2px solid #555; border-radius: 4px; flex-grow:1;">READY</button>
-                      <button id="startBtn" style="padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background:#1a331a; color:#0f0; border:2px solid #0f0; border-radius: 4px; flex-grow:1;">START MATCH</button>
+              <div style="background: #111; padding: 10px; font-weight: bold; border-bottom: 1px solid #222; color: #f0e6d2; flex-shrink: 0;">CHOOSE YOUR HERO</div>
+              <div class="roster-scroll-area" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column;">
+                  <div id="classBtns" style="padding: 10px; text-align: left; flex-shrink: 0;"></div>
+                  
+                  <!-- ZDE JE PŘESUNUTÝ FOOTER -->
+                  <div style="flex-shrink: 0; background: #0a0a0c; padding: 10px; border-top: 1px solid #222; display:flex; flex-direction:column; align-items:center; margin-top: auto;">
+                      <div style="font-size: 12px; color: #aaa; margin-bottom: 4px; font-weight:bold;">SUMMONER SPELL</div>
+                      <div id="spellBtns" style="display:flex; gap: 5px; flex-wrap: wrap; justify-content:center;"></div>
+                  </div>
+                  <div class="footer-controls" style="flex-shrink: 0; background: #0a0a0c; padding: 10px; border-top: 1px solid #222; display:flex; flex-direction:column; gap: 10px;">
+                      <ul id="specList" style="list-style:none; padding:0; margin:0; font-size: 12px; color: #888; text-align: center; max-height: 40px; overflow-y:auto; display:flex; flex-direction:column;"></ul>
+                      <div style="display:flex; align-items:center; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                          <span style="display:flex; gap: 5px;">
+                              <button id="lobbyUpBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▲</button>
+                              <button id="lobbyDownBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▼</button>
+                          </span>
+                          <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background:#111; color:#fff; border:2px solid #555; border-radius: 4px; flex-grow:1;">READY</button>
+                          <button id="startBtn" style="padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background:#1a331a; color:#0f0; border:2px solid #0f0; border-radius: 4px; flex-grow:1;">START MATCH</button>
+                      </div>
                   </div>
               </div>
           </div>
