@@ -1741,15 +1741,17 @@ export class BotPlayer extends Player {
         // Započítání poškození a léčení od už vyvolaných jednotek na mapě
         for (let m of game.minions) {
             if (m.dead) continue;
-            let mDps = (m.attackDamage || 15) * 0.30; // Minion je podpůrná hrozba, ne plný hero ekvivalent
+            const attackInterval = m.isSummon ? 0.9 : 1.2;
+            let mDps = ((m.attackDamage || 15) / attackInterval) * 0.7; // Minion počítáme podobně jako bota: DPS + zmenšená odolnost
             if (m.pulseDmg) mDps += m.pulseDmg; // Pulzní damage (Slepice atd.)
             let mHps = 0;
             if (m.healAmount && m.healTimer) mHps += (m.healAmount / m.healTimer);
+            const mHp = m.hp * 0.32;
 
             if (m.team === this.team && dist(this.pos, m.pos) < 600) {
-                myTeamHp += m.hp * 0.25; myTeamDps += mDps; myTeamHps += mHps;
+                myTeamHp += mHp; myTeamDps += mDps; myTeamHps += mHps;
             } else if (m.team !== this.team && dist(target.pos, m.pos) < 600) {
-                enTeamHp += m.hp * 0.25; enTeamDps += mDps; enTeamHps += mHps;
+                enTeamHp += mHp; enTeamDps += mDps; enTeamHps += mHps;
             }
         }
         

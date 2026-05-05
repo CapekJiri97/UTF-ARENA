@@ -259,7 +259,7 @@ export class Minion{
     } // Pohyb minionů řídí Host
     if (this.atTarget) {
         if (towerTarget.owner !== this.team) {
-            if (this.attackCooldown <= 0 && (!socket || game.isHost)) { if (this.team === 0) towerTarget.control += 5; else towerTarget.control -= 5; this.hp -= this.maxHp * 0.10; if (this.hp <= 0) this.dead = true; this.attackCooldown = 1.0; spawnParticles(towerTarget.pos.x, towerTarget.pos.y, 4, '#ffa500'); } // Pouze Host mění control a HP
+        if (this.attackCooldown <= 0 && (!socket || game.isHost)) { if (this.team === 0) towerTarget.control += 10; else towerTarget.control -= 10; this.hp -= this.maxHp * 0.10; if (this.hp <= 0) this.dead = true; this.attackCooldown = 1.0; spawnParticles(towerTarget.pos.x, towerTarget.pos.y, 4, '#ffa500'); } // Pouze Host mění control a HP
         } else { this.linger -= dt; if (this.linger <= 0) this.dead = true; }
     } else {
         if (dx !== 0 || dy !== 0) {
