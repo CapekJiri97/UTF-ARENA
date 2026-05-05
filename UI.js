@@ -1,5 +1,5 @@
 import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
-import { shopItems, canBuyShopItem } from './items.js';
+import { shopItems, canBuyShopItem, getShopItem } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
