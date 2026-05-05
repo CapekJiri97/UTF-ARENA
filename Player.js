@@ -1741,6 +1741,90 @@ export class BotPlayer extends Player {
             return score;
         };
 
+        const getCombatProfile = (bot) => {
+            const maxHp = bot.effectiveMaxHp || bot.maxHp || 1;
+            const hpPct = Math.max(0, Math.min(1, bot.hp / maxHp));
+            const aaScale = CLASSES[bot.className]?.aaScale || 0.3;
+            const baseAtk = CLASSES[bot.className]?.baseAtk || 0;
+            const buffAdMult = 1.0 + (bot.adAsBuffTimer > 0 ? bot.adAsBuffAmount : 0);
+            const buffAsMult = 1.0 + (bot.adAsBuffTimer > 0 ? bot.adAsBuffAmount : 0);
+            const attackStat = baseAtk + ((bot.dmgType === 'magical' ? bot.AP : bot.AD) * aaScale);
+            const attackPerSec = ((bot.attackSpeed || 1) * buffAsMult) / Math.max(0.1, bot.attackDelay || 1);
+            let currentDps = attackStat * attackPerSec;
+
+            if (bot.spells) {
+                for (let key of ['Q', 'E']) {
+                    const sp = bot.spells[key];
+                    if (!sp) continue;
+
+                    const spellCd = typeof bot.computeSpellCooldown === 'function' ? bot.computeSpellCooldown(key) : Math.max(1.0, sp.baseCooldown || 1.0);
+                    const spellDamage = (sp.baseDamage || 0) + ((bot.AP || 0) * (sp.scaleAP || 0)) + ((bot.AD || 0) * (sp.scaleAD || 0)) + ((sp.level || 1) * (sp.scaleLevel !== undefined ? sp.scaleLevel : 8));
+                    currentDps += spellDamage / Math.max(1.0, spellCd);
+                }
+            }
+
+            const durability = (bot.hp + (bot.shield || 0)) * (1 + ((bot.armor || 0) / 120) + ((bot.mr || 0) / 120));
+            const mobility = bot.speed || 100;
+            const fightPower = (currentDps * 0.65) + (durability * 0.22) + (mobility * 1.8);
+
+            return { currentDps, durability, fightPower, hpPct };
+        };
+
+        const getNearestEnemyHero = (pos, radius) => {
+            let best = null;
+            let bestDist = radius;
+            for (let e of enemies) {
+                if (!e.className) continue;
+                let d = dist(e.pos, pos);
+                if (d < bestDist) { bestDist = d; best = e; }
+            }
+            return best;
+        };
+
+        const scoreBotForTower = (bot, tower, includeEnemyPressure = true) => {
+            const profile = getCombatProfile(bot);
+            const nearestEnemy = getNearestEnemyHero(tower.pos, tower.captureRadius + 900);
+            const duelProb = nearestEnemy && typeof bot.predictFightOutcome === 'function' ? bot.predictFightOutcome(nearestEnemy) : 0.5;
+            const enemyPressure = includeEnemyPressure ? enemies.filter(e => dist(e.pos, tower.pos) < tower.captureRadius + 900).length : 0;
+            const isHome = isHomeTower(tower);
+            const roleBias =
+                (bot.role === 'TANK' ? -2400 : 0) +
+                (bot.role === 'SUPPORT' ? -1200 : 0) +
+                (bot.role === 'FIGHTER' ? -450 : 0) +
+                (bot.role === 'SLAYER' ? 450 : 0) +
+                (bot.role === 'SPLITPUSHER' ? 650 : 0);
+
+            return (
+                dist(bot.pos, tower.pos) -
+                (profile.fightPower * 0.22) -
+                (duelProb * 1200) -
+                (profile.hpPct * 250) -
+                (enemyPressure * 150) -
+                (isHome ? 150 : 0) +
+                roleBias
+            );
+        };
+
+        const scoreBotForAttack = (bot, target) => {
+            if (!target) return dist(bot.pos, spawnPoints[team]) + 2000;
+            const profile = getCombatProfile(bot);
+            const duelProb = target.className && typeof bot.predictFightOutcome === 'function' ? bot.predictFightOutcome(target) : 0.5;
+            const roleBias =
+                (bot.role === 'SLAYER' ? -2200 : 0) +
+                (bot.role === 'FIGHTER' ? -900 : 0) +
+                (bot.role === 'SUPPORT' ? -450 : 0) +
+                (bot.role === 'TANK' ? 500 : 0) +
+                (bot.role === 'SPLITPUSHER' ? 200 : 0);
+
+            return (
+                dist(bot.pos, target.pos) -
+                (profile.currentDps * 1.4) -
+                (profile.fightPower * 0.08) -
+                (duelProb * 1500) +
+                roleBias
+            );
+        };
+
         const macroSnapshot = buildMacroSnapshot();
 
         if (!mState.currentStrat) {
@@ -1993,8 +2077,8 @@ export class BotPlayer extends Player {
             let towerPlan = [...ownedTowers].sort((a, b) => {
                 let pressureA = enemies.filter(e => dist(e.pos, a.pos) < a.captureRadius + 900).length;
                 let pressureB = enemies.filter(e => dist(e.pos, b.pos) < b.captureRadius + 900).length;
-                let scoreA = pressureA * 5000 + (isHomeTower(a) ? 7000 : 0) + (Math.abs(a.control) < 100 ? 6000 : 0) - dist(a.pos, spawnPoints[team]);
-                let scoreB = pressureB * 5000 + (isHomeTower(b) ? 7000 : 0) + (Math.abs(b.control) < 100 ? 6000 : 0) - dist(b.pos, spawnPoints[team]);
+                let scoreA = (pressureA * 5000) + (isHomeTower(a) ? 8000 : 0) + (Math.abs(a.control) < 100 ? 6000 : 0) - dist(a.pos, spawnPoints[team]);
+                let scoreB = (pressureB * 5000) + (isHomeTower(b) ? 8000 : 0) + (Math.abs(b.control) < 100 ? 6000 : 0) - dist(b.pos, spawnPoints[team]);
                 return scoreB - scoreA;
             });
 
@@ -2003,22 +2087,14 @@ export class BotPlayer extends Player {
                 let nearbyEnemies = enemies.filter(e => dist(e.pos, t.pos) < t.captureRadius + 900).length;
                 let defendersNeeded = isHomeTower(t) ? 2 : (nearbyEnemies > 1 ? 2 : 1);
                 for (let i = 0; i < defendersNeeded && unassigned.length > 0; i++) {
-                    let best = unassigned.sort((a, b) => {
-                        let scoreA = (a.role === 'TANK' ? -3000 : 0) + (a.role === 'SUPPORT' ? -1200 : 0) + (a.role === 'FIGHTER' ? -600 : 0) + dist(a.pos, t.pos);
-                        let scoreB = (b.role === 'TANK' ? -3000 : 0) + (b.role === 'SUPPORT' ? -1200 : 0) + (b.role === 'FIGHTER' ? -600 : 0) + dist(b.pos, t.pos);
-                        return scoreA - scoreB;
-                    })[0];
+                    let best = unassigned.sort((a, b) => scoreBotForTower(a, t) - scoreBotForTower(b, t))[0];
                     if (best) assign(best, 'DEFEND', t);
                 }
             }
 
             if (unassigned.length > 0) {
                 let escortTarget = targetTower || mainTarget;
-                let escort = unassigned.sort((a, b) => {
-                    let scoreA = (a.role === 'SPLITPUSHER' ? -1800 : 0) + (a.role === 'FIGHTER' ? -600 : 0) + dist(a.pos, escortTarget ? escortTarget.pos : spawnPoints[1-team]);
-                    let scoreB = (b.role === 'SPLITPUSHER' ? -1800 : 0) + (b.role === 'FIGHTER' ? -600 : 0) + dist(b.pos, escortTarget ? escortTarget.pos : spawnPoints[1-team]);
-                    return scoreA - scoreB;
-                })[0];
+                let escort = unassigned.sort((a, b) => scoreBotForAttack(a, escortTarget) - scoreBotForAttack(b, escortTarget))[0];
                 if (escort) assign(escort, 'ASSAULT', escortTarget);
             }
         }
@@ -2036,11 +2112,7 @@ export class BotPlayer extends Player {
                 return scoreA - scoreB;
             })[0] || null;
 
-            let toAssign = [...unassigned].sort((a, b) => {
-                let scoreA = (['SLAYER', 'FIGHTER', 'SUPPORT'].includes(a.role) ? -2000 : 0) + (a.role === 'TANK' ? 500 : 0) + dist(a.pos, focusTarget ? focusTarget.pos : (mainTarget ? mainTarget.pos : spawnPoints[team]));
-                let scoreB = (['SLAYER', 'FIGHTER', 'SUPPORT'].includes(b.role) ? -2000 : 0) + (b.role === 'TANK' ? 500 : 0) + dist(b.pos, focusTarget ? focusTarget.pos : (mainTarget ? mainTarget.pos : spawnPoints[team]));
-                return scoreA - scoreB;
-            });
+            let toAssign = [...unassigned].sort((a, b) => scoreBotForAttack(a, focusTarget || mainTarget) - scoreBotForAttack(b, focusTarget || mainTarget));
 
             for (let b of toAssign) {
                 if (focusTarget && (['SLAYER', 'FIGHTER', 'SUPPORT'].includes(b.role) || dist(b.pos, focusTarget.pos) < 1800)) {
@@ -2060,7 +2132,7 @@ export class BotPlayer extends Player {
         }
         else if (mState.currentStrat === 'AGGRO_DEF') {
             if (unassigned.length > 0 && borderTowers.length > 0) {
-                let defender = unassigned.sort((a,b) => (a.role === 'TANK' ? -1000 : 0) - (b.role === 'TANK' ? -1000 : 0))[0];
+                let defender = unassigned.sort((a,b) => scoreBotForTower(a, borderTowers[0]) - scoreBotForTower(b, borderTowers[0]))[0];
                 assign(defender, 'DEFEND', borderTowers[0]);
             }
             let toAssign = [...unassigned];

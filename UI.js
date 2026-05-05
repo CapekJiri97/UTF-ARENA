@@ -460,9 +460,21 @@ export function draw(){
         ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = '12px monospace'; ctx.fillStyle = '#888';
         ctx.fillText('B - SHOP', 20, 20); ctx.fillText('C - CHAR. INFO', 20, 36); ctx.fillText('M - GENERAL INFO', 20, 52);
         
+        let yOff = 76;
         if (player && player.macroOrder) {
             ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 12px monospace';
-            ctx.fillText(`AI SUGGEST: ${player.macroOrder.type.replace('_', ' ')}`, 20, 76);
+            ctx.fillText(`AI SUGGEST: ${player.macroOrder.type.replace('_', ' ')}`, 20, yOff);
+            yOff += 24;
+        }
+        
+        if (game.macroState) {
+            ctx.font = '11px monospace';
+            if (game.macroState[0]) {
+                ctx.fillStyle = '#486FED'; ctx.fillText(`BLUE MACRO: [${game.macroState[0].phase}] ${game.macroState[0].currentStrat}`, 20, yOff); yOff += 16;
+            }
+            if (game.macroState[1]) {
+                ctx.fillStyle = '#FF4E4E'; ctx.fillText(`RED MACRO:  [${game.macroState[1].phase}] ${game.macroState[1].currentStrat}`, 20, yOff);
+            }
         }
     }
 
