@@ -3118,6 +3118,7 @@ export class BotPlayer extends Player {
           return;
       }
       if(game.gameOver) return;
+      this.trackDominionPCS(dt);
       // if(game.startDelay > 0) return; // REMOVED: Boti se mohou rozmístit už během odpočtu
       if(!this.alive){
           if (!socket || game.isHost) { // Respawn logika pouze na Hostovi
