@@ -39,9 +39,6 @@ style.innerHTML = `
       #roomLobby { padding: 2vw !important; max-height: 98vh !important; }
       #lobbyTitle { font-size: 18px !important; }
       #btnSpec, #leaveRoomBtn { padding: 6px 10px !important; font-size: 11px !important; }
-      .three-col-layout { flex-direction: column !important; flex-wrap: nowrap !important; }
-      .team-box, .center-roster { min-width: 100% !important; flex: none !important; margin-bottom: 5px; }
-      .center-roster { min-height: 35vh !important; max-height: 50vh !important; }
       .champ-grid { grid-template-columns: repeat(auto-fill, minmax(45px, 1fr)) !important; gap: 4px !important; }
       .champ-btn { padding: 4px !important; gap: 2px !important; }
       .champ-icon { font-size: 16px !important; }
@@ -55,11 +52,14 @@ style.innerHTML = `
       .footer-controls { flex-direction: column !important; align-items: stretch !important; gap: 5px !important; }
       .footer-controls > div { justify-content: center !important; }
   }
-  .team-box { background: #0a0a0c; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #222; }
+  .three-col-layout { display: flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; }
+  .team-box { flex: 0 0 220px !important; width: 220px !important; background: #0a0a0c; border-radius: 4px; display: flex; flex-direction: column; border: 1px solid #222; }
+  .center-roster { flex: 1 1 400px !important; min-width: 300px; background: #0a0a0c; border: 1px solid #222; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; }
   .team-header { padding: 10px; font-weight: bold; text-align: center; letter-spacing: 1px; }
+  .team-footer { padding: 10px; border-top: 1px solid #222; flex-shrink: 0; margin-top: auto; }
   .blue-header { background: linear-gradient(90deg, #1a2a5c, #0a0a0c); color: #486FED; border-bottom: 2px solid #486FED; }
   .red-header { background: linear-gradient(-90deg, #5c1a1a, #0a0a0c); color: #FF4E4E; border-bottom: 2px solid #FF4E4E; }
-  .player-list { list-style: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; text-align: left; }
+  .player-list { list-style: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; min-height: 120px; text-align: left; }
   .player-item { padding: 6px; margin-bottom: 4px; background: #111; border: 1px solid #333; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
   .champ-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; padding-bottom: 15px; }
   .champ-btn { background: #111; border: 2px solid #333; color: #fff; padding: 10px 5px; border-radius: 6px; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 5px; font-family: monospace; }
@@ -1118,9 +1118,9 @@ export function buildMenu() {
               </ul>
           </div>
       </div>
-      <div id="roomLobby" style="margin: 0 auto; display: ${socket ? 'none' : 'flex'}; background:#070709; padding:1vw; border:1px solid #222; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1200px; box-sizing:border-box; flex-direction:column; max-height: 95vh; overflow-y: auto;">
+      <div id="roomLobby" style="margin: 0 auto; display: ${socket ? 'none' : 'flex'}; background:#070709; padding:1vw; border:1px solid #222; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1200px; box-sizing:border-box; flex-direction:column; max-height: 95vh; overflow: hidden;">
       <!-- Header -->
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #222; padding-bottom: 10px; margin-bottom: 10px;">
+      <div style="display:flex; flex-shrink: 0; justify-content:space-between; align-items:center; border-bottom: 1px solid #222; padding-bottom: 10px; margin-bottom: 10px;">
           <h1 id="lobbyTitle" style="margin:0; font-size: 24px; color: #f0e6d2;">OFFLINE MODE</h1>
           <div style="display:flex; gap:10px;">
               <button id="btnSpec" style="padding:6px 12px; cursor:pointer; font-weight:bold; background:#222; color:#aaa; border:1px solid #555; border-radius:4px;">SPECTATE</button>
@@ -1129,12 +1129,12 @@ export function buildMenu() {
       </div>
       
       <!-- 3 Columns Layout -->
-      <div class="three-col-layout" style="display:flex; flex-wrap: wrap; flex-grow: 1; gap: 15px; min-height: 0; margin-bottom: 10px;">
+      <div class="three-col-layout" style="display:flex; flex-wrap: nowrap; flex-grow: 1; flex-shrink: 1; gap: 15px; min-height: 0; margin-bottom: 10px; overflow-x: auto; overflow-y: hidden; padding-bottom: 5px;">
           <!-- Left: Blue Team -->
-          <div class="team-box" style="flex: 1; min-width: 200px;">
+          <div class="team-box">
               <div class="team-header blue-header">BLUE TEAM</div>
               <ul id="blueTeamList" class="player-list"></ul>
-              <div style="padding: 10px; border-top: 1px solid #222;">
+              <div class="team-footer">
                   <button id="btnBlue" style="width: 100%; padding:10px; cursor:pointer; font-weight:bold; background:#1a2a5c; color:#486FED; border:1px solid #486FED; border-radius: 4px; margin-bottom: 5px;">JOIN BLUE</button>
                   <details style="text-align: left; background: #000; padding: 5px; border-radius: 4px; border: 1px solid #222;">
                       <summary style="cursor:pointer; color:#aaa; font-size:12px; outline:none;">Bot Difficulty (<span id="blueBotLabel">100%</span>)</summary>
@@ -1144,16 +1144,16 @@ export function buildMenu() {
           </div>
 
           <!-- Center: Champion Roster -->
-          <div class="center-roster" style="flex: 2; display:flex; flex-direction:column; min-width: 300px; background: #0a0a0c; border: 1px solid #222; border-radius: 4px; overflow: hidden;">
+          <div class="center-roster">
               <div style="background: #111; padding: 10px; font-weight: bold; border-bottom: 1px solid #222; color: #f0e6d2;">CHOOSE YOUR HERO</div>
               <div id="classBtns" style="flex-grow: 1; overflow-y: auto; padding: 10px; text-align: left;"></div>
           </div>
 
           <!-- Right: Red Team -->
-          <div class="team-box" style="flex: 1; min-width: 200px;">
+          <div class="team-box">
               <div class="team-header red-header">RED TEAM</div>
               <ul id="redTeamList" class="player-list"></ul>
-              <div style="padding: 10px; border-top: 1px solid #222;">
+              <div class="team-footer">
                   <button id="btnRed" style="width: 100%; padding:10px; cursor:pointer; font-weight:bold; background:#5c1a1a; color:#FF4E4E; border:1px solid #FF4E4E; border-radius: 4px; margin-bottom: 5px;">JOIN RED</button>
                   <details style="text-align: left; background: #000; padding: 5px; border-radius: 4px; border: 1px solid #222;">
                       <summary style="cursor:pointer; color:#aaa; font-size:12px; outline:none;">Bot Difficulty (<span id="redBotLabel">100%</span>)</summary>
@@ -1164,12 +1164,12 @@ export function buildMenu() {
       </div>
 
       <!-- Footer -->
-      <div style="background: #0a0a0c; padding: 10px; border: 1px solid #222; border-radius: 4px; margin-bottom: 10px; display:flex; flex-direction:column; align-items:center;">
+      <div style="flex-shrink: 0; background: #0a0a0c; padding: 10px; border: 1px solid #222; border-radius: 4px; margin-bottom: 10px; display:flex; flex-direction:column; align-items:center;">
           <div style="font-size: 12px; color: #aaa; margin-bottom: 4px; font-weight:bold;">SUMMONER SPELL</div>
           <div id="spellBtns" style="display:flex; gap: 5px; flex-wrap: wrap; justify-content:center;"></div>
       </div>
 
-      <div class="footer-controls" style="display:flex; justify-content:space-between; align-items:center; background: #0a0a0c; padding: 10px; border: 1px solid #222; border-radius: 4px; flex-wrap: wrap; gap: 10px;">
+      <div class="footer-controls" style="flex-shrink: 0; display:flex; justify-content:space-between; align-items:center; background: #0a0a0c; padding: 10px; border: 1px solid #222; border-radius: 4px; flex-wrap: wrap; gap: 10px;">
           <ul id="specList" style="list-style:none; padding:0; margin:0; font-size: 12px; color: #888; text-align: left; max-height: 40px; overflow-y:auto; display:flex; flex-direction:column;"></ul>
           <div style="display:flex; align-items:center; gap: 15px; flex-grow: 1; justify-content: flex-end;">
               <span style="display:flex; gap: 5px;">

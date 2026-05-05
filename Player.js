@@ -1961,12 +1961,14 @@ export class BotPlayer extends Player {
           let isHomeTower = false;
           if (this.team === 0 && (t.index === 0 || t.index === 4)) isHomeTower = true;
           if (this.team === 1 && (t.index === 2 || t.index === 3)) isHomeTower = true;
+          
+          let score = this.personalWeights.towerBaseScore - dist(this.pos, t.pos);
+          
           if (t.owner === this.team && isHomeTower) {
               score += 8000; // Drží 2 nejbližší
               if (isUnderAttack || Math.abs(t.control) < 100) score += 30000; // Nedá domovskou věž napospas
           }
           
-          let score = this.personalWeights.towerBaseScore - dist(this.pos, t.pos);
           if (dist(t.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Penalizace
           let isTopTower = (t.index === 0 || t.index === 1 || t.index === 2);
           let isBotTower = (t.index === 3 || t.index === 4);
@@ -2823,6 +2825,12 @@ export class BotPlayer extends Player {
 
       // Spuštění Operativy
       this.executeOperative(dt);
+      
+      // Neviditelná bariéra během odpočtu (zabrání opuštění spawnu, ale dovolí se hýbat uvnitř)
+      if (game.startDelay > 0) {
+          const sp = spawnPoints[this.team]; const d = dist(this.pos, sp);
+          if (d > 190) { const a = Math.atan2(this.pos.y - sp.y, this.pos.x - sp.x); this.pos.x = sp.x + Math.cos(a)*190; this.pos.y = sp.y + Math.sin(a)*190; }
+      }
     }
 
     executeOperative(dt) {
