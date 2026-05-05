@@ -90,14 +90,14 @@ export const CLASSES = {
     baseAtk: 50, baseAD: 35, baseAP: 0,
     baseArmor: 48, baseMR: 43,
     Q: {
-      baseCooldown: 9.0, castTime: 0.1,
-      baseDamage: 80, scaleAP: 0.3, scaleAD: 0.3,
-      type: 'shield_explode', amount: 140, duration: 4.0, radius: 144,
+      baseCooldown: 9.5, castTime: 0.1,
+      baseDamage: 74, scaleAP: 0.3, scaleAD: 0.3,
+      type: 'shield_explode', amount: 125, duration: 4.0, radius: 144,
       desc: 'Vytvoří dočasný štít. Pokud je štít zničen nebo vyprší, exploduje a zraní okolní nepřátele.'
     },
     E: {
-      baseCooldown: 10.0, castTime: 0.25,
-      baseDamage: 80, scaleAP: 0.15, scaleAD: 0.15,
+      baseCooldown: 10.5, castTime: 0.25,
+      baseDamage: 74, scaleAP: 0.15, scaleAD: 0.15,
       type: 'aoe', radius: 144, stunDuration: 1.0,
       desc: 'Udeří do země, zraní všechny nepřátele v blízkém okolí a na 1 sekundu je omráčí (Stun).'
     }
@@ -226,18 +226,18 @@ export const CLASSES = {
   Wanderer: {
     glyph: 'W', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.50,
     hp: 600, speed: 125, attackDelay: 0.9,
-    baseAtk: 45, baseAD: 65, baseAP: 0,
+    baseAtk: 45, baseAD: 60, baseAP: 0,
     baseArmor: 25, baseMR: 25,
     Q: {
       baseCooldown: 9.0, castTime: 0.0,
-      baseDamage: 25, scaleAP: 0, scaleAD: 0.25, scaleLevel: 5,
+      baseDamage: 18, scaleAP: 0, scaleAD: 0.2, scaleLevel: 4,
       type: 'spin_to_win', duration: 2.5, tickRate: 0.25, radius: 80,
       desc: 'Čepelová smršť: Roztočí se, po 2.5 sekundy zraňuje nepřátele v okolí a má mírně zvýšenou rychlost. Můžeš se u toho pohybovat!'
     },
     E: {
       baseCooldown: 16.0, castTime: 0.1,
-      baseDamage: 60, scaleAP: 0, scaleAD: 0.60, scaleLevel: 10,
-      type: 'omnislash', count: 5, tickRate: 0.2, distance: 180, dashTime: 0.12,
+      baseDamage: 46, scaleAP: 0, scaleAD: 0.45, scaleLevel: 8,
+      type: 'omnislash', count: 4, tickRate: 0.2, distance: 150, dashTime: 0.12,
       desc: 'Všesek (Omnislash): Provede bleskový výpad vpřed. Pokud zasáhne nepřítele, stane se nezranitelným a 5x se teleportuje k náhodným cílům v okolí, kterým zasadí tvrdou ránu.'
     }
   },
@@ -250,7 +250,7 @@ export const CLASSES = {
     projCount: 3, projSpread: 0.3,
     Q: {
       baseCooldown: 10.0, castTime: 0.7,
-      baseDamage: 50, scaleAP: 0.25, scaleAD: 0.6,
+      baseDamage: 46, scaleAP: 0.25, scaleAD: 0.55,
       type: 'projectile_summon', pGlyph: 'b', pSpeed: 800,
       summonGlyph: 'b', summonHp: 120, summonAd: 50, slowDuration: 2,
       desc: 'Vystřelí projektil, který zraní a zpomalí prvního zasaženého nepřítele. Po zásahu vyvolá Bažanta, který bude bojovat po jejím boku.'
@@ -258,7 +258,7 @@ export const CLASSES = {
     E: {
       baseCooldown: 12.0, castTime: 0.1,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
-      type: 'buff_ad_as', duration: 4.0, amount: 0.25, shieldAmount: 80,
+      type: 'buff_ad_as', duration: 4.0, amount: 0.25, shieldAmount: 70,
       desc: 'Na 4 sekundy si zvýší útočné poškození a rychlost útoku. Zároveň získá malý ochranný štít.'
     }
   },
@@ -284,18 +284,18 @@ export const CLASSES = {
 
   Fusilier: {
     glyph: 'F', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.40,
-    hp: 550, speed: 115, attackDelay: 0.95,
-    baseAtk: 35, baseAD: 70, baseAP: 0,
-    baseArmor: 15, baseMR: 15,
+    hp: 580, speed: 115, attackDelay: 0.9,
+    baseAtk: 40, baseAD: 78, baseAP: 0,
+    baseArmor: 17, baseMR: 17,
     Q: {
       baseCooldown: 5.0, castTime: 0.15,
-      baseDamage: 25, scaleAP: 0, scaleAD: 0.25,
+      baseDamage: 40, scaleAP: 0, scaleAD: 0.3,
       type: 'projectile', count: 5, spread: 0.25, pGlyph: ':', pSpeed: 1100, life: 0.25,
       desc: 'Vystřelí salvu 5 projektilů v širokém kuželu. Skvělé pro plošné poškození nebo masivní "brokovnicový" burst zblízka.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.1,
-      baseDamage: 50, scaleAP: 0, scaleAD: 0.5,
+      baseDamage: 68, scaleAP: 0, scaleAD: 0.55,
       type: 'cone_knockback', radius: 110, cone: 90 * Math.PI / 180,
       desc: 'Vypálí výseč před sebou, která zraní a prudce odhodí nepřátele.'
     }
@@ -363,19 +363,19 @@ export const CLASSES = {
   },
 
   Tamer: {
-    glyph: 'T', role: 'MAGE', range: true, attackRange: 180, dmgType: 'magical', aaScale: 0.15,
-    hp: 500, speed: 110, attackDelay: 1.1,
-    baseAtk: 25, baseAD: 0, baseAP: 50,
+    glyph: 'T', role: 'MAGE', range: true, attackRange: 205, dmgType: 'magical', aaScale: 0.15,
+    hp: 530, speed: 110, attackDelay: 1.1,
+    baseAtk: 25, baseAD: 0, baseAP: 62,
     baseArmor: 15, baseMR: 20,
     Q: {
       baseCooldown: 6.0, castTime: 0.2,
-      baseDamage: 60, scaleAP: 0.4, scaleAD: 0,
+      baseDamage: 76, scaleAP: 0.45, scaleAD: 0,
       type: 'tamer_q', pGlyph: '°', pSpeed: 850, life: 0.4, noHitParticles: true,
       desc: 'Vystřelí magickou sféru, která zraní nepřítele a označí ho. Tvůj Vlk (pet) bude označený cíl agresivně prioritizovat.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.2,
-      baseDamage: 0, scaleAP: 0.6, scaleAD: 0, amount: 150, scaleLevel: 25,
+      baseDamage: 0, scaleAP: 0.6, scaleAD: 0, amount: 195, scaleLevel: 22,
       type: 'tamer_e',
       desc: 'Pokud tvůj Vlk žije, okamžitě ho výrazně vyléčí. Pokud zemřel, začneš 3 sekundy dlouhý rituál, který ho oživí s 50% HP (při stunu se přeruší a naskočí CD).'
     }

@@ -1,5 +1,5 @@
 import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
-import { shopItems } from './items.js';
+import { shopItems, canBuyShopItem } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
@@ -366,7 +366,7 @@ export function populateShop() {
   downBtn.onclick = doScrollDown; downBtn.ontouchstart = doScrollDown;
 
   const list = document.getElementById('shopList'); 
-  const cats = { 'DMG': ['ad', 'ap'], 'ARMOR': ['armor', 'mr', 'hp'], 'SPEED': ['boots', 'as', 'ah'] }; 
+    const cats = { 'DMG': ['ad', 'ad_ls', 'ad_ls2', 'ad_pen', 'ad_pen2', 'ap', 'ap_vamp', 'ap_vamp2', 'ap_pen', 'ap_pen2'], 'ARMOR': ['armor', 'mr', 'hp'], 'SPEED': ['as', 'as_ms', 'ah', 'ah_ms'] }; 
 
   for(let catName in cats) { 
       let col = document.createElement('div'); col.className = 'shop-col'; 
@@ -376,10 +376,11 @@ export function populateShop() {
       for(let id of cats[catName]) { 
           const it = shopItems.find(x => x.id === id); 
           if(!it) continue; 
+          const buyCheck = canBuyShopItem(player, it); 
           let count = 0; if(player && player.items) count = player.items.filter(i=>i===it.id).length; 
           const div = document.createElement('div'); div.style.background = '#111'; div.style.border = '1px solid #333'; div.style.padding = '8px'; div.style.display = 'flex'; div.style.justifyContent = 'space-between'; div.style.alignItems = 'center'; 
           div.innerHTML = `<div style="flex-grow:1;"><b>${it.name}</b> ${count>0?`<span style="color:#0f0;">(${count}x)</span>`:''}<br><span style="font-size:10px; color:#aaa;">${it.desc}</span><br><span style="color:#ffcc00; font-size:12px;">${it.cost}g</span></div>`; 
-          const btn = document.createElement('button'); btn.textContent='Buy'; btn.style.background='#222'; btn.style.color='#0f0'; btn.style.border='1px solid #0f0'; btn.style.padding='8px 12px'; btn.style.cursor='pointer'; btn.style.fontWeight='bold';
+          const btn = document.createElement('button'); btn.textContent=buyCheck.ok ? 'Buy' : 'Locked'; btn.title = buyCheck.ok ? '' : buyCheck.reason; btn.disabled = !buyCheck.ok; btn.style.background=buyCheck.ok ? '#222' : '#111'; btn.style.color=buyCheck.ok ? '#0f0' : '#777'; btn.style.border=buyCheck.ok ? '1px solid #0f0' : '1px solid #555'; btn.style.padding='8px 12px'; btn.style.cursor=buyCheck.ok ? 'pointer' : 'not-allowed'; btn.style.fontWeight='bold';
           btn.addEventListener('click', ()=> buyItem(it.id)); div.appendChild(btn); col.appendChild(div); 
       } list.appendChild(col); 
   } 

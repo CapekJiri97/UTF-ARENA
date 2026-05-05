@@ -1,6 +1,6 @@
 import { dist, distToPoly, expForLevel } from './Utils.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
-import { shopItems } from './items.js';
+import { canBuyShopItem, getShopItem } from './items.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
 import { Particle, spawnParticles, EffectText } from './Effects.js';
@@ -13,12 +13,16 @@ export class Player{
   constructor(x,y,opts={}){
     this.pos = {x,y}; this.vel = {x:0,y:0}; this.radius = 12;
     this.className = opts.className || 'Bruiser'; const cData = CLASSES[this.className];
-    this.speed = cData.speed;
+    this.speed = cData.speed + 40 + (cData.range && cData.role !== 'SUPPORT' ? 5 : 0);
     this.glyph = cData.glyph; this.team = opts.team||0; this.id = opts.id||'player0';
     this.alive = true; this.respawnTimer = 0; this.respawnTime = 5;
     this.flashTimer = 0;
     this.dmgType = cData.dmgType;
     this.shield = 0;
+    this.armorPenFlat = 0;
+    this.magicPenFlat = 0;
+    this.lifesteal = 0;
+    this.spellVamp = 0;
     this.silenceTimer = 0;
     this.stunTimer = 0;
     this.shieldTimer = 0;
@@ -114,6 +118,9 @@ export class Player{
     this.objectivePresenceTime = 0;
     this.pcs = 0;
     this.pcsBreakdown = null;
+        this.strategyUptime = 0;
+        this.panicStreak = 0;
+        this.panicGuard = 0;
   }
 
   trackDominionPCS(dt) {
@@ -132,14 +139,14 @@ export class Player{
 
           if (tower.owner === this.team) {
               if (enemyPressure) {
-                  this.towerDefends += dt * (isHomeTower ? 1.25 : 1.0);
-                  this.objectivePresenceTime += dt;
+                  this.towerDefends += dt * (isHomeTower ? 1.4 : 1.1);
+                  this.objectivePresenceTime += dt * (isHomeTower ? 1.5 : 1.2);
               } else {
-                  this.objectivePresenceTime += dt * 0.25;
+                  this.objectivePresenceTime += dt * 0.5;
               }
           } else {
-              this.towerAssaultTime += dt;
-              this.objectivePresenceTime += dt;
+              this.towerAssaultTime += dt * (enemyPressure ? 1.15 : 1.0);
+              this.objectivePresenceTime += dt * (enemyPressure ? 1.35 : 1.0);
           }
       }
 
@@ -148,16 +155,17 @@ export class Player{
 
   refreshDominionPCS() {
       const breakdown = {
-          kills: (this.kills || 0) * 180,
-          assists: (this.assists || 0) * 90,
-          deaths: -(this.deaths || 0) * 120,
-          dmgDealt: (this.stats?.dmgDealt || 0) * 0.035,
-          hpHealed: (this.stats?.hpHealed || 0) * 0.04,
-          towerCaptures: (this.towerCaptures || 0) * 750,
-          towerDefends: (this.towerDefends || 0) * 18,
-          towerAssaultTime: (this.towerAssaultTime || 0) * 8,
-          powerupsCollected: (this.powerupsCollected || 0) * 250,
-          powerupUptime: (this.powerupUptime || 0) * 1.5
+          kills: (this.kills || 0) * 120,
+          assists: (this.assists || 0) * 75,
+          deaths: -(this.deaths || 0) * 180,
+          dmgDealt: (this.stats?.dmgDealt || 0) * 0.02,
+          hpHealed: (this.stats?.hpHealed || 0) * 0.05,
+          towerCaptures: (this.towerCaptures || 0) * 1400,
+          towerDefends: (this.towerDefends || 0) * 60,
+          towerAssaultTime: (this.towerAssaultTime || 0) * 16,
+          objectivePresenceTime: (this.objectivePresenceTime || 0) * 6,
+          powerupsCollected: (this.powerupsCollected || 0) * 300,
+          powerupUptime: (this.powerupUptime || 0) * 4
       };
 
       const total = Object.values(breakdown).reduce((sum, value) => sum + value, 0);
@@ -177,9 +185,9 @@ export class Player{
       let m = new Minion(this.pos.x + (Math.random()-0.5)*40, this.pos.y + (Math.random()-0.5)*40, this.team, 0);
       m.isTamerPet = true; m.ownerId = this.id; m.glyph = 'W'; m.speed = 160; m.baseSpeed = 160;
       m.speedBoostTimer = 0; m.lastTargetId = null;
-      m.maxHp = Math.round(400 + this.AP * 1.5 + this.level * 40);
+    m.maxHp = Math.round(430 + this.AP * 1.6 + this.level * 45);
       m.hp = m.maxHp * hpPct;
-      m.attackDamage = Math.round(20 + this.AP * 0.4 + this.level * 5);
+    m.attackDamage = Math.round(22 + this.AP * 0.42 + this.level * 5.5);
       m.attackCooldown = 0;
       
       m.update = function(dt) {
@@ -189,8 +197,8 @@ export class Player{
           if(!owner || !owner.alive) { this.hp -= this.maxHp * 0.2 * dt; return; } // Pokud je majitel mrtvý, Vlk postupně vykrvácí
 
           // Dynamické škálování podle majitele
-          this.maxHp = Math.round(400 + owner.AP * 1.5 + owner.level * 40);
-          this.attackDamage = Math.round(20 + owner.AP * 0.4 + owner.level * 5);
+          this.maxHp = Math.round(430 + owner.AP * 1.6 + owner.level * 45);
+          this.attackDamage = Math.round(22 + owner.AP * 0.42 + owner.level * 5.5);
           let buffAsMult = 1.0 + (owner.adAsBuffTimer > 0 ? owner.adAsBuffAmount : 0);
           
           if(this.flashTimer > 0) this.flashTimer -= dt;
@@ -389,7 +397,7 @@ export class Player{
 
   levelUp(){
     playSound('levelup', this.pos);
-    if (!socket || game.isHost || this === player) { this.level += 1; this.spellPoints += 1; this.maxHp += 15; this.hp = Math.min(this.effectiveMaxHp, this.hp + 15); this.AD += 1; this.AP += 1; this.isDirty = true; }
+        if (!socket || game.isHost || this === player) { const statGain = this.role === 'SLAYER' ? 0.9 : 1; this.level += 1; this.spellPoints += 1; this.maxHp += 15; this.hp = Math.min(this.effectiveMaxHp, this.hp + 15); this.AD += statGain; this.AP += statGain; this.isDirty = true; }
     this.levelUpTimer = 2.0; spawnParticles(this.pos.x, this.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0});
   }
 
@@ -568,40 +576,50 @@ export class Player{
 
     const allyBaseDist = dist(this.pos, spawnPoints[this.team]);
 
+    const pickBuyableItem = (owner, candidateIds) => {
+        const choices = [];
+        for (const candidateId of candidateIds) {
+            const candidate = getShopItem(candidateId);
+            if (!candidate) continue;
+            if (!canBuyShopItem(owner, candidate).ok) continue;
+            if (owner.gold < candidate.cost) continue;
+            choices.push(candidate);
+        }
+        if (!choices.length) return null;
+        return choices[Math.floor(Math.random() * choices.length)];
+    };
+
     if (this === player) {
 
         // AUTO BUY
         if (game.autoPlay && game.autoBuy && (!this.alive || allyBaseDist < 250) && this.gold >= 300 && this.items.length < 25) {
-            let itemToBuy = null;
-            if (!this.hasBoots && this.gold >= 300) itemToBuy = shopItems.find(it => it.id === 'boots');
-            else {
-                let enemyPhys = 0, enemyMag = 0;
-                const enemies = game.players.filter(p => p.team !== this.team);
-                for (let e of enemies) { if (e.dmgType === 'physical') enemyPhys++; else enemyMag++; }
+            let enemyPhys = 0, enemyMag = 0;
+            const enemies = game.players.filter(p => p.team !== this.team);
+            for (let e of enemies) { if (e.dmgType === 'physical') enemyPhys++; else enemyMag++; }
 
-                let pool = [];
-                const isTank = this.role === 'TANK';
-                const isFighter = this.role === 'FIGHTER' || this.role === 'SPLITPUSHER';
-                const isMageSupport = this.role === 'SUPPORT' || (this.role === 'SLAYER' && this.dmgType === 'magical') || (this.role === 'SPLITPUSHER' && this.dmgType === 'magical');
-                
-                if (isTank) {
-                    pool.push('hp', 'hp');
-                    if (enemyPhys >= enemyMag) pool.push('armor', 'armor');
-                    if (enemyMag >= enemyPhys) pool.push('mr', 'mr');
-                } else if (isFighter) {
-                    pool.push('hp');
-                    if (this.dmgType === 'magical') pool.push('ap', 'ah'); else pool.push('ad', 'ah'); 
-                    if (enemyPhys > enemyMag) pool.push('armor'); else if (enemyMag > enemyPhys) pool.push('mr');
-                } else if (isMageSupport) {
-                    pool.push('ap', 'ap', 'ah', 'ah'); if (Math.random() < 0.25) pool.push('hp'); 
-                } else { 
-                    if (this.role === 'SLAYER' && this.range) pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); 
-                    if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr');
-                }
-                let chosenId = pool[Math.floor(Math.random() * pool.length)];
-                itemToBuy = shopItems.find(it => it.id === chosenId);
+            let pool = [];
+            const isTank = this.role === 'TANK';
+            const isFighter = this.role === 'FIGHTER' || this.role === 'SPLITPUSHER';
+            const isSupport = this.role === 'SUPPORT';
+            const isMageSupport = isSupport || (this.role === 'SLAYER' && this.dmgType === 'magical') || (this.role === 'SPLITPUSHER' && this.dmgType === 'magical');
+            
+            if (isTank) {
+                pool.push('hp', 'hp');
+                if (enemyPhys >= enemyMag) pool.push('armor', 'armor');
+                if (enemyMag >= enemyPhys) pool.push('mr', 'mr');
+            } else if (isFighter) {
+                pool.push('hp');
+                if (this.dmgType === 'magical') pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls', 'as_ms'); 
+                if (enemyPhys > enemyMag) pool.push('armor'); else if (enemyMag > enemyPhys) pool.push('mr');
+            } else if (isMageSupport) {
+                if (isSupport) pool.push('ap', 'ap', 'ah', 'ah', 'hp');
+                else pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms', 'hp'); 
+            } else { 
+                if (this.role === 'SLAYER' && this.range) pool.push('ad', 'ad', 'ad', 'as', 'as', 'ah', 'ad_pen', 'ad_ls', 'as_ms', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls'); 
+                if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr');
             }
-            if (itemToBuy && this.gold >= itemToBuy.cost) buyItem(itemToBuy.id); // buyItem handles gold/item changes
+            const itemToBuy = pickBuyableItem(this, pool);
+            if (itemToBuy) buyItem(itemToBuy.id); // buyItem handles gold/item changes
         }
     }
 
@@ -1713,6 +1731,9 @@ export class BotPlayer extends Player {
                 strats: [],
                 scores: {},
                 panicTimer: 0,
+                panicStreak: 0,
+                panicGuard: 0,
+                strategyUptime: 0,
                 lastPointDiff: 0,
                 snapshotDiff: 0,
                 snapshotMacro: null
@@ -1780,6 +1801,10 @@ export class BotPlayer extends Player {
             const enemyCombatPower = enemyHeroes.reduce((sum, p) => sum + estimateCombatPower(p), 0);
             const enemyRespawnSoonCount = deadEnemyHeroes.filter(p => (p.respawnTimer || 0) <= 10).length;
             const enemyDeadCount = deadEnemyHeroes.length;
+            const teamObjectivePresence = teamMembers.reduce((sum, p) => sum + (p.objectivePresenceTime || 0), 0);
+            const enemyObjectivePresence = enemyMembers.reduce((sum, p) => sum + (p.objectivePresenceTime || 0), 0);
+            const teamPowerupCount = teamHeroes.reduce((sum, p) => sum + (p.hasPowerup ? 1 : 0), 0);
+            const enemyPowerupCount = enemyHeroes.reduce((sum, p) => sum + (p.hasPowerup ? 1 : 0), 0);
 
             return {
                 pointDiff,
@@ -1802,27 +1827,41 @@ export class BotPlayer extends Player {
                 teamCombatPower,
                 enemyCombatPower,
                 powerLead: teamCombatPower - enemyCombatPower,
+                teamObjectivePresence,
+                enemyObjectivePresence,
+                objectivePresenceLead: teamObjectivePresence - enemyObjectivePresence,
                 enemyDeadCount,
                 enemyRespawnSoonCount,
+                activePowerupLead: teamPowerupCount - enemyPowerupCount,
                 allyRoles: roleCounts
             };
         };
 
         const formatMacroSnapshot = (snap) => {
             if (!snap) return 'no-snapshot';
-            return `nexus=${Math.round(snap.pointDiff)} towers=${snap.towerLead} home=${snap.homeHeld}/${snap.homeTowerCount} threat=${snap.homeThreat} pressure=${snap.towerPressure} power=${Math.round(snap.powerLead)} lvl=${snap.teamAvgLevel.toFixed(1)}/${snap.enemyAvgLevel.toFixed(1)} gold=${Math.round(snap.teamAvgGold)}/${Math.round(snap.enemyAvgGold)} dead=${snap.enemyDeadCount} soon=${snap.enemyRespawnSoonCount}`;
+            return `nexus=${Math.round(snap.pointDiff)} towers=${snap.towerLead} home=${snap.homeHeld}/${snap.homeTowerCount} threat=${snap.homeThreat} pressure=${snap.towerPressure} obj=${Math.round(snap.objectivePresenceLead || 0)} power=${Math.round(snap.powerLead)} pu=${snap.activePowerupLead || 0} lvl=${snap.teamAvgLevel.toFixed(1)}/${snap.enemyAvgLevel.toFixed(1)} gold=${Math.round(snap.teamAvgGold)}/${Math.round(snap.enemyAvgGold)} dead=${snap.enemyDeadCount} soon=${snap.enemyRespawnSoonCount}`;
+        };
+
+        const pickRecoveryStrategy = (ctx) => {
+            if (ctx.homeThreat > 1 || ctx.towerLead < -1) return 'TURTLE';
+            if (ctx.homeThreat > 0 || ctx.towerLead < 0) return 'TOWER_FIRST';
+            if (ctx.powerLead < -250) return 'AGGRO_DEF';
+            if (ctx.activePowerupLead > 0 && ctx.pointDiff >= 0) return 'KILL_FIRST';
+            return 'TOWER_FIRST';
         };
 
         const buildStrategyOrder = (ctx) => {
+            const objectiveBias = ctx.objectivePresenceLead >= 18 ? 6 : (ctx.objectivePresenceLead <= -18 ? -4 : 0);
+            const powerupBias = ctx.activePowerupLead > 0 ? 8 : 0;
             const ranked = [
-                { id: 'TOWER_FIRST', score: 125 + (ctx.homeThreat * 55) + (Math.max(0, -ctx.towerLead) * 35) + (ctx.neutralCount * 8) + (Math.max(0, -ctx.powerLead) * 10) + (ctx.pointDiff < 0 ? 12 : 0) },
-                { id: 'TURTLE', score: 110 + (ctx.homeThreat * 60) + (Math.max(0, -ctx.towerLead) * 28) + (Math.max(0, -ctx.powerLead) * 8) + (ctx.pointDiff < 0 ? 20 : 0) },
-                { id: 'AGGRO_DEF', score: 90 + (Math.max(0, -ctx.towerLead) * 22) + (ctx.homeThreat * 14) + (Math.max(0, ctx.enemyHeroCount - ctx.teamHeroCount) * 6) },
-                { id: 'META_4_1', score: 96 + (ctx.allyRoles.SPLITPUSHER * 22) + (ctx.allyRoles.FIGHTER * 4) + (ctx.towerLead >= 0 ? 10 : 0) + (ctx.pointDiff >= 0 ? 6 : 0) + (ctx.enemyDeadCount > 0 ? 8 : 0) },
-                { id: 'META_3_2', score: 82 + (Math.min(ctx.allyRoles.FIGHTER, 3) * 12) + (ctx.teamHeroCount >= 3 ? 6 : 0) + (ctx.enemyRespawnSoonCount > 0 ? 6 : 0) },
-                { id: 'KILL_FIRST', score: 88 + (ctx.allyRoles.SLAYER * 22) + (ctx.allyRoles.SUPPORT * 8) + (Math.max(0, ctx.teamHeroCount - ctx.enemyHeroCount) * 6) + (ctx.powerLead > 0 ? 10 : 0) + (ctx.enemyDeadCount > 0 ? 18 : 0) + (ctx.homeThreat === 0 ? 14 : -12) },
-                { id: 'AGGRO_ALL', score: 60 + (Math.max(0, ctx.towerLead) * 18) + (Math.max(0, ctx.teamHeroCount - ctx.enemyHeroCount) * 5) + (ctx.powerLead > 0 ? 6 : 0) - (ctx.homeThreat * 18) },
-                { id: 'SPLIT_ROAM', score: 70 + (ctx.allyRoles.SPLITPUSHER * 24) + (ctx.neutralCount * 10) + (Math.max(0, ctx.towerLead) * 4) - (ctx.homeThreat * 8) }
+                { id: 'TOWER_FIRST', score: 125 + (ctx.homeThreat * 62) + (Math.max(0, -ctx.towerLead) * 38) + (ctx.neutralCount * 8) + (Math.max(0, -ctx.powerLead) * 6) + (ctx.pointDiff < 0 ? 12 : 0) + objectiveBias },
+                { id: 'TURTLE', score: 110 + (ctx.homeThreat * 68) + (Math.max(0, -ctx.towerLead) * 30) + (Math.max(0, -ctx.powerLead) * 5) + (ctx.pointDiff < 0 ? 20 : 0) + (ctx.objectivePresenceLead < 0 ? 6 : 0) },
+                { id: 'AGGRO_DEF', score: 90 + (Math.max(0, -ctx.towerLead) * 24) + (ctx.homeThreat * 18) + (Math.max(0, ctx.enemyHeroCount - ctx.teamHeroCount) * 6) + (ctx.objectivePresenceLead < 0 ? 4 : 0) },
+                { id: 'META_4_1', score: 96 + (ctx.allyRoles.SPLITPUSHER * 22) + (ctx.allyRoles.FIGHTER * 4) + (ctx.towerLead >= 0 ? 10 : 0) + (ctx.pointDiff >= 0 ? 6 : 0) + (ctx.enemyDeadCount > 0 ? 8 : 0) + objectiveBias + powerupBias },
+                { id: 'META_3_2', score: 82 + (Math.min(ctx.allyRoles.FIGHTER, 3) * 12) + (ctx.teamHeroCount >= 3 ? 6 : 0) + (ctx.enemyRespawnSoonCount > 0 ? 6 : 0) + objectiveBias },
+                { id: 'KILL_FIRST', score: 88 + (ctx.allyRoles.SLAYER * 22) + (ctx.allyRoles.SUPPORT * 8) + (Math.max(0, ctx.teamHeroCount - ctx.enemyHeroCount) * 6) + (ctx.powerLead > 0 ? 8 : 0) + (ctx.enemyDeadCount > 0 ? 18 : 0) + (ctx.activePowerupLead > 0 ? 10 : 0) + (ctx.homeThreat === 0 ? 14 : -12) },
+                { id: 'AGGRO_ALL', score: 60 + (Math.max(0, ctx.towerLead) * 18) + (Math.max(0, ctx.teamHeroCount - ctx.enemyHeroCount) * 5) + (ctx.powerLead > 0 ? 4 : 0) - (ctx.homeThreat * 18) + (ctx.objectivePresenceLead < 0 ? -2 : 0) },
+                { id: 'SPLIT_ROAM', score: 70 + (ctx.allyRoles.SPLITPUSHER * 24) + (ctx.neutralCount * 10) + (Math.max(0, ctx.towerLead) * 4) - (ctx.homeThreat * 12) + (ctx.objectivePresenceLead > 15 ? 4 : 0) }
             ];
 
             return ranked.sort((a, b) => b.score - a.score).slice(0, 5).map(item => item.id);
@@ -1838,15 +1877,17 @@ export class BotPlayer extends Player {
         const scoreMacroSnapshot = (startSnap, endSnap) => {
             if (!startSnap || !endSnap) return 0;
             const breakdown = [
-                { key: 'pointDiff', label: 'nexus', delta: endSnap.pointDiff - startSnap.pointDiff, weight: 120 },
-                { key: 'towerLead', label: 'towers', delta: endSnap.towerLead - startSnap.towerLead, weight: 6000 },
-                { key: 'homeHeld', label: 'homeHeld', delta: endSnap.homeHeld - startSnap.homeHeld, weight: 4000 },
-                { key: 'homeControlLead', label: 'homeCtrl', delta: endSnap.homeControlLead - startSnap.homeControlLead, weight: 25 },
-                { key: 'teamKillLead', label: 'kills', delta: endSnap.teamKillLead - startSnap.teamKillLead, weight: 600 },
-                { key: 'enemyDeadCount', label: 'deadEnemies', delta: endSnap.enemyDeadCount - startSnap.enemyDeadCount, weight: 500 },
-                { key: 'powerLead', label: 'power', delta: endSnap.powerLead - startSnap.powerLead, weight: 120 },
-                { key: 'homeThreat', label: 'homeThreat', delta: endSnap.homeThreat - startSnap.homeThreat, weight: -1800 },
-                { key: 'towerPressure', label: 'pressure', delta: endSnap.towerPressure - startSnap.towerPressure, weight: -700 }
+                { key: 'pointDiff', label: 'nexus', delta: endSnap.pointDiff - startSnap.pointDiff, weight: 90 },
+                { key: 'towerLead', label: 'towers', delta: endSnap.towerLead - startSnap.towerLead, weight: 7200 },
+                { key: 'homeHeld', label: 'homeHeld', delta: endSnap.homeHeld - startSnap.homeHeld, weight: 5200 },
+                { key: 'homeControlLead', label: 'homeCtrl', delta: endSnap.homeControlLead - startSnap.homeControlLead, weight: 40 },
+                { key: 'objectivePresenceLead', label: 'obj', delta: endSnap.objectivePresenceLead - startSnap.objectivePresenceLead, weight: 15 },
+                { key: 'teamKillLead', label: 'kills', delta: endSnap.teamKillLead - startSnap.teamKillLead, weight: 360 },
+                { key: 'enemyDeadCount', label: 'deadEnemies', delta: endSnap.enemyDeadCount - startSnap.enemyDeadCount, weight: 350 },
+                { key: 'activePowerupLead', label: 'powerup', delta: endSnap.activePowerupLead - startSnap.activePowerupLead, weight: 1200 },
+                { key: 'powerLead', label: 'power', delta: endSnap.powerLead - startSnap.powerLead, weight: 25 },
+                { key: 'homeThreat', label: 'homeThreat', delta: endSnap.homeThreat - startSnap.homeThreat, weight: -2400 },
+                { key: 'towerPressure', label: 'pressure', delta: endSnap.towerPressure - startSnap.towerPressure, weight: -950 }
             ].map(item => ({ ...item, score: item.delta * item.weight }));
             const total = breakdown.reduce((sum, item) => sum + item.score, 0);
             return { total, breakdown };
@@ -1944,26 +1985,51 @@ export class BotPlayer extends Player {
             mState.snapshotMacro = macroSnapshot;
             mState.snapshotDiff = pointDiff;
             mState.timer = getPhaseDuration('EARLY', macroSnapshot);
+            mState.strategyUptime = 0;
+            mState.panicStreak = 0;
+            mState.panicGuard = 0;
             console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] EARLY start | ${formatMacroSnapshot(macroSnapshot)}`);
         }
 
         // PANIC CHECK: Pokud ve vybrané strategii dostáváme na frak
         if (mState.phase === 'EXPLOIT') {
-            const prevHomeThreat = mState.snapshotMacro ? mState.snapshotMacro.homeThreat : macroSnapshot.homeThreat;
-            const prevTowerLead = mState.snapshotMacro ? mState.snapshotMacro.towerLead : macroSnapshot.towerLead;
+            mState.strategyUptime = (mState.strategyUptime || 0) + 1.5;
+            mState.panicGuard = Math.max(0, (mState.panicGuard || 0) - 1.5);
 
-            if (pointDiff < mState.lastPointDiff || macroSnapshot.homeThreat > prevHomeThreat || macroSnapshot.towerLead < prevTowerLead) {
-                mState.panicTimer += 1.5;
-            } else if (pointDiff > mState.lastPointDiff || macroSnapshot.homeThreat < prevHomeThreat || macroSnapshot.towerLead > prevTowerLead) {
-                mState.panicTimer = Math.max(0, mState.panicTimer - 1.5);
+            const prevSnap = mState.snapshotMacro || macroSnapshot;
+            const prevPointDiff = typeof mState.lastPointDiff === 'number' ? mState.lastPointDiff : pointDiff;
+            const pointDrop = Math.max(0, prevPointDiff - pointDiff);
+            const towerDrop = Math.max(0, (prevSnap.towerLead || 0) - macroSnapshot.towerLead);
+            const homeSwing = Math.max(0, macroSnapshot.homeThreat - (prevSnap.homeThreat || 0));
+            const powerDrop = Math.max(0, (prevSnap.powerLead || 0) - macroSnapshot.powerLead);
+            const pressureRise = Math.max(0, macroSnapshot.towerPressure - (prevSnap.towerPressure || 0));
+            const respawnWindowMiss = Math.max(0, (prevSnap.enemyRespawnSoonCount || 0) - macroSnapshot.enemyRespawnSoonCount);
+
+            let panicSignal = 0;
+            if (pointDrop >= 18) panicSignal += 2;
+            else if (pointDrop >= 8) panicSignal += 1;
+            if (towerDrop >= 1) panicSignal += 1.5;
+            if (homeSwing >= 1) panicSignal += 1.5;
+            if (powerDrop >= 250) panicSignal += 0.75;
+            if (pressureRise >= 2) panicSignal += 0.5;
+            if (respawnWindowMiss > 0 && mState.currentStrat === 'KILL_FIRST') panicSignal += 0.75;
+
+            if (mState.panicGuard <= 0) {
+                if (panicSignal >= 2.5) mState.panicStreak = (mState.panicStreak || 0) + 1;
+                else if (panicSignal >= 1) mState.panicStreak = Math.max(0, (mState.panicStreak || 0) - 0.5);
+                else mState.panicStreak = Math.max(0, (mState.panicStreak || 0) - 1);
+            } else {
+                mState.panicStreak = Math.max(0, (mState.panicStreak || 0) - 1);
             }
-            
-            if (mState.panicTimer > 45) { // Pokud 45 vteřin nepřetržitě krvácíme body
-                console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] PANIC! Strategy [${mState.currentStrat}] is failing. Resetting to EXPLORE | ${formatMacroSnapshot(macroSnapshot)}`);
+
+            if ((mState.strategyUptime || 0) >= 24 && (mState.panicStreak || 0) >= 4) {
+                const fallback = pickRecoveryStrategy(macroSnapshot);
+                const ordered = [fallback, ...buildStrategyOrder(macroSnapshot).filter(s => s !== fallback)];
+                console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] PANIC! Strategy [${mState.currentStrat}] is failing. Resetting to EXPLORE -> [${fallback}] | ${formatMacroSnapshot(macroSnapshot)}`);
                 mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {};
-                mState.strats = buildStrategyOrder(macroSnapshot);
+                mState.strats = ordered;
                 mState.timer = getPhaseDuration('EXPLORE', macroSnapshot);
-                mState.panicTimer = 0; mState.currentStrat = mState.strats[0] || 'TOWER_FIRST';
+                mState.panicTimer = 0; mState.panicStreak = 0; mState.panicGuard = 0; mState.strategyUptime = 0; mState.currentStrat = fallback;
                 mState.snapshotDiff = pointDiff;
                 mState.snapshotMacro = macroSnapshot;
             }
@@ -1998,7 +2064,7 @@ export class BotPlayer extends Player {
                         const tieBreak = (mState.strats.length - (priorityOrder.get(s) || 0)) * 0.01;
                         if (stratScore + tieBreak > bestScore) { bestScore = stratScore + tieBreak; best = s; }
                     }
-                    mState.phase = 'EXPLOIT'; mState.currentStrat = best; mState.timer = getPhaseDuration('EXPLOIT', macroSnapshot); mState.panicTimer = 0; mState.snapshotMacro = macroSnapshot;
+                    mState.phase = 'EXPLOIT'; mState.currentStrat = best; mState.timer = getPhaseDuration('EXPLOIT', macroSnapshot); mState.panicTimer = 0; mState.panicStreak = 0; mState.strategyUptime = 0; mState.panicGuard = 18; mState.snapshotMacro = macroSnapshot;
                     console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] >>> LOCKED BEST STRATEGY: [${best}] (Score: ${Math.round(bestScore)}) for ${mState.timer}s <<< | ${formatMacroSnapshot(macroSnapshot)}`);
                 }
             }
@@ -2006,7 +2072,7 @@ export class BotPlayer extends Player {
             mState.timer -= 1.5;
             if (mState.timer <= 0) {
                 console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] EXPLOIT ended -> EXPLORE restart | ${formatMacroSnapshot(macroSnapshot)}`);
-                mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {}; mState.strats = buildStrategyOrder(macroSnapshot); mState.timer = getPhaseDuration('EXPLORE', macroSnapshot); mState.currentStrat = mState.strats[0] || 'TOWER_FIRST'; mState.snapshotDiff = pointDiff; mState.snapshotMacro = macroSnapshot; 
+                mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {}; mState.strats = buildStrategyOrder(macroSnapshot); mState.timer = getPhaseDuration('EXPLORE', macroSnapshot); mState.currentStrat = mState.strats[0] || 'TOWER_FIRST'; mState.strategyUptime = 0; mState.panicStreak = 0; mState.panicGuard = 0; mState.snapshotDiff = pointDiff; mState.snapshotMacro = macroSnapshot; 
             }
         }
         
@@ -2017,24 +2083,20 @@ export class BotPlayer extends Player {
         for (let bot of teamBots) {
             const inBase = dist(bot.pos, spawnPoints[bot.team]) < 250;
             if ((!bot.alive || inBase) && bot.gold >= 300 && bot.items.length < 25) {
-                if (!bot.hasBoots && bot.gold >= 300) {
-                    let boots = shopItems.find(it => it.id === 'boots');
-                    if (boots) { bot.gold -= boots.cost; bot.items.push(boots.id); boots.apply(bot); bot.isDirty = true; }
-                } else {
-                    let enemyPhys = 0, enemyMag = 0;
-                    for (let e of game.players.filter(p => p.team !== bot.team)) { if (e.dmgType === 'physical') enemyPhys++; else enemyMag++; }
-                    let pool = [];
-                    const isTank = bot.role === 'TANK';
-                    const isFighter = bot.role === 'FIGHTER' || bot.role === 'SPLITPUSHER';
-                    const isMageSupport = bot.role === 'SUPPORT' || (bot.role === 'SLAYER' && bot.dmgType === 'magical') || (bot.role === 'SPLITPUSHER' && bot.dmgType === 'magical');
-                    
-                    if (isTank) { pool.push('hp', 'hp'); if (enemyPhys >= enemyMag) pool.push('armor'); if (enemyMag >= enemyPhys) pool.push('mr'); } 
-                    else if (isFighter) { pool.push('hp'); if (bot.dmgType === 'magical') pool.push('ap', 'ah'); else pool.push('ad', 'ah'); if (enemyPhys > enemyMag) pool.push('armor'); else if (enemyMag > enemyPhys) pool.push('mr'); } 
-                    else if (isMageSupport) { pool.push('ap', 'ap', 'ah', 'ah'); if (Math.random() < 0.25) pool.push('hp'); } 
-                    else { if (bot.role === 'SLAYER' && bot.range) pool.push('ad', 'ad', 'as'); else pool.push('ad', 'ad', 'ah'); if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr'); }
-                    let chosenId = pool[Math.floor(Math.random() * pool.length)];
-                    let item = shopItems.find(it => it.id === chosenId);
-                    if (item && bot.gold >= item.cost) { 
+                let enemyPhys = 0, enemyMag = 0;
+                for (let e of game.players.filter(p => p.team !== bot.team)) { if (e.dmgType === 'physical') enemyPhys++; else enemyMag++; }
+                let pool = [];
+                const isTank = bot.role === 'TANK';
+                const isFighter = bot.role === 'FIGHTER' || bot.role === 'SPLITPUSHER';
+                const isSupport = bot.role === 'SUPPORT';
+                const isMageSupport = isSupport || (bot.role === 'SLAYER' && bot.dmgType === 'magical') || (bot.role === 'SPLITPUSHER' && bot.dmgType === 'magical');
+                
+                if (isTank) { pool.push('hp', 'hp'); if (enemyPhys >= enemyMag) pool.push('armor', 'armor'); if (enemyMag >= enemyPhys) pool.push('mr', 'mr'); } 
+                else if (isFighter) { pool.push('hp'); if (bot.dmgType === 'magical') pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls', 'as_ms'); if (enemyPhys > enemyMag) pool.push('armor'); else if (enemyMag > enemyPhys) pool.push('mr'); } 
+                else if (isMageSupport) { if (isSupport) pool.push('ap', 'ap', 'ah', 'ah', 'hp'); else pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms', 'hp'); }  
+                else { if (bot.role === 'SLAYER' && bot.range) pool.push('ad', 'ad', 'ad', 'as', 'as', 'ah', 'ad_pen', 'ad_ls', 'as_ms', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls'); if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr'); }
+                let item = pickBuyableItem(bot, pool);
+                if (item) { 
                         bot.gold -= item.cost; bot.items.push(item.id); 
                         let oldHp = bot.maxHp, oldAD = bot.AD, oldAP = bot.AP, oldArmor = bot.armor, oldMR = bot.mr;
                         item.apply(bot); 
@@ -2047,7 +2109,6 @@ export class BotPlayer extends Player {
                         bot.isDirty = true; 
                     }
                 }
-            }
             while(bot.spellPoints > 0) {
                 let canQ = ((bot.spells.Q.level + 1) / bot.spells.E.level) <= 2.5;
                 let canE = ((bot.spells.E.level + 1) / bot.spells.Q.level) <= 2.5;

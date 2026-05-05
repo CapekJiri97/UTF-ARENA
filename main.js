@@ -1,5 +1,5 @@
 import { clamp, dist, isPointInPoly, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
-import { shopItems } from './items.js';
+import { shopItems, canBuyShopItem, getShopItem } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 import { world, spawnPoints, rawPolys, mapBoundary } from './MapConfig.js';
@@ -120,7 +120,7 @@ import { initAudio, playSound } from './Audio.js';
             bot.mr = bData.mr || bot.mr; bot.speed = bData.speed || bot.speed; bot.attackSpeed = bData.attackSpeed || bot.attackSpeed; bot.abilityHaste = bData.abilityHaste || bot.abilityHaste;
             bot.invulnerableTimer = bData.invTimer || 0; bot.defBuffTimer = bData.defTimer || 0;
             bot.towerCaptures = bData.towerCaptures || 0; bot.towerDefends = bData.towerDefends || 0; bot.towerAssaultTime = bData.towerAssaultTime || 0;
-            bot.powerupsCollected = bData.powerupsCollected || 0; bot.powerupUptime = bData.powerupUptime || 0; bot.pcs = bData.pcs || 0; bot.pcsBreakdown = bData.pcsBreakdown || bot.pcsBreakdown;
+            bot.objectivePresenceTime = bData.objectivePresenceTime || 0; bot.powerupsCollected = bData.powerupsCollected || 0; bot.powerupUptime = bData.powerupUptime || 0; bot.pcs = bData.pcs || 0; bot.pcsBreakdown = bData.pcsBreakdown || bot.pcsBreakdown;
             if (bot.spells) {
                 if (bData.qLvl) bot.spells.Q.level = bData.qLvl;
                 if (bData.eLvl) bot.spells.E.level = bData.eLvl;
@@ -191,6 +191,7 @@ import { initAudio, playSound } from './Audio.js';
                         if (hData.towerCaptures !== undefined) p.towerCaptures = hData.towerCaptures;
                         if (hData.towerDefends !== undefined) p.towerDefends = hData.towerDefends;
                         if (hData.towerAssaultTime !== undefined) p.towerAssaultTime = hData.towerAssaultTime;
+                        if (hData.objectivePresenceTime !== undefined) p.objectivePresenceTime = hData.objectivePresenceTime;
                         if (hData.powerupsCollected !== undefined) p.powerupsCollected = hData.powerupsCollected;
                         if (hData.powerupUptime !== undefined) p.powerupUptime = hData.powerupUptime;
                         if (hData.pcs !== undefined) p.pcs = hData.pcs;
@@ -219,7 +220,7 @@ import { initAudio, playSound } from './Audio.js';
         if (data.finalStats) {
             data.finalStats.forEach(fs => {
                 let p = game.players.find(x => x.id === fs.id);
-                if (p) { p.stats = fs.stats; p.kills = fs.kills; p.deaths = fs.deaths; p.assists = fs.assists; p.totalGold = fs.totalGold; p.towerCaptures = fs.towerCaptures || 0; p.towerDefends = fs.towerDefends || 0; p.towerAssaultTime = fs.towerAssaultTime || 0; p.powerupsCollected = fs.powerupsCollected || 0; p.powerupUptime = fs.powerupUptime || 0; p.pcs = fs.pcs || 0; p.pcsBreakdown = fs.pcsBreakdown || p.pcsBreakdown; }
+                if (p) { p.stats = fs.stats; p.kills = fs.kills; p.deaths = fs.deaths; p.assists = fs.assists; p.totalGold = fs.totalGold; p.towerCaptures = fs.towerCaptures || 0; p.towerDefends = fs.towerDefends || 0; p.towerAssaultTime = fs.towerAssaultTime || 0; p.objectivePresenceTime = fs.objectivePresenceTime || 0; p.powerupsCollected = fs.powerupsCollected || 0; p.powerupUptime = fs.powerupUptime || 0; p.pcs = fs.pcs || 0; p.pcsBreakdown = fs.pcsBreakdown || p.pcsBreakdown; }
             });
         }
         game.gameOver = true; game.winner = data.winner; showEnd(game.winner); 
@@ -260,8 +261,8 @@ import { initAudio, playSound } from './Audio.js';
         else if (data.type === 'cast') netPlayer.castSpell(data.spKey, data.tx, data.ty, true);
         else if (data.type === 'summoner') netPlayer.castSummonerSpell(true);
         else if (data.type === 'buy_item') {
-            let it = shopItems.find(x => x.id === data.itemId);
-            if (it && netPlayer.gold >= it.cost && netPlayer.items.length < 25) {
+          let it = getShopItem(data.itemId);
+          if (it && canBuyShopItem(netPlayer, it).ok && netPlayer.gold >= it.cost) {
                 netPlayer.gold -= it.cost;
                 netPlayer.items.push(data.itemId);
                 it.apply(netPlayer);
@@ -383,11 +384,16 @@ import { initAudio, playSound } from './Audio.js';
         game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-6, "IMMUNE"));
         return 0;
     }
+    const sourceEntity = game.players.find(p => p.id === sourceId) || game.minions.find(m => m.id === sourceId);
     let multiplier = 1;
     let arm = target.armor || 0; let mr = target.mr || 0;
     if(target.hasPowerup) { arm *= 1.2; mr *= 1.2; }
     if(target.boostTimer > 0) { arm *= 1.1; mr *= 1.1; }
     if(target.defBuffTimer > 0) { arm += 50; mr += 50; }
+    if (sourceEntity) {
+      if (type === 'physical') arm = Math.max(0, arm - (sourceEntity.armorPenFlat || 0));
+      if (type === 'magical') mr = Math.max(0, mr - (sourceEntity.magicPenFlat || 0));
+    }
     if (type === 'physical') multiplier = 100 / (100 + arm);
     else if (type === 'magical') multiplier = 100 / (100 + mr);
     else if (type === 'true') multiplier = 1; // Pure damage (Fountain laser)
@@ -439,6 +445,14 @@ import { initAudio, playSound } from './Audio.js';
         }
     }
 
+        if ((!socket || game.isHost || isNetwork) && sourceEntity instanceof Player && finalDamage > 0) {
+          const sustain = type === 'physical' ? (sourceEntity.lifesteal || 0) : (type === 'magical' ? (sourceEntity.spellVamp || 0) : 0);
+          if (sustain > 0) {
+            const healed = applyHeal(sourceEntity, finalDamage * sustain);
+            if (healed > 0 && sourceEntity.stats) sourceEntity.stats.hpHealed += healed;
+          }
+        }
+
     // OPRAVA: Host je autorita a posílá všem informaci o změně HP hráče
     if (socket && game.isHost && target instanceof Player && !isNetwork) {
         socket.emit('host_event', { type: 'player_hp_update', id: target.id, hp: target.hp, shield: target.shield });
@@ -452,7 +466,6 @@ import { initAudio, playSound } from './Audio.js';
 
     // TRACKOVÁNÍ STATISTIK A ASISTENCÍ
     if (!socket || game.isHost) {
-        let sourceEntity = game.players.find(p => p.id === sourceId) || game.minions.find(m => m.id === sourceId);
         if (sourceEntity && sourceEntity.stats) sourceEntity.stats.dmgDealt += actualDamage;
         if (target.stats) target.stats.dmgTaken += actualDamage;
         if (target instanceof Player && sourceEntity && sourceEntity.team !== target.team) {
@@ -777,10 +790,9 @@ import { initAudio, playSound } from './Audio.js';
   let spawnTimer = 0; const spawnInterval = 12.0; const nexusDrainRate = 0.75; // Sníženo odečítání skóre (cca 30%)
 
   export function buyItem(id) { 
-    if (!player) return; const it = shopItems.find(x => x.id === id); if (!it) return; 
+    if (!player) return; const it = getShopItem(id); if (!it) return; 
     const allyBaseDist = dist(player.pos, spawnPoints[player.team]); if (allyBaseDist > 250 && player.alive) { return flashMessage('Shop available only in your base!'); } 
-    if (player.items.length >= 25) { return flashMessage('Inventory is full! (Max 25)'); } 
-    if (it.id === 'boots' && player.hasBoots) { return flashMessage('You already have Boots!'); }
+    const buyCheck = canBuyShopItem(player, it); if (!buyCheck.ok) { return flashMessage(buyCheck.reason); }
     if (player.gold < it.cost){ return flashMessage('Not enough gold'); } player.gold -= it.cost; player.items.push(it.id); it.apply(player); player.isDirty = true; flashMessage('Bought ' + it.name); updateInventory(); populateShop(); 
     if (socket && !game.isHost) {
         socket.emit('player_action', { type: 'buy_item', id: player.id, itemId: it.id, cost: it.cost });
@@ -872,8 +884,8 @@ import { initAudio, playSound } from './Audio.js';
     if (!socket || game.isHost) {
       const owned0 = game.towers.filter(t=>t.owner===0).length; const owned1 = game.towers.filter(t=>t.owner===1).length; const diff = owned0 - owned1; if(game.startDelay <= 0 && diff>0){ game.nexus[1] -= nexusDrainRate * diff * dt; } else if(game.startDelay <= 0 && diff<0){ game.nexus[0] -= nexusDrainRate * (-diff) * dt; }
       game.nexus[0] = Math.max(0, game.nexus[0]); game.nexus[1] = Math.max(0, game.nexus[1]);
-      if(game.nexus[0] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 1; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 1, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold, towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null}))}); }
-      if(game.nexus[1] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 0; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 0, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold, towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null}))}); }
+      if(game.nexus[0] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 1; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 1, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold, towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0, powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null}))}); }
+      if(game.nexus[1] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 0; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 0, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold, towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0, powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null}))}); }
     }
 
     // update camera to follow player or spectate
@@ -927,7 +939,7 @@ import { initAudio, playSound } from './Audio.js';
                 game.hostSyncTimer = 0;
                 socket.emit('host_state', {
                     bots: game.players.filter(p => p instanceof BotPlayer).map(b => {
-                    const minimalState = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, stunT: b.stunTimer, shield: b.shield, hanaT: b.hanaBuffTimer, beamT: b.beamTimer, beamId: b.beamTargetId, uberT: b.uberChargeTimer, towerCaptures: b.towerCaptures || 0, towerDefends: b.towerDefends || 0, towerAssaultTime: b.towerAssaultTime || 0, powerupsCollected: b.powerupsCollected || 0, powerupUptime: b.powerupUptime || 0, pcs: b.pcs || 0 };
+                    const minimalState = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, stunT: b.stunTimer, shield: b.shield, hanaT: b.hanaBuffTimer, beamT: b.beamTimer, beamId: b.beamTargetId, uberT: b.uberChargeTimer, towerCaptures: b.towerCaptures || 0, towerDefends: b.towerDefends || 0, towerAssaultTime: b.towerAssaultTime || 0, objectivePresenceTime: b.objectivePresenceTime || 0, powerupsCollected: b.powerupsCollected || 0, powerupUptime: b.powerupUptime || 0, pcs: b.pcs || 0 };
                         if (b.isDirty) {
                             b.isDirty = false;
                             return { ...minimalState, isFullUpdate: true, className: b.className,
@@ -936,14 +948,14 @@ import { initAudio, playSound } from './Audio.js';
                                 AD: b.AD, AP: b.AP, armor: b.armor, mr: b.mr, speed: b.speed, attackSpeed: b.attackSpeed, abilityHaste: b.abilityHaste,
                         invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer, qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
                         stats: b.stats, sumSpell: b.summonerSpell,
-                        towerCaptures: b.towerCaptures || 0, towerDefends: b.towerDefends || 0, towerAssaultTime: b.towerAssaultTime || 0,
+                        towerCaptures: b.towerCaptures || 0, towerDefends: b.towerDefends || 0, towerAssaultTime: b.towerAssaultTime || 0, objectivePresenceTime: b.objectivePresenceTime || 0,
                         powerupsCollected: b.powerupsCollected || 0, powerupUptime: b.powerupUptime || 0, pcs: b.pcs || 0, pcsBreakdown: b.pcsBreakdown || null };
                         } else { return minimalState; }
                     }),
                     humans: game.players.filter(p => !(p instanceof BotPlayer)).map(p => ({
                         id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, stunT: p.stunTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
                     kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null, beamT: p.beamTimer, beamId: p.beamTargetId, uberT: p.uberChargeTimer,
-                    towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0,
+                    towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0,
                     powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null
                     })),
                     minions: game.minions.map(m => ({
