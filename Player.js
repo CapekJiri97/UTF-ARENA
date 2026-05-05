@@ -135,18 +135,20 @@ export class Player{
           if (towerDistance > tower.captureRadius + 220) continue;
 
           const enemyPressure = game.players.some(p => p.alive && p.team !== this.team && dist(p.pos, tower.pos) <= tower.captureRadius + 250);
+          const alliedWavePressure = game.minions.some(m => !m.dead && m.team === this.team && dist(m.pos, tower.pos) <= tower.captureRadius + 250);
           const isHomeTower = (this.team === 0 && (tower.index === 0 || tower.index === 4)) || (this.team === 1 && (tower.index === 2 || tower.index === 3));
 
           if (tower.owner === this.team) {
               if (enemyPressure) {
                   this.towerDefends += dt * (isHomeTower ? 1.4 : 1.1);
                   this.objectivePresenceTime += dt * (isHomeTower ? 1.5 : 1.2);
-              } else {
-                  this.objectivePresenceTime += dt * 0.5;
+              } else if (alliedWavePressure) {
+                  this.objectivePresenceTime += dt * 0.25;
               }
           } else {
-              this.towerAssaultTime += dt * (enemyPressure ? 1.15 : 1.0);
-              this.objectivePresenceTime += dt * (enemyPressure ? 1.35 : 1.0);
+              const contested = enemyPressure || alliedWavePressure;
+              this.towerAssaultTime += dt * (contested ? 1.15 : 0.55);
+              this.objectivePresenceTime += dt * (contested ? 1.35 : 0.15);
           }
       }
 
@@ -1739,15 +1741,15 @@ export class BotPlayer extends Player {
         // Započítání poškození a léčení od už vyvolaných jednotek na mapě
         for (let m of game.minions) {
             if (m.dead) continue;
-            let mDps = (m.attackDamage || 15) * 0.8; // Minion útočí cca každých 1.2s
+            let mDps = (m.attackDamage || 15) * 0.30; // Minion je podpůrná hrozba, ne plný hero ekvivalent
             if (m.pulseDmg) mDps += m.pulseDmg; // Pulzní damage (Slepice atd.)
             let mHps = 0;
             if (m.healAmount && m.healTimer) mHps += (m.healAmount / m.healTimer);
 
             if (m.team === this.team && dist(this.pos, m.pos) < 600) {
-                myTeamHp += m.hp; myTeamDps += mDps; myTeamHps += mHps;
+                myTeamHp += m.hp * 0.25; myTeamDps += mDps; myTeamHps += mHps;
             } else if (m.team !== this.team && dist(target.pos, m.pos) < 600) {
-                enTeamHp += m.hp; enTeamDps += mDps; enTeamHps += mHps;
+                enTeamHp += m.hp * 0.25; enTeamDps += mDps; enTeamHps += mHps;
             }
         }
         
@@ -2719,7 +2721,7 @@ export class BotPlayer extends Player {
 
                   let minionSwarm = activeEnemyMinions.filter(m => dist(m.pos, this.pos) < 350).length;
 
-                  if (winProb < cowardiceThreshold || minionSwarm >= 5) { 
+                  if (winProb < cowardiceThreshold || minionSwarm >= 8) { 
                       score -= 30000; 
                       if (d < 600) this.terrified = true; 
                   } else if (winProb > 0.65) {
