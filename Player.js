@@ -1,6 +1,6 @@
 import { dist, distToPoly, expForLevel } from './Utils.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
-import { canBuyShopItem, getShopItem } from './items.js';
+import { shopItems, canBuyShopItem, getShopItem } from './items.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
 import { Particle, spawnParticles, EffectText } from './Effects.js';
@@ -577,16 +577,7 @@ export class Player{
     const allyBaseDist = dist(this.pos, spawnPoints[this.team]);
 
     const pickBuyableItem = (owner, candidateIds) => {
-        const choices = [];
-        for (const candidateId of candidateIds) {
-            const candidate = getShopItem(candidateId);
-            if (!candidate) continue;
-            if (!canBuyShopItem(owner, candidate).ok) continue;
-            if (owner.gold < candidate.cost) continue;
-            choices.push(candidate);
-        }
-        if (!choices.length) return null;
-        return choices[Math.floor(Math.random() * choices.length)];
+        return BotPlayer.pickBuyableItem(owner, candidateIds);
     };
 
     if (this === player) {
@@ -1575,17 +1566,71 @@ export class BotPlayer extends Player {
       }
     }
 
-    static pickBuyableItem(owner, candidateIds) {
-        const choices = [];
-        for (const candidateId of candidateIds) {
-            const candidate = getShopItem(candidateId);
-            if (!candidate) continue;
+    static evaluateCombatProfile(unit) {
+        const dmgType = unit.dmgType === 'magical' ? 'magical' : 'physical';
+        const role = unit.role || 'FIGHTER';
+
+        const roleWeights = {
+            TANK: { burst: 0.18, dps: 0.24, ttd: 0.58 },
+            SUPPORT: { burst: 0.20, dps: 0.22, ttd: 0.58 },
+            SLAYER: { burst: 0.50, dps: 0.30, ttd: 0.20 },
+            FIGHTER: { burst: 0.34, dps: 0.42, ttd: 0.24 },
+            SPLITPUSHER: { burst: 0.28, dps: 0.48, ttd: 0.24 }
+        };
+        const weights = roleWeights[role] || roleWeights.FIGHTER;
+
+        const burst = dmgType === 'magical'
+            ? (unit.AP * 1.6) + (unit.magicPenFlat || 0) * 11 + (unit.abilityHaste || 0) * 0.45
+            : (unit.AD * 1.6) + (unit.armorPenFlat || 0) * 11 + (unit.attackSpeed || 0) * 12;
+
+        const dps = dmgType === 'magical'
+            ? (unit.AP * (1 + (unit.abilityHaste || 0) / 120)) + (unit.magicPenFlat || 0) * 8 + (unit.spellVamp || 0) * unit.AP * 220
+            : (unit.AD * (unit.attackSpeed || 0)) + (unit.armorPenFlat || 0) * 8 + (unit.lifesteal || 0) * unit.AD * (unit.attackSpeed || 0) * 220;
+
+        const physicalEhp = (unit.maxHp || 0) * (1 + (unit.armor || 0) / 100);
+        const magicEhp = (unit.maxHp || 0) * (1 + (unit.mr || 0) / 100);
+        const ttd = ((physicalEhp + magicEhp) * 0.5)
+            + (unit.hp || 0)
+            + (unit.hpRegen || 0) * 70
+            + (unit.speed || 0) * 6
+            + (unit.shield || 0) * 0.8
+            + (unit.lifesteal || 0) * unit.AD * 120
+            + (unit.spellVamp || 0) * unit.AP * 120;
+
+        return (burst * weights.burst) + (dps * weights.dps) + (ttd * weights.ttd);
+    }
+
+    static scoreShopItem(owner, item) {
+        if (!owner || !item) return -Infinity;
+        const before = BotPlayer.evaluateCombatProfile(owner);
+        const probe = {
+            ...owner,
+            items: Array.isArray(owner.items) ? [...owner.items] : []
+        };
+        item.apply(probe);
+        const after = BotPlayer.evaluateCombatProfile(probe);
+        return (after - before) / Math.max(1, item.cost / 300);
+    }
+
+    static pickBuyableItem(owner, candidateIds = null) {
+        const pool = Array.isArray(candidateIds) && candidateIds.length
+            ? candidateIds.map((candidateId) => getShopItem(candidateId)).filter(Boolean)
+            : shopItems;
+
+        let bestItem = null;
+        let bestScore = -Infinity;
+
+        for (const candidate of pool) {
             if (!canBuyShopItem(owner, candidate).ok) continue;
             if (owner.gold < candidate.cost) continue;
-            choices.push(candidate);
+            const score = BotPlayer.scoreShopItem(owner, candidate);
+            if (score > bestScore + 0.0001 || (Math.abs(score - bestScore) <= 0.0001 && Math.random() < 0.5)) {
+                bestItem = candidate;
+                bestScore = score;
+            }
         }
-        if (!choices.length) return null;
-        return choices[Math.floor(Math.random() * choices.length)];
+
+        return bestItem;
     }
 
     randomizePokeThresholds() {
@@ -2108,7 +2153,7 @@ export class BotPlayer extends Player {
                 else if (isFighter) { pool.push('hp'); if (bot.dmgType === 'magical') pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls', 'as_ms'); if (enemyPhys > enemyMag) pool.push('armor'); else if (enemyMag > enemyPhys) pool.push('mr'); } 
                 else if (isMageSupport) { if (isSupport) pool.push('ap', 'ap', 'ah', 'ah', 'hp'); else pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms', 'hp'); }  
                 else { if (bot.role === 'SLAYER' && bot.range) pool.push('ad', 'ad', 'ad', 'as', 'as', 'ah', 'ad_pen', 'ad_ls', 'as_ms', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls'); if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr'); }
-                let item = BotPlayer.pickBuyableItem(bot, pool);
+                let item = BotPlayer.pickBuyableItem(bot);
                 if (item) { 
                         bot.gold -= item.cost; bot.items.push(item.id); 
                         let oldHp = bot.maxHp, oldAD = bot.AD, oldAP = bot.AP, oldArmor = bot.armor, oldMR = bot.mr;

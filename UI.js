@@ -45,6 +45,200 @@ const getTeamDominionSummary = (teamId) => {
     };
 };
 
+const SHOP_LINKS = [
+  ['ad', 'ad_ls'],
+  ['ad', 'ad_pen'],
+  ['ad_ls', 'ad_ls2'],
+  ['ad_pen', 'ad_pen2']
+];
+
+const formatShopStats = (desc = '') => desc.split(',').map((part) => part.trim()).filter(Boolean);
+
+const createShopStatPill = (text) => {
+    const pill = document.createElement('span');
+    pill.className = 'shop-stat-pill';
+    pill.textContent = text;
+    return pill;
+};
+
+const createShopCard = (item, currentPlayer, { tree = false } = {}) => {
+    const buyCheck = canBuyShopItem(currentPlayer, item);
+    const count = currentPlayer && Array.isArray(currentPlayer.items) ? currentPlayer.items.filter((ownedId) => ownedId === item.id).length : 0;
+
+    const card = document.createElement('div');
+    card.className = `shop-card${tree ? ' shop-card-tree' : ''}${buyCheck.ok ? '' : ' is-locked'}`;
+    card.dataset.shopItem = item.id;
+
+    const left = document.createElement('div');
+    left.className = 'shop-card-left';
+
+    const titleRow = document.createElement('div');
+    titleRow.className = 'shop-card-title-row';
+
+    const nameWrap = document.createElement('div');
+    nameWrap.className = 'shop-card-name-wrap';
+
+    const name = document.createElement('div');
+    name.className = 'shop-card-name';
+    name.textContent = item.name;
+
+    if (count > 0) {
+        const countBadge = document.createElement('span');
+        countBadge.className = 'shop-card-count';
+        countBadge.textContent = `${count}x`;
+        name.appendChild(countBadge);
+    }
+
+    const cost = document.createElement('div');
+    cost.className = 'shop-card-cost';
+    cost.textContent = `${item.cost}g`;
+
+    nameWrap.appendChild(name);
+    nameWrap.appendChild(cost);
+
+    const stats = document.createElement('div');
+    stats.className = 'shop-card-stats';
+    for (const statText of formatShopStats(item.desc)) {
+        stats.appendChild(createShopStatPill(statText));
+    }
+
+    titleRow.appendChild(nameWrap);
+    titleRow.appendChild(stats);
+    left.appendChild(titleRow);
+
+    const btn = document.createElement('button');
+    btn.className = 'shop-buy-btn';
+    btn.textContent = buyCheck.ok ? 'Buy' : 'Locked';
+    btn.title = buyCheck.ok ? '' : buyCheck.reason;
+    btn.disabled = !buyCheck.ok;
+    btn.addEventListener('click', () => buyItem(item.id));
+
+    card.appendChild(left);
+    card.appendChild(btn);
+
+    return card;
+};
+
+const renderShopSection = (container, title, itemIds, currentPlayer) => {
+    const section = document.createElement('section');
+    section.className = 'shop-section';
+
+    const head = document.createElement('div');
+    head.className = 'shop-section-head';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'shop-section-title';
+    titleEl.textContent = title;
+
+    head.appendChild(titleEl);
+    section.appendChild(head);
+
+    const grid = document.createElement('div');
+    grid.className = 'shop-card-grid';
+
+    for (const id of itemIds) {
+        const item = getShopItem(id) || shopItems.find((shopItem) => shopItem.id === id);
+        if (!item) continue;
+        grid.appendChild(createShopCard(item, currentPlayer));
+    }
+
+    section.appendChild(grid);
+    container.appendChild(section);
+};
+
+const drawShopTreeLinks = (treeWrap, currentPlayer) => {
+    if (!treeWrap) return;
+    const svg = treeWrap.querySelector('.shop-tree-lines');
+    const grid = treeWrap.querySelector('.shop-tree-grid');
+    if (!svg || !grid) return;
+
+    const gridRect = grid.getBoundingClientRect();
+    if (!gridRect.width || !gridRect.height) return;
+
+    const ns = 'http://www.w3.org/2000/svg';
+    svg.setAttribute('viewBox', `0 0 ${gridRect.width} ${gridRect.height}`);
+    svg.setAttribute('width', gridRect.width);
+    svg.setAttribute('height', gridRect.height);
+    svg.innerHTML = '';
+
+    for (const [fromId, toId] of SHOP_LINKS) {
+        const fromEl = grid.querySelector(`[data-shop-node="${fromId}"]`);
+        const toEl = grid.querySelector(`[data-shop-node="${toId}"]`);
+        if (!fromEl || !toEl) continue;
+
+        const fromRect = fromEl.getBoundingClientRect();
+        const toRect = toEl.getBoundingClientRect();
+        const toItem = getShopItem(toId);
+        const active = !!(currentPlayer && toItem && canBuyShopItem(currentPlayer, toItem).ok);
+
+        const line = document.createElementNS(ns, 'line');
+        line.setAttribute('x1', String(fromRect.left - gridRect.left + fromRect.width / 2));
+        line.setAttribute('y1', String(fromRect.bottom - gridRect.top - 4));
+        line.setAttribute('x2', String(toRect.left - gridRect.left + toRect.width / 2));
+        line.setAttribute('y2', String(toRect.top - gridRect.top + 4));
+        line.setAttribute('stroke', active ? '#46f26b' : '#5e646f');
+        line.setAttribute('stroke-width', '3');
+        line.setAttribute('stroke-linecap', 'round');
+        line.setAttribute('opacity', active ? '0.95' : '0.65');
+        svg.appendChild(line);
+    }
+};
+
+const renderAdTreeSection = (container, currentPlayer) => {
+    const section = document.createElement('section');
+    section.className = 'shop-section shop-tree-section';
+
+    const head = document.createElement('div');
+    head.className = 'shop-section-head';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'shop-section-title';
+    titleEl.textContent = 'AD TREE';
+
+    const note = document.createElement('div');
+    note.className = 'shop-section-note';
+    note.textContent = 'Green links mean the next item in the branch is currently buyable.';
+
+    head.appendChild(titleEl);
+    head.appendChild(note);
+    section.appendChild(head);
+
+    const treeWrap = document.createElement('div');
+    treeWrap.className = 'shop-tree-wrap';
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('shop-tree-lines');
+    svg.setAttribute('aria-hidden', 'true');
+
+    const grid = document.createElement('div');
+    grid.className = 'shop-tree-grid';
+
+    const nodes = [
+        { id: 'ad', col: '2', row: '1' },
+        { id: 'ad_ls', col: '1', row: '2' },
+        { id: 'ad_pen', col: '3', row: '2' },
+        { id: 'ad_ls2', col: '1', row: '3' },
+        { id: 'ad_pen2', col: '3', row: '3' }
+    ];
+
+    for (const node of nodes) {
+        const item = getShopItem(node.id) || shopItems.find((shopItem) => shopItem.id === node.id);
+        if (!item) continue;
+        const card = createShopCard(item, currentPlayer, { tree: true });
+        card.dataset.shopNode = node.id;
+        card.style.gridColumn = node.col;
+        card.style.gridRow = node.row;
+        grid.appendChild(card);
+    }
+
+    treeWrap.appendChild(svg);
+    treeWrap.appendChild(grid);
+    section.appendChild(treeWrap);
+    container.appendChild(section);
+
+    requestAnimationFrame(() => drawShopTreeLinks(treeWrap, currentPlayer));
+};
+
 const style = document.createElement('style');
 style.innerHTML = `
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; background: #070707; }
@@ -52,7 +246,7 @@ style.innerHTML = `
   #hud, #hp, #gold, #exp, #level, #respawn, #nexusBlue, #nexusRed { display: none !important; }
   #qbar, #ebar, #qlv, #elv, #qcd, #ecd, .cooldown-container { display: none !important; }
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 50% !important; overflow: hidden !important; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
-  #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 100% !important; max-width: 400px !important; height: 100% !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px 20px 25vh 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; -webkit-overflow-scrolling: touch !important; touch-action: auto !important; pointer-events: auto !important; }
+    #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: min(760px, 100vw) !important; max-width: 100vw !important; height: 100% !important; background: linear-gradient(180deg, rgba(10,10,14,0.99), rgba(5,5,7,0.99)) !important; border-left: 1px solid #2d3138 !important; padding: 16px 16px 25vh 16px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; -webkit-overflow-scrolling: touch !important; touch-action: auto !important; pointer-events: auto !important; }
   #shopOverlay.hidden { transform: translateX(100%) !important; }
   #menu, #roomBrowser, #roomLobby, #endStats, #roomListContainer, #classBtns, .player-list, .roster-scroll-area { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: auto !important; pointer-events: auto !important; }
   #portraitWarning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #ffcc00; z-index: 9999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-family: monospace; }
@@ -73,9 +267,51 @@ style.innerHTML = `
           border-radius: 50% !important;
       } 
   }
-  .shop-col { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
-  .shop-col-title { font-weight: bold; color: #ffcc00; margin-bottom: 5px; border-bottom: 1px solid #444; padding-bottom: 3px; }
+  .shop-shell { display: flex; flex-direction: column; gap: 14px; }
+  .shop-toolbar { position: sticky; top: -16px; z-index: 10; background: rgba(5,5,7,0.98); padding: 14px 0 12px 0; border-bottom: 1px solid #2a2d34; backdrop-filter: blur(8px); }
+  .shop-toolbar-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .shop-title { margin: 0; color: #fff; font-size: 22px; letter-spacing: 0.06em; }
+  .shop-toolbar-actions { display: flex; gap: 10px; }
+  .shop-nav-btn { flex: 1; padding: 10px 12px; font-size: 16px; font-weight: 700; background: #17191f; color: #fff; border: 1px solid #323743; cursor: pointer; border-radius: 10px; }
+  .shop-nav-btn:active { transform: translateY(1px); }
+  .shop-hint { color: #a5aab5; font-size: 11px; line-height: 1.4; letter-spacing: 0.02em; }
+  .shop-section { background: rgba(255,255,255,0.025); border: 1px solid #242833; border-radius: 16px; padding: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); }
+  .shop-section-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .shop-section-title { font-weight: 800; color: #ffcc00; letter-spacing: 0.08em; font-size: 12px; text-transform: uppercase; }
+  .shop-section-note { color: #98a0ad; font-size: 10px; line-height: 1.3; }
+  .shop-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+  .shop-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; background: #11141a; border: 1px solid #2c313b; border-radius: 12px; padding: 10px; min-width: 0; }
+  .shop-card.is-locked { opacity: 0.75; filter: grayscale(35%); }
+  .shop-card-tree { background: linear-gradient(180deg, rgba(16,18,24,0.98), rgba(10,12,16,0.98)); }
+  .shop-card-left { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .shop-card-title-row { display: flex; flex-direction: column; gap: 6px; }
+  .shop-card-name-wrap { display: flex; flex-direction: column; gap: 3px; }
+  .shop-card-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; color: #fff; line-height: 1.1; }
+  .shop-card-count { color: #46f26b; font-size: 10px; font-weight: 700; }
+  .shop-card-cost { color: #ffcc00; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; }
+  .shop-card-stats { display: flex; flex-wrap: wrap; gap: 4px; }
+  .shop-stat-pill { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; background: #171b22; border: 1px solid #2f3540; color: #cdd3dc; font-size: 10px; white-space: nowrap; }
+  .shop-buy-btn { align-self: start; min-width: 72px; padding: 9px 12px; border-radius: 10px; border: 1px solid #3b414d; background: #1a1f28; color: #46f26b; font-weight: 800; cursor: pointer; }
+  .shop-buy-btn:disabled { color: #848a95; cursor: not-allowed; }
+  .shop-tree-wrap { position: relative; }
+  .shop-tree-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .shop-tree-grid { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; padding: 2px 0 0 0; }
+  .shop-tree-grid .shop-card { width: 100%; }
+  .shop-tree-grid .shop-card-tree .shop-card-name { font-size: 13px; }
+  .shop-tree-grid .shop-card-tree .shop-card-stats { gap: 3px; }
   @media screen and (max-width: 900px), screen and (max-height: 600px) {
+      #shopOverlay { width: 100% !important; padding: 12px 12px 30vh 12px !important; }
+      .shop-toolbar { top: -12px; }
+      .shop-title { font-size: 18px; }
+      .shop-nav-btn { padding: 9px 10px; font-size: 14px; }
+      .shop-section { padding: 10px; border-radius: 14px; }
+      .shop-card-grid { grid-template-columns: 1fr; }
+      .shop-card { grid-template-columns: 1fr; gap: 8px; }
+      .shop-buy-btn { width: 100%; }
+      .shop-tree-grid { gap: 8px; }
+      .shop-tree-grid .shop-card-tree .shop-card-name { font-size: 12px; }
+      .shop-tree-grid .shop-card-tree .shop-card-stats { gap: 2px; }
+      .shop-stat-pill { font-size: 9px; padding: 2px 6px; }
       #roomLobby { padding: 2vw !important; max-height: 98vh !important; }
       #lobbyTitle { font-size: 18px !important; }
       #btnSpec, #leaveRoomBtn { padding: 6px 10px !important; font-size: 11px !important; }
@@ -335,55 +571,43 @@ export function toggleShop(){ const o = document.getElementById('shopOverlay'); 
 export function populateShop() { 
   const overlay = document.getElementById('shopOverlay'); 
   if(!overlay) return; 
-
-  const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const contentZoom = isMobile ? 'zoom: 0.5;' : '';
-
-  overlay.innerHTML = `
-    <div style="${contentZoom}">
-        <div style="position: sticky; top: -20px; background: rgba(0,0,0,0.98); z-index: 10; margin: -20px -20px 15px -20px; padding: 20px; border-bottom: 2px solid #444;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-              <h2 style="color:#fff; margin:0;">SHOP</h2>
-              <button id="closeShopX" style="background:transparent; color:#ff4e4e; border:none; font-size:32px; font-weight:bold; cursor:pointer; line-height:1; padding:0 10px;">&times;</button>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <button id="shopUpBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▲</button>
-                <button id="shopDownBtn" style="flex:1; padding:12px; font-size:18px; font-weight:bold; background:#222; color:#fff; border:1px solid #555; cursor:pointer;">▼</button>
-            </div>
+    overlay.innerHTML = `
+        <div class="shop-shell">
+                <div class="shop-toolbar">
+                        <div class="shop-toolbar-top">
+                            <h2 class="shop-title">SHOP</h2>
+                            <button id="closeShopX" style="background:transparent; color:#ff4e4e; border:none; font-size:32px; font-weight:bold; cursor:pointer; line-height:1; padding:0 10px;">&times;</button>
+                        </div>
+                        <div class="shop-toolbar-actions">
+                                <button id="shopUpBtn" class="shop-nav-btn">▲</button>
+                                <button id="shopDownBtn" class="shop-nav-btn">▼</button>
+                        </div>
+                        <div class="shop-hint">Green links show a branch you can currently buy. Grey links are blocked by gold, prerequisites, or path choice.</div>
+                </div>
+                <div id="shopTreeMount"></div>
+                <div id="shopSections"></div>
+                <button id="closeShopBtn" style="width:100%; padding:14px; margin-top:8px; background:#444; color:#fff; border:none; cursor:pointer; font-weight:bold; font-size:16px; border-radius:12px;">CLOSE SHOP</button>
         </div>
-        <div id="shopList"></div>
-        <button id="closeShopBtn" style="width:100%; padding:15px; margin-top:20px; background:#444; color:#fff; border:none; cursor:pointer; font-weight:bold; font-size:18px;">CLOSE SHOP</button>
-    </div>
-  `; 
+    `; 
   document.getElementById('closeShopBtn').onclick = closeShop; 
   document.getElementById('closeShopX').onclick = closeShop; 
 
   const upBtn = document.getElementById('shopUpBtn');
   const downBtn = document.getElementById('shopDownBtn');
-  const doScrollUp = (e) => { if(e) e.preventDefault(); overlay.scrollBy({ top: -300, behavior: 'smooth' }); };
-  const doScrollDown = (e) => { if(e) e.preventDefault(); overlay.scrollBy({ top: 300, behavior: 'smooth' }); };
+    const doScrollUp = (e) => { if(e) e.preventDefault(); overlay.scrollBy({ top: -320, behavior: 'smooth' }); };
+    const doScrollDown = (e) => { if(e) e.preventDefault(); overlay.scrollBy({ top: 320, behavior: 'smooth' }); };
   upBtn.onclick = doScrollUp; upBtn.ontouchstart = doScrollUp;
   downBtn.onclick = doScrollDown; downBtn.ontouchstart = doScrollDown;
 
-  const list = document.getElementById('shopList'); 
-    const cats = { 'DMG': ['ad', 'ad_ls', 'ad_ls2', 'ad_pen', 'ad_pen2', 'ap', 'ap_vamp', 'ap_vamp2', 'ap_pen', 'ap_pen2'], 'ARMOR': ['armor', 'mr', 'hp'], 'SPEED': ['as', 'as_ms', 'ah', 'ah_ms'] }; 
+    const treeMount = document.getElementById('shopTreeMount');
+    if (treeMount) renderAdTreeSection(treeMount, player);
 
-  for(let catName in cats) { 
-      let col = document.createElement('div'); col.className = 'shop-col'; 
-      let title = document.createElement('div'); title.className = 'shop-col-title'; title.textContent = catName; 
-      col.appendChild(title); 
-
-      for(let id of cats[catName]) { 
-          const it = shopItems.find(x => x.id === id); 
-          if(!it) continue; 
-          const buyCheck = canBuyShopItem(player, it); 
-          let count = 0; if(player && player.items) count = player.items.filter(i=>i===it.id).length; 
-          const div = document.createElement('div'); div.style.background = '#111'; div.style.border = '1px solid #333'; div.style.padding = '8px'; div.style.display = 'flex'; div.style.justifyContent = 'space-between'; div.style.alignItems = 'center'; 
-          div.innerHTML = `<div style="flex-grow:1;"><b>${it.name}</b> ${count>0?`<span style="color:#0f0;">(${count}x)</span>`:''}<br><span style="font-size:10px; color:#aaa;">${it.desc}</span><br><span style="color:#ffcc00; font-size:12px;">${it.cost}g</span></div>`; 
-          const btn = document.createElement('button'); btn.textContent=buyCheck.ok ? 'Buy' : 'Locked'; btn.title = buyCheck.ok ? '' : buyCheck.reason; btn.disabled = !buyCheck.ok; btn.style.background=buyCheck.ok ? '#222' : '#111'; btn.style.color=buyCheck.ok ? '#0f0' : '#777'; btn.style.border=buyCheck.ok ? '1px solid #0f0' : '1px solid #555'; btn.style.padding='8px 12px'; btn.style.cursor=buyCheck.ok ? 'pointer' : 'not-allowed'; btn.style.fontWeight='bold';
-          btn.addEventListener('click', ()=> buyItem(it.id)); div.appendChild(btn); col.appendChild(div); 
-      } list.appendChild(col); 
-  } 
+    const sectionsMount = document.getElementById('shopSections');
+    if (sectionsMount) {
+            renderShopSection(sectionsMount, 'AP ITEMS', ['ap', 'ap_vamp', 'ap_vamp2', 'ap_pen', 'ap_pen2'], player);
+            renderShopSection(sectionsMount, 'DEFENSE', ['hp', 'armor', 'mr'], player);
+            renderShopSection(sectionsMount, 'TEMPO', ['as', 'as_ms', 'ah', 'ah_ms'], player);
+    }
 }
 
 export function updateInventory(){ if(!player) return; const inv = document.getElementById('inventory'); inv.innerHTML = ''; for(const id of player.items){ const it = shopItems.find(s=>s.id===id); const slot = document.createElement('div'); slot.className='invSlot'; slot.textContent = it? it.name : id; inv.appendChild(slot); } }
