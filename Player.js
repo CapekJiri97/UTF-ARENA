@@ -1670,9 +1670,34 @@ export class BotPlayer extends Player {
         const buildMacroSnapshot = () => {
             const teamHeroes = game.players.filter(p => p.alive && p.team === team && p.className);
             const enemyHeroes = game.players.filter(p => p.alive && p.team !== team && p.className);
+            const deadEnemyHeroes = game.players.filter(p => !p.alive && p.team !== team && p.className);
             const ownedTowers = game.towers.filter(t => t.owner === team);
             const enemyOwnedTowers = game.towers.filter(t => t.owner === 1 - team);
             const homeTowers = game.towers.filter(t => isHomeTower(t));
+
+            const estimateCombatPower = (p) => {
+                const maxHp = p.effectiveMaxHp || p.maxHp || 1;
+                const hpPct = Math.max(0, Math.min(1, p.hp / maxHp));
+                const aaScale = CLASSES[p.className]?.aaScale || 0.3;
+                const baseAtk = CLASSES[p.className]?.baseAtk || 0;
+                const buffAsMult = 1.0 + (p.adAsBuffTimer > 0 ? p.adAsBuffAmount : 0);
+                const attackStat = baseAtk + ((p.dmgType === 'magical' ? p.AP : p.AD) * aaScale);
+                const attackPerSec = ((p.attackSpeed || 1) * buffAsMult) / Math.max(0.1, p.attackDelay || 1);
+                let currentDps = attackStat * attackPerSec;
+
+                if (p.spells) {
+                    for (let key of ['Q', 'E']) {
+                        const sp = p.spells[key];
+                        if (!sp) continue;
+                        const spellCd = typeof p.computeSpellCooldown === 'function' ? p.computeSpellCooldown(key) : Math.max(1.0, sp.baseCooldown || 1.0);
+                        const spellDamage = (sp.baseDamage || 0) + ((p.AP || 0) * (sp.scaleAP || 0)) + ((p.AD || 0) * (sp.scaleAD || 0)) + ((sp.level || 1) * (sp.scaleLevel !== undefined ? sp.scaleLevel : 8));
+                        currentDps += spellDamage / Math.max(1.0, spellCd);
+                    }
+                }
+
+                const durability = (p.hp + (p.shield || 0)) * (1 + ((p.armor || 0) / 120) + ((p.mr || 0) / 120));
+                return currentDps * 0.6 + durability * 0.25 + (p.speed || 100) * 1.5;
+            };
 
             const roleCounts = { TANK: 0, FIGHTER: 0, SLAYER: 0, SPLITPUSHER: 0, SUPPORT: 0 };
             for (let p of teamHeroes) {
@@ -1690,6 +1715,10 @@ export class BotPlayer extends Player {
             const homeControlLead = homeTowers.reduce((sum, t) => sum + (team === 0 ? t.control : -t.control), 0);
             const homeHeld = homeTowers.filter(t => t.owner === team && ((team === 0 && t.control >= 100) || (team === 1 && t.control <= -100))).length;
             const teamKillLead = teamHeroes.reduce((sum, p) => sum + (p.kills || 0), 0) - enemyHeroes.reduce((sum, p) => sum + (p.kills || 0), 0);
+            const teamCombatPower = teamHeroes.reduce((sum, p) => sum + estimateCombatPower(p), 0);
+            const enemyCombatPower = enemyHeroes.reduce((sum, p) => sum + estimateCombatPower(p), 0);
+            const enemyRespawnSoonCount = deadEnemyHeroes.filter(p => (p.respawnTimer || 0) <= 10).length;
+            const enemyDeadCount = deadEnemyHeroes.length;
 
             return {
                 pointDiff,
@@ -1702,19 +1731,24 @@ export class BotPlayer extends Player {
                 teamKillLead,
                 teamHeroCount: teamHeroes.length,
                 enemyHeroCount: enemyHeroes.length,
+                teamCombatPower,
+                enemyCombatPower,
+                powerLead: teamCombatPower - enemyCombatPower,
+                enemyDeadCount,
+                enemyRespawnSoonCount,
                 allyRoles: roleCounts
             };
         };
 
         const buildStrategyOrder = (ctx) => {
             const ranked = [
-                { id: 'TOWER_FIRST', score: 120 + (ctx.homeThreat * 45) + (Math.max(0, -ctx.towerLead) * 30) + (ctx.neutralCount * 8) + (ctx.pointDiff < 0 ? 12 : 0) },
-                { id: 'TURTLE', score: 105 + (ctx.homeThreat * 55) + (Math.max(0, -ctx.towerLead) * 25) + (ctx.pointDiff < 0 ? 20 : 0) },
-                { id: 'AGGRO_DEF', score: 95 + (Math.max(0, -ctx.towerLead) * 24) + (ctx.homeThreat * 10) + (Math.max(0, ctx.enemyHeroCount - ctx.teamHeroCount) * 6) },
-                { id: 'META_4_1', score: 92 + (ctx.allyRoles.SPLITPUSHER * 22) + (ctx.allyRoles.FIGHTER * 4) + (ctx.towerLead >= 0 ? 10 : 0) + (ctx.pointDiff >= 0 ? 6 : 0) },
-                { id: 'META_3_2', score: 80 + (Math.min(ctx.allyRoles.FIGHTER, 3) * 12) + (ctx.teamHeroCount >= 3 ? 6 : 0) },
-                { id: 'KILL_FIRST', score: 84 + (ctx.allyRoles.SLAYER * 20) + (ctx.allyRoles.SUPPORT * 8) + (Math.max(0, ctx.teamHeroCount - ctx.enemyHeroCount) * 6) + (ctx.homeThreat === 0 ? 14 : -12) },
-                { id: 'AGGRO_ALL', score: 60 + (Math.max(0, ctx.towerLead) * 18) + (Math.max(0, ctx.teamHeroCount - ctx.enemyHeroCount) * 5) - (ctx.homeThreat * 18) },
+                { id: 'TOWER_FIRST', score: 125 + (ctx.homeThreat * 55) + (Math.max(0, -ctx.towerLead) * 35) + (ctx.neutralCount * 8) + (Math.max(0, -ctx.powerLead) * 10) + (ctx.pointDiff < 0 ? 12 : 0) },
+                { id: 'TURTLE', score: 110 + (ctx.homeThreat * 60) + (Math.max(0, -ctx.towerLead) * 28) + (Math.max(0, -ctx.powerLead) * 8) + (ctx.pointDiff < 0 ? 20 : 0) },
+                { id: 'AGGRO_DEF', score: 90 + (Math.max(0, -ctx.towerLead) * 22) + (ctx.homeThreat * 14) + (Math.max(0, ctx.enemyHeroCount - ctx.teamHeroCount) * 6) },
+                { id: 'META_4_1', score: 96 + (ctx.allyRoles.SPLITPUSHER * 22) + (ctx.allyRoles.FIGHTER * 4) + (ctx.towerLead >= 0 ? 10 : 0) + (ctx.pointDiff >= 0 ? 6 : 0) + (ctx.enemyDeadCount > 0 ? 8 : 0) },
+                { id: 'META_3_2', score: 82 + (Math.min(ctx.allyRoles.FIGHTER, 3) * 12) + (ctx.teamHeroCount >= 3 ? 6 : 0) + (ctx.enemyRespawnSoonCount > 0 ? 6 : 0) },
+                { id: 'KILL_FIRST', score: 88 + (ctx.allyRoles.SLAYER * 22) + (ctx.allyRoles.SUPPORT * 8) + (Math.max(0, ctx.teamHeroCount - ctx.enemyHeroCount) * 6) + (ctx.powerLead > 0 ? 10 : 0) + (ctx.enemyDeadCount > 0 ? 18 : 0) + (ctx.homeThreat === 0 ? 14 : -12) },
+                { id: 'AGGRO_ALL', score: 60 + (Math.max(0, ctx.towerLead) * 18) + (Math.max(0, ctx.teamHeroCount - ctx.enemyHeroCount) * 5) + (ctx.powerLead > 0 ? 6 : 0) - (ctx.homeThreat * 18) },
                 { id: 'SPLIT_ROAM', score: 70 + (ctx.allyRoles.SPLITPUSHER * 24) + (ctx.neutralCount * 10) + (Math.max(0, ctx.towerLead) * 4) - (ctx.homeThreat * 8) }
             ];
 
@@ -1723,7 +1757,7 @@ export class BotPlayer extends Player {
 
         const getPhaseDuration = (phase, ctx) => {
             if (phase === 'EARLY') return 60;
-            if (phase === 'EXPLORE') return (ctx.homeThreat > 0 || ctx.towerLead < 0) ? 45 : 35;
+            if (phase === 'EXPLORE') return (ctx.homeThreat > 0 || ctx.towerLead < 0) ? 60 : 45;
             if (phase === 'EXPLOIT') return ctx.homeThreat > 0 ? 120 : 150;
             return 45;
         };
@@ -1736,6 +1770,8 @@ export class BotPlayer extends Player {
             score += (endSnap.homeHeld - startSnap.homeHeld) * 4000;
             score += (endSnap.homeControlLead - startSnap.homeControlLead) * 25;
             score += (endSnap.teamKillLead - startSnap.teamKillLead) * 600;
+            score += (endSnap.enemyDeadCount - startSnap.enemyDeadCount) * 500;
+            score += (endSnap.powerLead - startSnap.powerLead) * 120;
             score -= (endSnap.homeThreat - startSnap.homeThreat) * 1800;
             score -= (endSnap.towerPressure - startSnap.towerPressure) * 700;
             return score;
