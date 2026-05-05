@@ -12,9 +12,9 @@ style.innerHTML = `
   #hud, #hp, #gold, #exp, #level, #respawn, #nexusBlue, #nexusRed { display: none !important; }
   #qbar, #ebar, #qlv, #elv, #qcd, #ecd, .cooldown-container { display: none !important; }
   #minimap { width: 300px !important; height: 300px !important; border: 2px solid #444; border-radius: 50% !important; overflow: hidden !important; box-shadow: 0 0 10px rgba(0,0,0,0.8); }
-  #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 100% !important; max-width: 400px !important; height: 100% !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px 20px 25vh 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; }
+  #shopOverlay { display: block !important; position: fixed !important; left: auto !important; right: 0 !important; top: 0 !important; width: 100% !important; max-width: 400px !important; height: 100% !important; background: rgba(0,0,0,0.95) !important; border-left: 2px solid #555 !important; padding: 20px 20px 25vh 20px !important; overflow-y: auto !important; color: #fff !important; font-family: monospace !important; transition: transform 0.3s ease !important; transform: translateX(0); z-index: 10000 !important; box-sizing: border-box !important; -webkit-overflow-scrolling: touch !important; touch-action: auto !important; pointer-events: auto !important; }
   #shopOverlay.hidden { transform: translateX(100%) !important; }
-  #menu, #roomBrowser, #roomLobby, #shopOverlay, #endStats, #roomListContainer { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: pan-y !important; }
+  #menu, #roomBrowser, #roomLobby, #endStats, #roomListContainer, #classBtns { -webkit-overflow-scrolling: touch !important; overscroll-behavior-y: contain !important; touch-action: auto !important; pointer-events: auto !important; }
   #portraitWarning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #ffcc00; z-index: 9999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-family: monospace; }
   @media screen and (max-width: 900px) and (orientation: portrait) {
       #portraitWarning { display: flex !important; }
@@ -35,18 +35,25 @@ style.innerHTML = `
   }
   .shop-col { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
   .shop-col-title { font-weight: bold; color: #ffcc00; margin-bottom: 5px; border-bottom: 1px solid #444; padding-bottom: 3px; }
-  @media (max-height: 600px) {
-      #roomLobby, #roomBrowser { padding: 2vh !important; }
-      #roomLobby h1, #roomBrowser h1 { font-size: 4vh !important; margin-bottom: 1vh !important; }
-      #roomLobby p, #roomLobby li, #roomBrowser li, #roomLobby button, #roomBrowser button { font-size: 3vh !important; padding: 1vh 2vh !important; }
-      #roomLobby h3 { font-size: 3vh !important; margin-bottom: 1vh !important; }
-      .shop-col { margin-bottom: 5px !important; }
-      #roomLobby { padding: 1vh !important; }
-      .champ-grid { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)) !important; gap: 4px !important; padding-bottom: 5px !important; }
-      .champ-btn { padding: 5px 2px !important; gap: 2px !important; }
-      .champ-icon { font-size: 18px !important; }
+  @media screen and (max-width: 900px), screen and (max-height: 600px) {
+      #roomLobby { padding: 2vw !important; max-height: 98vh !important; }
+      #lobbyTitle { font-size: 18px !important; }
+      #btnSpec, #leaveRoomBtn { padding: 6px 10px !important; font-size: 11px !important; }
+      .three-col-layout { flex-direction: column !important; flex-wrap: nowrap !important; }
+      .team-box, .center-roster { min-width: 100% !important; flex: none !important; margin-bottom: 5px; }
+      .center-roster { min-height: 35vh !important; max-height: 50vh !important; }
+      .champ-grid { grid-template-columns: repeat(auto-fill, minmax(45px, 1fr)) !important; gap: 4px !important; }
+      .champ-btn { padding: 4px !important; gap: 2px !important; }
+      .champ-icon { font-size: 16px !important; }
       .champ-name { font-size: 9px !important; }
-      .player-item { padding: 4px !important; font-size: 11px !important; }
+      #spellBtns button { padding: 6px 8px !important; font-size: 11px !important; }
+      #readyBtn, #startBtn { padding: 10px 15px !important; font-size: 12px !important; }
+      .team-header { padding: 4px !important; font-size: 12px !important; }
+      .player-item { padding: 4px !important; font-size: 10px !important; margin-bottom: 2px !important; }
+      #specList { max-height: 30px !important; font-size: 10px !important; }
+      #lobbyUpBtn, #lobbyDownBtn { padding: 8px 12px !important; font-size: 14px !important; }
+      .footer-controls { flex-direction: column !important; align-items: stretch !important; gap: 5px !important; }
+      .footer-controls > div { justify-content: center !important; }
   }
   .team-box { background: #0a0a0c; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #222; }
   .team-header { padding: 10px; font-weight: bold; text-align: center; letter-spacing: 1px; }
@@ -107,7 +114,7 @@ window.addEventListener('keydown', (e) => {
     }
 });
 window.addEventListener('touchmove', (e) => {
-    if (e.scale !== 1 || e.touches.length > 1) { e.preventDefault(); }
+    if (e.touches && e.touches.length > 1) { e.preventDefault(); }
 }, { passive: false });
 export function requestLandscapeFullscreen() {
     const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -124,7 +131,7 @@ export function requestLandscapeFullscreen() {
 }
 export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null) {
   const rb = document.getElementById('roomBrowser'); if (rb) rb.style.display = 'none';
-  const rl = document.getElementById('roomLobby'); if (rl) rl.style.display = 'block';
+  const rl = document.getElementById('roomLobby'); if (rl) rl.style.display = 'flex';
   
   const title = document.getElementById('lobbyTitle');
   if (title) title.textContent = `ROOM: ${roomName}`;
@@ -164,8 +171,13 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null
       } else {
           const targetList = p.team === 0 ? blueList : redList;
           if (targetList) {
+              const cInfo = CLASSES[p.className];
+              const dmgStr = cInfo ? (cInfo.dmgType === 'physical' ? 'AD' : 'AP') : '';
+              const dmgColor = dmgStr === 'AD' ? '#ffcc00' : '#d270ff';
+              const dmgTag = dmgStr ? `<span style="color:${dmgColor}; font-size:10px; margin-left:4px;">[${dmgStr}]</span>` : '';
+              
               targetList.innerHTML += `<li class="player-item" style="border-left: 3px solid ${tColor};">
-                  <div><strong style="color:${tColor};">${p.className}</strong><span style="color:#aaa; font-size:10px; margin-left:4px;">[${p.summonerSpell}]</span>${meTag}</div>
+                  <div><strong style="color:${tColor};">${p.className}</strong>${dmgTag}<span style="color:#aaa; font-size:10px; margin-left:4px;">[${p.summonerSpell}]</span>${meTag}</div>
                   <div>${readyHTML}</div>
               </li>`;
           }
@@ -1090,10 +1102,10 @@ export function showEnd(winner){
 
 export function buildMenu() {
   let m = document.getElementById('menu'); if(!m) { m = document.createElement('div'); m.id = 'menu'; document.body.appendChild(m); }
-  m.style.position = 'fixed'; m.style.top = '0'; m.style.left = '0'; m.style.width = '100%'; m.style.height = '100%'; m.style.zIndex = '9999'; m.style.display = 'block'; m.style.background = 'rgba(0,0,0,0.85)'; m.style.overflowY = 'auto'; m.style.padding = '5vh 0 25vh 0'; m.style.boxSizing = 'border-box';
+  m.style.position = 'fixed'; m.style.top = '0'; m.style.left = '0'; m.style.width = '100%'; m.style.height = '100%'; m.style.zIndex = '9999'; m.style.display = 'block'; m.style.background = 'rgba(0,0,0,0.85)'; m.style.overflowY = 'auto'; m.style.padding = '5vh 0 25vh 0'; m.style.boxSizing = 'border-box'; m.style.WebkitOverflowScrolling = 'touch'; m.style.touchAction = 'auto'; m.style.pointerEvents = 'auto';
   let selectedClass = 'Bruiser'; let selectedTeam = 0; let selectedSpell = 'Heal'; let isSpectator = false;
   m.innerHTML = `
-      <div id="roomBrowser" style="zoom: 0.85; margin: 0 auto; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 90vw; max-width: 600px; box-sizing:border-box; display: ${socket ? 'block' : 'none'};">
+      <div id="roomBrowser" style="margin: 0 auto; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 90vw; max-width: 600px; box-sizing:border-box; display: ${socket ? 'block' : 'none'};">
           <h1 style="margin-top:0;">UTF Arena - BROWSE GAMES</h1>
           <div style="margin-bottom: 20px; display:flex; gap:10px; justify-content:center;">
               <input type="text" id="newRoomInput" placeholder="Enter Room Name..." style="padding:10px; font-size:16px; background:#000; color:#fff; border:1px solid #444; width: 60%;">
@@ -1106,21 +1118,18 @@ export function buildMenu() {
               </ul>
           </div>
       </div>
-      <div id="roomLobby" style="zoom: 0.85; margin: 0 auto; display: ${socket ? 'none' : 'block'}; background:#070709; padding:1vw; border:1px solid #222; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1200px; box-sizing:border-box; display:flex; flex-direction:column; max-height: 95vh; overflow-y: auto;">
+      <div id="roomLobby" style="margin: 0 auto; display: ${socket ? 'none' : 'flex'}; background:#070709; padding:1vw; border:1px solid #222; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1200px; box-sizing:border-box; flex-direction:column; max-height: 95vh; overflow-y: auto;">
       <!-- Header -->
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #222; padding-bottom: 10px; margin-bottom: 10px;">
-          <div style="display:flex; align-items:center; gap: 15px;">
-              <h1 id="lobbyTitle" style="margin:0; font-size: 24px; color: #f0e6d2;">OFFLINE MODE</h1>
-              <span style="color:#aaa; font-size:24px;">
-                  <span id="lobbyUpBtn" style="cursor:pointer; padding:0 10px;">▲</span>
-                  <span id="lobbyDownBtn" style="cursor:pointer; padding:0 10px;">▼</span>
-              </span>
+          <h1 id="lobbyTitle" style="margin:0; font-size: 24px; color: #f0e6d2;">OFFLINE MODE</h1>
+          <div style="display:flex; gap:10px;">
+              <button id="btnSpec" style="padding:6px 12px; cursor:pointer; font-weight:bold; background:#222; color:#aaa; border:1px solid #555; border-radius:4px;">SPECTATE</button>
+              <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:6px 12px; cursor:pointer; background:#300; color:#ff6b6b; border:1px solid #ff6b6b; font-weight:bold; border-radius:4px;">LEAVE ROOM</button>
           </div>
-          <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:6px 12px; cursor:pointer; background:#300; color:#ff6b6b; border:1px solid #ff6b6b; font-weight:bold; border-radius:4px;">LEAVE ROOM</button>
       </div>
       
       <!-- 3 Columns Layout -->
-      <div style="display:flex; flex-wrap: wrap; flex-grow: 1; gap: 15px; min-height: 0; margin-bottom: 10px;">
+      <div class="three-col-layout" style="display:flex; flex-wrap: wrap; flex-grow: 1; gap: 15px; min-height: 0; margin-bottom: 10px;">
           <!-- Left: Blue Team -->
           <div class="team-box" style="flex: 1; min-width: 200px;">
               <div class="team-header blue-header">BLUE TEAM</div>
@@ -1135,7 +1144,7 @@ export function buildMenu() {
           </div>
 
           <!-- Center: Champion Roster -->
-          <div style="flex: 2; display:flex; flex-direction:column; min-width: 300px; background: #0a0a0c; border: 1px solid #222; border-radius: 4px; overflow: hidden;">
+          <div class="center-roster" style="flex: 2; display:flex; flex-direction:column; min-width: 300px; background: #0a0a0c; border: 1px solid #222; border-radius: 4px; overflow: hidden;">
               <div style="background: #111; padding: 10px; font-weight: bold; border-bottom: 1px solid #222; color: #f0e6d2;">CHOOSE YOUR HERO</div>
               <div id="classBtns" style="flex-grow: 1; overflow-y: auto; padding: 10px; text-align: left;"></div>
           </div>
@@ -1155,17 +1164,18 @@ export function buildMenu() {
       </div>
 
       <!-- Footer -->
-      <div style="display:flex; justify-content:space-between; align-items:center; background: #0a0a0c; padding: 10px; border: 1px solid #222; border-radius: 4px; flex-wrap: wrap; gap: 10px;">
-          <div style="display:flex; align-items:center; gap: 15px;">
-              <div style="text-align:left;">
-                  <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">SUMMONER SPELL</div>
-                  <div id="spellBtns" style="display:flex; gap: 5px; flex-wrap: wrap;"></div>
-              </div>
-              <button id="btnSpec" style="padding:8px 15px; cursor:pointer; font-weight:bold; background:#222; color:#aaa; border:1px solid #555; border-radius: 4px; height: fit-content;">SPECTATE</button>
-          </div>
-          
+      <div style="background: #0a0a0c; padding: 10px; border: 1px solid #222; border-radius: 4px; margin-bottom: 10px; display:flex; flex-direction:column; align-items:center;">
+          <div style="font-size: 12px; color: #aaa; margin-bottom: 4px; font-weight:bold;">SUMMONER SPELL</div>
+          <div id="spellBtns" style="display:flex; gap: 5px; flex-wrap: wrap; justify-content:center;"></div>
+      </div>
+
+      <div class="footer-controls" style="display:flex; justify-content:space-between; align-items:center; background: #0a0a0c; padding: 10px; border: 1px solid #222; border-radius: 4px; flex-wrap: wrap; gap: 10px;">
+          <ul id="specList" style="list-style:none; padding:0; margin:0; font-size: 12px; color: #888; text-align: left; max-height: 40px; overflow-y:auto; display:flex; flex-direction:column;"></ul>
           <div style="display:flex; align-items:center; gap: 15px; flex-grow: 1; justify-content: flex-end;">
-              <ul id="specList" style="list-style:none; padding:0; margin:0; font-size: 12px; color: #888; text-align: right; max-height: 40px; overflow-y:auto; display:flex; flex-direction:column;"></ul>
+              <span style="display:flex; gap: 5px;">
+                  <button id="lobbyUpBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▲</button>
+                  <button id="lobbyDownBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▼</button>
+              </span>
               <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:15px 30px; font-size:18px; font-weight:bold; cursor:pointer; background:#111; color:#fff; border:2px solid #555; border-radius: 4px;">READY</button>
               <button id="startBtn" style="padding:15px 30px; font-size:18px; font-weight:bold; cursor:pointer; background:#1a331a; color:#0f0; border:2px solid #0f0; border-radius: 4px;">START MATCH</button>
           </div>
@@ -1228,7 +1238,7 @@ export function buildMenu() {
       
       catGroups[cat].forEach(c => {
           const classInfo = CLASSES[c]; if(!classInfo) return;
-          const type = classInfo.dmgType === 'physical' ? '#ff8888' : '#88bbff'; // Red for AD, Blue for AP
+          const type = classInfo.dmgType === 'physical' ? '#ffcc00' : '#d270ff'; // Yellow for AD, Purple for AP
           let btn = document.createElement('button'); 
           btn.className = 'champ-btn';
           btn.dataset.className = c; 
