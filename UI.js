@@ -47,7 +47,7 @@ const getTeamDominionSummary = (teamId) => {
 
 const SHOP_TREE_CONFIGS = {
     ad: {
-        title: 'AD TREE',
+        title: 'ATTACK DAMAGE TREE',
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
@@ -65,7 +65,7 @@ const SHOP_TREE_CONFIGS = {
         ]
     },
     ap: {
-        title: 'AP TREE',
+        title: 'ABILITY POWER TREE',
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
@@ -83,32 +83,62 @@ const SHOP_TREE_CONFIGS = {
         ]
     },
     as: {
-        title: 'AS TREE',
+        title: 'ATTACK SPEED TREE',
         note: 'Green links show the next item in the branch is currently buyable.',
-        columns: 2,
+        columns: 3,
         nodes: [
-            { id: 'as', col: 1, row: 1 },
-            { id: 'as_ms', col: 2, row: 1 }
+            { id: 'as', col: 2, row: 1 },
+            { id: 'as_ms', col: 1, row: 2 },
+            { id: 'as_dmg', col: 3, row: 2 },
+            { id: 'as_ms2', col: 1, row: 3 },
+            { id: 'as_dmg2', col: 3, row: 3 }
         ],
         links: [
-            ['as', 'as_ms']
+            ['as', 'as_ms'],
+            ['as', 'as_dmg'],
+            ['as_ms', 'as_ms2'],
+            ['as_dmg', 'as_dmg2']
         ]
     },
     ah: {
-        title: 'AH TREE',
+        title: 'ABILITY HASTE TREE',
         note: 'Green links show the next item in the branch is currently buyable.',
-        columns: 2,
+        columns: 3,
         nodes: [
-            { id: 'ah', col: 1, row: 1 },
-            { id: 'ah_ms', col: 2, row: 1 }
+            { id: 'ah', col: 2, row: 1 },
+            { id: 'ah_ms', col: 1, row: 2 },
+            { id: 'ah_hp', col: 3, row: 2 },
+            { id: 'ah_ms2', col: 1, row: 3 },
+            { id: 'ah_hp2', col: 3, row: 3 }
         ],
         links: [
-            ['ah', 'ah_ms']
+            ['ah', 'ah_ms'],
+            ['ah', 'ah_hp'],
+            ['ah_ms', 'ah_ms2'],
+            ['ah_hp', 'ah_hp2']
+        ]
+    },
+    def: {
+        title: 'DEFENSE TREE',
+        note: 'Green links show the next item in the branch is currently buyable.',
+        columns: 3,
+        nodes: [
+            { id: 'hp', col: 2, row: 1 },
+            { id: 'def_ar', col: 1, row: 2 },
+            { id: 'def_mr', col: 3, row: 2 },
+            { id: 'def_ar2', col: 1, row: 3 },
+            { id: 'def_mr2', col: 3, row: 3 }
+        ],
+        links: [
+            ['hp', 'def_ar'],
+            ['hp', 'def_mr'],
+            ['def_ar', 'def_ar2'],
+            ['def_mr', 'def_mr2']
         ]
     }
 };
 
-const SHOP_TREE_ORDER = ['ad', 'ap', 'as', 'ah'];
+const SHOP_TREE_ORDER = ['ad', 'ap', 'as', 'ah', 'def'];
 
 const formatShopStats = (desc = '') => desc.split(',').map((part) => part.trim()).filter(Boolean);
 
@@ -668,9 +698,7 @@ export function populateShop() {
 
     const sectionsMount = document.getElementById('shopSections');
     if (sectionsMount) {
-            renderShopSection(sectionsMount, 'AP ITEMS', ['ap', 'ap_vamp', 'ap_vamp2', 'ap_pen', 'ap_pen2'], player);
-            renderShopSection(sectionsMount, 'DEFENSE', ['hp', 'armor', 'mr'], player);
-            renderShopSection(sectionsMount, 'TEMPO', ['as', 'as_ms', 'ah', 'ah_ms'], player);
+        sectionsMount.innerHTML = ''; // redundantní sekce vymazány, vše je nyní ve stromech
     }
 }
 

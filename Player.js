@@ -596,18 +596,18 @@ export class Player{
             
             if (isTank) {
                 pool.push('hp', 'hp');
-                if (enemyPhys >= enemyMag) pool.push('armor', 'armor');
-                if (enemyMag >= enemyPhys) pool.push('mr', 'mr');
+                if (enemyPhys >= enemyMag) pool.push('def_ar', 'def_ar2');
+                if (enemyMag >= enemyPhys) pool.push('def_mr', 'def_mr2');
             } else if (isFighter) {
                 pool.push('hp');
                 if (this.dmgType === 'magical') pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls', 'as_ms'); 
-                if (enemyPhys > enemyMag) pool.push('armor'); else if (enemyMag > enemyPhys) pool.push('mr');
+                if (enemyPhys > enemyMag) pool.push('def_ar'); else if (enemyMag > enemyPhys) pool.push('def_mr');
             } else if (isMageSupport) {
                 if (isSupport) pool.push('ap', 'ap', 'ah', 'ah', 'hp');
                 else pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms', 'hp'); 
             } else { 
                 if (this.role === 'SLAYER' && this.range) pool.push('ad', 'ad', 'ad', 'as', 'as', 'ah', 'ad_pen', 'ad_ls', 'as_ms', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls'); 
-                if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr');
+                if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'def_ar' : 'def_mr');
             }
             const itemToBuy = pickBuyableItem(this, pool);
             if (itemToBuy) buyItem(itemToBuy.id); // buyItem handles gold/item changes
@@ -2149,10 +2149,10 @@ export class BotPlayer extends Player {
                 const isSupport = bot.role === 'SUPPORT';
                 const isMageSupport = isSupport || (bot.role === 'SLAYER' && bot.dmgType === 'magical') || (bot.role === 'SPLITPUSHER' && bot.dmgType === 'magical');
                 
-                if (isTank) { pool.push('hp', 'hp'); if (enemyPhys >= enemyMag) pool.push('armor', 'armor'); if (enemyMag >= enemyPhys) pool.push('mr', 'mr'); } 
-                else if (isFighter) { pool.push('hp'); if (bot.dmgType === 'magical') pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls', 'as_ms'); if (enemyPhys > enemyMag) pool.push('armor'); else if (enemyMag > enemyPhys) pool.push('mr'); } 
+                if (isTank) { pool.push('hp', 'hp'); if (enemyPhys >= enemyMag) pool.push('def_ar', 'def_ar2'); if (enemyMag >= enemyPhys) pool.push('def_mr', 'def_mr2'); } 
+                else if (isFighter) { pool.push('hp'); if (bot.dmgType === 'magical') pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls', 'as_ms'); if (enemyPhys > enemyMag) pool.push('def_ar'); else if (enemyMag > enemyPhys) pool.push('def_mr'); } 
                 else if (isMageSupport) { if (isSupport) pool.push('ap', 'ap', 'ah', 'ah', 'hp'); else pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms', 'hp'); }  
-                else { if (bot.role === 'SLAYER' && bot.range) pool.push('ad', 'ad', 'ad', 'as', 'as', 'ah', 'ad_pen', 'ad_ls', 'as_ms', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls'); if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'armor' : 'mr'); }
+                else { if (bot.role === 'SLAYER' && bot.range) pool.push('ad', 'ad', 'ad', 'as', 'as', 'ah', 'ad_pen', 'ad_ls', 'as_ms', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls'); if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'def_ar' : 'def_mr'); }
                 let item = BotPlayer.pickBuyableItem(bot);
                 if (item) { 
                         bot.gold -= item.cost; bot.items.push(item.id); 
