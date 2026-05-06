@@ -41,6 +41,8 @@ export class Player{
     this.boostTimer = 0;
     this.rallyTimer = 0;
     this.slowTimer = 0;
+    this.antiHealTimer = 0;
+    this.antiHealStrength = 0;
     
     this.invulnerableTimer = 0;
     this.regenBuffTimer = 0;
@@ -435,6 +437,7 @@ export class Player{
     if(this.boostTimer > 0) this.boostTimer -= dt;
     if(this.rallyTimer > 0) this.rallyTimer -= dt;
     if(this.slowTimer > 0) this.slowTimer -= dt;
+    if(this.antiHealTimer > 0) { this.antiHealTimer -= dt; if(this.antiHealTimer <= 0) this.antiHealStrength = 0; }
     if(this.reaperCharge > 0) {
         this.reaperTimer -= dt;
         if(this.reaperTimer <= 0) this.reaperCharge = 0;
@@ -904,6 +907,11 @@ export class Player{
     if (this.adAsBuffTimer > 0) statuses.push({ t: 'FRENZY', c: '#f00' });
     if (this.hanaBuffTimer > 0) statuses.push({ t: 'EMPOWERED', c: '#f0f' });
     if (this.reaperCharge > 0) statuses.push({ t: `EMPOWERED (${this.reaperCharge})`, c: '#800080' });
+    if (this.antiHealTimer > 0) statuses.push({ t: 'GRIEVOUS', c: '#ff6600' });
+    if ((this.lifesteal || 0) > 0 || (this.spellVamp || 0) > 0) statuses.push({ t: 'VAMP', c: '#cc44ff' });
+    if ((this.onHitSlow || 0) > 0) statuses.push({ t: 'SLOW ATK', c: '#44ccff' });
+    if ((this.onSpellHitSlow || 0) > 0) statuses.push({ t: 'SLOW SPELL', c: '#44ccff' });
+    if ((this.antiHeal || 0) > 0) statuses.push({ t: 'ANTI-HEAL', c: '#ff8800' });
     
     let startY = this.pos.y - 38;
     ctx.font = 'bold 10px monospace';
@@ -1593,6 +1601,7 @@ export class BotPlayer extends Player {
       this.strategy = 'NORMAL';
       this.randomizePokeThresholds();
 
+      this.targetPath = null; // Active item upgrade path bot is working towards
       this.difficultyMod = this.team === 0 ? (game.blueBotDifficulty || 1.0) : (game.redBotDifficulty || 1.0);
       if (this.difficultyMod !== 1.0) {
           this.maxHp = Math.round(this.maxHp * this.difficultyMod);
@@ -1682,6 +1691,118 @@ export class BotPlayer extends Player {
         }
 
         return bestItem;
+    }
+
+    // All upgrade paths — each is an ordered list of item IDs from base to final
+    static get ITEM_PATHS() {
+        return [
+            // AD paths
+            ['ad'],
+            ['ad', 'ad_ls', 'ad_ls2'],
+            ['ad', 'ad_pen', 'ad_pen2'],
+            // AP paths
+            ['ap'],
+            ['ap', 'ap_vamp', 'ap_vamp2'],
+            ['ap', 'ap_pen', 'ap_pen2'],
+            // AS paths
+            ['as'],
+            ['as', 'as_ms', 'as_ms2'],
+            ['as', 'as_dmg', 'as_dmg2'],
+            // AH paths
+            ['ah'],
+            ['ah', 'ah_ms', 'ah_ms2'],
+            ['ah', 'ah_hp', 'ah_hp2'],
+            // Defense paths
+            ['hp'],
+            ['hp', 'def_ar', 'def_ar2'],
+            ['hp', 'def_mr', 'def_mr2'],
+            // Anti-heal paths
+            ['anti_base', 'ah_heal', 'ah_heal2'],
+            ['anti_base', 'ah_heal_ap', 'ah_heal_ap2'],
+            // Utility paths
+            ['slow'],
+            ['slow_ms'],
+            ['shield', 'shield_ad'],
+        ];
+    }
+
+    static isPathComplete(owner, path) {
+        for (const id of path) {
+            if (!(owner.items || []).includes(id)) return false;
+        }
+        return true;
+    }
+
+    // Returns the next item in the path that the bot doesn't own yet
+    static getNextPathItem(owner, path) {
+        for (const id of path) {
+            if (!(owner.items || []).includes(id)) return getShopItem(id);
+        }
+        return null;
+    }
+
+    // Score a full path by simulating applying all its remaining items, normalized by total remaining cost
+    static scorePathFull(owner, path, enemies) {
+        const probe = { ...owner, items: Array.isArray(owner.items) ? [...owner.items] : [] };
+        let totalCost = 0;
+        const remaining = [];
+        for (const id of path) {
+            if (!probe.items.includes(id)) {
+                const it = getShopItem(id);
+                if (it) { remaining.push(it); totalCost += it.cost; }
+            }
+        }
+        if (remaining.length === 0) return -Infinity; // Already complete
+        const before = BotPlayer.evaluateCombatProfile(probe, enemies);
+        for (const it of remaining) it.apply(probe);
+        const after = BotPlayer.evaluateCombatProfile(probe, enemies);
+        return (after - before) / Math.max(1, totalCost / 300);
+    }
+
+    // Pick the best new path to commit to, avoiding trees already owned
+    static selectTargetPath(owner, enemies, enemyHasHealing = false) {
+        const ownedTreeIds = new Set();
+        for (const id of (owner.items || [])) {
+            const it = getShopItem(id);
+            if (it && it.treeId) ownedTreeIds.add(it.treeId);
+        }
+
+        const isTank = owner.role === 'TANK';
+        const isFighter = owner.role === 'FIGHTER' || owner.role === 'SPLITPUSHER';
+        const isSupport = owner.role === 'SUPPORT';
+        const isMagical = owner.dmgType === 'magical';
+
+        // Filter paths relevant to this bot's role
+        const pathFilter = (path) => {
+            const rootItem = getShopItem(path[0]);
+            if (!rootItem) return false;
+            const tid = rootItem.treeId;
+            // Don't stack same tree
+            if (ownedTreeIds.has(tid)) return false;
+            // Tanks avoid pure damage paths
+            if (isTank && (tid === 'as' || (!isMagical && tid === 'ap') || (isMagical && tid === 'ad'))) return false;
+            // Mages avoid physical damage trees
+            if (isMagical && tid === 'ad') return false;
+            if (isMagical && tid === 'as') return false;
+            // Physical avoid AP trees
+            if (!isMagical && tid === 'ap') return false;
+            // Anti-heal only if enemies have healing
+            if ((tid === 'anti') && !enemyHasHealing) return false;
+            // Supports lean away from AS
+            if (isSupport && tid === 'as') return false;
+            return true;
+        };
+
+        let bestPath = null;
+        let bestScore = -Infinity;
+        for (const path of BotPlayer.ITEM_PATHS) {
+            if (!pathFilter(path)) continue;
+            if (BotPlayer.isPathComplete(owner, path)) continue;
+            const score = BotPlayer.scorePathFull(owner, path, enemies);
+            const jitter = (Math.random() - 0.5) * 0.05 * Math.abs(score);
+            if (score + jitter > bestScore) { bestScore = score + jitter; bestPath = path; }
+        }
+        return bestPath;
     }
 
     randomizePokeThresholds() {
@@ -2194,58 +2315,46 @@ export class BotPlayer extends Player {
         for (let bot of teamBots) {
             const inBase = dist(bot.pos, spawnPoints[bot.team]) < 250;
             if ((!bot.alive || inBase) && bot.gold >= 300 && bot.items.length < 25) {
-                let enemyPhys = 0, enemyMag = 0;
                 const enemies = game.players.filter(p => p.team !== bot.team);
-                for (let e of enemies) { if (e.dmgType === 'physical') enemyPhys++; else enemyMag++; }
-                let pool = [];
-                const isTank = bot.role === 'TANK';
-                const isFighter = bot.role === 'FIGHTER' || bot.role === 'SPLITPUSHER';
-                const isSupport = bot.role === 'SUPPORT';
-                const isMageSupport = isSupport || (bot.role === 'SLAYER' && bot.dmgType === 'magical') || (bot.role === 'SPLITPUSHER' && bot.dmgType === 'magical');
-                
-                const itemCount = (id) => (bot.items || []).filter(itemId => itemId === id).length;
                 const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 || (e.spellVamp || 0) > 0.05);
 
-                if (isTank) {
-                  if (itemCount('hp') < 3) pool.push('hp', 'hp');
-                  if (enemyPhys >= enemyMag) pool.push('def_ar', 'def_ar2');
-                  if (enemyMag >= enemyPhys) pool.push('def_mr', 'def_mr2');
-                  if (enemyHasHealing) pool.push('ah_heal');
-                  pool.push('slow', 'shield');
+                // Path commitment: pick or continue a target upgrade path
+                if (!bot.targetPath || BotPlayer.isPathComplete(bot, bot.targetPath)) {
+                    bot.targetPath = BotPlayer.selectTargetPath(bot, enemies, enemyHasHealing);
                 }
-                else if (isFighter) {
-                  if (itemCount('hp') < 2) pool.push('hp');
-                  if (bot.dmgType === 'magical') pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms');
-                  else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls', 'as_ms');
-                  if (enemyPhys > enemyMag) pool.push('def_ar');
-                  else if (enemyMag > enemyPhys) pool.push('def_mr');
-                  if (enemyHasHealing && bot.dmgType === 'physical') pool.push('ah_heal');
-                  if (enemyHasHealing && bot.dmgType === 'magical') pool.push('ah_heal_ap');
+
+                // Reactively add anti-heal path if enemies have lifesteal and we don't have it yet
+                const hasAntiHeal = (bot.items || []).some(id => ['anti_base','ah_heal','ah_heal2','ah_heal_ap','ah_heal_ap2'].includes(id));
+                if (enemyHasHealing && !hasAntiHeal) {
+                    const antiPath = bot.dmgType === 'magical' ? ['anti_base', 'ah_heal_ap', 'ah_heal_ap2'] : ['anti_base', 'ah_heal', 'ah_heal2'];
+                    const antiNext = BotPlayer.getNextPathItem(bot, antiPath);
+                    if (antiNext && bot.gold >= antiNext.cost && canBuyShopItem(bot, antiNext).ok) {
+                        bot.targetPath = antiPath;
+                    }
                 }
-                else if (isMageSupport) {
-                  if (isSupport) pool.push('ap', 'ap', 'ah', 'ah', 'hp');
-                  else pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms', 'hp');
-                  if (enemyHasHealing) pool.push('ah_heal_ap');
+
+                let item = bot.targetPath ? BotPlayer.getNextPathItem(bot, bot.targetPath) : null;
+                // If the next item costs more than we have, don't buy anything this tick
+                if (item && (bot.gold < item.cost || !canBuyShopItem(bot, item).ok)) item = null;
+                // Fallback: if path is somehow stuck, pick best available item from whole shop
+                if (!item && bot.targetPath) {
+                    bot.targetPath = BotPlayer.selectTargetPath(bot, enemies, enemyHasHealing);
+                    item = bot.targetPath ? BotPlayer.getNextPathItem(bot, bot.targetPath) : null;
+                    if (item && (bot.gold < item.cost || !canBuyShopItem(bot, item).ok)) item = null;
                 }
-                else {
-                  if (bot.role === 'SLAYER' && bot.range) pool.push('ad', 'ad', 'ad', 'as', 'as', 'ah', 'ad_pen', 'ad_ls', 'as_ms', 'ah_ms');
-                  else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls');
-                  if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'def_ar' : 'def_mr');
-                  if (enemyHasHealing && bot.dmgType === 'physical') pool.push('ah_heal');
-                  if (enemyHasHealing && bot.dmgType === 'magical') pool.push('ah_heal_ap');
-                }
-                let item = BotPlayer.pickBuyableItem(bot, pool, enemies);
-                if (item) { 
-                        bot.gold -= item.cost; bot.items.push(item.id); 
+
+                if (item) {
+                        bot.gold -= item.cost; bot.items.push(item.id);
                         let oldHp = bot.maxHp, oldAD = bot.AD, oldAP = bot.AP, oldArmor = bot.armor, oldMR = bot.mr;
-                        item.apply(bot); 
+                        item.apply(bot);
                         let extraMod = (bot.difficultyMod || 1.0) - 1.0;
                         if (extraMod !== 0) {
                             bot.maxHp += Math.round((bot.maxHp - oldHp) * extraMod); bot.hp += Math.round((bot.maxHp - oldHp) * extraMod);
                             bot.AD += Math.round((bot.AD - oldAD) * extraMod); bot.AP += Math.round((bot.AP - oldAP) * extraMod);
                             bot.armor += Math.round((bot.armor - oldArmor) * extraMod); bot.mr += Math.round((bot.mr - oldMR) * extraMod);
                         }
-                        bot.isDirty = true; 
+                        bot.isDirty = true;
+                        console.log(`[BOT ${bot.className}] bought ${item.name} (path: ${bot.targetPath ? bot.targetPath.join('→') : 'none'})`);
                     }
                 }
             while(bot.spellPoints > 0) {

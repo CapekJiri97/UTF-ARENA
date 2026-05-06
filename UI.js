@@ -1,5 +1,5 @@
 import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
-import { shopItems, canBuyShopItem, getShopItem, getBuyBlockReason } from './items.js';
+import { shopItems, canBuyShopItem, getShopItem, getBuyBlockReason, calcTotalCost } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
@@ -142,12 +142,15 @@ const SHOP_TREE_CONFIGS = {
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
-            { id: 'ah_heal', col: 1, row: 1 },
-            { id: 'ah_heal_ap', col: 3, row: 1 },
-            { id: 'ah_heal2', col: 1, row: 2 },
-            { id: 'ah_heal_ap2', col: 3, row: 2 }
+            { id: 'anti_base', col: 2, row: 1 },
+            { id: 'ah_heal', col: 1, row: 2 },
+            { id: 'ah_heal_ap', col: 3, row: 2 },
+            { id: 'ah_heal2', col: 1, row: 3 },
+            { id: 'ah_heal_ap2', col: 3, row: 3 }
         ],
         links: [
+            ['anti_base', 'ah_heal'],
+            ['anti_base', 'ah_heal_ap'],
             ['ah_heal', 'ah_heal2'],
             ['ah_heal_ap', 'ah_heal_ap2']
         ]
@@ -190,7 +193,6 @@ const createShopStatPill = (text) => {
 const createShopCard = (item, currentPlayer, { tree = false } = {}) => {
     const buyCheck = canBuyShopItem(currentPlayer, item);
     const canAfford = currentPlayer && (currentPlayer.gold || 0) >= item.cost;
-    const blockReason = currentPlayer ? getBuyBlockReason(currentPlayer, item) : 'gold';
     const count = currentPlayer && Array.isArray(currentPlayer.items) ? currentPlayer.items.filter((ownedId) => ownedId === item.id).length : 0;
 
     // State: 'buy' = can buy, 'prereq' = missing item, 'gold' = not enough gold
@@ -203,52 +205,72 @@ const createShopCard = (item, currentPlayer, { tree = false } = {}) => {
     const left = document.createElement('div');
     left.className = 'shop-card-left';
 
-    const titleRow = document.createElement('div');
-    titleRow.className = 'shop-card-title-row';
-
+    // ── Name + cost row ──────────────────────────────────────────────
     const nameWrap = document.createElement('div');
     nameWrap.className = 'shop-card-name-wrap';
 
     const name = document.createElement('div');
     name.className = 'shop-card-name';
     name.textContent = item.name;
-
     if (count > 0) {
         const countBadge = document.createElement('span');
         countBadge.className = 'shop-card-count';
-        countBadge.textContent = `${count}x`;
+        countBadge.textContent = `×${count}`;
         name.appendChild(countBadge);
     }
 
     const cost = document.createElement('div');
     cost.className = 'shop-card-cost';
-    cost.textContent = `${item.cost}g`;
+    const totalCost = currentPlayer ? calcTotalCost(currentPlayer, item) : item.cost;
+    if (totalCost > item.cost) {
+        cost.textContent = `${totalCost}g total`;
+        cost.title = `${item.cost}g item + ${totalCost - item.cost}g prerequisites`;
+        cost.style.color = '#ffaa44';
+    } else {
+        cost.textContent = `${item.cost}g`;
+    }
 
     nameWrap.appendChild(name);
     nameWrap.appendChild(cost);
+    left.appendChild(nameWrap);
 
+    // ── Stat pills ───────────────────────────────────────────────────
     const stats = document.createElement('div');
     stats.className = 'shop-card-stats';
     for (const statText of formatShopStats(item.desc)) {
         stats.appendChild(createShopStatPill(statText));
     }
+    left.appendChild(stats);
 
-    titleRow.appendChild(nameWrap);
-    titleRow.appendChild(stats);
-    left.appendChild(titleRow);
+    // ── Prereq chain line ────────────────────────────────────────────
+    const reqs = Array.isArray(item.requires) ? item.requires : (item.requires ? [item.requires] : []);
+    if (reqs.length > 0) {
+        const reqLine = document.createElement('div');
+        reqLine.className = 'shop-card-req';
+        const ownedIds = currentPlayer?.items || [];
+        const parts = reqs.map(reqId => {
+            const reqItem = getShopItem(reqId);
+            const owned = ownedIds.includes(reqId);
+            return `<span class="req-item${owned ? ' req-owned' : ' req-missing'}">${reqItem ? reqItem.name : reqId}</span>`;
+        });
+        reqLine.innerHTML = '► ' + parts.join(' + ');
+        left.appendChild(reqLine);
+    }
 
+    // ── Buy button ───────────────────────────────────────────────────
     const btn = document.createElement('button');
-    const canActuallyBuy = buyCheck.ok && canAfford;
     btn.className = 'shop-buy-btn';
+    const canActuallyBuy = buyCheck.ok && canAfford;
     if (state === 'buy') {
-        btn.textContent = 'Buy';
+        btn.textContent = '[BUY]';
         btn.title = '';
     } else if (state === 'gold') {
-        btn.textContent = `${item.cost}g`;
-        btn.title = 'Not enough gold';
+        const deficit = item.cost - Math.floor(currentPlayer?.gold || 0);
+        btn.textContent = `+${deficit}g`;
+        btn.title = `Need ${deficit} more gold`;
     } else {
-        btn.textContent = '🔒';
-        btn.title = buyCheck.reason || 'Locked';
+        btn.textContent = '[REQ]';
+        btn.title = buyCheck.reason || 'Missing prerequisite';
     }
     btn.disabled = !canActuallyBuy;
     btn.addEventListener('click', () => buyItem(item.id));
@@ -460,23 +482,33 @@ style.innerHTML = `
   .shop-card-count { color: #0f0; font-size: 10px; }
   .shop-card-cost { color: #ffcc00; font-size: 11px; font-family: monospace; white-space: nowrap; }
   .shop-card-stats { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 1px; }
-  .shop-stat-pill { display: inline; color: #888; font-size: 10px; font-family: monospace; white-space: nowrap; }
-  .shop-stat-pill::before { content: '['; color: #444; }
-  .shop-stat-pill::after  { content: ']'; color: #444; }
+  .shop-stat-pill { display: inline; color: #aaa; font-size: 10px; font-family: monospace; white-space: nowrap; }
+  .shop-stat-pill::before { content: '['; color: #555; }
+  .shop-stat-pill::after  { content: ']'; color: #555; }
+  .shop-card-req { font-size: 10px; font-family: monospace; margin-top: 2px; color: #666; }
+  .req-item { font-size: 10px; }
+  .req-owned  { color: #4a4; }
+  .req-missing { color: #a64; }
   /* State colors */
   .shop-state-buy { border-color: #1a3a1a !important; }
   .shop-state-buy .shop-card-name { color: #cfc; }
   .shop-state-buy .shop-buy-btn { border-color: #0f0; color: #0f0; background: #010f01; }
   .shop-state-buy .shop-buy-btn:hover { background: #001800; }
-  .shop-state-prereq { border-color: #2a1a00 !important; opacity: 0.8; }
+  .shop-state-prereq { border-color: #2a1a00 !important; opacity: 0.85; }
   .shop-state-prereq .shop-card-name { color: #997744; }
-  .shop-state-prereq .shop-buy-btn { border-color: #554400; color: #886600; background: #0a0800; cursor: not-allowed; }
-  .shop-state-gold { border-color: #1a0000 !important; opacity: 0.6; }
+  .shop-state-prereq .shop-buy-btn { border-color: #664400; color: #997700; background: #0a0800; cursor: not-allowed; }
+  .shop-state-gold { border-color: #1a0000 !important; opacity: 0.65; }
   .shop-state-gold .shop-card-name { color: #664444; }
-  .shop-state-gold .shop-buy-btn { border-color: #330000; color: #553333; background: #050000; cursor: not-allowed; }
+  .shop-state-gold .shop-buy-btn { border-color: #440000; color: #884444; background: #050000; cursor: not-allowed; }
   /* Buy button */
-  .shop-buy-btn { padding: 3px 7px; border: 1px solid #333; background: #000; color: #888; font-size: 11px; font-family: monospace; cursor: pointer; white-space: nowrap; }
+  .shop-buy-btn { padding: 4px 8px; border: 1px solid #333; background: #000; color: #888; font-size: 11px; font-family: monospace; cursor: pointer; white-space: nowrap; font-weight: bold; }
   .shop-buy-btn:disabled { cursor: not-allowed; }
+  /* Owned items bar */
+  .shop-owned-bar { background: #000; border: 1px solid #333; padding: 6px 8px; margin-bottom: 4px; }
+  .shop-owned-title { color: #ffcc00; font-size: 10px; font-family: monospace; letter-spacing: 1px; margin-bottom: 4px; }
+  .shop-owned-list { display: flex; flex-wrap: wrap; gap: 3px; }
+  .shop-owned-tag { font-size: 10px; font-family: monospace; color: #0f0; border: 1px solid #1a3a1a; padding: 1px 5px; background: #010f01; }
+  .shop-owned-empty { font-size: 10px; font-family: monospace; color: #444; font-style: italic; }
   .shop-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2px; }
   .shop-tree-stack { display: flex; flex-direction: column; gap: 3px; }
   .shop-tree-wrap { position: relative; padding: 4px; }
@@ -496,7 +528,7 @@ style.innerHTML = `
   .champ-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 3px; padding-bottom: 8px; }
   .champ-btn { background: #050505; border: 1px solid #2a2a2a; color: #888; padding: 6px 3px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-family: monospace; }
   .champ-btn:hover:not(.taken) { border-color: #888; color: #ccc; background: #0a0a0a; }
-  .champ-btn.selected { border-color: #0f0; color: #0f0; background: #010f01; }
+  .champ-btn.selected { border: 2px solid #0f0 !important; color: #0f0 !important; background: #002800 !important; box-shadow: inset 0 0 8px rgba(0,255,0,0.25); }
   .champ-btn.taken { opacity: 0.3; cursor: not-allowed; border-color: #400; color: #400; }
   .champ-icon { font-size: 22px; font-weight: bold; }
   .champ-name { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; letter-spacing: 0; }
@@ -764,8 +796,9 @@ export function populateShop() {
           <button id="shopUpBtn" class="shop-nav-btn">▲</button>
           <button id="shopDownBtn" class="shop-nav-btn">▼</button>
         </div>
-        <div class="shop-hint">Zelené → lze koupit. Oranžové → chybí předchozí item. Šedé → málo zlata.</div>
+        <div class="shop-hint">GREEN=[BUY] ready · AMBER=[REQ] need prereq (► line shows what) · RED=+Xg needed · total cost shown when prereqs missing</div>
       </div>
+      <div id="shopOwnedBar"></div>
       <div id="shopTreeMount"></div>
       <button id="closeShopBtn" style="width:100%;padding:10px;margin-top:8px;background:#000;color:#ff4444;border:1px solid #ff4444;cursor:pointer;font-weight:bold;font-size:14px;font-family:monospace;letter-spacing:2px;">[ CLOSE SHOP ]</button>
     </div>
@@ -788,6 +821,42 @@ export function populateShop() {
     btn.textContent = label;
     btn.onclick = () => { _shopFilter = label; populateShop(); };
     filtersEl.appendChild(btn);
+  }
+
+  // Owned items bar
+  const ownedBar = document.getElementById('shopOwnedBar');
+  if (ownedBar) {
+    const ownedItems = player ? (player.items || []) : [];
+    ownedBar.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'shop-owned-bar';
+    const title = document.createElement('div');
+    title.className = 'shop-owned-title';
+    title.textContent = `OWNED ITEMS  (${ownedItems.length}/25)`;
+    wrap.appendChild(title);
+    const list = document.createElement('div');
+    list.className = 'shop-owned-list';
+    if (ownedItems.length === 0) {
+      const empty = document.createElement('span');
+      empty.className = 'shop-owned-empty';
+      empty.textContent = 'No items purchased yet';
+      list.appendChild(empty);
+    } else {
+      // Count duplicates
+      const counts = {};
+      for (const id of ownedItems) counts[id] = (counts[id] || 0) + 1;
+      for (const [id, cnt] of Object.entries(counts)) {
+        const it = getShopItem(id);
+        if (!it) continue;
+        const tag = document.createElement('span');
+        tag.className = 'shop-owned-tag';
+        tag.textContent = cnt > 1 ? `${it.name} ×${cnt}` : it.name;
+        tag.title = it.desc;
+        list.appendChild(tag);
+      }
+    }
+    wrap.appendChild(list);
+    ownedBar.appendChild(wrap);
   }
 
   const treeMount = document.getElementById('shopTreeMount');
@@ -1387,7 +1456,44 @@ export function draw(){
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`SUMMONER SPELL`, leftM, startY); startY += 25;
         let sumSpell = SUMMONER_SPELLS[player.summonerSpell];
         ctx.fillStyle = '#fff'; ctx.fillText(`[F / L] ${player.summonerSpell} - Cooldown: ${sumSpell.cd}s`, leftM, startY); startY += 20;
-        ctx.fillStyle = '#ddd'; startY = wrapText(`    "${sumSpell.desc}"`, leftM, startY, panelW - 40, 18) + 12;
+        ctx.fillStyle = '#ddd'; startY = wrapText(`    "${sumSpell.desc}"`, leftM, startY, panelW - 40, 18) + 18;
+
+        // ── ITEMS ────────────────────────────────────────────────────────
+        const ownedIds = player.items || [];
+        ctx.fillStyle = '#ffcc00'; ctx.font = `bold 13px monospace`;
+        ctx.fillText(`ITEMS  (${ownedIds.length}/25)`, leftM, startY); startY += 6;
+        // horizontal rule
+        ctx.fillStyle = '#333';
+        ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 10;
+
+        if (ownedIds.length === 0) {
+            ctx.fillStyle = '#444'; ctx.font = `12px monospace`;
+            ctx.fillText('  No items purchased yet', leftM, startY); startY += 18;
+        } else {
+            // Aggregate duplicates
+            const counts = {};
+            const order = [];
+            for (const id of ownedIds) {
+                if (!counts[id]) order.push(id);
+                counts[id] = (counts[id] || 0) + 1;
+            }
+            for (const id of order) {
+                if (startY > panelH - 20) break;
+                const it = getShopItem(id);
+                if (!it) continue;
+                const cnt = counts[id];
+                const cntStr = cnt > 1 ? ` ×${cnt}` : '';
+                ctx.fillStyle = '#7cf'; ctx.font = `bold 11px monospace`;
+                ctx.fillText(`  ${it.name}${cntStr}  ${it.cost}g`, leftM, startY); startY += 15;
+                ctx.fillStyle = '#888'; ctx.font = `10px monospace`;
+                const descLine = `    ${it.desc}`;
+                if (ctx.measureText(descLine).width > panelW - leftM - 10) {
+                    startY = wrapText(descLine, leftM, startY, panelW - leftM - 8, 14) + 6;
+                } else {
+                    ctx.fillText(descLine, leftM, startY); startY += 16;
+                }
+            }
+        }
 
         ctx.restore();
     }

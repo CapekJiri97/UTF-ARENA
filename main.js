@@ -359,8 +359,13 @@ import { initAudio, playSound } from './Audio.js';
 
   export function applyHeal(target, amount) {
     if(!target || target.dead || target.hp <= 0) return 0;
+    // Anti-heal: reduce incoming heal (takes strongest active debuff, no stacking)
+    if ((target.antiHealTimer || 0) > 0 && (target.antiHealStrength || 0) > 0) {
+        amount *= (1 - target.antiHealStrength);
+    }
+    if (amount <= 0) return 0;
     let oldHp = target.hp;
-    
+
     // SERVER AUTORITA
     if (!socket || game.isHost) {
         target.hp = Math.min(target.effectiveMaxHp || target.maxHp, target.hp + amount);
@@ -448,8 +453,21 @@ import { initAudio, playSound } from './Audio.js';
         if ((!socket || game.isHost || isNetwork) && sourceEntity instanceof Player && finalDamage > 0) {
           const sustain = type === 'physical' ? (sourceEntity.lifesteal || 0) : (type === 'magical' ? (sourceEntity.spellVamp || 0) : 0);
           if (sustain > 0) {
-            const healed = applyHeal(sourceEntity, finalDamage * sustain);
+            // AoE sustain cap: first target in a 50ms window heals at 100%, subsequent at 20%
+            // This prevents AoE spells from healing 5x more than single-target attacks
+            const now = performance.now();
+            if (!sourceEntity._svWin || now - sourceEntity._svWin.t > 50) {
+                sourceEntity._svWin = { t: now, count: 0 };
+            }
+            sourceEntity._svWin.count++;
+            const aoeMult = sourceEntity._svWin.count === 1 ? 1.0 : 0.2;
+            const healed = applyHeal(sourceEntity, finalDamage * sustain * aoeMult);
             if (healed > 0 && sourceEntity.stats) sourceEntity.stats.hpHealed += healed;
+          }
+          // Apply anti-heal debuff to the target (non-stacking: takes strongest effect)
+          if ((sourceEntity.antiHeal || 0) > 0) {
+            target.antiHealTimer = Math.max(target.antiHealTimer || 0, 3.0);
+            target.antiHealStrength = Math.max(target.antiHealStrength || 0, sourceEntity.antiHeal);
           }
         }
 
