@@ -58,20 +58,33 @@ function getOwnedTreeBranch(player, treeId) {
   return null;
 }
 
+// Počet "volných" (nespotřebovaných) kusů daného itemu v inventáři.
+// Každý item co vyžaduje reqId spotřebuje jeden kus.
+function countFreeItems(player, itemId) {
+  const owned = (player.items || []).filter(id => id === itemId).length;
+  const consumed = (player.items || []).reduce((sum, id) => {
+    const it = getShopItem(id);
+    if (!it) return sum;
+    const reqs = Array.isArray(it.requires) ? it.requires : (it.requires ? [it.requires] : []);
+    return sum + reqs.filter(r => r === itemId).length;
+  }, 0);
+  return owned - consumed;
+}
+
 export function canBuyShopItem(player, item) {
   if (!player || !item) return { ok: false, reason: 'Invalid item' };
-  if (player.items && player.items.length >= 25) return { ok: false, reason: 'Inventory is full! (Max 25)' };
+  if (player.items && player.items.length >= 25) return { ok: false, reason: 'Inventory full (max 25)' };
 
   const requiredItems = item.requires ? (Array.isArray(item.requires) ? item.requires : [item.requires]) : [];
   for (const reqId of requiredItems) {
-    if (!player.items.includes(reqId)) {
+    if (countFreeItems(player, reqId) <= 0) {
       const reqItem = getShopItem(reqId);
-      return { ok: false, reason: `Requires ${reqItem ? reqItem.name : reqId}` };
+      return { ok: false, reason: `Need ${reqItem ? reqItem.name : reqId}` };
     }
   }
 
   if (item.unique && player.items.includes(item.id)) {
-    return { ok: false, reason: `You already have ${item.name}!` };
+    return { ok: false, reason: `Already owned` };
   }
 
   return { ok: true };

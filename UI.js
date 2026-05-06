@@ -427,103 +427,90 @@ style.innerHTML = `
           border-radius: 50% !important;
       } 
   }
-  .shop-shell { display: flex; flex-direction: column; gap: 14px; }
-  .shop-toolbar { position: sticky; top: -16px; z-index: 10; background: rgba(5,5,7,0.98); padding: 14px 0 12px 0; border-bottom: 1px solid #2a2d34; backdrop-filter: blur(8px); }
-  .shop-toolbar-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
-  .shop-title { margin: 0; color: #fff; font-size: 22px; letter-spacing: 0.06em; }
-  .shop-toolbar-actions { display: flex; gap: 10px; }
-  .shop-nav-btn { flex: 1; padding: 10px 12px; font-size: 16px; font-weight: 700; background: #17191f; color: #fff; border: 1px solid #323743; cursor: pointer; border-radius: 10px; }
-  .shop-nav-btn:active { transform: translateY(1px); }
-  .shop-hint { color: #a5aab5; font-size: 11px; line-height: 1.4; letter-spacing: 0.02em; }
-  .shop-section { background: rgba(255,255,255,0.025); border: 1px solid #242833; border-radius: 16px; padding: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); }
-  .shop-section-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-  .shop-section-title { font-weight: 800; color: #ffcc00; letter-spacing: 0.08em; font-size: 12px; text-transform: uppercase; }
-  .shop-tree-toggle { cursor: pointer; user-select: none; padding: 8px; margin: -8px -8px 0 -8px; border-radius: 12px 12px 0 0; transition: background 0.2s; }
-  .shop-tree-toggle:hover { background: rgba(255,204,0,0.05); }
-  .tree-toggle-icon { display: inline-block; transition: transform 0.2s ease; }
-  /* Barevné stavy karet */
-  .shop-state-buy { border-color: #2a6e3a !important; background: #0e1f14 !important; }
-  .shop-state-buy .shop-buy-btn { background: #1e5c2a; color: #46f26b; border-color: #2a6e3a; }
-  .shop-state-buy .shop-buy-btn:hover { background: #267a37; }
-  .shop-state-prereq { border-color: #5e4000 !important; background: #181008 !important; opacity: 0.85; }
-  .shop-state-prereq .shop-buy-btn { background: #3d2800; color: #c08020; border-color: #5e4000; cursor: not-allowed; }
-  .shop-state-gold { border-color: #3b2a2a !important; background: #120808 !important; opacity: 0.7; }
-  .shop-state-gold .shop-buy-btn { background: #220e0e; color: #884444; border-color: #3b2a2a; cursor: not-allowed; }
+  /* ═══ RETRO ASCII SHOP ═══ */
+  * { box-sizing: border-box; }
+  .shop-shell { display: flex; flex-direction: column; gap: 4px; font-family: monospace; }
+  .shop-toolbar { position: sticky; top: -16px; z-index: 10; background: #000; padding: 8px 0 6px 0; border-bottom: 1px solid #444; }
+  .shop-toolbar-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .shop-title { margin: 0; color: #0f0; font-size: 18px; font-family: monospace; letter-spacing: 2px; }
+  .shop-toolbar-actions { display: flex; gap: 6px; }
+  .shop-nav-btn { padding: 4px 10px; font-size: 14px; background: #000; color: #888; border: 1px solid #444; cursor: pointer; font-family: monospace; }
+  .shop-nav-btn:hover { color: #0f0; border-color: #0f0; }
+  .shop-hint { color: #555; font-size: 10px; font-family: monospace; }
   /* Filter buttons */
-  .shop-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-  .shop-filter-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid #3a3f4a; background: #171b22; color: #a0a8b5; font-size: 11px; font-weight: 700; cursor: pointer; font-family: monospace; }
+  .shop-filters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .shop-filter-btn { padding: 2px 8px; border: 1px solid #444; background: #000; color: #888; font-size: 11px; font-family: monospace; cursor: pointer; letter-spacing: 1px; }
   .shop-filter-btn:hover { border-color: #ffcc00; color: #ffcc00; }
-  .shop-filter-btn.active { background: #2a2510; border-color: #ffcc00; color: #ffcc00; }
-  .shop-section-note { color: #98a0ad; font-size: 10px; line-height: 1.3; }
-  .shop-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
-  .shop-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; background: #11141a; border: 1px solid #2c313b; border-radius: 12px; padding: 10px; min-width: 0; }
-  .shop-card.is-locked { opacity: 0.75; filter: grayscale(35%); }
-  .shop-card-tree { background: linear-gradient(180deg, rgba(16,18,24,0.98), rgba(10,12,16,0.98)); }
-  .shop-card-left { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-  .shop-card-title-row { display: flex; flex-direction: column; gap: 6px; }
-  .shop-card-name-wrap { display: flex; flex-direction: column; gap: 3px; }
-  .shop-card-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; color: #fff; line-height: 1.1; }
-  .shop-card-count { color: #46f26b; font-size: 10px; font-weight: 700; }
-  .shop-card-cost { color: #ffcc00; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; }
-  .shop-card-stats { display: flex; flex-wrap: wrap; gap: 4px; }
-  .shop-stat-pill { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; background: #171b22; border: 1px solid #2f3540; color: #cdd3dc; font-size: 10px; white-space: nowrap; }
-  .shop-buy-btn { align-self: start; min-width: 72px; padding: 9px 12px; border-radius: 10px; border: 1px solid #3b414d; background: #1a1f28; color: #46f26b; font-weight: 800; cursor: pointer; }
-  .shop-buy-btn:disabled { color: #848a95; cursor: not-allowed; }
-  .shop-tree-stack { display: flex; flex-direction: column; gap: 12px; }
-  .shop-tree-wrap { position: relative; }
+  .shop-filter-btn.active { border-color: #ffcc00; color: #ffcc00; background: #111; }
+  /* Tree sections */
+  .shop-section { background: #000; border: 1px solid #333; padding: 0; margin-bottom: 2px; }
+  .shop-section-head { padding: 0; margin: 0; }
+  .shop-section-title { font-weight: bold; color: #ffcc00; font-size: 11px; font-family: monospace; letter-spacing: 2px; }
+  .shop-section-note { display: none; }
+  .shop-tree-toggle { cursor: pointer; user-select: none; padding: 5px 8px; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 4px; }
+  .shop-tree-toggle:hover { background: #0a0a0a; }
+  .tree-toggle-icon { display: inline-block; transition: transform 0.15s ease; color: #555; font-size: 10px; }
+  /* Cards */
+  .shop-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px; align-items: center; background: #050505; border: 1px solid #222; padding: 5px 7px; min-width: 0; margin: 0; }
+  .shop-card-tree { background: #050505; border-color: #1a1a1a; }
+  .shop-card-left { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .shop-card-title-row { display: flex; flex-direction: row; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .shop-card-name-wrap { display: flex; flex-direction: row; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .shop-card-name { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: bold; color: #ddd; font-family: monospace; }
+  .shop-card-count { color: #0f0; font-size: 10px; }
+  .shop-card-cost { color: #ffcc00; font-size: 11px; font-family: monospace; white-space: nowrap; }
+  .shop-card-stats { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 1px; }
+  .shop-stat-pill { display: inline; color: #888; font-size: 10px; font-family: monospace; white-space: nowrap; }
+  .shop-stat-pill::before { content: '['; color: #444; }
+  .shop-stat-pill::after  { content: ']'; color: #444; }
+  /* State colors */
+  .shop-state-buy { border-color: #1a3a1a !important; }
+  .shop-state-buy .shop-card-name { color: #cfc; }
+  .shop-state-buy .shop-buy-btn { border-color: #0f0; color: #0f0; background: #010f01; }
+  .shop-state-buy .shop-buy-btn:hover { background: #001800; }
+  .shop-state-prereq { border-color: #2a1a00 !important; opacity: 0.8; }
+  .shop-state-prereq .shop-card-name { color: #997744; }
+  .shop-state-prereq .shop-buy-btn { border-color: #554400; color: #886600; background: #0a0800; cursor: not-allowed; }
+  .shop-state-gold { border-color: #1a0000 !important; opacity: 0.6; }
+  .shop-state-gold .shop-card-name { color: #664444; }
+  .shop-state-gold .shop-buy-btn { border-color: #330000; color: #553333; background: #050000; cursor: not-allowed; }
+  /* Buy button */
+  .shop-buy-btn { padding: 3px 7px; border: 1px solid #333; background: #000; color: #888; font-size: 11px; font-family: monospace; cursor: pointer; white-space: nowrap; }
+  .shop-buy-btn:disabled { cursor: not-allowed; }
+  .shop-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2px; }
+  .shop-tree-stack { display: flex; flex-direction: column; gap: 3px; }
+  .shop-tree-wrap { position: relative; padding: 4px; }
   .shop-tree-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-  .shop-tree-grid { position: relative; display: grid; grid-template-columns: repeat(var(--shop-tree-cols, 3), minmax(0, 1fr)); gap: 10px 12px; padding: 2px 0 0 0; }
+  .shop-tree-grid { position: relative; display: grid; grid-template-columns: repeat(var(--shop-tree-cols,3), minmax(0,1fr)); gap: 4px; }
   .shop-tree-grid .shop-card { width: 100%; }
-  .shop-tree-grid .shop-card-tree .shop-card-name { font-size: 13px; }
-  .shop-tree-grid .shop-card-tree .shop-card-stats { gap: 3px; }
+  /* ═══ RETRO LOBBY / CHAMP SELECT ═══ */
+  .three-col-layout { display: flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; }
+  .team-box { flex: 0 0 210px !important; width: 210px !important; background: #000; border: 1px solid #333; display: flex; flex-direction: column; scroll-snap-align: center; font-family: monospace; }
+  .center-roster { flex: 1 1 380px !important; min-width: 280px; background: #000; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; scroll-snap-align: center; font-family: monospace; }
+  .team-header { padding: 7px; font-weight: bold; text-align: center; letter-spacing: 2px; font-family: monospace; font-size: 12px; }
+  .team-footer { padding: 8px; border-top: 1px solid #222; flex-shrink: 0; margin-top: auto; }
+  .blue-header { background: #000; color: #4488ff; border-bottom: 1px solid #4488ff; }
+  .red-header  { background: #000; color: #ff4444; border-bottom: 1px solid #ff4444; }
+  .player-list { list-style: none; padding: 6px; margin: 0; flex-grow: 1; overflow-y: auto; min-height: 80px; text-align: left; }
+  .player-item { padding: 4px 6px; margin-bottom: 2px; background: #050505; border: 1px solid #2a2a2a; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-family: monospace; }
+  .champ-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 3px; padding-bottom: 8px; }
+  .champ-btn { background: #050505; border: 1px solid #2a2a2a; color: #888; padding: 6px 3px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-family: monospace; }
+  .champ-btn:hover:not(.taken) { border-color: #888; color: #ccc; background: #0a0a0a; }
+  .champ-btn.selected { border-color: #0f0; color: #0f0; background: #010f01; }
+  .champ-btn.taken { opacity: 0.3; cursor: not-allowed; border-color: #400; color: #400; }
+  .champ-icon { font-size: 22px; font-weight: bold; }
+  .champ-name { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; letter-spacing: 0; }
   @media screen and (max-width: 900px), screen and (max-height: 600px) {
-      #shopOverlay { width: clamp(340px, 70vw, 720px) !important; max-width: calc(100vw - 24px) !important; right: 12px !important; top: 12px !important; bottom: 12px !important; left: auto !important; height: auto !important; max-height: calc(100vh - 24px) !important; border-radius: 18px !important; padding: 12px 12px 20px 12px !important; box-shadow: -20px 0 45px rgba(0,0,0,0.35) !important; }
-      .shop-shell { gap: 12px; }
-      .shop-toolbar { top: -12px; padding: 12px 0 10px 0; }
-      .shop-title { font-size: 18px; }
-      .shop-nav-btn { padding: 9px 10px; font-size: 14px; }
-      .shop-section { padding: 10px; border-radius: 14px; }
+      #shopOverlay { width: clamp(300px, 65vw, 680px) !important; padding: 10px 10px 18vh 10px !important; }
       .shop-card-grid { grid-template-columns: 1fr; }
-      .shop-card { grid-template-columns: 1fr; gap: 8px; }
-      .shop-buy-btn { width: 100%; }
-      .shop-tree-stack { gap: 10px; }
-      .shop-tree-grid { gap: 8px 10px; }
-      .shop-tree-grid .shop-card-tree { padding: 8px; }
-      .shop-tree-grid .shop-card-tree .shop-card-name { font-size: 12px; }
-      .shop-tree-grid .shop-card-tree .shop-card-stats { gap: 2px; }
-      .shop-stat-pill { font-size: 9px; padding: 2px 6px; }
-      #roomLobby { padding: 2vw !important; max-height: 98vh !important; }
-      #lobbyTitle { font-size: 18px !important; }
-      #btnSpec, #leaveRoomBtn { padding: 6px 10px !important; font-size: 11px !important; }
-      .champ-grid { grid-template-columns: repeat(auto-fill, minmax(45px, 1fr)) !important; gap: 4px !important; }
-      .champ-btn { padding: 4px !important; gap: 2px !important; }
+      .shop-tree-grid { gap: 3px; }
+      .team-box { flex: 0 0 170px !important; width: 170px !important; }
+      .center-roster { flex: 0 0 280px !important; width: 280px !important; min-width: 280px !important; }
+      .champ-grid { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)) !important; gap: 2px !important; }
+      .champ-btn { padding: 3px !important; }
       .champ-icon { font-size: 16px !important; }
       .champ-name { font-size: 9px !important; }
-      #spellBtns button { padding: 6px 8px !important; font-size: 11px !important; }
-      #readyBtn, #startBtn { padding: 10px 15px !important; font-size: 12px !important; }
-      .team-header { padding: 4px !important; font-size: 12px !important; }
-      .player-item { padding: 4px !important; font-size: 10px !important; margin-bottom: 2px !important; }
-      #specList { max-height: 30px !important; font-size: 10px !important; }
-      #lobbyUpBtn, #lobbyDownBtn { padding: 8px 12px !important; font-size: 14px !important; }
-      .team-box { flex: 0 0 200px !important; width: 200px !important; }
-      .center-roster { flex: 0 0 320px !important; width: 320px !important; min-width: 320px !important; }
   }
-  .three-col-layout { display: flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-behavior: smooth; }
-  .team-box { flex: 0 0 220px !important; width: 220px !important; background: #0a0a0c; border-radius: 4px; display: flex; flex-direction: column; border: 1px solid #222; scroll-snap-align: center; }
-  .center-roster { flex: 1 1 400px !important; min-width: 300px; background: #0a0a0c; border: 1px solid #222; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; scroll-snap-align: center; }
-  .team-header { padding: 10px; font-weight: bold; text-align: center; letter-spacing: 1px; }
-  .team-footer { padding: 10px; border-top: 1px solid #222; flex-shrink: 0; margin-top: auto; }
-  .blue-header { background: linear-gradient(90deg, #1a2a5c, #0a0a0c); color: #486FED; border-bottom: 2px solid #486FED; }
-  .red-header { background: linear-gradient(-90deg, #5c1a1a, #0a0a0c); color: #FF4E4E; border-bottom: 2px solid #FF4E4E; }
-  .player-list { list-style: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; min-height: 120px; text-align: left; }
-  .player-item { padding: 6px; margin-bottom: 4px; background: #111; border: 1px solid #333; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-  .champ-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; padding-bottom: 15px; }
-  .champ-btn { background: #111; border: 2px solid #333; color: #fff; padding: 10px 5px; border-radius: 6px; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 5px; font-family: monospace; }
-  .champ-btn:hover:not(.taken) { background: #222; border-color: #f0e6d2; }
-  .champ-btn.selected { border-color: #0f0; background: rgba(0,255,0,0.1); box-shadow: 0 0 10px rgba(0,255,0,0.2) inset; }
-  .champ-btn.taken { opacity: 0.3; cursor: not-allowed; filter: grayscale(100%); border-color: #f00; }
-  .champ-icon { font-size: 24px; font-weight: bold; }
-  .champ-name { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 `;
 document.head.appendChild(style);
 
@@ -767,7 +754,7 @@ export function populateShop() {
     <div class="shop-shell">
       <div class="shop-toolbar">
         <div class="shop-toolbar-top">
-          <h2 class="shop-title">SHOP <span id="shopGoldDisplay" style="color:#ffcc00;font-size:18px;margin-left:10px;">🪙 ${gold}g</span></h2>
+          <h2 class="shop-title">[ SHOP ] <span id="shopGoldDisplay" style="color:#ffcc00;font-size:16px;margin-left:10px;">[G] ${gold}g</span></h2>
           <button id="closeShopX" style="background:transparent;color:#ff4e4e;border:none;font-size:32px;font-weight:bold;cursor:pointer;line-height:1;padding:0 10px;">&times;</button>
         </div>
         <div id="shopFilters" class="shop-filters"></div>
@@ -778,7 +765,7 @@ export function populateShop() {
         <div class="shop-hint">Zelené → lze koupit. Oranžové → chybí předchozí item. Šedé → málo zlata.</div>
       </div>
       <div id="shopTreeMount"></div>
-      <button id="closeShopBtn" style="width:100%;padding:14px;margin-top:8px;background:#444;color:#fff;border:none;cursor:pointer;font-weight:bold;font-size:16px;border-radius:12px;">CLOSE SHOP</button>
+      <button id="closeShopBtn" style="width:100%;padding:10px;margin-top:8px;background:#000;color:#ff4444;border:1px solid #ff4444;cursor:pointer;font-weight:bold;font-size:14px;font-family:monospace;letter-spacing:2px;">[ CLOSE SHOP ]</button>
     </div>
   `;
   document.getElementById('closeShopBtn').onclick = closeShop;
@@ -813,7 +800,7 @@ export function populateShop() {
 
 export function updateShopGold() {
   const el = document.getElementById('shopGoldDisplay');
-  if (el && player) el.textContent = `🪙 ${Math.floor(player.gold || 0)}g`;
+  if (el && player) el.textContent = `[G] ${Math.floor(player.gold || 0)}g`;
 }
 
 export function updateInventory(){ if(!player) return; const inv = document.getElementById('inventory'); inv.innerHTML = ''; for(const id of player.items){ const it = shopItems.find(s=>s.id===id); const slot = document.createElement('div'); slot.className='invSlot'; slot.textContent = it? it.name : id; inv.appendChild(slot); } }
@@ -1578,13 +1565,13 @@ export function showEnd(winner){
       }
             const blueSummary = getTeamDominionSummary(0);
             const redSummary = getTeamDominionSummary(1);
-            let html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; font-size:13px;">
-                <div style="background:#0d1736; border:1px solid #486FED; padding:10px; border-radius:6px; color:#dbe6ff;">
-                    <div style="font-weight:bold; color:#486FED; margin-bottom:4px;">BLUE SUMMARY</div>
+            let html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:10px; font-size:12px; font-family:monospace;">
+                <div style="background:#000; border:1px solid #4488ff; padding:8px; color:#aac4ff;">
+                    <div style="font-weight:bold; color:#4488ff; margin-bottom:4px; letter-spacing:2px;">[ BLUE TEAM ]</div>
                     <div>AVG LVL: ${blueSummary.avgLevel.toFixed(1)} | AVG GOLD: ${Math.round(blueSummary.avgGold)} | AVG PCS: ${Math.round(blueSummary.avgPCS)}</div>
                 </div>
-                <div style="background:#301111; border:1px solid #FF4E4E; padding:10px; border-radius:6px; color:#ffe0e0;">
-                    <div style="font-weight:bold; color:#FF4E4E; margin-bottom:4px;">RED SUMMARY</div>
+                <div style="background:#000; border:1px solid #ff4444; padding:8px; color:#ffaaaa;">
+                    <div style="font-weight:bold; color:#ff4444; margin-bottom:4px; letter-spacing:2px;">[ RED TEAM ]</div>
                     <div>AVG LVL: ${redSummary.avgLevel.toFixed(1)} | AVG GOLD: ${Math.round(redSummary.avgGold)} | AVG PCS: ${Math.round(redSummary.avgPCS)}</div>
                 </div>
             </div>`;
@@ -1604,26 +1591,26 @@ export function buildMenu() {
   m.style.position = 'fixed'; m.style.top = '0'; m.style.left = '0'; m.style.width = '100%'; m.style.height = '100%'; m.style.zIndex = '9999'; m.style.display = 'block'; m.style.background = 'rgba(0,0,0,0.85)'; m.style.overflowY = 'auto'; m.style.padding = '5vh 0 25vh 0'; m.style.boxSizing = 'border-box'; m.style.WebkitOverflowScrolling = 'touch'; m.style.touchAction = 'auto'; m.style.pointerEvents = 'auto';
   let selectedClass = 'Bruiser'; let selectedTeam = 0; let selectedSpell = 'Heal'; let isSpectator = false;
   m.innerHTML = `
-      <div id="roomBrowser" style="margin: 0 auto; background:#111; padding:2vw; border:1px solid #444; border-radius: 8px; color:#fff; text-align:center; width: 90vw; max-width: 600px; box-sizing:border-box; display: ${socket ? 'block' : 'none'};">
-          <h1 style="margin-top:0;">UTF Arena - BROWSE GAMES</h1>
+      <div id="roomBrowser" style="margin: 0 auto; background:#000; padding:2vw; border:1px solid #333; color:#ccc; text-align:center; width: 90vw; max-width: 600px; box-sizing:border-box; font-family:monospace; display: ${socket ? 'block' : 'none'};">
+          <h1 style="margin-top:0; color:#ffcc00; letter-spacing:3px; font-family:monospace;">[ UTF ARENA - BROWSE GAMES ]</h1>
           <div style="margin-bottom: 20px; display:flex; gap:10px; justify-content:center;">
-              <input type="text" id="newRoomInput" placeholder="Enter Room Name..." style="padding:10px; font-size:16px; background:#000; color:#fff; border:1px solid #444; width: 60%;">
-              <button id="createRoomBtn" style="padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background:#222; color:#0f0; border:2px solid #0f0;">CREATE ROOM</button>
+              <input type="text" id="newRoomInput" placeholder="Enter Room Name..." style="padding:10px; font-size:14px; font-family:monospace; background:#000; color:#0f0; border:1px solid #444; width: 60%;">
+              <button id="createRoomBtn" style="padding:10px 20px; font-size:14px; font-weight:bold; cursor:pointer; font-family:monospace; background:#000; color:#0f0; border:2px solid #0f0;">[ CREATE ROOM ]</button>
           </div>
-          <div id="roomListContainer" style="text-align:left; background:#000; padding:15px; border:1px solid #333; border-radius:4px; min-height: 200px; max-height: 300px; overflow-y:auto;">
-              <h3 style="margin-top:0; color:#aaa; border-bottom:1px solid #444; padding-bottom:10px;">Active Rooms:</h3>
-              <ul id="roomList" style="list-style:none; padding:0; margin:0; font-family:monospace; font-size:16px;">
+          <div id="roomListContainer" style="text-align:left; background:#000; padding:15px; border:1px solid #333; min-height: 200px; max-height: 300px; overflow-y:auto;">
+              <h3 style="margin-top:0; color:#ffcc00; border-bottom:1px solid #444; padding-bottom:10px; font-family:monospace; letter-spacing:2px;">-- ACTIVE ROOMS --</h3>
+              <ul id="roomList" style="list-style:none; padding:0; margin:0; font-family:monospace; font-size:14px;">
                   <li>Loading rooms...</li>
               </ul>
           </div>
       </div>
-      <div id="roomLobby" style="margin: 0 auto; display: ${socket ? 'none' : 'flex'}; background:#070709; padding:1vw; border:1px solid #222; border-radius: 8px; color:#fff; text-align:center; width: 95vw; max-width: 1200px; box-sizing:border-box; flex-direction:column; max-height: 95vh; overflow: hidden;">
+      <div id="roomLobby" style="margin: 0 auto; display: ${socket ? 'none' : 'flex'}; background:#000; padding:1vw; border:1px solid #333; color:#ccc; text-align:center; width: 95vw; max-width: 1200px; box-sizing:border-box; font-family:monospace; flex-direction:column; max-height: 95vh; overflow: hidden;">
       <!-- Header -->
-      <div style="display:flex; flex-shrink: 0; justify-content:space-between; align-items:center; border-bottom: 1px solid #222; padding-bottom: 10px; margin-bottom: 10px;">
-          <h1 id="lobbyTitle" style="margin:0; font-size: 24px; color: #f0e6d2;">OFFLINE MODE</h1>
+      <div style="display:flex; flex-shrink: 0; justify-content:space-between; align-items:center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px;">
+          <h1 id="lobbyTitle" style="margin:0; font-size: 20px; color: #ffcc00; font-family:monospace; letter-spacing:3px;">[ OFFLINE MODE ]</h1>
           <div style="display:flex; gap:10px;">
-              <button id="btnSpec" style="padding:6px 12px; cursor:pointer; font-weight:bold; background:#222; color:#aaa; border:1px solid #555; border-radius:4px;">SPECTATE</button>
-              <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:6px 12px; cursor:pointer; background:#300; color:#ff6b6b; border:1px solid #ff6b6b; font-weight:bold; border-radius:4px;">LEAVE ROOM</button>
+              <button id="btnSpec" style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#aaa; border:1px solid #555;">[ SPECTATE ]</button>
+              <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:6px 12px; cursor:pointer; font-family:monospace; background:#000; color:#ff4444; border:1px solid #ff4444; font-weight:bold;">[ LEAVE ]</button>
           </div>
       </div>
       
@@ -1634,9 +1621,9 @@ export function buildMenu() {
               <div class="team-header blue-header">BLUE TEAM</div>
               <ul id="blueTeamList" class="player-list"></ul>
               <div class="team-footer">
-                  <button id="btnBlue" style="width: 100%; padding:10px; cursor:pointer; font-weight:bold; background:#1a2a5c; color:#486FED; border:1px solid #486FED; border-radius: 4px; margin-bottom: 5px;">JOIN BLUE</button>
-                  <details style="text-align: left; background: #000; padding: 5px; border-radius: 4px; border: 1px solid #222;">
-                      <summary style="cursor:pointer; color:#aaa; font-size:12px; outline:none;">Bot Difficulty (<span id="blueBotLabel">100%</span>)</summary>
+                  <button id="btnBlue" style="width: 100%; padding:8px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#4488ff; border:1px solid #4488ff; margin-bottom: 5px;">[ JOIN BLUE ]</button>
+                  <details style="text-align: left; background: #000; padding: 5px; border: 1px solid #222;">
+                      <summary style="cursor:pointer; color:#888; font-size:11px; font-family:monospace; outline:none;">Bot Difficulty (<span id="blueBotLabel">100%</span>)</summary>
                       <input type="range" id="blueBotSlider" min="50" max="200" step="10" value="100" style="width:100%; margin-top: 5px;">
                   </details>
               </div>
@@ -1644,24 +1631,24 @@ export function buildMenu() {
 
           <!-- Center: Champion Roster -->
           <div class="center-roster">
-              <div style="background: #111; padding: 10px; font-weight: bold; border-bottom: 1px solid #222; color: #f0e6d2; flex-shrink: 0;">CHOOSE YOUR HERO</div>
+              <div style="background: #000; padding: 10px; font-weight: bold; border-bottom: 1px solid #333; color: #ffcc00; font-family:monospace; letter-spacing:2px; flex-shrink: 0;">-- CHOOSE YOUR HERO --</div>
               <div class="roster-scroll-area" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column;">
                   <div id="classBtns" style="padding: 10px; text-align: left; flex-shrink: 0;"></div>
-                  
+
                   <!-- ZDE JE PŘESUNUTÝ FOOTER -->
-                  <div style="flex-shrink: 0; background: #0a0a0c; padding: 10px; border-top: 1px solid #222; display:flex; flex-direction:column; align-items:center; margin-top: auto;">
-                      <div style="font-size: 12px; color: #aaa; margin-bottom: 4px; font-weight:bold;">SUMMONER SPELL</div>
+                  <div style="flex-shrink: 0; background: #000; padding: 10px; border-top: 1px solid #333; display:flex; flex-direction:column; align-items:center; margin-top: auto;">
+                      <div style="font-size: 11px; color: #ffcc00; margin-bottom: 4px; font-weight:bold; font-family:monospace; letter-spacing:2px;">-- SUMMONER SPELL --</div>
                       <div id="spellBtns" style="display:flex; gap: 5px; flex-wrap: wrap; justify-content:center;"></div>
                   </div>
-                  <div class="footer-controls" style="flex-shrink: 0; background: #0a0a0c; padding: 10px; border-top: 1px solid #222; display:flex; flex-direction:column; gap: 10px;">
-                      <ul id="specList" style="list-style:none; padding:0; margin:0; font-size: 12px; color: #888; text-align: center; max-height: 40px; overflow-y:auto; display:flex; flex-direction:column;"></ul>
+                  <div class="footer-controls" style="flex-shrink: 0; background: #000; padding: 10px; border-top: 1px solid #333; display:flex; flex-direction:column; gap: 10px;">
+                      <ul id="specList" style="list-style:none; padding:0; margin:0; font-size: 11px; color: #888; text-align: center; max-height: 40px; overflow-y:auto; display:flex; flex-direction:column; font-family:monospace;"></ul>
                       <div style="display:flex; align-items:center; gap: 10px; justify-content: center; flex-wrap: wrap;">
                           <span style="display:flex; gap: 5px;">
-                              <button id="lobbyUpBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▲</button>
-                              <button id="lobbyDownBtn" style="cursor:pointer; padding:10px 15px; background:#111; color:#aaa; border:1px solid #333; border-radius:4px; font-weight:bold;">▼</button>
+                              <button id="lobbyUpBtn" style="cursor:pointer; padding:8px 14px; background:#000; color:#aaa; border:1px solid #444; font-weight:bold; font-family:monospace;">▲</button>
+                              <button id="lobbyDownBtn" style="cursor:pointer; padding:8px 14px; background:#000; color:#aaa; border:1px solid #444; font-weight:bold; font-family:monospace;">▼</button>
                           </span>
-                          <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background:#111; color:#fff; border:2px solid #555; border-radius: 4px; flex-grow:1;">READY</button>
-                          <button id="startBtn" style="padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background:#1a331a; color:#0f0; border:2px solid #0f0; border-radius: 4px; flex-grow:1;">START MATCH</button>
+                          <button id="readyBtn" style="display: ${socket ? 'block' : 'none'}; padding:8px 18px; font-size:14px; font-weight:bold; cursor:pointer; font-family:monospace; background:#000; color:#aaa; border:2px solid #555; flex-grow:1;">[ READY ]</button>
+                          <button id="startBtn" style="padding:8px 18px; font-size:14px; font-weight:bold; cursor:pointer; font-family:monospace; background:#010f01; color:#0f0; border:2px solid #0f0; flex-grow:1;">[ START MATCH ]</button>
                       </div>
                   </div>
               </div>
@@ -1672,9 +1659,9 @@ export function buildMenu() {
               <div class="team-header red-header">RED TEAM</div>
               <ul id="redTeamList" class="player-list"></ul>
               <div class="team-footer">
-                  <button id="btnRed" style="width: 100%; padding:10px; cursor:pointer; font-weight:bold; background:#5c1a1a; color:#FF4E4E; border:1px solid #FF4E4E; border-radius: 4px; margin-bottom: 5px;">JOIN RED</button>
-                  <details style="text-align: left; background: #000; padding: 5px; border-radius: 4px; border: 1px solid #222;">
-                      <summary style="cursor:pointer; color:#aaa; font-size:12px; outline:none;">Bot Difficulty (<span id="redBotLabel">100%</span>)</summary>
+                  <button id="btnRed" style="width: 100%; padding:8px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#ff4444; border:1px solid #ff4444; margin-bottom: 5px;">[ JOIN RED ]</button>
+                  <details style="text-align: left; background: #000; padding: 5px; border: 1px solid #222;">
+                      <summary style="cursor:pointer; color:#888; font-size:11px; font-family:monospace; outline:none;">Bot Difficulty (<span id="redBotLabel">100%</span>)</summary>
                       <input type="range" id="redBotSlider" min="50" max="200" step="10" value="100" style="width:100%; margin-top: 5px;">
                   </details>
               </div>
@@ -1713,9 +1700,9 @@ export function buildMenu() {
   const selectionDivs = [document.getElementById('classBtns'), document.getElementById('spellBtns')];
   const startBtn = document.getElementById('startBtn');
 
-  btnBlue.onclick = (e) => { selectedTeam = 0; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#486FED'; selectionDivs.forEach(d=>d.style.opacity=1); if(!socket){ startBtn.disabled = false; startBtn.style.opacity = 1; } notifyServer(); };
-  btnRed.onclick = (e) => { selectedTeam = 1; isSpectator = false; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#FF4E4E'; selectionDivs.forEach(d=>d.style.opacity=1); if(!socket){ startBtn.disabled = false; startBtn.style.opacity = 1; } notifyServer(); };
-  btnSpec.onclick = (e) => { selectedTeam = -1; isSpectator = true; teamBtns.forEach(b=>b.style.borderColor='#444'); e.target.style.borderColor='#aaa'; selectionDivs.forEach(d=>d.style.opacity=0.3); if(!socket){ startBtn.disabled = false; startBtn.style.opacity = 1; } notifyServer(); };
+  btnBlue.onclick = (e) => { selectedTeam = 0; isSpectator = false; teamBtns.forEach(b=>{ b.style.borderColor='#444'; b.style.color='#888'; }); e.target.style.borderColor='#4488ff'; e.target.style.color='#4488ff'; selectionDivs.forEach(d=>d.style.opacity=1); if(!socket){ startBtn.disabled = false; startBtn.style.opacity = 1; } notifyServer(); };
+  btnRed.onclick = (e) => { selectedTeam = 1; isSpectator = false; teamBtns.forEach(b=>{ b.style.borderColor='#444'; b.style.color='#888'; }); e.target.style.borderColor='#ff4444'; e.target.style.color='#ff4444'; selectionDivs.forEach(d=>d.style.opacity=1); if(!socket){ startBtn.disabled = false; startBtn.style.opacity = 1; } notifyServer(); };
+  btnSpec.onclick = (e) => { selectedTeam = -1; isSpectator = true; teamBtns.forEach(b=>{ b.style.borderColor='#444'; b.style.color='#888'; }); e.target.style.borderColor='#aaa'; e.target.style.color='#aaa'; selectionDivs.forEach(d=>d.style.opacity=0.3); if(!socket){ startBtn.disabled = false; startBtn.style.opacity = 1; } notifyServer(); };
 
   const cBtns = document.getElementById('classBtns');
   const catGroups = { 
@@ -1730,7 +1717,7 @@ export function buildMenu() {
   for(let cat in catGroups) {
       let catTitle = document.createElement('div');
       catTitle.textContent = cat;
-      catTitle.style.color = '#f0e6d2'; catTitle.style.fontSize = '12px'; catTitle.style.fontWeight = 'bold'; catTitle.style.marginBottom = '5px'; catTitle.style.borderBottom = '1px solid #333'; catTitle.style.paddingBottom = '3px';
+      catTitle.style.color = '#ffcc00'; catTitle.style.fontSize = '11px'; catTitle.style.fontWeight = 'bold'; catTitle.style.fontFamily = 'monospace'; catTitle.style.letterSpacing = '2px'; catTitle.style.marginBottom = '5px'; catTitle.style.borderBottom = '1px solid #333'; catTitle.style.paddingBottom = '3px';
       cBtns.appendChild(catTitle);
       
       let grid = document.createElement('div');
@@ -1752,12 +1739,12 @@ export function buildMenu() {
   const sBtns = document.getElementById('spellBtns');
   const allSpells = [];
   const tooltip = document.createElement('div');
-  tooltip.style.position = 'fixed'; tooltip.style.background = 'rgba(0,0,0,0.9)'; tooltip.style.border = '1px solid #888'; tooltip.style.color = '#fff'; tooltip.style.padding = '8px'; tooltip.style.borderRadius = '4px'; tooltip.style.display = 'none'; tooltip.style.pointerEvents = 'none'; tooltip.style.fontSize = '12px';
+  tooltip.style.position = 'fixed'; tooltip.style.background = '#000'; tooltip.style.border = '1px solid #555'; tooltip.style.color = '#ccc'; tooltip.style.padding = '8px'; tooltip.style.display = 'none'; tooltip.style.pointerEvents = 'none'; tooltip.style.fontSize = '12px'; tooltip.style.fontFamily = 'monospace';
   document.body.appendChild(tooltip);
 
   for (let s in SUMMONER_SPELLS) {
-      let btn = document.createElement('button'); btn.textContent = s; btn.dataset.spell = s; btn.style.padding = '8px 12px'; btn.style.background = '#111'; btn.style.color = '#fff'; btn.style.border = '2px solid #333'; btn.style.borderRadius = '4px'; btn.style.cursor = 'pointer'; btn.style.fontWeight = 'bold';
-      btn.onclick = () => { selectedSpell = s; allSpells.forEach(b => { b.style.borderColor = '#333'; b.style.background = '#111'; }); btn.style.borderColor = '#0f0'; btn.style.background = 'rgba(0,255,0,0.1)'; notifyServer(); };
+      let btn = document.createElement('button'); btn.textContent = s; btn.dataset.spell = s; btn.style.padding = '6px 10px'; btn.style.background = '#000'; btn.style.color = '#888'; btn.style.border = '1px solid #333'; btn.style.cursor = 'pointer'; btn.style.fontWeight = 'bold'; btn.style.fontFamily = 'monospace'; btn.style.fontSize = '11px';
+      btn.onclick = () => { selectedSpell = s; allSpells.forEach(b => { b.style.borderColor = '#333'; b.style.background = '#000'; b.style.color = '#888'; }); btn.style.borderColor = '#0f0'; btn.style.background = '#010f01'; btn.style.color = '#0f0'; notifyServer(); };
       btn.onmouseover = (e) => { const spell = SUMMONER_SPELLS[s]; tooltip.innerHTML = `<b>${spell.name}</b><br>${spell.desc}<br><i>Cooldown: ${spell.cd}s</i>`; tooltip.style.display = 'block'; };
       btn.onmousemove = (e) => { tooltip.style.left = (e.clientX + 15) + 'px'; tooltip.style.top = (e.clientY + 15) + 'px'; };
       btn.onmouseout = () => { tooltip.style.display = 'none'; };
