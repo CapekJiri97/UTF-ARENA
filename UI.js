@@ -655,9 +655,11 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null
 
   const allSpellBtns = document.querySelectorAll('#spellBtns button');
   if(allSpellBtns.length > 0) {
-      allSpellBtns.forEach(b => { 
-          b.style.borderColor = (b.dataset.spell === mySpell) ? '#0f0' : '#333'; 
-          b.style.background = (b.dataset.spell === mySpell) ? 'rgba(0,255,0,0.1)' : '#111';
+      allSpellBtns.forEach(b => {
+          const active = b.dataset.spell === mySpell;
+          b.style.borderColor = active ? '#0f0' : '#333';
+          b.style.background = active ? '#010f01' : '#000';
+          b.style.color = active ? '#0f0' : '#888';
       });
   }
 
@@ -1688,7 +1690,7 @@ export function buildMenu() {
   let myReady = false;
   if (readyBtn) {
       readyBtn.onclick = () => {
-          if (socket) {
+          if (socket && socket.connected) {
               myReady = !myReady;
               socket.emit('toggle_ready', myReady);
           }
@@ -1730,7 +1732,12 @@ export function buildMenu() {
           btn.className = 'champ-btn';
           btn.dataset.className = c; 
           btn.innerHTML = `<div class="champ-icon" style="color:${type}">${classInfo.glyph}</div><div class="champ-name">${c}</div>`;
-          btn.onclick = () => { selectedClass = c; notifyServer(); }; 
+          btn.onclick = () => {
+              selectedClass = c;
+              allBtns.forEach(b => b.classList.remove('selected'));
+              btn.classList.add('selected');
+              notifyServer();
+          };
           grid.appendChild(btn); allBtns.push(btn);
       });
       cBtns.appendChild(grid);
@@ -1752,7 +1759,7 @@ export function buildMenu() {
   } setTimeout(() => { let b = allSpells.find(x => x.textContent === 'Heal'); if(b) b.click(); }, 50);
 
   function notifyServer() { if(socket) socket.emit('update_selection', { className: selectedClass, team: selectedTeam, summonerSpell: selectedSpell }); }
-  startBtn.addEventListener('click', () => { requestLandscapeFullscreen(); if(socket) socket.emit('start_game'); else { m.style.display = 'none'; startGame(selectedClass, selectedTeam, isSpectator); } });
+  startBtn.addEventListener('click', () => { requestLandscapeFullscreen(); if(socket && socket.connected) socket.emit('start_game'); else { m.style.display = 'none'; startGame(selectedClass, selectedTeam, isSpectator, selectedSpell); } });
 
   let blueBotDiff = 100, redBotDiff = 100;
   const blueSlider = document.getElementById('blueBotSlider');

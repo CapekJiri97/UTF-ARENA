@@ -625,21 +625,21 @@ import { initAudio, playSound } from './Audio.js';
       return Object.keys(CLASSES)[0];
   }
 
-  export function startGame(playerClass, playerTeam = 0, isSpectator = false) {
+  export function startGame(playerClass, playerTeam = 0, isSpectator = false, summonerSpell = 'Heal') {
     game.players = []; game.minions = []; game.projectiles = [];
     game.isSpectator = isSpectator;
     game.isHost = true; // Důležité: Aby boti a hra nečekali na síťové příkazy!
-    
+
     let bluePicked = [];
     let redPicked = [];
     const spellsArray = Object.keys(SUMMONER_SPELLS);
-    
+
     if (!isSpectator) {
         if (playerTeam === 0) bluePicked.push(playerClass);
         else redPicked.push(playerClass);
 
-        player = new Player(spawnPoints[playerTeam].x, spawnPoints[playerTeam].y, { team: playerTeam, id:'player0', className: playerClass });
-        // summonerSpell has been synced in server, assuming default is 'Heal' if not specified
+        player = new Player(spawnPoints[playerTeam].x, spawnPoints[playerTeam].y, { team: playerTeam, id:'player0', className: playerClass, summonerSpell });
+        // summonerSpell is now passed from lobby selection
         game.players.push(player);
     } else {
         player = null;
