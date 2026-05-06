@@ -35,12 +35,15 @@ export const shopItems = [
   { id:'ah_heal2', name:'Mortal Reminder', desc:'+18 AD, -60% Heal on hit (3s, no stack)', cost:480, treeId:'anti', treeBranch:'physical', requires:'ah_heal', apply: (pl)=>{ pl.AD += 18; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); } },
   { id:'ah_heal_ap', name:'Grievous Wounds', desc:'+12 AP, -40% Heal on hit (3s, no stack)', cost:320, treeId:'anti', treeBranch:'magical', requires:'anti_base', apply: (pl)=>{ pl.AP += 12; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.40); } },
   { id:'ah_heal_ap2', name:'Liandry Torment', desc:'+18 AP, -60% Heal on hit (3s, no stack)', cost:480, treeId:'anti', treeBranch:'magical', requires:'ah_heal_ap', apply: (pl)=>{ pl.AP += 18; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); } },
-  // SLOW
-  { id:'slow', name:'Frozen Heart', desc:'+80 HP, +15 Armor, 20% Slow', cost:340, treeId:'slow', treeBranch:'core', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.armor += 15; pl.onHitSlow = 0.20; } },
-  { id:'slow_ms', name:'Rylais Scepter', desc:'+15 AP, 25% Slow on Spells', cost:340, treeId:'slow', treeBranch:'spell', apply: (pl)=>{ pl.AP += 15; pl.onSpellHitSlow = 0.25; } },
-  // SHIELD
-  { id:'shield', name:'Kaenic Rookern', desc:'+80 HP, +15 MR, Shield on Hit', cost:340, treeId:'shield', treeBranch:'core', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.mr += 15; pl.shieldOnHit = 120; } },
-  { id:'shield_ad', name:'Hollow Radiance', desc:'+10 AD, +80 HP, +15 Armor, Enhanced Shield', cost:480, treeId:'shield', treeBranch:'defense', requires:'shield', apply: (pl)=>{ pl.AD += 10; pl.maxHp += 80; pl.hp += 80; pl.armor += 15; pl.shieldOnHit = 180; } }
+  // AD SLOW branch (part of AD tree)
+  { id:'ad_slow', name:'Chilling Blade', desc:'+10 AD, +40 HP, 10% Slow on hit', cost:350, treeId:'ad', treeBranch:'slow', requires:'ad', apply: (pl)=>{ pl.AD += 10; pl.maxHp += 40; pl.hp += 40; pl.onHitSlow = Math.max(pl.onHitSlow || 0, 0.10); } },
+  { id:'slow', name:'Frozen Heart', desc:'+80 HP, +15 Armor, 20% Slow on hit', cost:350, treeId:'ad', treeBranch:'slow', requires:'ad_slow', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.armor += 15; pl.onHitSlow = Math.max(pl.onHitSlow || 0, 0.20); } },
+  // AP SLOW branch (part of AP tree)
+  { id:'ap_slow', name:'Glacial Tome', desc:'+10 AP, 12% Slow on Spells', cost:350, treeId:'ap', treeBranch:'slow', requires:'ap', apply: (pl)=>{ pl.AP += 10; pl.onSpellHitSlow = Math.max(pl.onSpellHitSlow || 0, 0.12); } },
+  { id:'slow_ms', name:'Rylais Scepter', desc:'+15 AP, 25% Slow on Spells', cost:350, treeId:'ap', treeBranch:'slow', requires:'ap_slow', apply: (pl)=>{ pl.AP += 15; pl.onSpellHitSlow = Math.max(pl.onSpellHitSlow || 0, 0.25); } },
+  // SHIELD branch (part of Defense tree)
+  { id:'shield', name:'Kaenic Rookern', desc:'+80 HP, +15 MR, Shield on Hit', cost:350, treeId:'def', treeBranch:'shield', requires:'hp', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.mr += 15; pl.shieldOnHit = 120; } },
+  { id:'shield_ad', name:'Hollow Radiance', desc:'+10 AD, +80 HP, +15 Armor, Enhanced Shield', cost:480, treeId:'def', treeBranch:'shield', requires:'shield', apply: (pl)=>{ pl.AD += 10; pl.maxHp += 80; pl.hp += 80; pl.armor += 15; pl.shieldOnHit = 180; } }
 ];
 
 const itemById = new Map(shopItems.map((item) => [item.id, item]));

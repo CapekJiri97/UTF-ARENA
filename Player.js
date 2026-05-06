@@ -908,10 +908,6 @@ export class Player{
     if (this.hanaBuffTimer > 0) statuses.push({ t: 'EMPOWERED', c: '#f0f' });
     if (this.reaperCharge > 0) statuses.push({ t: `EMPOWERED (${this.reaperCharge})`, c: '#800080' });
     if (this.antiHealTimer > 0) statuses.push({ t: 'GRIEVOUS', c: '#ff6600' });
-    if ((this.lifesteal || 0) > 0 || (this.spellVamp || 0) > 0) statuses.push({ t: 'VAMP', c: '#cc44ff' });
-    if ((this.onHitSlow || 0) > 0) statuses.push({ t: 'SLOW ATK', c: '#44ccff' });
-    if ((this.onSpellHitSlow || 0) > 0) statuses.push({ t: 'SLOW SPELL', c: '#44ccff' });
-    if ((this.antiHeal || 0) > 0) statuses.push({ t: 'ANTI-HEAL', c: '#ff8800' });
     
     let startY = this.pos.y - 38;
     ctx.font = 'bold 10px monospace';
@@ -1696,14 +1692,16 @@ export class BotPlayer extends Player {
     // All upgrade paths — each is an ordered list of item IDs from base to final
     static get ITEM_PATHS() {
         return [
-            // AD paths
+            // AD paths (3 branches)
             ['ad'],
             ['ad', 'ad_ls', 'ad_ls2'],
             ['ad', 'ad_pen', 'ad_pen2'],
-            // AP paths
+            ['ad', 'ad_slow', 'slow'],
+            // AP paths (3 branches)
             ['ap'],
             ['ap', 'ap_vamp', 'ap_vamp2'],
             ['ap', 'ap_pen', 'ap_pen2'],
+            ['ap', 'ap_slow', 'slow_ms'],
             // AS paths
             ['as'],
             ['as', 'as_ms', 'as_ms2'],
@@ -1712,17 +1710,14 @@ export class BotPlayer extends Player {
             ['ah'],
             ['ah', 'ah_ms', 'ah_ms2'],
             ['ah', 'ah_hp', 'ah_hp2'],
-            // Defense paths
+            // Defense paths (3 branches)
             ['hp'],
             ['hp', 'def_ar', 'def_ar2'],
             ['hp', 'def_mr', 'def_mr2'],
+            ['hp', 'shield', 'shield_ad'],
             // Anti-heal paths
             ['anti_base', 'ah_heal', 'ah_heal2'],
             ['anti_base', 'ah_heal_ap', 'ah_heal_ap2'],
-            // Utility paths
-            ['slow'],
-            ['slow_ms'],
-            ['shield', 'shield_ad'],
         ];
     }
 
@@ -1759,37 +1754,35 @@ export class BotPlayer extends Player {
         return (after - before) / Math.max(1, totalCost / 300);
     }
 
-    // Pick the best new path to commit to, avoiding trees already owned
+    // Pick the best new path to commit to, avoiding branches already owned
     static selectTargetPath(owner, enemies, enemyHasHealing = false) {
-        const ownedTreeIds = new Set();
-        for (const id of (owner.items || [])) {
-            const it = getShopItem(id);
-            if (it && it.treeId) ownedTreeIds.add(it.treeId);
-        }
-
         const isTank = owner.role === 'TANK';
-        const isFighter = owner.role === 'FIGHTER' || owner.role === 'SPLITPUSHER';
         const isSupport = owner.role === 'SUPPORT';
         const isMagical = owner.dmgType === 'magical';
 
-        // Filter paths relevant to this bot's role
+        // Filter paths: skip if branch-specific items (past the root) are already owned,
+        // or if single-item path root is already owned.
+        // This allows multiple branches from the same tree root (e.g. ad_ls + ad_slow).
         const pathFilter = (path) => {
             const rootItem = getShopItem(path[0]);
             if (!rootItem) return false;
             const tid = rootItem.treeId;
-            // Don't stack same tree
-            if (ownedTreeIds.has(tid)) return false;
-            // Tanks avoid pure damage paths
+
+            // Single-item path: skip if root already owned
+            if (path.length === 1 && (owner.items || []).includes(path[0])) return false;
+            // Multi-item path: skip if any branch-specific item (index ≥ 1) already owned
+            if (path.length > 1 && path.slice(1).some(id => (owner.items || []).includes(id))) return false;
+
+            // Role/type filters
             if (isTank && (tid === 'as' || (!isMagical && tid === 'ap') || (isMagical && tid === 'ad'))) return false;
-            // Mages avoid physical damage trees
-            if (isMagical && tid === 'ad') return false;
-            if (isMagical && tid === 'as') return false;
-            // Physical avoid AP trees
+            if (isMagical && (tid === 'ad' || tid === 'as')) return false;
             if (!isMagical && tid === 'ap') return false;
-            // Anti-heal only if enemies have healing
-            if ((tid === 'anti') && !enemyHasHealing) return false;
-            // Supports lean away from AS
+            if (tid === 'anti' && !enemyHasHealing) return false;
             if (isSupport && tid === 'as') return false;
+            // Mages don't benefit from AD-slow (Frozen Heart gives AD+Armor)
+            if (isMagical && path.includes('slow')) return false;
+            // Non-magical don't need AP-slow (Rylai's gives only AP+slow)
+            if (!isMagical && path.includes('slow_ms')) return false;
             return true;
         };
 

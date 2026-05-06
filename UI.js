@@ -52,17 +52,17 @@ const SHOP_TREE_CONFIGS = {
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
-            { id: 'ad', col: 2, row: 1 },
-            { id: 'ad_ls', col: 1, row: 2 },
-            { id: 'ad_pen', col: 3, row: 2 },
-            { id: 'ad_ls2', col: 1, row: 3 },
+            { id: 'ad',      col: 2, row: 1 },
+            { id: 'ad_ls',   col: 1, row: 2 },
+            { id: 'ad_slow', col: 2, row: 2 },
+            { id: 'ad_pen',  col: 3, row: 2 },
+            { id: 'ad_ls2',  col: 1, row: 3 },
+            { id: 'slow',    col: 2, row: 3 },
             { id: 'ad_pen2', col: 3, row: 3 }
         ],
         links: [
-            ['ad', 'ad_ls'],
-            ['ad', 'ad_pen'],
-            ['ad_ls', 'ad_ls2'],
-            ['ad_pen', 'ad_pen2']
+            ['ad', 'ad_ls'], ['ad', 'ad_slow'], ['ad', 'ad_pen'],
+            ['ad_ls', 'ad_ls2'], ['ad_slow', 'slow'], ['ad_pen', 'ad_pen2']
         ]
     },
     ap: {
@@ -70,17 +70,17 @@ const SHOP_TREE_CONFIGS = {
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
-            { id: 'ap', col: 2, row: 1 },
+            { id: 'ap',      col: 2, row: 1 },
             { id: 'ap_vamp', col: 1, row: 2 },
-            { id: 'ap_pen', col: 3, row: 2 },
+            { id: 'ap_slow', col: 2, row: 2 },
+            { id: 'ap_pen',  col: 3, row: 2 },
             { id: 'ap_vamp2', col: 1, row: 3 },
+            { id: 'slow_ms', col: 2, row: 3 },
             { id: 'ap_pen2', col: 3, row: 3 }
         ],
         links: [
-            ['ap', 'ap_vamp'],
-            ['ap', 'ap_pen'],
-            ['ap_vamp', 'ap_vamp2'],
-            ['ap_pen', 'ap_pen2']
+            ['ap', 'ap_vamp'], ['ap', 'ap_slow'], ['ap', 'ap_pen'],
+            ['ap_vamp', 'ap_vamp2'], ['ap_slow', 'slow_ms'], ['ap_pen', 'ap_pen2']
         ]
     },
     as: {
@@ -124,17 +124,17 @@ const SHOP_TREE_CONFIGS = {
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
-            { id: 'hp', col: 2, row: 1 },
-            { id: 'def_ar', col: 1, row: 2 },
-            { id: 'def_mr', col: 3, row: 2 },
-            { id: 'def_ar2', col: 1, row: 3 },
-            { id: 'def_mr2', col: 3, row: 3 }
+            { id: 'hp',       col: 2, row: 1 },
+            { id: 'def_ar',   col: 1, row: 2 },
+            { id: 'shield',   col: 2, row: 2 },
+            { id: 'def_mr',   col: 3, row: 2 },
+            { id: 'def_ar2',  col: 1, row: 3 },
+            { id: 'shield_ad', col: 2, row: 3 },
+            { id: 'def_mr2',  col: 3, row: 3 }
         ],
         links: [
-            ['hp', 'def_ar'],
-            ['hp', 'def_mr'],
-            ['def_ar', 'def_ar2'],
-            ['def_mr', 'def_mr2']
+            ['hp', 'def_ar'], ['hp', 'shield'], ['hp', 'def_mr'],
+            ['def_ar', 'def_ar2'], ['shield', 'shield_ad'], ['def_mr', 'def_mr2']
         ]
     },
     anti: {
@@ -155,31 +155,9 @@ const SHOP_TREE_CONFIGS = {
             ['ah_heal_ap', 'ah_heal_ap2']
         ]
     },
-    slow: {
-        title: 'SLOW ITEMS',
-        note: 'Green links show the next item in the branch is currently buyable.',
-        columns: 3,
-        nodes: [
-            { id: 'slow', col: 1, row: 1 },
-            { id: 'slow_ms', col: 3, row: 1 }
-        ],
-        links: []
-    },
-    shield: {
-        title: 'SHIELD ITEMS',
-        note: 'Green links show the next item in the branch is currently buyable.',
-        columns: 3,
-        nodes: [
-            { id: 'shield', col: 2, row: 1 },
-            { id: 'shield_ad', col: 2, row: 2 }
-        ],
-        links: [
-            ['shield', 'shield_ad']
-        ]
-    }
 };
 
-const SHOP_TREE_ORDER = ['ad', 'ap', 'as', 'ah', 'def', 'anti', 'slow', 'shield'];
+const SHOP_TREE_ORDER = ['ad', 'ap', 'as', 'ah', 'def', 'anti'];
 
 const formatShopStats = (desc = '') => desc.split(',').map((part) => part.trim()).filter(Boolean);
 
@@ -775,8 +753,8 @@ const TREE_FILTER_MAP = {
     AP:    ['ap', 'anti'],
     AS:    ['as'],
     AH:    ['ah'],
-    Armor: ['def', 'slow', 'shield'],
-    MR:    ['def', 'shield'],
+    Armor: ['def'],
+    MR:    ['def'],
 };
 let _shopFilter = null; // null = vše
 
