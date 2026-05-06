@@ -6,7 +6,7 @@ import { world, spawnPoints, rawPolys, mapBoundary } from './MapConfig.js';
 import { Particle, spawnParticles, DamageNumber, EffectText } from './Effects.js';
 import { Projectile, Tower, Minion, HealPickup, PowerUp } from './Entities.js';
 import { Player, BotPlayer } from './Player.js';
-import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, updateSpellLabels, updateInventory, updateRoomListUI } from './UI.js';
+import { buildMenu, populateShop, toggleShop, updateLobbyUI, showEnd, draw, updateSpellLabels, updateInventory, updateRoomListUI, updateShopGold } from './UI.js';
 import { initAudio, playSound } from './Audio.js';
 
   export const canvas = document.getElementById('gameCanvas');

@@ -1,5 +1,5 @@
 import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
-import { shopItems, canBuyShopItem, getShopItem } from './items.js';
+import { shopItems, canBuyShopItem, getShopItem, getBuyBlockReason } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
@@ -189,10 +189,15 @@ const createShopStatPill = (text) => {
 
 const createShopCard = (item, currentPlayer, { tree = false } = {}) => {
     const buyCheck = canBuyShopItem(currentPlayer, item);
+    const canAfford = currentPlayer && (currentPlayer.gold || 0) >= item.cost;
+    const blockReason = currentPlayer ? getBuyBlockReason(currentPlayer, item) : 'gold';
     const count = currentPlayer && Array.isArray(currentPlayer.items) ? currentPlayer.items.filter((ownedId) => ownedId === item.id).length : 0;
 
+    // State: 'buy' = can buy, 'prereq' = missing item, 'gold' = not enough gold
+    const state = buyCheck.ok && canAfford ? 'buy' : (buyCheck.ok && !canAfford ? 'gold' : 'prereq');
+
     const card = document.createElement('div');
-    card.className = `shop-card${tree ? ' shop-card-tree' : ''}${buyCheck.ok ? '' : ' is-locked'}`;
+    card.className = `shop-card${tree ? ' shop-card-tree' : ''} shop-state-${state}`;
     card.dataset.shopItem = item.id;
 
     const left = document.createElement('div');
@@ -233,10 +238,19 @@ const createShopCard = (item, currentPlayer, { tree = false } = {}) => {
     left.appendChild(titleRow);
 
     const btn = document.createElement('button');
+    const canActuallyBuy = buyCheck.ok && canAfford;
     btn.className = 'shop-buy-btn';
-    btn.textContent = buyCheck.ok ? 'Buy' : 'Locked';
-    btn.title = buyCheck.ok ? '' : buyCheck.reason;
-    btn.disabled = !buyCheck.ok;
+    if (state === 'buy') {
+        btn.textContent = 'Buy';
+        btn.title = '';
+    } else if (state === 'gold') {
+        btn.textContent = `${item.cost}g`;
+        btn.title = 'Not enough gold';
+    } else {
+        btn.textContent = '🔒';
+        btn.title = buyCheck.reason || 'Locked';
+    }
+    btn.disabled = !canActuallyBuy;
     btn.addEventListener('click', () => buyItem(item.id));
 
     card.appendChild(left);
@@ -310,55 +324,40 @@ const drawShopTreeLinks = (treeWrap, currentPlayer, config) => {
     }
 };
 
+// Pamatuje si které stromy jsou otevřené mezi re-rendery
+const _openTrees = new Set();
+
 const renderTreeSection = (container, currentPlayer, treeId) => {
     const config = SHOP_TREE_CONFIGS[treeId];
     if (!config) return;
 
+    const isOpen = _openTrees.has(treeId);
+
     const section = document.createElement('section');
     section.className = 'shop-section shop-tree-section';
-    section.dataset.treeOpen = 'false';
+    section.dataset.treeId = treeId;
+    section.dataset.treeOpen = String(isOpen);
 
     const head = document.createElement('div');
     head.className = 'shop-section-head shop-tree-toggle';
-    head.style.cursor = 'pointer';
-    head.style.userSelect = 'none';
 
     const titleEl = document.createElement('div');
     titleEl.className = 'shop-section-title';
     const toggle = document.createElement('span');
-    toggle.textContent = '▶ ';
     toggle.className = 'tree-toggle-icon';
-    toggle.style.display = 'inline-block';
-    toggle.style.marginRight = '8px';
-    toggle.style.transition = 'transform 0.2s';
+    toggle.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+    toggle.textContent = '▶ ';
     titleEl.appendChild(toggle);
     titleEl.appendChild(document.createTextNode(config.title));
 
-    const note = document.createElement('div');
-    note.className = 'shop-section-note';
-    note.textContent = config.note;
-
     head.appendChild(titleEl);
-    head.appendChild(note);
     section.appendChild(head);
-
-    // Toggle handler
-    head.addEventListener('click', () => {
-        const isOpen = section.dataset.treeOpen === 'true';
-        section.dataset.treeOpen = isOpen ? 'false' : 'true';
-        toggle.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
-        const content = section.querySelector('.shop-tree-wrap');
-        if (content) content.style.display = isOpen ? 'none' : 'grid';
-    });
-
-    // Start collapsed
-    const collapseStyle = document.createElement('style');
-    collapseStyle.textContent = `.shop-tree-section[data-tree-open="false"] .shop-tree-wrap { display: none !important; }`;
 
     const treeWrap = document.createElement('div');
     treeWrap.className = 'shop-tree-wrap';
     treeWrap.dataset.treeId = treeId;
     treeWrap.style.setProperty('--shop-tree-cols', String(config.columns));
+    if (!isOpen) treeWrap.style.display = 'none';
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.classList.add('shop-tree-lines');
@@ -382,15 +381,22 @@ const renderTreeSection = (container, currentPlayer, treeId) => {
     section.appendChild(treeWrap);
     container.appendChild(section);
 
-    // Přidej collapse styl
-    if (!document.querySelector('style[data-tree-collapse]')) {
-        const collapseStyleEl = document.createElement('style');
-        collapseStyleEl.setAttribute('data-tree-collapse', 'true');
-        collapseStyleEl.textContent = `.shop-tree-section[data-tree-open="false"] .shop-tree-wrap { display: none !important; }`;
-        document.head.appendChild(collapseStyleEl);
-    }
+    head.addEventListener('click', () => {
+        const nowOpen = section.dataset.treeOpen !== 'true';
+        section.dataset.treeOpen = String(nowOpen);
+        toggle.style.transform = nowOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+        treeWrap.style.display = nowOpen ? '' : 'none';
+        if (nowOpen) {
+            _openTrees.add(treeId);
+            requestAnimationFrame(() => drawShopTreeLinks(treeWrap, currentPlayer, config));
+        } else {
+            _openTrees.delete(treeId);
+        }
+    });
 
-    requestAnimationFrame(() => drawShopTreeLinks(treeWrap, currentPlayer, config));
+    if (isOpen) {
+        requestAnimationFrame(() => drawShopTreeLinks(treeWrap, currentPlayer, config));
+    }
 };
 
 const style = document.createElement('style');
@@ -435,6 +441,19 @@ style.innerHTML = `
   .shop-tree-toggle { cursor: pointer; user-select: none; padding: 8px; margin: -8px -8px 0 -8px; border-radius: 12px 12px 0 0; transition: background 0.2s; }
   .shop-tree-toggle:hover { background: rgba(255,204,0,0.05); }
   .tree-toggle-icon { display: inline-block; transition: transform 0.2s ease; }
+  /* Barevné stavy karet */
+  .shop-state-buy { border-color: #2a6e3a !important; background: #0e1f14 !important; }
+  .shop-state-buy .shop-buy-btn { background: #1e5c2a; color: #46f26b; border-color: #2a6e3a; }
+  .shop-state-buy .shop-buy-btn:hover { background: #267a37; }
+  .shop-state-prereq { border-color: #5e4000 !important; background: #181008 !important; opacity: 0.85; }
+  .shop-state-prereq .shop-buy-btn { background: #3d2800; color: #c08020; border-color: #5e4000; cursor: not-allowed; }
+  .shop-state-gold { border-color: #3b2a2a !important; background: #120808 !important; opacity: 0.7; }
+  .shop-state-gold .shop-buy-btn { background: #220e0e; color: #884444; border-color: #3b2a2a; cursor: not-allowed; }
+  /* Filter buttons */
+  .shop-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .shop-filter-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid #3a3f4a; background: #171b22; color: #a0a8b5; font-size: 11px; font-weight: 700; cursor: pointer; font-family: monospace; }
+  .shop-filter-btn:hover { border-color: #ffcc00; color: #ffcc00; }
+  .shop-filter-btn.active { background: #2a2510; border-color: #ffcc00; color: #ffcc00; }
   .shop-section-note { color: #98a0ad; font-size: 10px; line-height: 1.3; }
   .shop-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
   .shop-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; background: #11141a; border: 1px solid #2c313b; border-radius: 12px; padding: 10px; min-width: 0; }
@@ -729,49 +748,72 @@ export function openShop(){ populateShop(); document.getElementById('shopOverlay
 export function closeShop(){ document.getElementById('shopOverlay').classList.add('hidden'); }
 export function toggleShop(){ const o = document.getElementById('shopOverlay'); if(o.classList.contains('hidden')) openShop(); else closeShop(); }
 
-export function populateShop() { 
-  const overlay = document.getElementById('shopOverlay'); 
-  if(!overlay) return; 
-    overlay.innerHTML = `
-        <div class="shop-shell">
-                <div class="shop-toolbar">
-                        <div class="shop-toolbar-top">
-                            <h2 class="shop-title">SHOP</h2>
-                            <button id="closeShopX" style="background:transparent; color:#ff4e4e; border:none; font-size:32px; font-weight:bold; cursor:pointer; line-height:1; padding:0 10px;">&times;</button>
-                        </div>
-                        <div class="shop-toolbar-actions">
-                                <button id="shopUpBtn" class="shop-nav-btn">▲</button>
-                                <button id="shopDownBtn" class="shop-nav-btn">▼</button>
-                        </div>
-                        <div class="shop-hint">Green links show a branch you can currently buy. Grey links are blocked by gold, prerequisites, or path choice.</div>
-                </div>
-                <div id="shopTreeMount"></div>
-                <div id="shopSections"></div>
-                <button id="closeShopBtn" style="width:100%; padding:14px; margin-top:8px; background:#444; color:#fff; border:none; cursor:pointer; font-weight:bold; font-size:16px; border-radius:12px;">CLOSE SHOP</button>
+// Filtr pro shop - jaké kategorie jsou viditelné
+const TREE_FILTER_MAP = {
+    AD:    ['ad', 'anti'],
+    AP:    ['ap', 'anti'],
+    AS:    ['as'],
+    AH:    ['ah'],
+    Armor: ['def', 'slow', 'shield'],
+    MR:    ['def', 'shield'],
+};
+let _shopFilter = null; // null = vše
+
+export function populateShop() {
+  const overlay = document.getElementById('shopOverlay');
+  if (!overlay) return;
+  const gold = player ? Math.floor(player.gold || 0) : 0;
+  overlay.innerHTML = `
+    <div class="shop-shell">
+      <div class="shop-toolbar">
+        <div class="shop-toolbar-top">
+          <h2 class="shop-title">SHOP <span id="shopGoldDisplay" style="color:#ffcc00;font-size:18px;margin-left:10px;">🪙 ${gold}g</span></h2>
+          <button id="closeShopX" style="background:transparent;color:#ff4e4e;border:none;font-size:32px;font-weight:bold;cursor:pointer;line-height:1;padding:0 10px;">&times;</button>
         </div>
-    `; 
-  document.getElementById('closeShopBtn').onclick = closeShop; 
-  document.getElementById('closeShopX').onclick = closeShop; 
+        <div id="shopFilters" class="shop-filters"></div>
+        <div class="shop-toolbar-actions">
+          <button id="shopUpBtn" class="shop-nav-btn">▲</button>
+          <button id="shopDownBtn" class="shop-nav-btn">▼</button>
+        </div>
+        <div class="shop-hint">Zelené → lze koupit. Oranžové → chybí předchozí item. Šedé → málo zlata.</div>
+      </div>
+      <div id="shopTreeMount"></div>
+      <button id="closeShopBtn" style="width:100%;padding:14px;margin-top:8px;background:#444;color:#fff;border:none;cursor:pointer;font-weight:bold;font-size:16px;border-radius:12px;">CLOSE SHOP</button>
+    </div>
+  `;
+  document.getElementById('closeShopBtn').onclick = closeShop;
+  document.getElementById('closeShopX').onclick = closeShop;
+  overlay.querySelector('#shopUpBtn').onclick = () => overlay.scrollBy({ top: -320, behavior: 'smooth' });
+  overlay.querySelector('#shopDownBtn').onclick = () => overlay.scrollBy({ top: 320, behavior: 'smooth' });
 
-  const upBtn = document.getElementById('shopUpBtn');
-  const downBtn = document.getElementById('shopDownBtn');
-    const doScrollUp = (e) => { if(e) e.preventDefault(); overlay.scrollBy({ top: -320, behavior: 'smooth' }); };
-    const doScrollDown = (e) => { if(e) e.preventDefault(); overlay.scrollBy({ top: 320, behavior: 'smooth' }); };
-  upBtn.onclick = doScrollUp; upBtn.ontouchstart = doScrollUp;
-  downBtn.onclick = doScrollDown; downBtn.ontouchstart = doScrollDown;
+  // Filter buttons
+  const filtersEl = document.getElementById('shopFilters');
+  const allBtn = document.createElement('button');
+  allBtn.className = `shop-filter-btn${_shopFilter === null ? ' active' : ''}`;
+  allBtn.textContent = 'All';
+  allBtn.onclick = () => { _shopFilter = null; populateShop(); };
+  filtersEl.appendChild(allBtn);
+  for (const [label, trees] of Object.entries(TREE_FILTER_MAP)) {
+    const btn = document.createElement('button');
+    btn.className = `shop-filter-btn${_shopFilter === label ? ' active' : ''}`;
+    btn.textContent = label;
+    btn.onclick = () => { _shopFilter = label; populateShop(); };
+    filtersEl.appendChild(btn);
+  }
 
-    const treeMount = document.getElementById('shopTreeMount');
-        if (treeMount) {
-            treeMount.className = 'shop-tree-stack';
-            for (const treeId of SHOP_TREE_ORDER) {
-                renderTreeSection(treeMount, player, treeId);
-            }
-        }
-
-    const sectionsMount = document.getElementById('shopSections');
-    if (sectionsMount) {
-        sectionsMount.innerHTML = ''; // redundantní sekce vymazány, vše je nyní ve stromech
+  const treeMount = document.getElementById('shopTreeMount');
+  if (treeMount) {
+    treeMount.className = 'shop-tree-stack';
+    const visibleTrees = _shopFilter ? TREE_FILTER_MAP[_shopFilter] : SHOP_TREE_ORDER;
+    for (const treeId of visibleTrees) {
+      if (SHOP_TREE_CONFIGS[treeId]) renderTreeSection(treeMount, player, treeId);
     }
+  }
+}
+
+export function updateShopGold() {
+  const el = document.getElementById('shopGoldDisplay');
+  if (el && player) el.textContent = `🪙 ${Math.floor(player.gold || 0)}g`;
 }
 
 export function updateInventory(){ if(!player) return; const inv = document.getElementById('inventory'); inv.innerHTML = ''; for(const id of player.items){ const it = shopItems.find(s=>s.id===id); const slot = document.createElement('div'); slot.className='invSlot'; slot.textContent = it? it.name : id; inv.appendChild(slot); } }
@@ -1440,8 +1482,11 @@ export function draw(){
   }
 }
 
-export function drawMinimap(){ 
-  const mm = document.getElementById('minimap'); const w = mm.clientWidth, h = mm.clientHeight;
+export function drawMinimap(){
+  const mm = document.getElementById('minimap');
+  if (!game.started || game.gameOver) { mm.style.visibility = 'hidden'; return; }
+  mm.style.visibility = 'visible';
+  const w = mm.clientWidth, h = mm.clientHeight;
   const dpr = window.devicePixelRatio || 1;
   let c = mm.querySelector('canvas');
   if (!c) { c = document.createElement('canvas'); mm.appendChild(c); }

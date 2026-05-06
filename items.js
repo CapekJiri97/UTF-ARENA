@@ -70,17 +70,17 @@ export function canBuyShopItem(player, item) {
     }
   }
 
-  // Check: nemůžeš koupit z jiné větve (ale core itemy můžeš koupit vícekrát)
-  if (item.treeId && item.treeBranch && item.treeBranch !== 'core') {
-    const ownedBranch = getOwnedTreeBranch(player, item.treeId);
-    if (ownedBranch && ownedBranch !== item.treeBranch) {
-      return { ok: false, reason: `Already building ${ownedBranch} path - pick one branch` };
-    }
-  }
-
   if (item.unique && player.items.includes(item.id)) {
     return { ok: false, reason: `You already have ${item.name}!` };
   }
 
   return { ok: true };
+}
+
+export function getBuyBlockReason(player, item) {
+  if (!player || !item) return 'invalid';
+  if ((player.gold || 0) < item.cost) return 'gold';
+  const result = canBuyShopItem(player, item);
+  if (!result.ok) return 'prereq';
+  return null;
 }
