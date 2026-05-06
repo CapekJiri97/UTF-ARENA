@@ -280,7 +280,7 @@ import { initAudio, playSound } from './Audio.js';
     socket.on('player_disconnected', (id) => {
        if(game && game.players) game.players = game.players.filter(p => p.id !== id);
        if(game && game.hostId === id) {
-           alert('Server Host se odpojil. Hra bude nyní ukončena.');
+           alert('Host disconnected. The match has ended.');
            window.location.reload();
        }
     });

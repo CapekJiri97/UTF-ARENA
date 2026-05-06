@@ -1,6 +1,6 @@
 export const shopItems = [
   // AD
-  { id:'ad', name:'Long Sword', desc:'+15 AD', cost:300, treeId:'ad', treeBranch:'core', apply: (pl)=>{ pl.AD += 15; } },
+  { id:'ad', name:'Iron Shard', desc:'+15 AD', cost:300, treeId:'ad', treeBranch:'core', apply: (pl)=>{ pl.AD += 15; } },
   { id:'ad_ls', name:'Vampiric Blade', desc:'+12 AD, +4% Lifesteal', cost:350, treeId:'ad', treeBranch:'lifesteal', requires:'ad', apply: (pl)=>{ pl.AD += 12; pl.lifesteal = (pl.lifesteal || 0) + 0.04; } },
   { id:'ad_ls2', name:'Bloodletter Blade', desc:'+15 AD, +6% Lifesteal', cost:450, treeId:'ad', treeBranch:'lifesteal', requires:'ad_ls', apply: (pl)=>{ pl.AD += 15; pl.lifesteal = (pl.lifesteal || 0) + 0.06; } },
   { id:'ad_pen', name:'Serrated Edge', desc:'+12 AD, +6 Armor Pen', cost:350, treeId:'ad', treeBranch:'armorpen', requires:'ad', apply: (pl)=>{ pl.AD += 12; pl.armorPenFlat = (pl.armorPenFlat || 0) + 6; } },

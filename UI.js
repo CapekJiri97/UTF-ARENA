@@ -451,7 +451,7 @@ style.innerHTML = `
   .shop-tree-toggle:hover { background: #0a0a0a; }
   .tree-toggle-icon { display: inline-block; transition: transform 0.15s ease; color: #555; font-size: 10px; }
   /* Cards */
-  .shop-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px; align-items: center; background: #050505; border: 1px solid #222; padding: 5px 7px; min-width: 0; margin: 0; }
+  .shop-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px; align-items: center; background: #050505; border: 1px solid #222; padding: 8px 10px; min-width: 0; margin: 0; }
   .shop-card-tree { background: #050505; border-color: #1a1a1a; }
   .shop-card-left { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .shop-card-title-row { display: flex; flex-direction: row; align-items: baseline; gap: 6px; flex-wrap: wrap; }
@@ -489,9 +489,9 @@ style.innerHTML = `
   .shop-owned-empty { font-size: 10px; font-family: monospace; color: #444; font-style: italic; }
   .shop-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2px; }
   .shop-tree-stack { display: flex; flex-direction: column; gap: 3px; }
-  .shop-tree-wrap { position: relative; padding: 4px; }
+  .shop-tree-wrap { position: relative; padding: 8px; }
   .shop-tree-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-  .shop-tree-grid { position: relative; display: grid; grid-template-columns: repeat(var(--shop-tree-cols,3), minmax(0,1fr)); gap: 4px; }
+  .shop-tree-grid { position: relative; display: grid; grid-template-columns: repeat(var(--shop-tree-cols,3), minmax(0,1fr)); gap: 10px; }
   .shop-tree-grid .shop-card { width: 100%; }
   /* ═══ RETRO LOBBY / CHAMP SELECT ═══ */
   .three-col-layout { display: flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; }
@@ -774,7 +774,6 @@ export function populateShop() {
           <button id="shopUpBtn" class="shop-nav-btn">▲</button>
           <button id="shopDownBtn" class="shop-nav-btn">▼</button>
         </div>
-        <div class="shop-hint">GREEN=[BUY] ready · AMBER=[REQ] need prereq (► line shows what) · RED=+Xg needed · total cost shown when prereqs missing</div>
       </div>
       <div id="shopOwnedBar"></div>
       <div id="shopTreeMount"></div>
@@ -1055,16 +1054,20 @@ export function draw(){
           ctx.scale(tgtScale, tgtScale);
           ctx.globalAlpha = isMobile ? 0.4 : 0.3; // 40% průhlednost okna targetu na mobilu, 30% na PC
 
-          const t = player.currentTarget; const tw = 280, th = 85; const tx = 0, ty = 0;
+          const t = player.currentTarget;
+          const _tls = t.lifesteal || 0, _tsv = t.spellVamp || 0;
+          const _tgw = t.antiHeal || 0, _tsw = t.onHitSlow || 0, _tss = t.onSpellHitSlow || 0;
+          const _tHasItemStats = _tls > 0 || _tsv > 0 || _tgw > 0 || _tsw > 0 || _tss > 0;
+          const tw = 280, th = _tHasItemStats ? 108 : 85; const tx = 0, ty = 0;
           ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = (t.team >= 0) ? TEAM_COLOR[t.team] : NEUTRAL_COLOR; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
-          
+
           ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left'; let tName = t.className || 'Minion'; ctx.fillText(`${tName} ${t.level ? 'LV'+t.level : ''}`, tx + 15, ty + 25);
 
           let fT = Math.max(0, Math.min(15, Math.round((Math.max(0,t.hp)/(t.effectiveMaxHp || t.maxHp)) * 15) || 0)); let hpBarStr = '[' + '#'.repeat(fT) + '-'.repeat(15 - fT) + ']';
           ctx.fillStyle = (t.team >= 0) ? TEAM_COLOR[t.team] : NEUTRAL_COLOR; ctx.font = 'bold 14px monospace'; ctx.fillText(hpBarStr, tx + 15, ty + 48);
           ctx.fillStyle = '#fff'; ctx.font = '12px monospace'; ctx.fillText(`${Math.floor(t.hp)}/${t.effectiveMaxHp || t.maxHp}`, tx + 15, ty + 68);
-          
-          if (t.AD !== undefined) { 
+
+          if (t.AD !== undefined) {
               ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; let stX = tx + 150;
               let buffAdMultT = 1.0 + (t.adAsBuffTimer > 0 ? t.adAsBuffAmount : 0);
               let buffAsMultT = 1.0 + (t.adAsBuffTimer > 0 ? t.adAsBuffAmount : 0);
@@ -1073,7 +1076,16 @@ export function draw(){
               ctx.fillText(`AR:${Math.round(t.armor*(t.hasPowerup?1.2:1))}`, stX + 45, ty + 30);
               ctx.fillText(`MR:${Math.round(t.mr*(t.hasPowerup?1.2:1))}`, stX + 45, ty + 55);
               ctx.fillText(`SP:${Math.round(t.speed*(t.hasPowerup?1.2:1))}`, stX + 90, ty + 30);
-              ctx.fillText(`AS:${(t.attackDelay / (t.attackSpeed * buffAsMultT)).toFixed(2)}`, stX + 90, ty + 55); 
+              ctx.fillText(`AS:${(t.attackDelay / (t.attackSpeed * buffAsMultT)).toFixed(2)}`, stX + 90, ty + 55);
+              if (_tHasItemStats) {
+                  ctx.fillStyle = '#7cf'; ctx.font = '10px monospace';
+                  let _tisx = stX, _tisy = ty + 78;
+                  if (_tls > 0)  { ctx.fillText(`LS:${Math.round(_tls*100)}%`,  _tisx, _tisy); _tisx += 48; }
+                  if (_tsv > 0)  { ctx.fillText(`SV:${Math.round(_tsv*100)}%`,  _tisx, _tisy); _tisx += 48; }
+                  if (_tgw > 0)  { ctx.fillText(`GW:${Math.round(_tgw*100)}%`,  _tisx, _tisy); _tisx += 48; }
+                  if (_tsw > 0)  { ctx.fillText(`SLW:${Math.round(_tsw*100)}%`, _tisx, _tisy); _tisx += 54; }
+                  if (_tss > 0)  { ctx.fillText(`SSP:${Math.round(_tss*100)}%`, _tisx, _tisy); }
+              }
           }
           ctx.restore();
       }
@@ -1149,19 +1161,32 @@ export function draw(){
       }
 
       // STATS TABLE
-      ctx.fillStyle = '#111'; ctx.fillRect(cx + 160, cy - 40, 180, 75);
-      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 160, cy - 40, 180, 75);
-      ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+      const _ls = player.lifesteal || 0, _sv = player.spellVamp || 0;
+      const _gw = player.antiHeal || 0, _sw = player.onHitSlow || 0, _ss = player.onSpellHitSlow || 0;
+      const _hasItemStats = _ls > 0 || _sv > 0 || _gw > 0 || _sw > 0 || _ss > 0;
+      const _boxH = _hasItemStats ? 98 : 75;
       let buffAdMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
       let buffAsMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
+      ctx.fillStyle = '#111'; ctx.fillRect(cx + 160, cy - 40, 210, _boxH);
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 160, cy - 40, 210, _boxH);
+      ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
       ctx.fillText(`AD:${Math.round(player.AD * (player.hasPowerup?1.2:1) * buffAdMult)}`, cx + 165, cy - 25);
       ctx.fillText(`AP:${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + 165, cy - 5);
       ctx.fillText(`AR:${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + 225, cy - 25);
       ctx.fillText(`MR:${Math.round(player.mr * (player.hasPowerup?1.2:1))}`, cx + 225, cy - 5);
       ctx.fillText(`HP:${player.effectiveMaxHp}`, cx + 225, cy + 15);
-      ctx.fillText(`AS:${(player.attackDelay / (player.attackSpeed * buffAsMult)).toFixed(2)}`, cx + 285, cy - 25);
-      ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 285, cy - 5);
-      ctx.fillText(`AH:${player.abilityHaste}`, cx + 285, cy + 15);
+      ctx.fillText(`AS:${(player.attackDelay / (player.attackSpeed * buffAsMult)).toFixed(2)}`, cx + 295, cy - 25);
+      ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 295, cy - 5);
+      ctx.fillText(`AH:${player.abilityHaste}`, cx + 295, cy + 15);
+      if (_hasItemStats) {
+          ctx.fillStyle = '#7cf'; ctx.font = '10px monospace';
+          let _isx = cx + 165, _isy = cy + 38;
+          if (_ls > 0)  { ctx.fillText(`LS:${Math.round(_ls*100)}%`,  _isx, _isy); _isx += 52; }
+          if (_sv > 0)  { ctx.fillText(`SV:${Math.round(_sv*100)}%`,  _isx, _isy); _isx += 52; }
+          if (_gw > 0)  { ctx.fillText(`GW:${Math.round(_gw*100)}%`,  _isx, _isy); _isx += 52; }
+          if (_sw > 0)  { ctx.fillText(`SLW:${Math.round(_sw*100)}%`, _isx, _isy); _isx += 58; }
+          if (_ss > 0)  { ctx.fillText(`SSP:${Math.round(_ss*100)}%`, _isx, _isy); }
+      }
       
       ctx.restore();
     }
@@ -1253,8 +1278,20 @@ export function draw(){
         ctx.fillText(`AD:    ${String(adVal).padEnd(5, ' ')} | AP:    ${apVal}`, leftM, startY); startY += 20;
         ctx.fillText(`Armor: ${String(arVal).padEnd(5, ' ')} | MR:    ${mrVal}`, leftM, startY); startY += 20;
         ctx.fillText(`A.Spd: ${String(asVal).padEnd(5, ' ')} | Speed: ${msVal}`, leftM, startY); startY += 20;
-        ctx.fillText(`Haste: ${String(ahVal).padEnd(5, ' ')} |`, leftM, startY); startY += 30;
-        
+        ctx.fillText(`Haste: ${String(ahVal).padEnd(5, ' ')} |`, leftM, startY); startY += 18;
+
+        const _cLs = player.lifesteal || 0, _cSv = player.spellVamp || 0;
+        const _cGw = player.antiHeal || 0, _cSw = player.onHitSlow || 0, _cSs = player.onSpellHitSlow || 0;
+        if (_cLs > 0 || _cSv > 0 || _cGw > 0 || _cSw > 0 || _cSs > 0) {
+            ctx.fillStyle = '#7cf';
+            if (_cLs > 0) { ctx.fillText(`Lifesteal:    ${Math.round(_cLs*100)}%`, leftM, startY); startY += 18; }
+            if (_cSv > 0) { ctx.fillText(`Spell Vamp:   ${Math.round(_cSv*100)}%`, leftM, startY); startY += 18; }
+            if (_cGw > 0) { ctx.fillText(`Anti-Heal:    ${Math.round(_cGw*100)}%  (applies to enemies hit)`, leftM, startY); startY += 18; }
+            if (_cSw > 0) { ctx.fillText(`Slow on hit:  ${Math.round(_cSw*100)}%`, leftM, startY); startY += 18; }
+            if (_cSs > 0) { ctx.fillText(`Slow on spell:${Math.round(_cSs*100)}%`, leftM, startY); startY += 18; }
+        }
+        startY += 12;
+
         let baScale = CLASSES[player.className].aaScale || 0.3;
         let baDmg = Math.round(CLASSES[player.className].baseAtk + ((player.dmgType === 'magical' ? apVal : adVal) * baScale)); 
         ctx.fillStyle = '#fff'; ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, leftM, startY); startY += 30;
@@ -1469,6 +1506,56 @@ export function draw(){
                     startY = wrapText(descLine, leftM, startY, panelW - leftM - 8, 14) + 6;
                 } else {
                     ctx.fillText(descLine, leftM, startY); startY += 16;
+                }
+            }
+        }
+
+        // ── ITEM MECHANICS GUIDE ─────────────────────────────────────────
+        const _mLs = player.lifesteal || 0, _mSv = player.spellVamp || 0;
+        const _mGw = player.antiHeal || 0, _mSw = player.onHitSlow || 0, _mSs = player.onSpellHitSlow || 0;
+        if (_mLs > 0 || _mSv > 0 || _mGw > 0 || _mSw > 0 || _mSs > 0) {
+            if (startY < panelH - 30) {
+                startY += 6;
+                ctx.fillStyle = '#ffcc00'; ctx.font = `bold 12px monospace`;
+                ctx.fillText('ITEM MECHANICS', leftM, startY); startY += 5;
+                ctx.fillStyle = '#333'; ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 10;
+                const mLines = [];
+                if (_mLs > 0) mLines.push(
+                    { h: `LIFESTEAL  (${Math.round(_mLs*100)}%)`, c: '#cc88ff' },
+                    { t: `Heals you for ${Math.round(_mLs*100)}% of basic-attack damage dealt.` },
+                    { t: `AoE hits (e.g. splash) heal only 20% of the normal rate` },
+                    { t: `to prevent heal-stacking when hitting multiple targets.` }
+                );
+                if (_mSv > 0) mLines.push(
+                    { h: `SPELL VAMP  (${Math.round(_mSv*100)}%)`, c: '#cc88ff' },
+                    { t: `Heals you for ${Math.round(_mSv*100)}% of spell damage dealt.` },
+                    { t: `Same AoE cap as Lifesteal — 20% rate past the first target.` }
+                );
+                if (_mGw > 0) mLines.push(
+                    { h: `ANTI-HEAL / GRIEVOUS WOUNDS  (${Math.round(_mGw*100)}%)`, c: '#ff8844' },
+                    { t: `On-hit: applies GRIEVOUS WOUNDS to the enemy for 3 seconds.` },
+                    { t: `Reduces ALL healing they receive by ${Math.round(_mGw*100)}% (heals, lifesteal,` },
+                    { t: `spell vamp, HP regen). Does NOT stack — strongest effect wins.` }
+                );
+                if (_mSw > 0) mLines.push(
+                    { h: `SLOW ON HIT  (${Math.round(_mSw*100)}%)`, c: '#44ccff' },
+                    { t: `Basic attacks reduce enemy movement speed by ${Math.round(_mSw*100)}%` },
+                    { t: `for a short duration after impact.` }
+                );
+                if (_mSs > 0) mLines.push(
+                    { h: `SLOW ON SPELL  (${Math.round(_mSs*100)}%)`, c: '#44ccff' },
+                    { t: `Spells reduce enemy movement speed by ${Math.round(_mSs*100)}%` },
+                    { t: `for a short duration after impact.` }
+                );
+                for (const ml of mLines) {
+                    if (startY > panelH - 14) break;
+                    if (ml.h) {
+                        ctx.fillStyle = ml.c; ctx.font = `bold 10px monospace`;
+                        ctx.fillText(`  ${ml.h}`, leftM, startY); startY += 14;
+                    } else {
+                        ctx.fillStyle = '#777'; ctx.font = `10px monospace`;
+                        ctx.fillText(`    ${ml.t}`, leftM, startY); startY += 13;
+                    }
                 }
             }
         }
