@@ -466,7 +466,11 @@ import { initAudio, playSound } from './Audio.js';
 
     // TRACKOVÁNÍ STATISTIK A ASISTENCÍ
     if (!socket || game.isHost) {
-        if (sourceEntity && sourceEntity.stats) sourceEntity.stats.dmgDealt += actualDamage;
+        if (sourceEntity && sourceEntity.stats) {
+            sourceEntity.stats.dmgDealt += actualDamage;
+            if (target instanceof Player) sourceEntity.stats.dmgDealtToHeroes = (sourceEntity.stats.dmgDealtToHeroes || 0) + actualDamage;
+            else if (target instanceof Minion) sourceEntity.stats.dmgDealtToMinions = (sourceEntity.stats.dmgDealtToMinions || 0) + actualDamage;
+        }
         if (target.stats) target.stats.dmgTaken += actualDamage;
         if (target instanceof Player && sourceEntity && sourceEntity.team !== target.team) {
             let existing = target.recentAttackers.get(sourceId);

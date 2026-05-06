@@ -28,7 +28,18 @@ export const shopItems = [
   { id:'def_ar', name:'Wardens Mail', desc:'+80 HP, +15 Armor', cost:350, treeId:'def', treeBranch:'armor', requires:'hp', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.armor += 15; } },
   { id:'def_ar2', name:'Sunfire Aegis', desc:'+120 HP, +20 Armor', cost:450, treeId:'def', treeBranch:'armor', requires:'def_ar', apply: (pl)=>{ pl.maxHp += 120; pl.hp += 120; pl.armor += 20; } },
   { id:'def_mr', name:'Spectres Cowl', desc:'+80 HP, +15 Magic Resist', cost:350, treeId:'def', treeBranch:'mr', requires:'hp', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.mr += 15; } },
-  { id:'def_mr2', name:'Spirit Visage', desc:'+120 HP, +20 Magic Resist', cost:450, treeId:'def', treeBranch:'mr', requires:'def_mr', apply: (pl)=>{ pl.maxHp += 120; pl.hp += 120; pl.mr += 20; } }
+  { id:'def_mr2', name:'Spirit Visage', desc:'+120 HP, +20 Magic Resist', cost:450, treeId:'def', treeBranch:'mr', requires:'def_mr', apply: (pl)=>{ pl.maxHp += 120; pl.hp += 120; pl.mr += 20; } },
+  // ANTI-HEAL
+  { id:'ah_heal', name:'Executioners Axe', desc:'+12 AD, -40% Healing', cost:320, treeId:'anti', treeBranch:'physical', apply: (pl)=>{ pl.AD += 12; pl.antiHeal = (pl.antiHeal || 0) + 0.40; } },
+  { id:'ah_heal2', name:'Mortal Reminder', desc:'+18 AD, -60% Healing', cost:480, treeId:'anti', treeBranch:'physical', requires:'ah_heal', apply: (pl)=>{ pl.AD += 18; pl.antiHeal = (pl.antiHeal || 0) + 0.60; } },
+  { id:'ah_heal_ap', name:'Grievous Wounds', desc:'+12 AP, -40% Healing', cost:320, treeId:'anti', treeBranch:'magical', apply: (pl)=>{ pl.AP += 12; pl.antiHeal = (pl.antiHeal || 0) + 0.40; } },
+  { id:'ah_heal_ap2', name:'Liandry Torment', desc:'+18 AP, -60% Healing', cost:480, treeId:'anti', treeBranch:'magical', requires:'ah_heal_ap', apply: (pl)=>{ pl.AP += 18; pl.antiHeal = (pl.antiHeal || 0) + 0.60; } },
+  // SLOW
+  { id:'slow', name:'Frozen Heart', desc:'+80 HP, +15 Armor, 20% Slow', cost:340, treeId:'slow', treeBranch:'core', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.armor += 15; pl.onHitSlow = 0.20; } },
+  { id:'slow_ms', name:'Rylais Scepter', desc:'+15 AP, 25% Slow on Spells', cost:340, treeId:'slow', treeBranch:'spell', apply: (pl)=>{ pl.AP += 15; pl.onSpellHitSlow = 0.25; } },
+  // SHIELD
+  { id:'shield', name:'Kaenic Rookern', desc:'+80 HP, +15 MR, Shield on Hit', cost:340, treeId:'shield', treeBranch:'core', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.mr += 15; pl.shieldOnHit = 120; } },
+  { id:'shield_ad', name:'Hollow Radiance', desc:'+10 AD, +80 HP, +15 Armor, Enhanced Shield', cost:480, treeId:'shield', treeBranch:'defense', requires:'shield', apply: (pl)=>{ pl.AD += 10; pl.maxHp += 80; pl.hp += 80; pl.armor += 15; pl.shieldOnHit = 180; } }
 ];
 
 const itemById = new Map(shopItems.map((item) => [item.id, item]));
@@ -59,10 +70,11 @@ export function canBuyShopItem(player, item) {
     }
   }
 
-  if (item.treeId) {
+  // Check: nemůžeš koupit z jiné větve (ale core itemy můžeš koupit vícekrát)
+  if (item.treeId && item.treeBranch && item.treeBranch !== 'core') {
     const ownedBranch = getOwnedTreeBranch(player, item.treeId);
-    if (ownedBranch && item.treeBranch && item.treeBranch !== 'core' && ownedBranch !== item.treeBranch) {
-      return { ok: false, reason: `Choose one ${item.treeId.toUpperCase()} path` };
+    if (ownedBranch && ownedBranch !== item.treeBranch) {
+      return { ok: false, reason: `Already building ${ownedBranch} path - pick one branch` };
     }
   }
 

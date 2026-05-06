@@ -39,6 +39,9 @@ export class Projectile{
   processOnHit(target) {
       if (this.opts.slowDuration) {
           target.slowTimer = Math.max(target.slowTimer || 0, this.opts.slowDuration);
+          if (this.opts.slowMod) {
+              target.slowMod = Math.min(target.slowMod || 1, this.opts.slowMod);
+          }
       }
       if (this.opts.markPetTarget && (!socket || game.isHost)) {
           const owner = game.players.find(p => p.id === this.ownerId);

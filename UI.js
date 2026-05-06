@@ -136,10 +136,47 @@ const SHOP_TREE_CONFIGS = {
             ['def_ar', 'def_ar2'],
             ['def_mr', 'def_mr2']
         ]
+    },
+    anti: {
+        title: 'ANTI-HEAL TREE',
+        note: 'Green links show the next item in the branch is currently buyable.',
+        columns: 3,
+        nodes: [
+            { id: 'ah_heal', col: 1, row: 1 },
+            { id: 'ah_heal_ap', col: 3, row: 1 },
+            { id: 'ah_heal2', col: 1, row: 2 },
+            { id: 'ah_heal_ap2', col: 3, row: 2 }
+        ],
+        links: [
+            ['ah_heal', 'ah_heal2'],
+            ['ah_heal_ap', 'ah_heal_ap2']
+        ]
+    },
+    slow: {
+        title: 'SLOW ITEMS',
+        note: 'Green links show the next item in the branch is currently buyable.',
+        columns: 3,
+        nodes: [
+            { id: 'slow', col: 1, row: 1 },
+            { id: 'slow_ms', col: 3, row: 1 }
+        ],
+        links: []
+    },
+    shield: {
+        title: 'SHIELD ITEMS',
+        note: 'Green links show the next item in the branch is currently buyable.',
+        columns: 3,
+        nodes: [
+            { id: 'shield', col: 2, row: 1 },
+            { id: 'shield_ad', col: 2, row: 2 }
+        ],
+        links: [
+            ['shield', 'shield_ad']
+        ]
     }
 };
 
-const SHOP_TREE_ORDER = ['ad', 'ap', 'as', 'ah', 'def'];
+const SHOP_TREE_ORDER = ['ad', 'ap', 'as', 'ah', 'def', 'anti', 'slow', 'shield'];
 
 const formatShopStats = (desc = '') => desc.split(',').map((part) => part.trim()).filter(Boolean);
 
@@ -279,13 +316,23 @@ const renderTreeSection = (container, currentPlayer, treeId) => {
 
     const section = document.createElement('section');
     section.className = 'shop-section shop-tree-section';
+    section.dataset.treeOpen = 'false';
 
     const head = document.createElement('div');
-    head.className = 'shop-section-head';
+    head.className = 'shop-section-head shop-tree-toggle';
+    head.style.cursor = 'pointer';
+    head.style.userSelect = 'none';
 
     const titleEl = document.createElement('div');
     titleEl.className = 'shop-section-title';
-    titleEl.textContent = config.title;
+    const toggle = document.createElement('span');
+    toggle.textContent = '▶ ';
+    toggle.className = 'tree-toggle-icon';
+    toggle.style.display = 'inline-block';
+    toggle.style.marginRight = '8px';
+    toggle.style.transition = 'transform 0.2s';
+    titleEl.appendChild(toggle);
+    titleEl.appendChild(document.createTextNode(config.title));
 
     const note = document.createElement('div');
     note.className = 'shop-section-note';
@@ -294,6 +341,19 @@ const renderTreeSection = (container, currentPlayer, treeId) => {
     head.appendChild(titleEl);
     head.appendChild(note);
     section.appendChild(head);
+
+    // Toggle handler
+    head.addEventListener('click', () => {
+        const isOpen = section.dataset.treeOpen === 'true';
+        section.dataset.treeOpen = isOpen ? 'false' : 'true';
+        toggle.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+        const content = section.querySelector('.shop-tree-wrap');
+        if (content) content.style.display = isOpen ? 'none' : 'grid';
+    });
+
+    // Start collapsed
+    const collapseStyle = document.createElement('style');
+    collapseStyle.textContent = `.shop-tree-section[data-tree-open="false"] .shop-tree-wrap { display: none !important; }`;
 
     const treeWrap = document.createElement('div');
     treeWrap.className = 'shop-tree-wrap';
@@ -321,6 +381,14 @@ const renderTreeSection = (container, currentPlayer, treeId) => {
     treeWrap.appendChild(grid);
     section.appendChild(treeWrap);
     container.appendChild(section);
+
+    // Přidej collapse styl
+    if (!document.querySelector('style[data-tree-collapse]')) {
+        const collapseStyleEl = document.createElement('style');
+        collapseStyleEl.setAttribute('data-tree-collapse', 'true');
+        collapseStyleEl.textContent = `.shop-tree-section[data-tree-open="false"] .shop-tree-wrap { display: none !important; }`;
+        document.head.appendChild(collapseStyleEl);
+    }
 
     requestAnimationFrame(() => drawShopTreeLinks(treeWrap, currentPlayer, config));
 };
@@ -364,6 +432,9 @@ style.innerHTML = `
   .shop-section { background: rgba(255,255,255,0.025); border: 1px solid #242833; border-radius: 16px; padding: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); }
   .shop-section-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
   .shop-section-title { font-weight: 800; color: #ffcc00; letter-spacing: 0.08em; font-size: 12px; text-transform: uppercase; }
+  .shop-tree-toggle { cursor: pointer; user-select: none; padding: 8px; margin: -8px -8px 0 -8px; border-radius: 12px 12px 0 0; transition: background 0.2s; }
+  .shop-tree-toggle:hover { background: rgba(255,204,0,0.05); }
+  .tree-toggle-icon { display: inline-block; transition: transform 0.2s ease; }
   .shop-section-note { color: #98a0ad; font-size: 10px; line-height: 1.3; }
   .shop-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
   .shop-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; background: #11141a; border: 1px solid #2c313b; border-radius: 12px; padding: 10px; min-width: 0; }
@@ -1472,12 +1543,12 @@ export function showEnd(winner){
                     <div>AVG LVL: ${redSummary.avgLevel.toFixed(1)} | AVG GOLD: ${Math.round(redSummary.avgGold)} | AVG PCS: ${Math.round(redSummary.avgPCS)}</div>
                 </div>
             </div>`;
-            html += '<table style="width:100%; border-collapse: collapse;">'; html += '<tr style="border-bottom:1px solid #444;"><th>Hero</th><th>K/D/A</th><th>Dmg Dealt</th><th>Dmg Taken</th><th>Healed</th><th>Gold</th><th>PCS</th></tr>';
+            html += '<table style="width:100%; border-collapse: collapse;">'; html += '<tr style="border-bottom:1px solid #444;"><th>Hero</th><th>K/D/A</th><th>Dmg Dealt</th><th>Dmg to Heroes</th><th>Dmg to Minions</th><th>Dmg Taken</th><th>Healed</th><th>Gold</th><th>PCS</th></tr>';
             let sorted = [...game.players].sort((a,b)=>computeDominionPCS(b).total - computeDominionPCS(a).total || (b.kills*2+b.assists)-(a.kills*2+a.assists));
       for(let p of sorted) {
           let color = p.team === 0 ? '#486FED' : '#FF4E4E'; if (p === player) color = '#0f0';
                     const pcs = computeDominionPCS(p);
-                    html += `<tr style="color:${color}; text-align:center;"><td style="text-align:left; padding:4px;">${p.className}</td><td>${p.kills}/${p.deaths}/${p.assists}</td><td>${p.stats.dmgDealt}</td><td>${p.stats.dmgTaken}</td><td>${Math.round(p.stats.hpHealed)}</td><td>${Math.floor(p.totalGold)}</td><td>${pcs.total}</td></tr>`;
+                    html += `<tr style="color:${color}; text-align:center;"><td style="text-align:left; padding:4px;">${p.className}</td><td>${p.kills}/${p.deaths}/${p.assists}</td><td>${p.stats.dmgDealt}</td><td>${p.stats.dmgDealtToHeroes || 0}</td><td>${p.stats.dmgDealtToMinions || 0}</td><td>${p.stats.dmgTaken}</td><td>${Math.round(p.stats.hpHealed)}</td><td>${Math.floor(p.totalGold)}</td><td>${pcs.total}</td></tr>`;
       }
       html += '</table>'; statsDiv.innerHTML = html; overlay.classList.remove('hidden'); 
   }
