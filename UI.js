@@ -122,18 +122,19 @@ const SHOP_TREE_CONFIGS = {
     def: {
         title: 'DEFENSE TREE',
         note: 'Green links show the next item in the branch is currently buyable.',
-        columns: 3,
+        columns: 4,
         nodes: [
-            { id: 'hp',       col: 2, row: 1 },
-            { id: 'def_ar',   col: 1, row: 2 },
-            { id: 'shield',   col: 2, row: 2 },
-            { id: 'def_mr',   col: 3, row: 2 },
-            { id: 'def_ar2',  col: 1, row: 3 },
-            { id: 'shield_ad', col: 2, row: 3 },
-            { id: 'def_mr2',  col: 3, row: 3 }
+            { id: 'hp',          col: 2, row: 1 },
+            { id: 'def_ar',      col: 1, row: 2 },
+            { id: 'shield',      col: 2, row: 2 },
+            { id: 'def_mr',      col: 3, row: 2 },
+            { id: 'titan_sigil', col: 4, row: 2 },
+            { id: 'def_ar2',     col: 1, row: 3 },
+            { id: 'shield_ad',   col: 2, row: 3 },
+            { id: 'def_mr2',     col: 3, row: 3 }
         ],
         links: [
-            ['hp', 'def_ar'], ['hp', 'shield'], ['hp', 'def_mr'],
+            ['hp', 'def_ar'], ['hp', 'shield'], ['hp', 'def_mr'], ['hp', 'titan_sigil'],
             ['def_ar', 'def_ar2'], ['shield', 'shield_ad'], ['def_mr', 'def_mr2']
         ]
     },
@@ -1643,6 +1644,24 @@ export function draw(){
   }
 }
 
+// Returns world-space static vision zones: powerup center + tower ring path
+function getStaticVisionPoints() {
+  const pts = [{ x: 1993, y: 1567, r: 380 }]; // powerup center
+  if (game.towers && game.towers.length > 0) {
+    for (let i = 0; i < game.towers.length; i++) {
+      const t1 = game.towers[i], t2 = game.towers[(i + 1) % game.towers.length];
+      pts.push({ x: t1.pos.x, y: t1.pos.y, r: 240 });
+      const dx = t2.pos.x - t1.pos.x, dy = t2.pos.y - t1.pos.y;
+      const steps = Math.max(1, Math.floor(Math.hypot(dx, dy) / 320));
+      for (let s = 1; s < steps; s++) {
+        const t = s / steps;
+        pts.push({ x: t1.pos.x + dx * t, y: t1.pos.y + dy * t, r: 220 });
+      }
+    }
+  }
+  return pts;
+}
+
 function drawFogOfWar(ctx, cw, ch, dpr) {
   if (!player || !game.started || game.gameOver || game.isSpectator) return;
   const pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
@@ -1657,16 +1676,24 @@ function drawFogOfWar(ctx, cw, ch, dpr) {
   fc.fillStyle = 'rgba(0,0,0,0.82)';
   fc.fillRect(0, 0, pw, ph);
   fc.globalCompositeOperation = 'destination-out';
-  const visionR = Math.min(cw, ch) * 0.52 * dpr;
-  for (const p of game.players) {
-    if (!p.alive || p.team !== player.team) continue;
-    const sx = (p.pos.x - camera.x) * camera.scale * dpr;
-    const sy = (p.pos.y - camera.y) * camera.scale * dpr;
-    const grad = fc.createRadialGradient(sx, sy, visionR * 0.65, sx, sy, visionR);
+  const visionR = Math.min(cw, ch) * 0.676 * dpr; // +30% vs original 0.52
+  function cutCircle(wx, wy, rScreen) {
+    const sx = (wx - camera.x) * camera.scale * dpr;
+    const sy = (wy - camera.y) * camera.scale * dpr;
+    const grad = fc.createRadialGradient(sx, sy, rScreen * 0.65, sx, sy, rScreen);
     grad.addColorStop(0, 'rgba(0,0,0,1)');
     grad.addColorStop(1, 'rgba(0,0,0,0)');
     fc.fillStyle = grad;
-    fc.beginPath(); fc.arc(sx, sy, visionR, 0, Math.PI * 2); fc.fill();
+    fc.beginPath(); fc.arc(sx, sy, rScreen, 0, Math.PI * 2); fc.fill();
+  }
+  // Allied player vision
+  for (const p of game.players) {
+    if (!p.alive || p.team !== player.team) continue;
+    cutCircle(p.pos.x, p.pos.y, visionR);
+  }
+  // Static vision zones (powerup + tower ring)
+  for (const sp of getStaticVisionPoints()) {
+    cutCircle(sp.x, sp.y, sp.r * camera.scale * dpr);
   }
   fc.globalCompositeOperation = 'source-over';
   ctx.drawImage(game._fogCanvas, 0, 0, cw, ch);
@@ -1715,16 +1742,21 @@ export function drawMinimap(){
       }
   }
   ctxm.drawImage(game.minimapBg, 0, 0, w, h);
-  // Vision radius matching what the player sees on screen
+  // Vision radius matching what the player sees on screen (+30%)
   const cw_fog = canvas.clientWidth, ch_fog = canvas.clientHeight;
-  const visionRWorld = (!player || game.isSpectator) ? Infinity : Math.min(cw_fog, ch_fog) * 0.52 / camera.scale;
+  const visionRWorld = (!player || game.isSpectator) ? Infinity : Math.min(cw_fog, ch_fog) * 0.676 / camera.scale;
   const visionRSq = visionRWorld * visionRWorld;
+  const _staticVisionPts = getStaticVisionPoints();
   function mmVisible(wx, wy) {
     if (!isFinite(visionRSq)) return true;
     for (const ap of game.players) {
       if (!ap.alive || ap.team !== player.team) continue;
       const dx = wx - ap.pos.x, dy = wy - ap.pos.y;
       if (dx*dx + dy*dy <= visionRSq) return true;
+    }
+    for (const sp of _staticVisionPts) {
+      const dx = wx - sp.x, dy = wy - sp.y;
+      if (dx*dx + dy*dy <= sp.r * sp.r) return true;
     }
     return false;
   }
@@ -1760,14 +1792,20 @@ export function drawMinimap(){
     fmCtx.fillRect(0, 0, mmFogW, mmFogH);
     fmCtx.globalCompositeOperation = 'destination-out';
     const visionRMM = visionRWorld * scaleX * mmDpr;
-    for (const ap of game.players) {
-      if (!ap.alive || ap.team !== player.team) continue;
-      const mx = ap.pos.x * scaleX * mmDpr, my = ap.pos.y * scaleY * mmDpr;
-      const grad = fmCtx.createRadialGradient(mx, my, visionRMM * 0.65, mx, my, visionRMM);
+    function mmCutCircle(wx, wy, rMM) {
+      const mx = wx * scaleX * mmDpr, my = wy * scaleY * mmDpr;
+      const grad = fmCtx.createRadialGradient(mx, my, rMM * 0.65, mx, my, rMM);
       grad.addColorStop(0, 'rgba(0,0,0,1)');
       grad.addColorStop(1, 'rgba(0,0,0,0)');
       fmCtx.fillStyle = grad;
-      fmCtx.beginPath(); fmCtx.arc(mx, my, visionRMM, 0, Math.PI*2); fmCtx.fill();
+      fmCtx.beginPath(); fmCtx.arc(mx, my, rMM, 0, Math.PI*2); fmCtx.fill();
+    }
+    for (const ap of game.players) {
+      if (!ap.alive || ap.team !== player.team) continue;
+      mmCutCircle(ap.pos.x, ap.pos.y, visionRMM);
+    }
+    for (const sp of _staticVisionPts) {
+      mmCutCircle(sp.x, sp.y, sp.r * scaleX * mmDpr);
     }
     fmCtx.globalCompositeOperation = 'source-over';
     ctxm.drawImage(game._mmFogCanvas, 0, 0, w, h);
