@@ -1660,7 +1660,6 @@ function drawFogOfWar(ctx, cw, ch, dpr) {
   const SPAWN_FOG_R = 380;
   const PIXEL = 16;
   const enemyTeam = player.team === 0 ? 1 : 0;
-  const es = spawnPoints[enemyTeam];
   const pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
   const fw = Math.ceil(pw / PIXEL), fh = Math.ceil(ph / PIXEL);
   if (!game._fogCanvas || game._fogCanvas.width !== fw || game._fogCanvas.height !== fh) {
@@ -1670,20 +1669,65 @@ function drawFogOfWar(ctx, cw, ch, dpr) {
   }
   const fc = game._fogCtx;
   fc.setTransform(1, 0, 0, 1, 0, 0);
-  fc.clearRect(0, 0, fw, fh);
-  const sx = (es.x - camera.x) * camera.scale * dpr / PIXEL;
-  const sy = (es.y - camera.y) * camera.scale * dpr / PIXEL;
-  const sr = SPAWN_FOG_R * camera.scale * dpr / PIXEL;
-  // Solid inner fill + short gradient edge → chunky pixelated border when upscaled at PIXEL=16
+
+  // 1. Fill entire canvas with fog
+  fc.globalCompositeOperation = 'source-over';
   fc.fillStyle = 'rgba(30,30,38,1)';
-  fc.beginPath(); fc.arc(sx, sy, sr * 0.65, 0, Math.PI * 2); fc.fill();
-  const grad = fc.createRadialGradient(sx, sy, sr * 0.65, sx, sy, sr);
-  grad.addColorStop(0, 'rgba(30,30,38,1)');
-  grad.addColorStop(1, 'rgba(30,30,38,0)');
-  fc.fillStyle = grad;
-  fc.beginPath(); fc.arc(sx, sy, sr, 0, Math.PI * 2); fc.fill();
+  fc.fillRect(0, 0, fw, fh);
+
+  // 2. Cut vision holes for own team
+  fc.globalCompositeOperation = 'destination-out';
+  const visionR = Math.min(cw, ch) * 0.676 * dpr;
+  function cutCircle(wx, wy, rFull) {
+    const sx = (wx - camera.x) * camera.scale * dpr / PIXEL;
+    const sy = (wy - camera.y) * camera.scale * dpr / PIXEL;
+    const r = rFull / PIXEL;
+    const grad = fc.createRadialGradient(sx, sy, r * 0.70, sx, sy, r);
+    grad.addColorStop(0, 'rgba(0,0,0,1)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    fc.fillStyle = grad;
+    fc.beginPath(); fc.arc(sx, sy, r, 0, Math.PI * 2); fc.fill();
+  }
+  // Own spawn always visible
+  const ownSp = spawnPoints[player.team];
+  cutCircle(ownSp.x, ownSp.y, SPAWN_FOG_R * camera.scale * dpr);
+  for (const p of game.players) {
+    if (!p.alive || p.team !== player.team) continue;
+    cutCircle(p.pos.x, p.pos.y, visionR);
+  }
+  for (const sp of getStaticVisionPoints()) {
+    cutCircle(sp.x, sp.y, sp.r * camera.scale * dpr);
+  }
+
+  // 3. Re-fill enemy spawn (permanent — vision cannot clear it)
+  fc.globalCompositeOperation = 'source-over';
+  const es = spawnPoints[enemyTeam];
+  const esx = (es.x - camera.x) * camera.scale * dpr / PIXEL;
+  const esy = (es.y - camera.y) * camera.scale * dpr / PIXEL;
+  const esr = SPAWN_FOG_R * camera.scale * dpr / PIXEL;
+  fc.fillStyle = 'rgba(30,30,38,1)';
+  fc.beginPath(); fc.arc(esx, esy, esr * 0.65, 0, Math.PI * 2); fc.fill();
+  const eGrad = fc.createRadialGradient(esx, esy, esr * 0.65, esx, esy, esr);
+  eGrad.addColorStop(0, 'rgba(30,30,38,1)');
+  eGrad.addColorStop(1, 'rgba(30,30,38,0)');
+  fc.fillStyle = eGrad;
+  fc.beginPath(); fc.arc(esx, esy, esr, 0, Math.PI * 2); fc.fill();
+
+  // 4. Erase fog outside map boundary (evenodd: fill large rect + map polygon)
+  fc.globalCompositeOperation = 'destination-out';
+  fc.beginPath();
+  fc.rect(0, 0, fw, fh);
+  for (let i = 0; i < mapBoundary.length; i++) {
+    const bx = (mapBoundary[i].x - camera.x) * camera.scale * dpr / PIXEL;
+    const by = (mapBoundary[i].y - camera.y) * camera.scale * dpr / PIXEL;
+    if (i === 0) fc.moveTo(bx, by); else fc.lineTo(bx, by);
+  }
+  fc.closePath();
+  fc.fill('evenodd');
+
+  fc.globalCompositeOperation = 'source-over';
   ctx.save();
-  ctx.globalAlpha = 0.88;
+  ctx.globalAlpha = 0.72;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(game._fogCanvas, 0, 0, cw, ch);
   ctx.imageSmoothingEnabled = true;
@@ -1735,11 +1779,27 @@ export function drawMinimap(){
   ctxm.drawImage(game.minimapBg, 0, 0, w, h);
   const SPAWN_FOG_R_MM = 380;
   const _enemyTeamMM = (!player || game.isSpectator) ? -1 : (player.team === 0 ? 1 : 0);
+  const _enemySpawnMM = _enemyTeamMM >= 0 ? spawnPoints[_enemyTeamMM] : null;
+  const _spawnFogR2 = SPAWN_FOG_R_MM * SPAWN_FOG_R_MM;
+  const cw_fog = canvas.clientWidth, ch_fog = canvas.clientHeight;
+  const visionRWorldMM = (!player || game.isSpectator) ? Infinity : Math.min(cw_fog, ch_fog) * 0.676 / camera.scale;
+  const visionRSqMM = visionRWorldMM * visionRWorldMM;
+  const _staticVisionPtsMM = getStaticVisionPoints();
   function mmVisible(wx, wy) {
     if (_enemyTeamMM < 0) return true;
-    const es = spawnPoints[_enemyTeamMM];
-    const dx = wx - es.x, dy = wy - es.y;
-    return (dx * dx + dy * dy) > SPAWN_FOG_R_MM * SPAWN_FOG_R_MM;
+    // Enemy spawn always hidden
+    if (_enemySpawnMM) { const edx = wx - _enemySpawnMM.x, edy = wy - _enemySpawnMM.y; if (edx*edx + edy*edy <= _spawnFogR2) return false; }
+    if (!isFinite(visionRSqMM)) return true;
+    for (const ap of game.players) {
+      if (!ap.alive || ap.team !== player.team) continue;
+      const dx = wx - ap.pos.x, dy = wy - ap.pos.y;
+      if (dx*dx + dy*dy <= visionRSqMM) return true;
+    }
+    for (const sp of _staticVisionPtsMM) {
+      const dx = wx - sp.x, dy = wy - sp.y;
+      if (dx*dx + dy*dy <= sp.r * sp.r) return true;
+    }
+    return false;
   }
 
   for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#486FED' : t.owner===1? '#FF4E4E' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
@@ -1757,8 +1817,8 @@ export function drawMinimap(){
     ctxm.fillText(p.glyph, x, y);
   }
 
-  // Spawn-zone fog on minimap — only hide enemy spawn, pixelated + high opacity
-  if (player && !game.isSpectator && _enemyTeamMM >= 0) {
+  // Fog overlay on minimap — general fog + permanent enemy spawn
+  if (player && !game.isSpectator && isFinite(visionRWorldMM)) {
     const mmDpr = window.devicePixelRatio || 1;
     const PIXEL_MM = 3;
     const fwMM = Math.ceil(Math.round(w * mmDpr) / PIXEL_MM), fhMM = Math.ceil(Math.round(h * mmDpr) / PIXEL_MM);
@@ -1769,20 +1829,41 @@ export function drawMinimap(){
     }
     const fmCtx = game._mmFogCtx;
     fmCtx.setTransform(1, 0, 0, 1, 0, 0);
-    fmCtx.clearRect(0, 0, fwMM, fhMM);
-    const es = spawnPoints[_enemyTeamMM];
-    const mx = es.x * scaleX * mmDpr / PIXEL_MM;
-    const my = es.y * scaleY * mmDpr / PIXEL_MM;
-    const mr = SPAWN_FOG_R_MM * scaleX * mmDpr / PIXEL_MM;
+    // Fill with fog
+    fmCtx.globalCompositeOperation = 'source-over';
     fmCtx.fillStyle = 'rgba(30,30,38,1)';
-    fmCtx.beginPath(); fmCtx.arc(mx, my, mr * 0.65, 0, Math.PI * 2); fmCtx.fill();
-    const mmGrad = fmCtx.createRadialGradient(mx, my, mr * 0.65, mx, my, mr);
-    mmGrad.addColorStop(0, 'rgba(30,30,38,1)');
-    mmGrad.addColorStop(1, 'rgba(30,30,38,0)');
-    fmCtx.fillStyle = mmGrad;
-    fmCtx.beginPath(); fmCtx.arc(mx, my, mr, 0, Math.PI * 2); fmCtx.fill();
+    fmCtx.fillRect(0, 0, fwMM, fhMM);
+    // Cut vision holes
+    fmCtx.globalCompositeOperation = 'destination-out';
+    const vRMM = visionRWorldMM * scaleX * mmDpr / PIXEL_MM;
+    function mmCutCircle(wx, wy, rMM) {
+      const mx = wx * scaleX * mmDpr / PIXEL_MM, my = wy * scaleY * mmDpr / PIXEL_MM;
+      const grad = fmCtx.createRadialGradient(mx, my, rMM * 0.65, mx, my, rMM);
+      grad.addColorStop(0, 'rgba(0,0,0,1)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+      fmCtx.fillStyle = grad;
+      fmCtx.beginPath(); fmCtx.arc(mx, my, rMM, 0, Math.PI*2); fmCtx.fill();
+    }
+    const ownSpMM = spawnPoints[player.team];
+    mmCutCircle(ownSpMM.x, ownSpMM.y, SPAWN_FOG_R_MM * scaleX * mmDpr / PIXEL_MM);
+    for (const ap of game.players) {
+      if (!ap.alive || ap.team !== player.team) continue;
+      mmCutCircle(ap.pos.x, ap.pos.y, vRMM);
+    }
+    for (const sp of _staticVisionPtsMM) {
+      mmCutCircle(sp.x, sp.y, sp.r * scaleX * mmDpr / PIXEL_MM);
+    }
+    // Re-fill enemy spawn (permanent)
+    fmCtx.globalCompositeOperation = 'source-over';
+    const emx = _enemySpawnMM.x * scaleX * mmDpr / PIXEL_MM, emy = _enemySpawnMM.y * scaleY * mmDpr / PIXEL_MM;
+    const emr = SPAWN_FOG_R_MM * scaleX * mmDpr / PIXEL_MM;
+    fmCtx.fillStyle = 'rgba(30,30,38,1)';
+    fmCtx.beginPath(); fmCtx.arc(emx, emy, emr * 0.65, 0, Math.PI * 2); fmCtx.fill();
+    const emGrad = fmCtx.createRadialGradient(emx, emy, emr * 0.65, emx, emy, emr);
+    emGrad.addColorStop(0, 'rgba(30,30,38,1)'); emGrad.addColorStop(1, 'rgba(30,30,38,0)');
+    fmCtx.fillStyle = emGrad;
+    fmCtx.beginPath(); fmCtx.arc(emx, emy, emr, 0, Math.PI * 2); fmCtx.fill();
     ctxm.save();
-    ctxm.globalAlpha = 0.93;
+    ctxm.globalAlpha = 0.76;
     ctxm.imageSmoothingEnabled = false;
     ctxm.drawImage(game._mmFogCanvas, 0, 0, w, h);
     ctxm.imageSmoothingEnabled = true;
