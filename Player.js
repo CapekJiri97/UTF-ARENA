@@ -584,7 +584,7 @@ export class Player{
     if (this === player) {
 
         // AUTO BUY
-        if (game.autoPlay && game.autoBuy && (!this.alive || allyBaseDist < 250) && this.gold >= 300 && this.items.length < 25) {
+        if (game.autoBuy && (!this.alive || allyBaseDist < 250) && this.gold >= 300 && this.items.length < 25) {
             let enemyPhys = 0, enemyMag = 0;
             const enemies = game.players.filter(p => p.team !== this.team);
             for (let e of enemies) { if (e.dmgType === 'physical') enemyPhys++; else enemyMag++; }
@@ -824,7 +824,7 @@ export class Player{
     if(this.attackCooldown>0) this.attackCooldown -= dt;
     let wantAttack = keys[' '];
     if (this === player && game.mouseTarget && mouse.down) wantAttack = true;
-    if (this === player && game.autoPlay && this.currentTarget && this.currentTarget.hp > 0 && !this.currentTarget.dead && this.currentTarget.team !== this.team) {
+    if (this === player && game.autoAttack && this.currentTarget && this.currentTarget.hp > 0 && !this.currentTarget.dead && this.currentTarget.team !== this.team) {
         const d = dist(this.pos, this.currentTarget.pos);
         const atkRange = this.attackRange + 20;
         // Autoplay počká na plynulé dotočení crosshairu k cíli, než vystřelí (zamezuje střelbě naprázdno do zdi)
@@ -861,7 +861,7 @@ export class Player{
       this.exp -= expForLevel(this.level);
       this.levelUp();
     }
-    if (this === player && game.autoPlay && this.spellPoints > 0) {
+    if (this === player && game.autoLevelUp && this.spellPoints > 0) {
         while(this.spellPoints > 0) {
             let canQ = ((this.spells.Q.level + 1) / this.spells.E.level) <= 2.5;
             let canE = ((this.spells.E.level + 1) / this.spells.Q.level) <= 2.5;
