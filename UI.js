@@ -122,20 +122,18 @@ const SHOP_TREE_CONFIGS = {
     def: {
         title: 'DEFENSE TREE',
         note: 'Green links show the next item in the branch is currently buyable.',
-        columns: 4,
+        columns: 3,
         nodes: [
             { id: 'hp',          col: 2, row: 1 },
             { id: 'def_ar',      col: 1, row: 2 },
-            { id: 'shield',      col: 2, row: 2 },
+            { id: 'titan_sigil', col: 2, row: 2 },
             { id: 'def_mr',      col: 3, row: 2 },
-            { id: 'titan_sigil', col: 4, row: 2 },
             { id: 'def_ar2',     col: 1, row: 3 },
-            { id: 'shield_ad',   col: 2, row: 3 },
             { id: 'def_mr2',     col: 3, row: 3 }
         ],
         links: [
-            ['hp', 'def_ar'], ['hp', 'shield'], ['hp', 'def_mr'], ['hp', 'titan_sigil'],
-            ['def_ar', 'def_ar2'], ['shield', 'shield_ad'], ['def_mr', 'def_mr2']
+            ['hp', 'def_ar'], ['hp', 'titan_sigil'], ['hp', 'def_mr'],
+            ['def_ar', 'def_ar2'], ['def_mr', 'def_mr2']
         ]
     },
     anti: {
@@ -1164,13 +1162,12 @@ export function draw(){
 
       // STATS TABLE
       const _ls = player.lifesteal || 0, _sv = player.spellVamp || 0;
-      const _gw = player.antiHeal || 0, _sw = player.onHitSlow || 0, _ss = player.onSpellHitSlow || 0;
-      const _hasItemStats = _ls > 0 || _sv > 0 || _gw > 0 || _sw > 0 || _ss > 0;
-      const _boxH = _hasItemStats ? 98 : 75;
+      const _gw = player.antiHeal || 0, _sw = player.onHitSlow || 0;
+      const _pa = player.armorPenFlat || 0, _pm = player.magicPenFlat || 0;
       let buffAdMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
       let buffAsMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
-      ctx.fillStyle = '#111'; ctx.fillRect(cx + 160, cy - 40, 210, _boxH);
-      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 160, cy - 40, 210, _boxH);
+      ctx.fillStyle = '#111'; ctx.fillRect(cx + 160, cy - 40, 290, 75);
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 160, cy - 40, 290, 75);
       ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
       ctx.fillText(`AD:${Math.round(player.AD * (player.hasPowerup?1.2:1) * buffAdMult)}`, cx + 165, cy - 25);
       ctx.fillText(`AP:${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + 165, cy - 5);
@@ -1180,15 +1177,10 @@ export function draw(){
       ctx.fillText(`AS:${(player.attackDelay / (player.attackSpeed * buffAsMult)).toFixed(2)}`, cx + 295, cy - 25);
       ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 295, cy - 5);
       ctx.fillText(`AH:${player.abilityHaste}`, cx + 295, cy + 15);
-      if (_hasItemStats) {
-          ctx.fillStyle = '#7cf'; ctx.font = '10px monospace';
-          let _isx = cx + 165, _isy = cy + 38;
-          if (_ls > 0)  { ctx.fillText(`LS:${Math.round(_ls*100)}%`,  _isx, _isy); _isx += 52; }
-          if (_sv > 0)  { ctx.fillText(`SV:${Math.round(_sv*100)}%`,  _isx, _isy); _isx += 52; }
-          if (_gw > 0)  { ctx.fillText(`GW:${Math.round(_gw*100)}%`,  _isx, _isy); _isx += 52; }
-          if (_sw > 0)  { ctx.fillText(`SLW:${Math.round(_sw*100)}%`, _isx, _isy); _isx += 58; }
-          if (_ss > 0)  { ctx.fillText(`SSP:${Math.round(_ss*100)}%`, _isx, _isy); }
-      }
+      ctx.fillStyle = '#7cf'; ctx.font = '10px monospace';
+      ctx.fillText(`LS:${Math.round(_ls*100)}%|SV:${Math.round(_sv*100)}%`, cx + 350, cy - 25);
+      ctx.fillText(`PA:${_pa}|PM:${_pm}`, cx + 350, cy - 5);
+      ctx.fillText(`SL:${Math.round(_sw*100)}%|AH:${Math.round(_gw*100)}%`, cx + 350, cy + 15);
       
       ctx.restore();
     }
@@ -1284,14 +1276,12 @@ export function draw(){
 
         const _cLs = player.lifesteal || 0, _cSv = player.spellVamp || 0;
         const _cGw = player.antiHeal || 0, _cSw = player.onHitSlow || 0, _cSs = player.onSpellHitSlow || 0;
-        if (_cLs > 0 || _cSv > 0 || _cGw > 0 || _cSw > 0 || _cSs > 0) {
-            ctx.fillStyle = '#7cf';
-            if (_cLs > 0) { ctx.fillText(`Lifesteal:    ${Math.round(_cLs*100)}%`, leftM, startY); startY += 18; }
-            if (_cSv > 0) { ctx.fillText(`Spell Vamp:   ${Math.round(_cSv*100)}%`, leftM, startY); startY += 18; }
-            if (_cGw > 0) { ctx.fillText(`Anti-Heal:    ${Math.round(_cGw*100)}%  (applies to enemies hit)`, leftM, startY); startY += 18; }
-            if (_cSw > 0) { ctx.fillText(`Slow on hit:  ${Math.round(_cSw*100)}%`, leftM, startY); startY += 18; }
-            if (_cSs > 0) { ctx.fillText(`Slow on spell:${Math.round(_cSs*100)}%`, leftM, startY); startY += 18; }
-        }
+        const _cAP = player.armorPenFlat || 0, _cMP = player.magicPenFlat || 0;
+        ctx.fillStyle = '#7cf';
+        ctx.fillText(`LS: ${Math.round(_cLs*100)}%  | SV: ${Math.round(_cSv*100)}%`, leftM, startY); startY += 18;
+        ctx.fillText(`Pen A: ${_cAP}  | Pen M: ${_cMP}`, leftM, startY); startY += 18;
+        ctx.fillText(`Slow: ${Math.round(_cSw*100)}%  | AH: ${Math.round(_cGw*100)}%`, leftM, startY); startY += 18;
+        if (_cSs > 0) { ctx.fillText(`Spell Slow: ${Math.round(_cSs*100)}%`, leftM, startY); startY += 18; }
         startY += 12;
 
         let baScale = CLASSES[player.className].aaScale || 0.3;
@@ -1455,6 +1445,8 @@ export function draw(){
                 if (sp.stunDuration) lines.push({ t: `    Stun: ${sp.stunDuration}s`, c: '#ffcc00' });
                 if (sp.silenceDuration) lines.push({ t: `    Silence: ${sp.silenceDuration}s`, c: '#ffcc00' });
             }
+            if (sp.bonusMaxHpDmg) lines.push({ t: `    +${Math.round(sp.bonusMaxHpDmg*100)}% target Max HP as bonus magic dmg`, c: '#f9a' });
+            if (sp.bonusCurrentHpDmg) lines.push({ t: `    +${Math.round(sp.bonusCurrentHpDmg*100)}% target Current HP as bonus magic dmg`, c: '#f9a' });
             return lines;
         };
 
@@ -1650,12 +1642,12 @@ function getStaticVisionPoints() {
   if (game.towers && game.towers.length > 0) {
     for (let i = 0; i < game.towers.length; i++) {
       const t1 = game.towers[i], t2 = game.towers[(i + 1) % game.towers.length];
-      pts.push({ x: t1.pos.x, y: t1.pos.y, r: 240 });
+      pts.push({ x: t1.pos.x, y: t1.pos.y, r: 420 });
       const dx = t2.pos.x - t1.pos.x, dy = t2.pos.y - t1.pos.y;
-      const steps = Math.max(1, Math.floor(Math.hypot(dx, dy) / 320));
+      const steps = Math.max(1, Math.floor(Math.hypot(dx, dy) / 260));
       for (let s = 1; s < steps; s++) {
         const t = s / steps;
-        pts.push({ x: t1.pos.x + dx * t, y: t1.pos.y + dy * t, r: 220 });
+        pts.push({ x: t1.pos.x + dx * t, y: t1.pos.y + dy * t, r: 340 });
       }
     }
   }
@@ -1810,6 +1802,35 @@ export function drawMinimap(){
     fmCtx.globalCompositeOperation = 'source-over';
     ctxm.drawImage(game._mmFogCanvas, 0, 0, w, h);
   }
+
+  // Redraw map boundary + walls on top of fog so they're always visible
+  if (!game.minimapOverlay || game.minimapOverlay.width !== Math.floor(w * (window.devicePixelRatio||1))) {
+    const ovDpr = window.devicePixelRatio || 1;
+    game.minimapOverlay = document.createElement('canvas');
+    game.minimapOverlay.width = Math.floor(w * ovDpr); game.minimapOverlay.height = Math.floor(h * ovDpr);
+    const ovCtx = game.minimapOverlay.getContext('2d');
+    ovCtx.scale(ovDpr, ovDpr);
+    ovCtx.strokeStyle = '#666'; ovCtx.lineWidth = 1;
+    ovCtx.beginPath(); ovCtx.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY);
+    for (let i = 1; i < mapBoundary.length; i++) ovCtx.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY);
+    ovCtx.closePath(); ovCtx.stroke();
+    const isMobileOv = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const mmSpacingOv = isMobileOv ? 90 : 66;
+    ovCtx.fillStyle = '#666'; ovCtx.font = '10px monospace'; ovCtx.textAlign = 'center'; ovCtx.textBaseline = 'middle';
+    for (const wObj of game.walls) {
+      const sx0 = Math.floor((wObj.bbox.minX - wObj.r) / mmSpacingOv) * mmSpacingOv;
+      const ex0 = Math.ceil((wObj.bbox.maxX + wObj.r) / mmSpacingOv) * mmSpacingOv;
+      const sy0 = Math.floor((wObj.bbox.minY - wObj.r) / mmSpacingOv) * mmSpacingOv;
+      const ey0 = Math.ceil((wObj.bbox.maxY + wObj.r) / mmSpacingOv) * mmSpacingOv;
+      for (let wx = sx0; wx <= ex0; wx += mmSpacingOv) {
+        for (let wy = sy0; wy <= ey0; wy += mmSpacingOv) {
+          const info = distToPoly(wx, wy, wObj.pts);
+          if (info.inside || info.minDist <= wObj.r) ovCtx.fillText('#', wx * scaleX, wy * scaleY);
+        }
+      }
+    }
+  }
+  ctxm.drawImage(game.minimapOverlay, 0, 0, w, h);
 
   ctxm.lineWidth = 15; ctxm.strokeStyle = 'rgba(0,0,0,0.8)';
   ctxm.beginPath(); ctxm.arc(w/2, h/2, w/2, 0, Math.PI*2); ctxm.stroke();
