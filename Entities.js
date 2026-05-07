@@ -49,6 +49,9 @@ export class Projectile{
               owner.petTargetId = target.id;
           }
       }
+      if (this.opts.bonusMaxHpDmg && target.maxHp && (!socket || game.isHost)) {
+          applyDamage(target, Math.round(target.maxHp * this.opts.bonusMaxHpDmg), 'magical', this.ownerId);
+      }
       if (this.opts.pullToCaster && (!socket || game.isHost)) {
           const owner = game.players.find(p => p.id === this.ownerId);
           if (owner && target.knockbackTimer <= 0) { // Don't override existing knockback

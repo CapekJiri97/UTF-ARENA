@@ -914,8 +914,9 @@ export function draw(){
   for(let h of game.heals) h.draw(ctx); if(game.powerup) game.powerup.draw(ctx);
   for(let t of game.towers) t.draw(ctx); for(let m of game.minions) m.draw(ctx); for(let p of game.projectiles) p.draw(ctx); for(let pl of game.players) pl.draw(ctx); for(let d of game.damageNumbers) d.draw(ctx); for(let pt of game.particles) pt.draw(ctx);
   
-  ctx.setTransform(dpr,0,0,dpr,0,0); 
-  
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  drawFogOfWar(ctx, cw, ch, dpr);
+
   // --- SCREEN FLASH EFFECTS ---
   if (game.screenDamageFlash > 0 || game.screenHealFlash > 0) {
       let maxDmg = Math.max(0, game.screenDamageFlash);
@@ -1642,6 +1643,35 @@ export function draw(){
   }
 }
 
+function drawFogOfWar(ctx, cw, ch, dpr) {
+  if (!player || !game.started || game.gameOver || game.isSpectator) return;
+  const pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
+  if (!game._fogCanvas || game._fogCanvas.width !== pw || game._fogCanvas.height !== ph) {
+    game._fogCanvas = document.createElement('canvas');
+    game._fogCanvas.width = pw; game._fogCanvas.height = ph;
+    game._fogCtx = game._fogCanvas.getContext('2d');
+  }
+  const fc = game._fogCtx;
+  fc.setTransform(1, 0, 0, 1, 0, 0);
+  fc.globalCompositeOperation = 'source-over';
+  fc.fillStyle = 'rgba(0,0,0,0.82)';
+  fc.fillRect(0, 0, pw, ph);
+  fc.globalCompositeOperation = 'destination-out';
+  const visionR = Math.min(cw, ch) * 0.52 * dpr;
+  for (const p of game.players) {
+    if (!p.alive || p.team !== player.team) continue;
+    const sx = (p.pos.x - camera.x) * camera.scale * dpr;
+    const sy = (p.pos.y - camera.y) * camera.scale * dpr;
+    const grad = fc.createRadialGradient(sx, sy, visionR * 0.65, sx, sy, visionR);
+    grad.addColorStop(0, 'rgba(0,0,0,1)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    fc.fillStyle = grad;
+    fc.beginPath(); fc.arc(sx, sy, visionR, 0, Math.PI * 2); fc.fill();
+  }
+  fc.globalCompositeOperation = 'source-over';
+  ctx.drawImage(game._fogCanvas, 0, 0, cw, ch);
+}
+
 export function drawMinimap(){
   const mm = document.getElementById('minimap');
   if (!game.started || game.gameOver) { mm.style.visibility = 'hidden'; return; }
@@ -1685,18 +1715,64 @@ export function drawMinimap(){
       }
   }
   ctxm.drawImage(game.minimapBg, 0, 0, w, h);
+  // Vision radius matching what the player sees on screen
+  const cw_fog = canvas.clientWidth, ch_fog = canvas.clientHeight;
+  const visionRWorld = (!player || game.isSpectator) ? Infinity : Math.min(cw_fog, ch_fog) * 0.52 / camera.scale;
+  const visionRSq = visionRWorld * visionRWorld;
+  function mmVisible(wx, wy) {
+    if (!isFinite(visionRSq)) return true;
+    for (const ap of game.players) {
+      if (!ap.alive || ap.team !== player.team) continue;
+      const dx = wx - ap.pos.x, dy = wy - ap.pos.y;
+      if (dx*dx + dy*dy <= visionRSq) return true;
+    }
+    return false;
+  }
+
   for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#486FED' : t.owner===1? '#FF4E4E' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
-  for(let m of game.minions){ const x = m.pos.x * scaleX; const y = m.pos.y * scaleY; ctxm.fillStyle = m.team===0? '#aaddff':'#ffb3b3'; ctxm.fillRect(x-1,y-1,2,2); }
-  
-  for(let p of game.players){ 
+  for(let m of game.minions){
+    if (player && !game.isSpectator && m.team !== player.team && !mmVisible(m.pos.x, m.pos.y)) continue;
+    const x = m.pos.x * scaleX; const y = m.pos.y * scaleY; ctxm.fillStyle = m.team===0? '#aaddff':'#ffb3b3'; ctxm.fillRect(x-1,y-1,2,2);
+  }
+  for(let p of game.players){
     if (!p.alive) continue;
-    const x = p.pos.x * scaleX; const y = p.pos.y * scaleY; 
+    if (player && !game.isSpectator && p.team !== player.team && !mmVisible(p.pos.x, p.pos.y)) continue;
+    const x = p.pos.x * scaleX; const y = p.pos.y * scaleY;
     ctxm.fillStyle = p.team === 0 ? '#486FED' : '#FF4E4E';
     ctxm.font = (p === player ? 'bold 16px' : 'bold 12px') + ' monospace';
     ctxm.textAlign = 'center'; ctxm.textBaseline = 'middle';
     ctxm.fillText(p.glyph, x, y);
   }
-  
+
+  // Fog overlay on minimap
+  if (player && !game.isSpectator && isFinite(visionRWorld)) {
+    const mmDpr = window.devicePixelRatio || 1;
+    const mmFogW = Math.round(w * mmDpr), mmFogH = Math.round(h * mmDpr);
+    if (!game._mmFogCanvas || game._mmFogCanvas.width !== mmFogW || game._mmFogCanvas.height !== mmFogH) {
+      game._mmFogCanvas = document.createElement('canvas');
+      game._mmFogCanvas.width = mmFogW; game._mmFogCanvas.height = mmFogH;
+      game._mmFogCtx = game._mmFogCanvas.getContext('2d');
+    }
+    const fmCtx = game._mmFogCtx;
+    fmCtx.setTransform(1, 0, 0, 1, 0, 0);
+    fmCtx.globalCompositeOperation = 'source-over';
+    fmCtx.fillStyle = 'rgba(0,0,0,0.78)';
+    fmCtx.fillRect(0, 0, mmFogW, mmFogH);
+    fmCtx.globalCompositeOperation = 'destination-out';
+    const visionRMM = visionRWorld * scaleX * mmDpr;
+    for (const ap of game.players) {
+      if (!ap.alive || ap.team !== player.team) continue;
+      const mx = ap.pos.x * scaleX * mmDpr, my = ap.pos.y * scaleY * mmDpr;
+      const grad = fmCtx.createRadialGradient(mx, my, visionRMM * 0.65, mx, my, visionRMM);
+      grad.addColorStop(0, 'rgba(0,0,0,1)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      fmCtx.fillStyle = grad;
+      fmCtx.beginPath(); fmCtx.arc(mx, my, visionRMM, 0, Math.PI*2); fmCtx.fill();
+    }
+    fmCtx.globalCompositeOperation = 'source-over';
+    ctxm.drawImage(game._mmFogCanvas, 0, 0, w, h);
+  }
+
   ctxm.lineWidth = 15; ctxm.strokeStyle = 'rgba(0,0,0,0.8)';
   ctxm.beginPath(); ctxm.arc(w/2, h/2, w/2, 0, Math.PI*2); ctxm.stroke();
   ctxm.restore();

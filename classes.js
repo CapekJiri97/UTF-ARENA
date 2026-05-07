@@ -1,10 +1,10 @@
 export const SUMMONER_SPELLS = {
-  Heal: { name: 'Heal', desc: 'Léčí 150 HP + 20 za level.', cd: 60 },
-  Ghost: { name: 'Ghost', desc: 'Zvýší rychlost o +40% na 5s.', cd: 45 },
-  Boost: { name: 'Boost', desc: 'Zvýší staty (+10%) na 5s.', cd: 30 },
-  Rally: { name: 'Rally', desc: 'Zrychlí obsazování, léčí a posílí okolní miniony.', cd: 45 },
-  Revive: { name: 'Revive', desc: 'Okamžité oživení při smrti.', cd: 90 },
-  Exhaust: { name: 'Exhaust', desc: 'Zpomalí nepřátele (300 unitů) o 40% na 2s.', cd: 45 }
+  Heal: { name: 'Heal', desc: 'Restores 150 HP + 20 per level.', cd: 60 },
+  Ghost: { name: 'Ghost', desc: 'Increases movement speed by +40% for 5s.', cd: 45 },
+  Boost: { name: 'Boost', desc: 'Increases all stats (+10%) for 5s.', cd: 30 },
+  Rally: { name: 'Rally', desc: 'Speeds up capture, heals and empowers nearby minions.', cd: 45 },
+  Revive: { name: 'Revive', desc: 'Instantly revive upon death.', cd: 90 },
+  Exhaust: { name: 'Exhaust', desc: 'Slows nearby enemies (300 units) by 40% for 2s.', cd: 45 }
 };
 
 // ==========================================
@@ -32,13 +32,13 @@ export const CLASSES = {
       baseCooldown: 6.0, castTime: 0.05,
       baseDamage: 75, scaleAP: 0.2, scaleAD: 0.25, dashTime: 0.2,
       type: 'dash', distance: 198, radius: 104, slowDuration: 1.5, slowMod: 0.4,
-      desc: 'Vrhne se vpřed, zraní a výrazně zpomalí nepřátele, se kterými se srazí.'
+      desc: 'Dashes forward, dealing damage and heavily slowing enemies in the path.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.25,
       baseDamage: 90, scaleAP: 0.15, scaleAD: 0.35,
       type: 'aoe', radius: 136,
-      desc: 'Provede kruhový úder, který zraní všechny nepřátele v okolí.'
+      desc: 'Performs a circular strike, dealing damage to all nearby enemies.'
     }
   },
 
@@ -51,32 +51,32 @@ export const CLASSES = {
       baseCooldown: 5.5, castTime: 0.1,
       baseDamage: 65, scaleAP: 0.45, scaleAD: 0.2,
       type: 'aoe_knockback', radius: 144,
-      desc: 'Vytvoří tlakovou vlnu, která zraní a odhodí blízké nepřátele.'
+      desc: 'Creates a pressure wave that damages and knocks back nearby enemies.'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.2,
       baseDamage: 0, amount: 85, scaleAP: 0.55, scaleAD: 0.15,
       type: 'heal_aoe', radius: 200,
-      desc: 'Vyléčí sebe a všechny spojence v dosahu.'
+      desc: 'Heals herself and all allies in range.'
     }
   },
 
   Bruiser: {
-    glyph: 'B', role: 'FIGHTER', range: false, dmgType: 'physical', aaScale: 0.55,
+    glyph: 'B', role: 'FIGHTER', range: false, dmgType: 'physical', aaScale: 0.50,
     hp: 880, speed: 120, attackDelay: 1.1,
-    baseAtk: 50, baseAD: 55, baseAP: 0,
+    baseAtk: 50, baseAD: 48, baseAP: 0,
     baseArmor: 33, baseMR: 28,
     Q: {
       baseCooldown: 6.0, castTime: 0.1,
       baseDamage: 60, scaleAP: 0.2, scaleAD: 0.55,
       type: 'projectile', pGlyph: 'D', pSpeed: 600, life: 0.4,
-      desc: 'Vrhne těžkou zbraň, která zraní prvního zasaženého nepřítele. Poškození se výrazně zvyšuje s útočným poškozením.'
+      desc: 'Hurls a heavy weapon that hits the first enemy in its path. Damage scales heavily with Attack Damage.'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.05,
       baseDamage: 45, scaleAP: 0.25, scaleAD: 0.5, dashTime: 0.2,
       type: 'dash', distance: 198, radius: 110,
-      desc: 'Skočí na cílové místo a při dopadu zraní nepřátele v okolí. Poškození se výrazně zvyšuje s útočným poškozením.'
+      desc: 'Leaps to a target location, dealing damage to nearby enemies on landing. Damage scales heavily with Attack Damage.'
     }
   },
 
@@ -91,15 +91,15 @@ export const CLASSES = {
     baseArmor: 48, baseMR: 43,
     Q: {
       baseCooldown: 9.5, castTime: 0.1,
-      baseDamage: 74, scaleAP: 0.3, scaleAD: 0.3,
+      baseDamage: 45, scaleAP: 0.25, scaleAD: 0.25, bonusMaxHpDmg: 0.03,
       type: 'shield_explode', amount: 125, duration: 4.0, radius: 144,
-      desc: 'Vytvoří dočasný štít. Pokud je štít zničen nebo vyprší, exploduje a zraní okolní nepřátele.'
+      desc: 'Creates a temporary shield. If the shield is broken or expires, it explodes and damages nearby enemies.'
     },
     E: {
       baseCooldown: 10.5, castTime: 0.25,
       baseDamage: 74, scaleAP: 0.15, scaleAD: 0.15,
       type: 'aoe', radius: 144, stunDuration: 1.0,
-      desc: 'Udeří do země, zraní všechny nepřátele v blízkém okolí a na 1 sekundu je omráčí (Stun).'
+      desc: 'Slams the ground, dealing damage to all nearby enemies and stunning them for 1 second.'
     }
   },
 
@@ -109,16 +109,16 @@ export const CLASSES = {
     baseAtk: 50, baseAD: 0, baseAP: 50,
     baseArmor: 40, baseMR: 40,
     Q: {
-      baseCooldown: 10.0, castTime: 0.1,
+      baseCooldown: 12.0, castTime: 0.1,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
-      type: 'hana_q', duration: 5.0, bonusHpDmg: 0.03, bonusAsMult: 1.25,
-      desc: 'Na 5 sekund posílí své útoky, které způsobují bonusové poškození dle jejích maximálních životů. Také získá bonus k rychlosti útoku a mírnou regeneraci.'
+      type: 'hana_q', duration: 5.0, bonusHpDmg: 0.018, bonusAsMult: 1.25,
+      desc: 'For 5 seconds, empowers her attacks to deal bonus damage based on her max HP. Also gains bonus attack speed and minor regeneration.'
     },
     E: {
       baseCooldown: 7.5, castTime: 0.05,
       baseDamage: 65, scaleAP: 0.5, scaleAD: 0.25, dashTime: 0.2,
       type: 'dash_def', distance: 225, radius: 128, slowDuration: 1.5, slowMod: 0.3,
-      desc: 'Provede rychlý úskok a dočasně si zvýší obranu. Při dopadu zraní a výrazně zpomalí nepřátele v okolí.'
+      desc: 'Performs a quick dash and temporarily increases her defense. On landing, damages and heavily slows nearby enemies.'
     }
   },
 
@@ -128,17 +128,17 @@ export const CLASSES = {
     baseAtk: 40, baseAD: 0, baseAP: 45,
     baseArmor: 45, baseMR: 45,
     Q: {
-      baseCooldown: 14.0, castTime: 0.3,
-      baseDamage: 80, scaleAP: 0.6, scaleAD: 0,
+      baseCooldown: 10.0, castTime: 0.3,
+      baseDamage: 55, scaleAP: 0.5, scaleAD: 0,
       type: 'projectile', pGlyph: 'J', pSpeed: 820, life: 0.6,
-      pullToCaster: true,
-      desc: 'Vystřelí hák, který zraní prvního zasaženého nepřítele a přitáhne ho k sobě.'
+      pullToCaster: true, bonusMaxHpDmg: 0.04,
+      desc: 'Fires a hook that damages the first enemy hit and pulls them toward the caster.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.2,
       baseDamage: 70, scaleAP: 0.4, scaleAD: 0,
       type: 'aoe', radius: 120, slowDuration: 2.0, slowMod: 0.45,
-      desc: 'Udeří do země, zraní nepřátele v okolí a na 2 sekundy je zpomalí o 55%.'
+      desc: 'Slams the ground, dealing damage to nearby enemies and slowing them by 55% for 2 seconds.'
     }
   },
 
@@ -149,15 +149,15 @@ export const CLASSES = {
     baseArmor: 50, baseMR: 50,
     Q: {
       baseCooldown: 7.5, castTime: 0.15,
-      baseDamage: 50, scaleAP: 0.2, scaleAD: 0.45, dashTime: 0.2,
+      baseDamage: 25, scaleAP: 0.2, scaleAD: 0.35, bonusCurrentHpDmg: 0.025, dashTime: 0.2,
       type: 'dash', distance: 225, radius: 120,
-      desc: 'Provede nezastavitelný náraz vpřed, který zraní všechny nepřátele po cestě.'
+      desc: 'Performs an unstoppable charge forward, dealing damage to all enemies in the path.'
     },
     E: {
       baseCooldown: 11.0, castTime: 0.1,
       baseDamage: 50, scaleAP: 0.25, scaleAD: 0, dashTime: 0.15,
       type: 'dash_heal_silence', amount: 80, distance: 80, radius: 120, silenceDuration: 1.5,
-      desc: 'Provede krátký úskok, vyléčí si část zdraví a při dopadu umlčí všechny nepřátele v okolí na 1.5 sekundy.'
+      desc: 'Performs a short dash, heals a portion of HP, and silences all nearby enemies for 1.5 seconds on landing.'
     }
   },
 
@@ -175,13 +175,13 @@ export const CLASSES = {
       baseDamage: 65, scaleAP: 0.15, scaleAD: 0.2,
       type: 'projectile', count: 3, spread: 0.45,
       pGlyph: 'd', pSpeed: 960, life: 0.21,
-      desc: 'Vrhne tři dýky v kuželu, které zraní zasažené nepřátele. Kouzlo má vysoké základní poškození.'
+      desc: 'Throws three daggers in a cone, dealing damage to enemies hit. High base damage.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.05,
       baseDamage: 95, scaleAP: 0.25, scaleAD: 0.45,
       type: 'aoe', radius: 96,
-      desc: 'Vytvoří explozi nožů, která zraní všechny nepřátele v těsné blízkosti.'
+      desc: 'Creates a blade explosion that damages all enemies in close proximity.'
     }
   },
 
@@ -194,13 +194,13 @@ export const CLASSES = {
       baseCooldown: 10.0, castTime: 0.0,
       baseDamage: 0, scaleAP: 0.001, scaleAD: 0.003,
       type: 'buff_ms', amount: 0.2, duration: 3.0,
-      desc: 'Krátkodobě si zvýší rychlost pohybu Bonus se výrazně zvyšuje s magickou silou (AP).'
+      desc: 'Briefly increases movement speed. Bonus scales with Ability Power.'
     },
     E: {
       baseCooldown: 5.0, castTime: 0.25,
       baseDamage: 75, scaleAP: 0.7, scaleAD: 0.2,
       type: 'aoe_knockback', radius: 90,
-      desc: 'Vytvoří silný vzdušný poryv, který zraní a prudce odhodí nepřátele v okolí.'
+      desc: 'Creates a powerful air burst that damages and violently knocks back nearby enemies.'
     }
   },
 
@@ -213,13 +213,13 @@ export const CLASSES = {
       baseCooldown: 10.0, castTime: 0.15,
       baseDamage: 20, scaleAP: 0.40, scaleAD: 0.15,
       type: 'reaper_q', charges: 3, bonusRange: 70, scaleLevel: 6,
-      desc: 'Na 4 sekundy posílí další 3 základní útoky. Získají větší dosah, bonusové poškození a zpomalí cíl o 40% na 1s.'
+      desc: 'For 4 seconds, empowers the next 3 basic attacks. They gain extended range, bonus damage, and slow the target by 40% for 1s.'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.05,
       baseDamage: 0, scaleAP: 0.7, scaleAD: 0.25, amount: 60, dashTime: 0.15,
       type: 'reaper_e', distance: 80, duration: 1.5,
-      desc: 'Krátký úskok (100). Získá štít a 40% rychlost pohybu na 1.5s. Okamžitě resetuje cooldown kouzla Q!'
+      desc: 'Short dash (100). Grants a shield and 40% movement speed for 1.5s. Instantly resets the Q cooldown!'
     }
   },
 
@@ -230,15 +230,15 @@ export const CLASSES = {
     baseArmor: 25, baseMR: 25,
     Q: {
       baseCooldown: 9.0, castTime: 0.0,
-      baseDamage: 18, scaleAP: 0, scaleAD: 0.2, scaleLevel: 4,
-      type: 'spin_to_win', duration: 2.5, tickRate: 0.25, radius: 80,
-      desc: 'Čepelová smršť: Roztočí se, po 2.5 sekundy zraňuje nepřátele v okolí a má mírně zvýšenou rychlost. Můžeš se u toho pohybovat!'
+      baseDamage: 18, scaleAP: 0, scaleAD: 0.2, scaleLevel: 2,
+      type: 'spin_to_win', duration: 2.0, tickRate: 0.25, radius: 80,
+      desc: 'Blade Whirl: Spins in place for 2.5 seconds, dealing damage to nearby enemies with slightly increased speed. You can move while spinning!'
     },
     E: {
-      baseCooldown: 16.0, castTime: 0.1,
+      baseCooldown: 16.0, castTime: 0.35,
       baseDamage: 46, scaleAP: 0, scaleAD: 0.45, scaleLevel: 8,
       type: 'omnislash', count: 4, tickRate: 0.2, distance: 150, dashTime: 0.12,
-      desc: 'Všesek (Omnislash): Provede bleskový výpad vpřed. Pokud zasáhne nepřítele, stane se nezranitelným a 5x se teleportuje k náhodným cílům v okolí, kterým zasadí tvrdou ránu.'
+      desc: 'Omnislash: Dashes forward with lightning speed. If an enemy is hit, becomes invulnerable and blinks 5 times to random nearby enemies, striking each one hard.'
     }
   },
 
@@ -249,17 +249,17 @@ export const CLASSES = {
     baseArmor: 20, baseMR: 20,
     projCount: 3, projSpread: 0.3,
     Q: {
-      baseCooldown: 10.0, castTime: 0.7,
+      baseCooldown: 12.0, castTime: 0.7,
       baseDamage: 46, scaleAP: 0.25, scaleAD: 0.55,
       type: 'projectile_summon', pGlyph: 'b', pSpeed: 800,
-      summonGlyph: 'b', summonHp: 120, summonAd: 50, slowDuration: 2,
-      desc: 'Vystřelí projektil, který zraní a zpomalí prvního zasaženého nepřítele. Po zásahu vyvolá Bažanta, který bude bojovat po jejím boku.'
+      summonGlyph: 'b', summonHp: 80, summonAd: 50, slowDuration: 2,
+      desc: 'Fires a projectile that damages and slows the first enemy hit. On impact, summons a Pheasant to fight at her side.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.1,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
       type: 'buff_ad_as', duration: 4.0, amount: 0.25, shieldAmount: 70,
-      desc: 'Na 4 sekundy si zvýší útočné poškození a rychlost útoku. Zároveň získá malý ochranný štít.'
+      desc: 'For 4 seconds, increases Attack Damage and Attack Speed. Also gains a small protective shield.'
     }
   },
 
@@ -269,16 +269,16 @@ export const CLASSES = {
     baseAtk: 55, baseAD: 80, baseAP: 0,
     baseArmor: 15, baseMR: 15,
     Q: {
-      baseCooldown: 4.0, castTime: 0.4,
+      baseCooldown: 3.0, castTime: 0.4,
       baseDamage: 60, scaleAP: 0.25, scaleAD: 0.7,
       type: 'projectile', pGlyph: '»', pSpeed: 1200,
-      desc: 'Vystřelí střelu s dlouhým dosahem, která zraní prvního zasaženého nepřítele. Poškození se výrazně zvyšuje s útočným poškozením.'
+      desc: 'Fires a long-range bolt that damages the first enemy hit. Damage scales heavily with Attack Damage.'
     },
     E: {
       baseCooldown: 13.0, castTime: 0.05,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
       type: 'dash', distance: 297, dashTime: 0.2,
-      desc: 'Provede dlouhý úskok, který jí umožní rychle změnit pozici.'
+      desc: 'Performs a long dash, allowing rapid repositioning.'
     }
   },
 
@@ -291,13 +291,13 @@ export const CLASSES = {
       baseCooldown: 5.0, castTime: 0.15,
       baseDamage: 40, scaleAP: 0, scaleAD: 0.3,
       type: 'projectile', count: 5, spread: 0.25, pGlyph: ':', pSpeed: 1100, life: 0.25,
-      desc: 'Vystřelí salvu 5 projektilů v širokém kuželu. Skvělé pro plošné poškození nebo masivní "brokovnicový" burst zblízka.'
+      desc: 'Fires a volley of 5 projectiles in a wide cone. Great for area damage or a massive point-blank shotgun burst.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.1,
       baseDamage: 68, scaleAP: 0, scaleAD: 0.55,
       type: 'cone_knockback', radius: 110, cone: 90 * Math.PI / 180,
-      desc: 'Vypálí výseč před sebou, která zraní a prudce odhodí nepřátele.'
+      desc: 'Fires a sweeping arc forward, dealing damage and violently knocking back enemies.'
     }
   },
 
@@ -314,13 +314,13 @@ export const CLASSES = {
       baseCooldown: 3.5, castTime: 0.3,
       baseDamage: 115, scaleAP: 0.55, scaleAD: 0.15,
       type: 'projectile', pGlyph: 'O', pSpeed: 750,
-      desc: 'Vystřelí magickou kouli, která zraní prvního zasaženého nepřítele. Kouzlo má vysoké základní poškození.'
+      desc: 'Fires a magic orb that damages the first enemy hit. High base damage.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.6,
       baseDamage: 100, scaleAP: 0.60, scaleAD: 0.2,
       type: 'aoe', radius: 160,
-      desc: 'Vytvoří na cílovém místě plošnou explozi magické energie, která zraní všechny nepřátele v oblasti.'
+      desc: 'Creates an area explosion of magic energy at a target location, dealing damage to all enemies in the area.'
     }
   },
 
@@ -333,13 +333,13 @@ export const CLASSES = {
       baseCooldown: 4.0, castTime: 0.3,
       baseDamage: 85, scaleAP: 0.75, scaleAD: 0.2,
       type: 'projectile', pGlyph: '~', pSpeed: 750,
-      desc: 'Vystřelí stínový projektil, který zraní prvního zasaženého nepřítele. Poškození se výrazně zvyšuje s magickou silou.'
+      desc: 'Fires a shadow projectile that damages the first enemy hit. Damage scales heavily with Ability Power.'
     },
     E: {
       baseCooldown: 11.0, castTime: 0.6,
       baseDamage: 45, scaleAP: 0.65, scaleAD: 0.15,
       type: 'summon', count: 2, mGlyph: 'g',
-      desc: 'Vyvolá dva ghúly, kteří budou bojovat po jeho boku a útočit na nepřátele.'
+      desc: 'Summons two ghouls that fight at his side, attacking nearby enemies.'
     }
   },
 
@@ -352,13 +352,13 @@ export const CLASSES = {
       baseCooldown: 8.0, castTime: 0.0,
       baseDamage: 250, scaleAP: 0.90, scaleAD: 0, scaleLevel: 20,
       type: 'flamethrower', duration: 3.0, range: 160, cone: 40 * Math.PI / 180, tickRate: 0.10,
-      desc: 'Plamenomet: Na 3.0 sekundy před sebe chrlí nepřetržitý proud ohně v kuželu. Masivně zraňuje nepřátele a umožňuje ti se u toho plynule pohybovat!'
+      desc: 'Flamethrower: For 3.0 seconds, unleashes a continuous stream of fire in a cone. Massively damages enemies while allowing free movement!'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.2,
       baseDamage: 80, scaleAP: 0.45, scaleAD: 0, scaleLevel: 10,
       type: 'aoe_knockback', radius: 140,
-      desc: 'Spalující vlna: Okamžitá ohnivá exploze kolem sebe, která masivně zraní a odhodí všechny dotírající nepřátele.'
+      desc: 'Scorching Wave: Instant fire explosion around you, massively damaging and knocking back all nearby enemies.'
     }
   },
 
@@ -371,13 +371,13 @@ export const CLASSES = {
       baseCooldown: 6.0, castTime: 0.2,
       baseDamage: 76, scaleAP: 0.45, scaleAD: 0,
       type: 'tamer_q', pGlyph: '°', pSpeed: 850, life: 0.4, noHitParticles: true,
-      desc: 'Vystřelí magickou sféru, která zraní nepřítele a označí ho. Tvůj Vlk (pet) bude označený cíl agresivně prioritizovat.'
+      desc: 'Fires a magic sphere that damages an enemy and marks them. Your Wolf (pet) will aggressively prioritize the marked target.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.2,
       baseDamage: 0, scaleAP: 0.6, scaleAD: 0, amount: 195, scaleLevel: 22,
       type: 'tamer_e',
-      desc: 'Pokud tvůj Vlk žije, okamžitě ho výrazně vyléčí. Pokud zemřel, začneš 3 sekundy dlouhý rituál, který ho oživí s 50% HP (při stunu se přeruší a naskočí CD).'
+      desc: 'If your Wolf is alive, immediately heals it for a large amount. If it died, begins a 3-second ritual to revive it with 50% HP (interrupted by stun, which triggers the cooldown).'
     }
   },
 
@@ -394,13 +394,13 @@ export const CLASSES = {
       baseCooldown: 4.5, castTime: 0.3,
       baseDamage: 65, scaleAP: 0.6, scaleAD: 0.2,
       type: 'projectile', pGlyph: '+', pSpeed: 660, slowDuration: 1.5, slowMod: 0.5,
-      desc: 'Vystřelí paprsek světla, který zraní a zpomalí prvního zasaženého nepřítele.'
+      desc: 'Fires a beam of light that damages and slows the first enemy hit.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.3,
       baseDamage: 0, amount: 150, scaleAP: 0.80, scaleAD: 0.15,
       type: 'heal_aoe', radius: 200,
-      desc: 'Vytvoří vlnu energie, která vyléčí všechny spojence v širokém okolí.'
+      desc: 'Creates an energy wave that heals all allies in a wide area.'
     }
   },
 
@@ -413,14 +413,14 @@ export const CLASSES = {
       baseCooldown: 6.0, castTime: 0.3,
       baseDamage: 0, amount: 80, scaleAP: 0.65, scaleAD: 0.2,
       type: 'heal_aoe', radius: 120, selfHealPenalty: 0.7,
-      desc: 'Vytvoří léčivou vlnu, která vyléčí spojence v okolí. Síla léčení se zvyšuje s magickou silou.'
+      desc: 'Creates a healing wave that heals nearby allies. Healing strength scales with Ability Power.'
     },
     E: {
       baseCooldown: 6.5, castTime: 0.4,
       baseDamage: 45, scaleAP: 0.65, scaleAD: 0.15,
       type: 'projectile', count: 3, spread: 0.25, silenceDuration: 1.0,
       pGlyph: '*', pSpeed: 850,
-      desc: 'Vystřelí tři magické střely v kuželu. Zraní zasažené nepřátele a na 1 sekundu je umlčí (Silence).'
+      desc: 'Fires three magic bolts in a cone. Damages enemies hit and silences them for 1 second.'
     }
   },
 
@@ -433,13 +433,13 @@ export const CLASSES = {
       baseCooldown: 8.0, castTime: 0.3,
       baseDamage: 30, scaleAP: 0.75, scaleAD: 0.2, amount: 5,
       type: 'projectile_egg', pSpeed: 400, life: 0.625, healInterval: 1.0,
-      desc: 'Hodí vajíčko (dosah 250), které poškodí cíl. Po dopadu nebo zásahu se vylíhne velká slepice. Následuje tě, léčí tě a každou sekundu zraňuje blízké nepřátele.'
+      desc: 'Throws an egg (range 250) that damages the target. On impact, a large Hen hatches. It follows you, heals you, and damages nearby enemies every second.'
     },
     E: {
       baseCooldown: 18.0, castTime: 0.4,
       baseDamage: 0, amount: 5, scaleAP: 0.35, scaleAD: 0.15,
       type: 'summon_healers', healInterval: 2,
-      desc: 'Vyvolá 3 malé podpůrné slepičky. Najdou si nejbližšího spojence (max 1 u Keepera, max 2 u jiného). Následují ho, léčí ho a každou sekundu zraňují blízké nepřátele.'
+      desc: 'Summons 3 small support Chicks. They find the nearest ally (max 1 for Keeper, max 2 for others). They follow, heal, and damage nearby enemies every second.'
     }
   },
 
@@ -452,13 +452,13 @@ export const CLASSES = {
       baseCooldown: 11.0, castTime: 0.25,
       baseDamage: 70, scaleAP: 0.6, scaleAD: 0, scaleLevel: 10,
       type: 'projectile_pull', pSpeed: 650, life: 0.5, radius: 100, pGlyph: 'O', stunDuration: 1.0,
-      desc: 'Vystřelí sféru. Při dopadu nebo zasažení cíle exploduje, zraní nepřátele v oblasti, vcucne je do středu a krátce omráčí.'
+      desc: 'Fires a sphere. On impact or hitting a target, it explodes, dealing damage to enemies in the area, pulling them to the center, and briefly stunning them.'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.2,
       baseDamage: 0, scaleAP: 0.5, scaleAD: 0, amount: 80, scaleLevel: 15, duration: 5.0,
       type: 'shield_aoe', radius: 250,
-      desc: 'Vytvoří kolem sebe magickou bariéru. Ty i všichni blízcí spojenci získáte silný štít na 5 sekund.'
+      desc: 'Creates a magic barrier around you. You and all nearby allies gain a strong shield for 5 seconds.'
     }
   },
 
@@ -471,13 +471,13 @@ export const CLASSES = {
       baseCooldown: 6.2, castTime: 0.0,
       baseDamage: 0, scaleAP: 0.065, scaleAD: 0, amount: 2.6, scaleLevel: 0.65, range: 200, tickRate: 0.1,
       type: 'heal_beam',
-      desc: 'Léčivý paprsek: Přepínatelné kouzlo. Připojí se k nejbližšímu spojenci (200) a trvale léčí jeho i tebe. Po 5s se automaticky spustí krátký Uber efekt.'
+      desc: 'Heal Beam: Toggle ability. Connects to the nearest ally (200 range) and continuously heals both of you. After 5s, automatically triggers a brief Uber effect.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.15,
       baseDamage: 60, scaleAP: 0.2, scaleAD: 0.2, scaleLevel: 8,
       type: 'cone_slow_shield', radius: 120, cone: 90 * Math.PI / 180, slowDuration: 1.5, slowMod: 0.6, shieldAmount: 90, duration: 2.5,
-      desc: 'Podpurny sek: Vysek pred sebou, zraní a zpomalí nepřátele. Medic získa štít.'
+      desc: 'Support Slash: Slash forward, damaging and slowing enemies. The Medic gains a shield.'
     }
   }
 };

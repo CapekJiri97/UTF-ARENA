@@ -421,7 +421,14 @@ import { initAudio, playSound } from './Audio.js';
             target.shield -= sDmg;
             finalDamage -= sDmg;
         }
-        target.hp -= finalDamage; 
+        target.hp -= finalDamage;
+        // Titan's Sigil passive: 3% enemy max HP as true damage, 4s cooldown
+        if (finalDamage > 0 && sourceEntity?.titanSigilPassive && (sourceEntity.titanSigilCd || 0) <= 0 && target.maxHp && type !== 'true') {
+            const sigilBonus = Math.round(target.maxHp * 0.03);
+            target.hp -= sigilBonus;
+            sourceEntity.titanSigilCd = 4.0;
+            game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y + 14, sigilBonus, '#e0e0ff'));
+        }
     }
     target.flashTimer = 0.1;
     
@@ -1003,7 +1010,7 @@ import { initAudio, playSound } from './Audio.js';
       draw(); 
       requestAnimationFrame(loop); 
     } catch(err) {
-      console.error('[FATAL ERROR] Herní smyčka spadla!', err); console.table({ hráči: game.players.length, minioni: game.minions.length, projektily: game.projectiles.length }); alert('Hra zamrzla z důvodu chyby! Zmáčkni F12 pro otevření konzole a pošli mi výpis.');
+      console.error('[FATAL ERROR] Game loop crashed!', err); console.table({ players: game.players.length, minions: game.minions.length, projectiles: game.projectiles.length }); alert('Game crashed due to an error! Press F12 to open the console and send me the log.');
     }
   }
   requestAnimationFrame(loop);
