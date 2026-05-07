@@ -521,7 +521,7 @@ export class Player{
     }
 
     if (this.omnislashCount > 0) {
-        this.omnislashTick -= dt;
+        if (!this.omniPendingStrike) this.omnislashTick -= dt; // Pause tick during sub-dash
         if (this.omnislashTick <= 0) {
             this.omnislashTick = this.omnislashData ? (this.omnislashData.tickRate || 0.2) : 0.2;
             this.omnislashCount--;
@@ -530,16 +530,16 @@ export class Player{
             for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 450) allTargets.push(p);
             for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 450) allTargets.push(m);
 
-            let closeTargets = allTargets.filter(t => dist(this.pos, t.pos) <= 100);
+            let dashTargets = allTargets.filter(t => dist(this.pos, t.pos) <= 350);
             if (this.omniLastTargetId && this.omniConsecutiveHits >= 2) {
-                let hasOther = closeTargets.some(t => t.id !== this.omniLastTargetId);
-                if (!hasOther) closeTargets = [];
-                else closeTargets = closeTargets.filter(t => t.id !== this.omniLastTargetId);
+                let hasOther = dashTargets.some(t => t.id !== this.omniLastTargetId);
+                if (!hasOther) dashTargets = [];
+                else dashTargets = dashTargets.filter(t => t.id !== this.omniLastTargetId);
             }
 
-            if (closeTargets.length > 0) {
-                let heroes = closeTargets.filter(t => t.className);
-                let pool = heroes.length > 0 ? heroes : closeTargets;
+            if (dashTargets.length > 0) {
+                let heroes = dashTargets.filter(t => t.className);
+                let pool = heroes.length > 0 ? heroes : dashTargets;
                 let minHits = Infinity;
                 for (let t of pool) {
                     let h = (this.omniHitCounts && this.omniHitCounts.get(t.id)) || 0;
@@ -552,27 +552,21 @@ export class Player{
                 this.omniHitCounts.set(t.id, ((this.omniHitCounts.get(t.id)) || 0) + 1);
                 if (this.omniLastTargetId === t.id) this.omniConsecutiveHits += 1; else { this.omniLastTargetId = t.id; this.omniConsecutiveHits = 1; }
 
-                this.pos.x = t.pos.x + (Math.random()-0.5)*40;
-                this.pos.y = t.pos.y + (Math.random()-0.5)*40;
-                
-                spawnParticles(this.pos.x, this.pos.y, 6, '#fff', { shape: 'line', speed: 250 });
+                // Dash toward target instead of instant teleport
+                const dDist = dist(this.pos, t.pos);
+                const dSpeed = 1600;
+                const dTime = Math.max(0.08, Math.min(0.22, dDist / dSpeed));
+                const dAngle = Math.atan2(t.pos.y - this.pos.y, t.pos.x - this.pos.x);
+                this.dashTimer = dTime;
+                this.dashVel = { x: Math.cos(dAngle) * dSpeed, y: Math.sin(dAngle) * dSpeed };
+                this.omniPendingStrike = { targetId: t.id, damage: this.omnislashData.damage, dmgType: this.omnislashData.dmgType };
+
                 playSound('hit', this.pos);
-                
-                if (!socket || game.isHost || this === player) {
-                    applyDamage(t, this.omnislashData.damage, this.omnislashData.dmgType, this.id, false, true);
-                    if (t.hp <= 0) {
-                        if (t.className) {
-                            if (!socket || game.isHost) handlePlayerKill(t, this.id);
-                        } else {
-                            t.dead = true;
-                            if (!socket || game.isHost) grantRewards(this, 8, 11);
-                        }
-                    }
-                }
+                spawnParticles(this.pos.x, this.pos.y, 6, '#fff', { shape: 'line', speed: 250 });
             } else {
-                this.omnislashCount = 0; // Konec, nejsou cíle
+                this.omnislashCount = 0; // No targets in range
             }
-            if (this.omnislashCount <= 0) { this.invulnerableTimer = 0; } else { this.invulnerableTimer = 0.3; } // keep invuln
+            // Immunity removed — Wanderer E no longer grants invulnerability
         }
     }
 
@@ -658,6 +652,7 @@ export class Player{
         moveEntityWithCollision(this, this.dashVel.x, this.dashVel.y, dt);
         if (Math.random() < 0.4) spawnParticles(this.pos.x, this.pos.y, 1, '#fff', {life: 0.2}); // Trail efekt
             if (Math.random() < 0.4 && Math.hypot(this.dashVel.x, this.dashVel.y) > 250) spawnParticles(this.pos.x, this.pos.y, 1, '#fff', {life: 0.2}); // Trail efekt jen pro rychlé dashe
+        if (this.omniPendingStrike && Math.random() < 0.65) spawnParticles(this.pos.x, this.pos.y, 2, '#bdf', { life: 0.22, size: 13, speed: 70 }); // Omnislash trail
         
         if (this.dashOmnislashData) {
             let hitTarget = null;
@@ -669,7 +664,6 @@ export class Player{
                 this.omnislashCount = this.dashOmnislashData.count;
                 this.omnislashTick = 0;
                 this.omnislashData = { damage: this.dashOmnislashData.damage, dmgType: this.dashOmnislashData.dmgType, tickRate: this.dashOmnislashData.tickRate };
-                this.invulnerableTimer = this.dashOmnislashData.count * this.dashOmnislashData.tickRate + 0.1;
                 this.dashOmnislashData = null;
                 spawnParticles(this.pos.x, this.pos.y, 15, '#fff', {speed: 120});
             }
@@ -682,6 +676,19 @@ export class Player{
            for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id, false, true); if (expl.bonusCurrentHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.hp * expl.bonusCurrentHpDmg), 'magical', expl.id, false, true); } if (expl.silenceDuration) { p.silenceTimer = Math.max(p.silenceTimer || 0, expl.silenceDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "SILENCED", '#fff')); } if (expl.slowDuration) { p.slowTimer = Math.max(p.slowTimer || 0, expl.slowDuration); p.slowMod = expl.slowMod || 0.6; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, expl.id); } } }
            spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
            this.dashEndExplosion = null;
+        }
+        if (this.dashTimer <= 0 && this.omniPendingStrike) {
+            const strike = this.omniPendingStrike;
+            this.omniPendingStrike = null;
+            const t = [...game.players, ...game.minions].find(x => x.id === strike.targetId);
+            if (t && (!socket || game.isHost || this === player)) {
+                applyDamage(t, strike.damage, strike.dmgType, this.id, false, true);
+                spawnParticles(this.pos.x, this.pos.y, 8, '#fff', { speed: 180 });
+                if (t.hp <= 0) {
+                    if (t.className) { if (!socket || game.isHost) handlePlayerKill(t, this.id); }
+                    else { t.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); }
+                }
+            }
         }
         if (this.dashTimer <= 0) this.dashOmnislashData = null;
     } else if (this.knockbackTimer > 0) {
@@ -1025,10 +1032,12 @@ export class Player{
       const angle = Math.atan2(ty-this.pos.y, tx-this.pos.x); const speed = 800; const range = this.attackRange; const life = range / speed; 
       let pCount = CLASSES[this.className].projCount || 1;
       let pSpread = CLASSES[this.className].projSpread || 0.25;
+      const burstId = pCount > 1 ? (this.id + '_' + Date.now()) : null;
       for(let i=0; i<pCount; i++) {
           const a = pCount === 1 ? angle : angle - (pSpread*(pCount-1))/2 + i*pSpread;
           const vx = Math.cos(a)*speed; const vy = Math.sin(a)*speed;
           const opts = {damage:damage, dmgType: this.dmgType, glyph:'-' , life:life, radius: 8};
+          if (burstId) { opts.burstId = burstId; opts.burstMax = pCount; }
           if (this.onHitSlow) {
               opts.slowDuration = 1.5;
               opts.slowMod = 1 - this.onHitSlow;
@@ -1694,26 +1703,21 @@ export class BotPlayer extends Player {
     // All upgrade paths — each is an ordered list of item IDs from base to final
     static get ITEM_PATHS() {
         return [
-            // AD paths (3 branches)
-            ['ad'],
+            // AD paths (always commit to a branch, never just the base)
             ['ad', 'ad_ls', 'ad_ls2'],
             ['ad', 'ad_pen', 'ad_pen2'],
             ['ad', 'ad_slow', 'slow'],
-            // AP paths (3 branches)
-            ['ap'],
+            // AP paths
             ['ap', 'ap_vamp', 'ap_vamp2'],
             ['ap', 'ap_pen', 'ap_pen2'],
             ['ap', 'ap_slow', 'slow_ms'],
             // AS paths
-            ['as'],
             ['as', 'as_ms', 'as_ms2'],
             ['as', 'as_dmg', 'as_dmg2'],
             // AH paths
-            ['ah'],
             ['ah', 'ah_ms', 'ah_ms2'],
             ['ah', 'ah_hp', 'ah_hp2'],
             // Defense paths (3 branches)
-            ['hp'],
             ['hp', 'def_ar', 'def_ar2'],
             ['hp', 'def_mr', 'def_mr2'],
             ['hp', 'titan_shard', 'titan_sigil'],
@@ -1730,10 +1734,19 @@ export class BotPlayer extends Player {
         return true;
     }
 
-    // Returns the next item in the path that the bot doesn't own yet
+    // Returns the next item in the path that the bot needs to buy (including re-buying a base item when its copy is consumed by a branch)
     static getNextPathItem(owner, path) {
-        for (const id of path) {
+        for (let i = 0; i < path.length; i++) {
+            const id = path[i];
             if (!(owner.items || []).includes(id)) return getShopItem(id);
+            // If the next item can't be bought because this base copy is consumed, re-buy it
+            if (i + 1 < path.length) {
+                const nextItem = getShopItem(path[i + 1]);
+                if (nextItem && !canBuyShopItem(owner, nextItem).ok) {
+                    const reqs = Array.isArray(nextItem.requires) ? nextItem.requires : (nextItem.requires ? [nextItem.requires] : []);
+                    if (reqs.includes(id)) return getShopItem(id);
+                }
+            }
         }
         return null;
     }

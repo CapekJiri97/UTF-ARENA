@@ -20,6 +20,8 @@ for(const s of scenarios) {
   console.log('Top DPS:', topBy('totalDPS', s.L, s.items, 5));
   console.log('Top HPS:', topBy('hps', s.L, s.items, 5));
   console.log('Top Utility/CC:', topBy('utility', s.L, s.items, 4));
+  console.log('Top Phase Score:', topBy('phaseScore', s.L, s.items, 5));
+  console.log('Top Control Score:', topBy('controlScore', s.L, s.items, 5));
 }
 
 // Identify consistently strong/weak across scenarios
@@ -29,9 +31,25 @@ function avgAcrossScenarios(className, key) {
   return rows.reduce((s,r)=>s+r[key],0)/rows.length;
 }
 
-const avgList = classes.map(c=>({class:c, avgBurst:Number(avgAcrossScenarios(c,'burstDmg').toFixed(1)), avgDPS:Number(avgAcrossScenarios(c,'totalDPS').toFixed(1)), avgHPS:Number(avgAcrossScenarios(c,'hps').toFixed(1)), avgUtil:Number(avgAcrossScenarios(c,'utility').toFixed(1))})).sort((a,b)=>b.avgDPS-a.avgDPS);
-console.log('\n=== OVERALL TIERS (Average across all scenarios) ===');
-console.log('Top 8 DPS/Burst:');
-console.log(avgList.slice(0,8).map(x => `${x.class.padEnd(10)} | DPS: ${x.avgDPS.toString().padEnd(5)} | Burst: ${x.avgBurst.toString().padEnd(5)} | HPS: ${x.avgHPS.toString().padEnd(4)} | Util: ${x.avgUtil}`));
-console.log('\nBottom 8 DPS (Usually Tanks/Support with high Utility):');
-console.log(avgList.slice(-8).sort((a,b)=>b.avgUtil-a.avgUtil).map(x => `${x.class.padEnd(10)} | DPS: ${x.avgDPS.toString().padEnd(5)} | Burst: ${x.avgBurst.toString().padEnd(5)} | HPS: ${x.avgHPS.toString().padEnd(4)} | Util: ${x.avgUtil}`));
+const avgList = classes.map(c=>({
+  class:c,
+  avgBurst:Number(avgAcrossScenarios(c,'burstDmg').toFixed(1)),
+  avgDPS:Number(avgAcrossScenarios(c,'totalDPS').toFixed(1)),
+  avgHPS:Number(avgAcrossScenarios(c,'hps').toFixed(1)),
+  avgUtil:Number(avgAcrossScenarios(c,'utility').toFixed(1)),
+  avgControl:Number(avgAcrossScenarios(c,'controlScore').toFixed(1)),
+  avgPhase:Number(avgAcrossScenarios(c,'phaseScore').toFixed(1)),
+  avgSurvivability:Number(avgAcrossScenarios(c,'survivability').toFixed(1))
+}));
+
+function printTier(title, rows, sortKey, take = 8) {
+  console.log(`\n=== ${title} ===`);
+  console.log(rows.sort((a,b)=>b[sortKey]-a[sortKey]).slice(0, take).map(x => `${x.class.padEnd(12)} | Phase: ${x.avgPhase.toString().padEnd(7)} | DPS: ${x.avgDPS.toString().padEnd(6)} | Burst: ${x.avgBurst.toString().padEnd(6)} | HPS: ${x.avgHPS.toString().padEnd(5)} | Util: ${x.avgUtil.toString().padEnd(5)} | Ctrl: ${x.avgControl}`));
+}
+
+printTier('OVERALL PHASE POWER', [...avgList], 'avgPhase', 8);
+printTier('OVERALL CONTROL', [...avgList], 'avgControl', 8);
+printTier('OVERALL DPS', [...avgList], 'avgDPS', 8);
+
+console.log('\n=== LIKELY WEAKS (Bottom phase power) ===');
+console.log([...avgList].sort((a,b)=>a.avgPhase-b.avgPhase).slice(0, 8).map(x => `${x.class.padEnd(12)} | Phase: ${x.avgPhase.toString().padEnd(7)} | DPS: ${x.avgDPS.toString().padEnd(6)} | HPS: ${x.avgHPS.toString().padEnd(5)} | Util: ${x.avgUtil.toString().padEnd(5)} | Ctrl: ${x.avgControl}`));

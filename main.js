@@ -546,7 +546,7 @@ import { initAudio, playSound } from './Audio.js';
       if (game.killFeed) game.killFeed.push(killData);
 
       if (!socket || game.isHost) {
-          if (killer) { grantRewards(killer, 150, 50); killer.kills++; if (typeof killer.refreshDominionPCS === 'function') killer.refreshDominionPCS(); }
+          if (killer) { grantRewards(killer, 150, 50); killer.kills++; if (typeof killer.refreshDominionPCS === 'function') killer.refreshDominionPCS(); game.nexus[victim.team] = Math.max(0, (game.nexus[victim.team] || 0) - 2); }
           let now = performance.now();
           if (victim.recentAttackers) {
               victim.recentAttackers.forEach((data, attackerId) => {

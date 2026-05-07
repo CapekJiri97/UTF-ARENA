@@ -1666,7 +1666,7 @@ function drawFogOfWar(ctx, cw, ch, dpr) {
   const fc = game._fogCtx;
   fc.setTransform(1, 0, 0, 1, 0, 0);
   fc.globalCompositeOperation = 'source-over';
-  fc.fillStyle = 'rgba(0,0,0,0.82)';
+  fc.fillStyle = 'rgba(90,90,100,0.84)';
   fc.fillRect(0, 0, pw, ph);
   fc.globalCompositeOperation = 'destination-out';
   const visionR = Math.min(cw, ch) * 0.676 * dpr; // +30% vs original 0.52

@@ -27,6 +27,19 @@ function loadAAScales() {
 
 const AA_SCALES = loadAAScales();
 
+const TARGETS = {
+  squishy: { hp: 600, armor: 18, mr: 18 },
+  skirmisher: { hp: 850, armor: 28, mr: 25 },
+  frontline: { hp: 1200, armor: 45, mr: 45 },
+  support: { hp: 700, armor: 22, mr: 28 }
+};
+
+function phaseForScenario(level, itemCount) {
+  if (level <= 2 && itemCount <= 1) return 'early';
+  if (level <= 6 || itemCount <= 3) return 'mid';
+  return 'late';
+}
+
 function spellDamage(sp, AD, AP) {
   const base = sp.baseDamage || 0;
   const dmg = Math.round(base + (AP * (sp.scaleAP||0)) + (AD * (sp.scaleAD||0)) + (sp.level||0)*8);
@@ -62,16 +75,22 @@ function applyItemsToStats(className, itemCount) {
   return {AD, AP, attackSpeed};
 }
 
+function effectiveSurvivability(hp, armor, mr) {
+  const phys = effectiveHP({ hp, armor, mr }, 'physical');
+  const magic = effectiveHP({ hp, armor, mr }, 'magical');
+  return (phys + magic) / 2;
+}
+
 function analyze() {
   const levels = [1,5,10];
   const itemCounts = [0,1,3,6];
-  const targets = ['Marksman','Tank'];
   const report = [];
 
   for (const className of Object.keys(CLASSES)) {
     for (const L of levels) {
       for (const items of itemCounts) {
         const base = CLASSES[className];
+        const phase = phaseForScenario(L, items);
         const levelBonusHp = 15 * (L-1);
         const lvlHp = base.hp + levelBonusHp;
         const lvlAD = (base.baseAD || 0) + (L-1) * 1;
@@ -136,6 +155,12 @@ function analyze() {
 
           // Summons
           if (sp.type === 'summon') summonDPS += (((dmg * 0.4) / 1.2) * (sp.count||1)) * (8 / cd);
+          if (sp.type === 'tamer_q') {
+              // Wolf persistent companion — scales with owner AP and level
+              const wolfAD = Math.round(22 + pAP * 0.42 + L * 5.5);
+              const wolfAS = 1 / 1.2; // ~0.83 attacks/s (same as minion cooldown)
+              summonDPS += wolfAD * wolfAS;
+          }
           if (sp.type === 'projectile_summon') summonDPS += (((sp.summonAd || 50) + pAD * 0.2) / 1.2) * (8 / cd);
           if (sp.type === 'summon_healers') {
               const scLvlHeal = sp.scaleLevel !== undefined ? sp.scaleLevel : 2;
@@ -195,16 +220,24 @@ function analyze() {
 
         const totalDPS = basicDPS + spellDPS + summonDPS;
         const totalHPS = spellHPS + summonHPS;
+        const survivability = effectiveSurvivability(lvlHp, base.baseArmor || 0, base.baseMR || 0);
 
-        const row = { className, level: L, items, burstDmg: Number(burstDmg.toFixed(1)), basicDPS: Number(basicDPS.toFixed(1)), spellDPS: Number(spellDPS.toFixed(1)), summonDPS: Number(summonDPS.toFixed(1)), totalDPS: Number(totalDPS.toFixed(1)), hps: Number(totalHPS.toFixed(1)), utility: Number(utilityScore.toFixed(1)) };
+        const phaseWeights = phase === 'early'
+          ? { dps: 0.55, burst: 0.22, hps: 0.65, util: 1.90, surv: 0.012 }
+          : phase === 'mid'
+            ? { dps: 0.48, burst: 0.16, hps: 0.75, util: 1.75, surv: 0.014 }
+            : { dps: 0.42, burst: 0.12, hps: 0.85, util: 1.60, surv: 0.016 };
+        const phaseScore = (totalDPS * phaseWeights.dps) + (burstDmg * phaseWeights.burst) + (totalHPS * phaseWeights.hps) + (utilityScore * phaseWeights.util) + (survivability * phaseWeights.surv);
+        const controlScore = (utilityScore * 1.4) + (totalHPS * 1.1) + (survivability * 0.008);
+
+        const row = { className, level: L, items, phase, burstDmg: Number(burstDmg.toFixed(1)), basicDPS: Number(basicDPS.toFixed(1)), spellDPS: Number(spellDPS.toFixed(1)), summonDPS: Number(summonDPS.toFixed(1)), totalDPS: Number(totalDPS.toFixed(1)), hps: Number(totalHPS.toFixed(1)), utility: Number(utilityScore.toFixed(1)), survivability: Number(survivability.toFixed(1)), controlScore: Number(controlScore.toFixed(1)), phaseScore: Number(phaseScore.toFixed(1)) };
 
         row.ttk = {};
-        for (const tName of targets) {
-          const t = CLASSES[tName];
-          const targetHp = t.hp + 15*(L-1);
-          const effHP = effectiveHP({hp: targetHp, armor: t.baseArmor, mr: t.baseMR}, base.dmgType);
+        for (const [targetName, target] of Object.entries(TARGETS)) {
+          const targetHp = target.hp + 15 * (L - 1);
+          const effHP = effectiveHP({ hp: targetHp, armor: target.armor, mr: target.mr }, base.dmgType);
           const ttk = totalDPS > 0 ? (effHP / totalDPS) : Infinity;
-          row.ttk[tName] = Number(ttk.toFixed(2));
+          row.ttk[targetName] = Number(ttk.toFixed(2));
         }
 
         report.push(row);

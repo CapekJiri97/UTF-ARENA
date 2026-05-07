@@ -20,7 +20,7 @@ export class Projectile{
     let hitTarget = null;
     for(let m of game.minions){ 
       if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){ 
-        hitTarget = m; applyDamage(m, this.damage, this.dmgType, this.ownerId, false, this.opts.isSpell || false);
+        hitTarget = m; applyDamage(m, this._scaleBurstDamage(m.id, this.damage), this.dmgType, this.ownerId, false, this.opts.isSpell || false);
         if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
         if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantRewards(owner, 8, 11); } } break; 
       } 
@@ -29,7 +29,7 @@ export class Projectile{
     
     for(let p of game.players){ 
       if(p.id !== this.ownerId && p.team !== this.ownerTeam && p.alive && dist(this.pos, p.pos) < this.radius + p.radius){ 
-        hitTarget = p; applyDamage(p, this.damage, this.dmgType, this.ownerId, false, this.opts.isSpell || false);
+        hitTarget = p; applyDamage(p, this._scaleBurstDamage(p.id, this.damage), this.dmgType, this.ownerId, false, this.opts.isSpell || false);
         if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
         if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.ownerId); } break; 
       } 
@@ -76,8 +76,19 @@ export class Projectile{
           spawnParticles(this.pos.x, this.pos.y, 10, '#a3c');
       }
   }
-  draw(ctx){ 
-    ctx.fillStyle = this.color; ctx.font=`bold ${Math.round(this.radius * 4.5)}px monospace`; ctx.textAlign='center'; ctx.textBaseline='middle'; 
+  _scaleBurstDamage(targetId, dmg) {
+    if (!this.opts.burstId) return dmg;
+    if (!game.burstHits) game.burstHits = new Map();
+    const bk = this.opts.burstId + ':' + targetId;
+    const prev = game.burstHits.get(bk) || 0;
+    const scaled = prev === 0 ? dmg : Math.round(dmg * 0.25);
+    const next = prev + 1;
+    if (next >= (this.opts.burstMax || 3)) game.burstHits.delete(bk);
+    else game.burstHits.set(bk, next);
+    return scaled;
+  }
+  draw(ctx){
+    ctx.fillStyle = this.color; ctx.font=`bold ${Math.round(this.radius * 4.5)}px monospace`; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.shadowColor = this.color; ctx.shadowBlur = 8;
     ctx.fillText(this.glyph, this.pos.x, this.pos.y); 
     ctx.shadowBlur = 0; 
