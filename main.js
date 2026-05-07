@@ -311,15 +311,13 @@ import { initAudio, playSound } from './Audio.js';
     
     if(k === qKey) { if(keys['shift']) { player && player.allocateSpellPoint && player.allocateSpellPoint('Q'); } else { player && player.castSpell && player.castSpell('Q'); } }
     if(k === eKey) { if(keys['shift']) { player && player.allocateSpellPoint && player.allocateSpellPoint('E'); } else { player && player.castSpell && player.castSpell('E'); } }
-    if(k === sumKey) { player && player.castSummonerSpell && player.castSummonerSpell(); }
-    if(k === 'b') toggleShop();
-    if(k === 'u' && keys['shift']) { game.autoTarget = !game.autoTarget; flashMessage('Auto Target: ' + (game.autoTarget ? 'ON' : 'OFF')); }
-    if(k === 'i' && keys['shift']) { 
-        if (!game.autoPlay) { game.autoPlay = true; game.autoBuy = true; flashMessage('Auto: FULL'); }
-        else if (game.autoBuy) { game.autoBuy = false; flashMessage('Auto: COMBAT ONLY'); }
-        else { game.autoPlay = false; game.autoBuy = false; flashMessage('Auto: OFF'); }
-    }
-    if(k === 'o' && keys['shift']) { game.mouseTarget = !game.mouseTarget; flashMessage('Mouse Target: ' + (game.mouseTarget ? 'ON' : 'OFF')); }
+    if(k === sumKey && !keys['shift']) { player && player.castSummonerSpell && player.castSummonerSpell(); }
+    if(k === 'b' && !keys['shift']) toggleShop();
+    if(k === 'b' && keys['shift']) { game.autoBuy = !game.autoBuy; flashMessage('Auto-Buy: ' + (game.autoBuy ? 'ON' : 'OFF')); }
+    if(k === 'u' && keys['shift']) { game.autoAttack = !game.autoAttack; flashMessage('Auto-Attack: ' + (game.autoAttack ? 'ON' : 'OFF')); }
+    if(k === 'i' && keys['shift']) { game.autoTarget = !game.autoTarget; if (game.autoTarget) game.mouseTarget = false; flashMessage('Auto-Focus: ' + (game.autoTarget ? 'ON' : 'OFF')); }
+    if(k === 'o' && keys['shift']) { game.mouseTarget = !game.mouseTarget; if (game.mouseTarget) game.autoTarget = false; flashMessage('Mouse-Focus: ' + (game.mouseTarget ? 'ON' : 'OFF')); }
+    if(k === 'l' && keys['shift']) { game.autoLevelUp = !game.autoLevelUp; flashMessage('Auto-LevelUp: ' + (game.autoLevelUp ? 'ON' : 'OFF')); }
   });
 
   export const mouse = { sx:0, sy:0, down:false, wx:0, wy:0 };

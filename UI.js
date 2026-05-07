@@ -911,16 +911,43 @@ export function draw(){
   ctx.setTransform(camera.scale*dpr,0,0,camera.scale*dpr, -camera.x*camera.scale*dpr, -camera.y*camera.scale*dpr);
   if (game.shake > 0) { const mag = game.shake * 20; ctx.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag); }
   drawBackground(ctx);
-  // Pass 1: dim floor before entities so walls/ground remain faintly visible through fog
-  ctx.save(); ctx.setTransform(dpr,0,0,dpr,0,0);
-  drawFogOfWar(ctx, cw, ch, dpr, 0.38);
-  ctx.restore();
   for(let h of game.heals) h.draw(ctx); if(game.powerup) game.powerup.draw(ctx);
-  for(let t of game.towers) t.draw(ctx); for(let m of game.minions) m.draw(ctx); for(let p of game.projectiles) p.draw(ctx); for(let pl of game.players) pl.draw(ctx); for(let d of game.damageNumbers) d.draw(ctx); for(let pt of game.particles) pt.draw(ctx);
 
-  // Pass 2: full opacity — completely hides all entities in fog
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  drawFogOfWar(ctx, cw, ch, dpr, 1.0);
+  // Build fog mask (1/16-scale canvas)
+  buildFogCanvas(cw, ch, dpr);
+
+  // Draw entities onto offscreen canvas, then erase those inside fog
+  const pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
+  if (!game._entityCanvas || game._entityCanvas.width !== pw || game._entityCanvas.height !== ph) {
+    game._entityCanvas = document.createElement('canvas');
+    game._entityCanvas.width = pw; game._entityCanvas.height = ph;
+    game._entityCtx = game._entityCanvas.getContext('2d');
+  }
+  const ec = game._entityCtx;
+  ec.clearRect(0, 0, pw, ph);
+  ec.setTransform(camera.scale*dpr, 0, 0, camera.scale*dpr, -camera.x*camera.scale*dpr, -camera.y*camera.scale*dpr);
+  if (game.shake > 0) { const mag = game.shake * 20; ec.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag); }
+  for(let t of game.towers) t.draw(ec); for(let m of game.minions) m.draw(ec); for(let p of game.projectiles) p.draw(ec); for(let pl of game.players) pl.draw(ec); for(let d of game.damageNumbers) d.draw(ec); for(let pt of game.particles) pt.draw(ec);
+  if (game._fogCanvas) {
+    ec.setTransform(1, 0, 0, 1, 0, 0);
+    ec.globalCompositeOperation = 'destination-out';
+    ec.imageSmoothingEnabled = false;
+    ec.drawImage(game._fogCanvas, 0, 0, pw, ph);
+    ec.imageSmoothingEnabled = true;
+    ec.globalCompositeOperation = 'source-over';
+  }
+
+  // Composite: masked entities onto main canvas, then fog overlay at 60% dims floor/walls
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.drawImage(game._entityCanvas, 0, 0, cw, ch);
+  if (game._fogCanvas) {
+    ctx.save();
+    ctx.globalAlpha = 0.60;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(game._fogCanvas, 0, 0, cw, ch);
+    ctx.imageSmoothingEnabled = true;
+    ctx.restore();
+  }
 
   // --- SCREEN FLASH EFFECTS ---
   if (game.screenDamageFlash > 0 || game.screenHealFlash > 0) {
@@ -1046,8 +1073,9 @@ export function draw(){
           }
       }
       
-      let anchorX = cw / 2; const anchorY = ch - (isMobile ? 25 : 65); 
-      if (!isMobile && anchorX + 300 > cw - 320) anchorX = Math.max(300, cw - 620); // Responzivní uhnutí minimapě
+      // Anchor ~10vw from right edge, always left of the minimap (~310px from right)
+      const anchorY = ch - (isMobile ? 25 : 65);
+      let anchorX = isMobile ? cw / 2 : Math.max(200, Math.min(cw * 0.65, cw - 770));
 
       // Vykreslení target okna PŘED hlavním HUDem, nezávisle na jeho pozici a velikosti (doleva dolů)
       if (player.currentTarget && player.currentTarget.hp > 0 && !player.currentTarget.dead) {
@@ -1188,7 +1216,7 @@ export function draw(){
       const _spHud = Math.round(player.speed * _pu * (player.msBuffTimer > 0 ? 1 + player.msBuffAmount : 1));
       ctx.fillStyle = '#111'; ctx.fillRect(cx + 160, cy - 40, 290, 75);
       ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 160, cy - 40, 290, 75);
-      ctx.fillStyle = '#aaa'; ctx.font = '1Opx monospace'; ctx.textAlign = 'left';
+      ctx.fillStyle = '#aaa'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
       ctx.fillText(`AD:${Math.round(player.AD * _pu * buffAdMult)}`, cx + 165, cy - 25);
       ctx.fillText(`AP:${Math.round(player.AP * _pu)}`, cx + 165, cy - 5);
       ctx.fillText(`AR:${_arHud}`, cx + 225, cy - 25);
@@ -1204,6 +1232,26 @@ export function draw(){
       
       ctx.restore();
     }
+
+    // Bottom-left auto-mode status (gray, always visible in-game)
+    if (!keys['tab']) {
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const autoItems = [];
+      if (game.autoBuy) autoItems.push('BUY');
+      if (game.autoAttack) autoItems.push('ATK');
+      if (game.autoTarget) autoItems.push('FOCUS');
+      else if (game.mouseTarget) autoItems.push('MOUSE');
+      else autoItems.push('MANUAL');
+      if (game.autoLevelUp) autoItems.push('LVLUP');
+      ctx.fillStyle = '#444';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('AUTO  ' + autoItems.join(' · '), 10, ch - 8);
+      ctx.restore();
+    }
+
     if (keys['tab']) {
         let padX = Math.max(20, cw * 0.05);
         let padY = Math.max(20, ch * 0.05);
@@ -1595,24 +1643,38 @@ export function draw(){
         let leftM = 20; let startY = 30;
         ctx.fillStyle = '#fff'; ctx.font = `bold 20px monospace`; ctx.textAlign = 'left';
         ctx.fillText('GENERAL INFO', leftM, startY); startY += 35;
-        
+
         ctx.font = `13px monospace`;
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`CONTROLS`, leftM, startY); startY += 25;
-        
+
         ctx.fillStyle = '#fff';
         ctx.fillText(`[W,A,S,D]     : Move`, leftM, startY); startY += 20;
         ctx.fillText(`[ARROWS]      : Manual Aim`, leftM, startY); startY += 20;
         ctx.fillText(`[SPACE]       : Basic Attack`, leftM, startY); startY += 20;
-        ctx.fillText(`[Q] / [E]     : Cast Spells`, leftM, startY); startY += 20;
-        ctx.fillText(`[F] / [L]     : Summoner Spell`, leftM, startY); startY += 20;
+        const aimMode = game.autoTarget ? 'auto-focus (J/K/L)' : 'manual (Q/E/F)';
+        ctx.fillText(`[Q/J] / [E/K] : Cast Spells  [${aimMode}]`, leftM, startY); startY += 20;
         ctx.fillText(`[SHIFT + Q/E] : Level Up Spell`, leftM, startY); startY += 20;
         ctx.fillText(`[B] : Shop | [TAB] : Scoreboard`, leftM, startY); startY += 35;
-        
-        ctx.fillStyle = '#ffcc00'; ctx.fillText(`DEBUG & SETTINGS`, leftM, startY); startY += 25;
-        ctx.fillStyle = '#aaa';
-        ctx.fillText(`[SHIFT + U]   : Toggle Auto-Target Aim`, leftM, startY); startY += 20;
-        ctx.fillText(`[SHIFT + I]   : Toggle Auto-Play (Bot)`, leftM, startY); startY += 20;
-        ctx.fillText(`[SHIFT + O]   : Toggle Mouse Target`, leftM, startY); startY += 20;
+
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`AUTO HELPERS  (toggle on/off)`, leftM, startY); startY += 25;
+
+        const onCol = '#0f0', offCol = '#666';
+        const row = (key, label, state) => {
+            ctx.fillStyle = '#aaa'; ctx.fillText(`[${key}]`, leftM, startY);
+            ctx.fillStyle = '#fff'; ctx.fillText(` ${label}`, leftM + 40, startY);
+            ctx.fillStyle = state ? onCol : offCol; ctx.fillText(state ? '  ON' : ' OFF', leftM + 175, startY);
+            startY += 20;
+        };
+        row('SHIFT+B', 'Auto-Buy', game.autoBuy);
+        row('SHIFT+U', 'Auto-Attack', game.autoAttack);
+        row('SHIFT+L', 'Auto-LevelUp', game.autoLevelUp);
+        startY += 5;
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`AIM MODE  (exclusive)`, leftM, startY); startY += 20;
+        row('SHIFT+I', 'Auto-Focus', game.autoTarget);
+        row('SHIFT+O', 'Mouse-Focus', game.mouseTarget);
+        if (!game.autoTarget && !game.mouseTarget) {
+            ctx.fillStyle = '#ffcc00'; ctx.fillText(`  → Manual (arrow keys)`, leftM + 8, startY); startY += 18;
+        }
 
         ctx.restore();
     }
@@ -1623,8 +1685,7 @@ export function draw(){
         const mobS = document.getElementById('mobBtnS');
         const mobLvlQ = document.getElementById('mobLvlQ');
         const mobLvlE = document.getElementById('mobLvlE');
-        const mobAuto = document.getElementById('mobBtnAuto');
-        
+
         if (mobLvlQ && mobLvlE) {
             const showLvl = player.spellPoints > 0 ? 'flex' : 'none';
             if (mobLvlQ.style.display !== showLvl) {
@@ -1632,7 +1693,6 @@ export function draw(){
                 mobLvlE.style.display = showLvl;
             }
         }
-        
         if (mobQ) {
             let cd = player.spells.Q.cd;
             let txt = cd > 0 ? cd.toFixed(1) : 'Q';
@@ -1648,11 +1708,23 @@ export function draw(){
             let txt = cd > 0 ? cd.toFixed(1) : 'S';
             if (mobS.textContent !== txt) { mobS.textContent = txt; mobS.style.color = cd > 0 ? '#ff4e4e' : 'rgba(255,255,255,0.8)'; }
         }
-        if (mobAuto) {
-            let aTxt = 'AUTO', aCol = 'rgba(255,255,255,0.8)';
-            if (game.autoPlay && game.autoBuy) { aTxt = 'FULL'; aCol = '#0f0'; }
-            else if (game.autoPlay) { aTxt = 'FIGHT'; aCol = '#ffcc00'; }
-            if (mobAuto.textContent !== aTxt) { mobAuto.textContent = aTxt; mobAuto.style.color = aCol; }
+        // Auto-helper buttons: green = ON, dark = OFF
+        const setAutoBtn = (id, active) => {
+            const b = document.getElementById(id);
+            if (!b) return;
+            b.style.color = active ? '#0f0' : '#555';
+            b.style.border = active ? '1px solid #0f0' : '1px solid #333';
+            b.style.background = active ? 'rgba(0,255,0,0.12)' : 'rgba(255,255,255,0.07)';
+        };
+        setAutoBtn('mobBtnAtk', game.autoAttack);
+        setAutoBtn('mobBtnBuy', game.autoBuy);
+        setAutoBtn('mobBtnAim', game.autoTarget || game.mouseTarget);
+        setAutoBtn('mobBtnLvl', game.autoLevelUp);
+        // AIM button label changes: FOCUS / MOUSE / AIM
+        const aimBtn = document.getElementById('mobBtnAim');
+        if (aimBtn) {
+            const aimTxt = game.autoTarget ? 'FCUS' : (game.mouseTarget ? 'MSE' : 'AIM');
+            if (aimBtn.textContent !== aimTxt) aimBtn.textContent = aimTxt;
         }
     }
   }
@@ -1684,8 +1756,9 @@ function getStaticVisionPoints() {
   return pts;
 }
 
-function drawFogOfWar(ctx, cw, ch, dpr, alpha = 1.0) {
-  if (!player || !game.started || game.gameOver || game.isSpectator) return;
+// Computes game._fogCanvas (1/16-scale mask): opaque where fogged, transparent where visible.
+function buildFogCanvas(cw, ch, dpr) {
+  if (!player || !game.started || game.gameOver || game.isSpectator) { game._fogCanvas = null; return; }
   const SPAWN_FOG_R = 380;
   const PIXEL = 16;
   const enemyTeam = player.team === 0 ? 1 : 0;
@@ -1698,13 +1771,9 @@ function drawFogOfWar(ctx, cw, ch, dpr, alpha = 1.0) {
   }
   const fc = game._fogCtx;
   fc.setTransform(1, 0, 0, 1, 0, 0);
-
-  // 1. Fill entire canvas with fog
   fc.globalCompositeOperation = 'source-over';
   fc.fillStyle = 'rgba(30,30,38,1)';
   fc.fillRect(0, 0, fw, fh);
-
-  // 2. Cut vision holes for own team
   fc.globalCompositeOperation = 'destination-out';
   const visionR = Math.min(cw, ch) * 0.676 * dpr;
   function cutCircle(wx, wy, rFull) {
@@ -1712,23 +1781,16 @@ function drawFogOfWar(ctx, cw, ch, dpr, alpha = 1.0) {
     const sy = (wy - camera.y) * camera.scale * dpr / PIXEL;
     const r = rFull / PIXEL;
     const grad = fc.createRadialGradient(sx, sy, r * 0.70, sx, sy, r);
-    grad.addColorStop(0, 'rgba(0,0,0,1)');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    grad.addColorStop(0, 'rgba(0,0,0,1)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
     fc.fillStyle = grad;
     fc.beginPath(); fc.arc(sx, sy, r, 0, Math.PI * 2); fc.fill();
   }
-  // Own spawn always visible
-  const ownSp = spawnPoints[player.team];
-  cutCircle(ownSp.x, ownSp.y, SPAWN_FOG_R * camera.scale * dpr);
+  cutCircle(spawnPoints[player.team].x, spawnPoints[player.team].y, SPAWN_FOG_R * camera.scale * dpr);
   for (const p of game.players) {
     if (!p.alive || p.team !== player.team) continue;
     cutCircle(p.pos.x, p.pos.y, visionR);
   }
-  for (const sp of getStaticVisionPoints()) {
-    cutCircle(sp.x, sp.y, sp.r * camera.scale * dpr);
-  }
-
-  // 3. Re-fill enemy spawn (permanent — vision cannot clear it)
+  for (const sp of getStaticVisionPoints()) cutCircle(sp.x, sp.y, sp.r * camera.scale * dpr);
   fc.globalCompositeOperation = 'source-over';
   const es = spawnPoints[enemyTeam];
   const esx = (es.x - camera.x) * camera.scale * dpr / PIXEL;
@@ -1737,12 +1799,9 @@ function drawFogOfWar(ctx, cw, ch, dpr, alpha = 1.0) {
   fc.fillStyle = 'rgba(30,30,38,1)';
   fc.beginPath(); fc.arc(esx, esy, esr * 0.65, 0, Math.PI * 2); fc.fill();
   const eGrad = fc.createRadialGradient(esx, esy, esr * 0.65, esx, esy, esr);
-  eGrad.addColorStop(0, 'rgba(30,30,38,1)');
-  eGrad.addColorStop(1, 'rgba(30,30,38,0)');
+  eGrad.addColorStop(0, 'rgba(30,30,38,1)'); eGrad.addColorStop(1, 'rgba(30,30,38,0)');
   fc.fillStyle = eGrad;
   fc.beginPath(); fc.arc(esx, esy, esr, 0, Math.PI * 2); fc.fill();
-
-  // 4. Erase fog outside map boundary (evenodd: fill large rect + map polygon)
   fc.globalCompositeOperation = 'destination-out';
   fc.beginPath();
   fc.rect(0, 0, fw, fh);
@@ -1753,14 +1812,7 @@ function drawFogOfWar(ctx, cw, ch, dpr, alpha = 1.0) {
   }
   fc.closePath();
   fc.fill('evenodd');
-
   fc.globalCompositeOperation = 'source-over';
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(game._fogCanvas, 0, 0, cw, ch);
-  ctx.imageSmoothingEnabled = true;
-  ctx.restore();
 }
 
 export function drawMinimap(){
@@ -2303,19 +2355,42 @@ export function initMobileUI() {
     const btnLvlQ = createLvlBtn('Q', '39.5vh', '49vh'); btnLvlQ.id = 'mobLvlQ';
     const btnLvlE = createLvlBtn('E', '22.5vh', '63vh'); btnLvlE.id = 'mobLvlE';
 
-    // TLAČÍTKA -> PŘESUNUTO VLEVO DOLŮ HORIZONTÁLNĚ
+    // TLAČÍTKA -> VLEVO DOLŮ HORIZONTÁLNĚ
     const sideBtns = document.createElement('div');
     sideBtns.style.position = 'absolute'; sideBtns.style.left = '2vw'; sideBtns.style.right = 'auto';
     sideBtns.style.bottom = '2vh'; sideBtns.style.top = 'auto';
-    sideBtns.style.display = 'flex'; sideBtns.style.flexDirection = 'row'; sideBtns.style.gap = '10px'; sideBtns.style.pointerEvents = 'auto';
+    sideBtns.style.display = 'flex'; sideBtns.style.flexDirection = 'row'; sideBtns.style.gap = '6px'; sideBtns.style.pointerEvents = 'auto';
 
     sideBtns.appendChild(createBtn('b', 'SHOP', false, '8vh', '2vh'));
     sideBtns.appendChild(createBtn('c', 'INFO', false, '8vh', '2vh'));
-    const btnAuto = createBtn('i', 'AUTO', true, '8vh', '2vh');
-    btnAuto.id = 'mobBtnAuto';
-    sideBtns.appendChild(btnAuto); // Shift+I zapíná/vypíná autoplay
     sideBtns.appendChild(createBtn('tab', 'TAB', false, '8vh', '2vh'));
-    Array.from(sideBtns.children).forEach(b => b.style.position = 'relative'); // Vracíme na relative kvůli flex layoutu
+
+    // Auto-helper toggle buttons (small, colored by state)
+    const autoRow = document.createElement('div');
+    autoRow.style.display = 'flex'; autoRow.style.flexDirection = 'row'; autoRow.style.gap = '4px'; autoRow.style.alignItems = 'center';
+    autoRow.style.position = 'relative';
+
+    const createAutoBtn = (keyStr, label, id) => {
+        const b = document.createElement('div');
+        b.id = id;
+        b.style.width = '7vh'; b.style.height = '7vh'; b.style.background = 'rgba(255,255,255,0.1)';
+        b.style.borderRadius = '6px'; b.style.display = 'flex'; b.style.justifyContent = 'center'; b.style.alignItems = 'center';
+        b.style.color = '#555'; b.style.fontSize = '1.6vh'; b.style.fontWeight = 'bold'; b.style.fontFamily = 'monospace';
+        b.style.position = 'relative'; b.style.pointerEvents = 'auto'; b.style.border = '1px solid #333';
+        b.textContent = label;
+        b.addEventListener('touchstart', (e) => { e.preventDefault(); triggerKey(keyStr, true); }, {passive:false});
+        b.addEventListener('touchend', (e) => { e.preventDefault(); releaseKey(keyStr, true); }, {passive:false});
+        return b;
+    };
+    const btnMobAtk = createAutoBtn('u', 'ATK', 'mobBtnAtk');
+    const btnMobBuy = createAutoBtn('b', 'BUY', 'mobBtnBuy');
+    const btnMobAim = createAutoBtn('i', 'AIM', 'mobBtnAim');
+    const btnMobLvl = createAutoBtn('l', 'LVL', 'mobBtnLvl');
+    autoRow.appendChild(btnMobAtk); autoRow.appendChild(btnMobBuy);
+    autoRow.appendChild(btnMobAim); autoRow.appendChild(btnMobLvl);
+
+    Array.from(sideBtns.children).forEach(b => b.style.position = 'relative');
+    sideBtns.appendChild(autoRow);
     
     mc.appendChild(dpadZone); mc.appendChild(btnLvlQ); mc.appendChild(btnLvlE); mc.appendChild(btnQ); mc.appendChild(btnE); mc.appendChild(btnS); mc.appendChild(sideBtns); document.body.appendChild(mc);
 
