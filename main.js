@@ -473,7 +473,7 @@ import { initAudio, playSound } from './Audio.js';
           }
           // Apply anti-heal debuff to the target (non-stacking: takes strongest effect)
           if ((sourceEntity.antiHeal || 0) > 0) {
-            target.antiHealTimer = Math.max(target.antiHealTimer || 0, 3.0);
+            target.antiHealTimer = Math.max(target.antiHealTimer || 0, 2.0);
             target.antiHealStrength = Math.max(target.antiHealStrength || 0, sourceEntity.antiHeal);
           }
         }

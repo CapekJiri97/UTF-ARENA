@@ -915,7 +915,7 @@ export class Player{
     if (this.adAsBuffTimer > 0) statuses.push({ t: 'FRENZY', c: '#f00' });
     if (this.hanaBuffTimer > 0) statuses.push({ t: 'EMPOWERED', c: '#f0f' });
     if (this.reaperCharge > 0) statuses.push({ t: `EMPOWERED (${this.reaperCharge})`, c: '#800080' });
-    if (this.antiHealTimer > 0) statuses.push({ t: 'GRIEVOUS', c: '#ff6600' });
+    if (this.antiHealTimer > 0) statuses.push({ t: `GRIEVOUS ${Math.round((this.antiHealStrength || 0) * 100)}%`, c: '#ff6600' });
     
     let startY = this.pos.y - 38;
     ctx.font = 'bold 10px monospace';

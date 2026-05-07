@@ -30,11 +30,11 @@ export const shopItems = [
   { id:'def_mr', name:'Mystic Hood', desc:'+80 HP, +15 Magic Resist', cost:350, treeId:'def', treeBranch:'mr', requires:'hp', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.mr += 15; } },
   { id:'def_mr2', name:'Soul Ward', desc:'+120 HP, +20 Magic Resist', cost:450, treeId:'def', treeBranch:'mr', requires:'def_mr', apply: (pl)=>{ pl.maxHp += 120; pl.hp += 120; pl.mr += 20; } },
   // ANTI-HEAL
-  { id:'anti_base', name:'Grievous Shard', desc:'-20% Heal reduction (3s, no stack)', cost:300, treeId:'anti', treeBranch:'core', apply: (pl)=>{ pl.antiHeal = Math.max(pl.antiHeal || 0, 0.20); } },
-  { id:'ah_heal', name:'Plague Axe', desc:'+12 AD, -40% Heal on hit (3s, no stack)', cost:320, treeId:'anti', treeBranch:'physical', requires:'anti_base', apply: (pl)=>{ pl.AD += 12; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.40); } },
-  { id:'ah_heal2', name:'Blight Edge', desc:'+18 AD, -60% Heal on hit (3s, no stack)', cost:480, treeId:'anti', treeBranch:'physical', requires:'ah_heal', apply: (pl)=>{ pl.AD += 18; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); } },
-  { id:'ah_heal_ap', name:'Plague Scroll', desc:'+12 AP, -40% Heal on hit (3s, no stack)', cost:320, treeId:'anti', treeBranch:'magical', requires:'anti_base', apply: (pl)=>{ pl.AP += 12; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.40); } },
-  { id:'ah_heal_ap2', name:'Anguish Prism', desc:'+18 AP, -60% Heal on hit (3s, no stack)', cost:480, treeId:'anti', treeBranch:'magical', requires:'ah_heal_ap', apply: (pl)=>{ pl.AP += 18; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); } },
+  { id:'anti_base', name:'Grievous Shard', desc:'-20% Heal reduction (2s, no stack)', cost:300, treeId:'anti', treeBranch:'core', apply: (pl)=>{ pl.antiHeal = Math.max(pl.antiHeal || 0, 0.20); } },
+  { id:'ah_heal', name:'Plague Axe', desc:'+12 AD, -40% Heal on hit (2s, no stack)', cost:320, treeId:'anti', treeBranch:'physical', requires:'anti_base', apply: (pl)=>{ pl.AD += 12; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.40); } },
+  { id:'ah_heal2', name:'Blight Edge', desc:'+18 AD, -60% Heal on hit (2s, no stack)', cost:480, treeId:'anti', treeBranch:'physical', requires:'ah_heal', apply: (pl)=>{ pl.AD += 18; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); } },
+  { id:'ah_heal_ap', name:'Plague Scroll', desc:'+12 AP, -40% Heal on hit (2s, no stack)', cost:320, treeId:'anti', treeBranch:'magical', requires:'anti_base', apply: (pl)=>{ pl.AP += 12; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.40); } },
+  { id:'ah_heal_ap2', name:'Anguish Prism', desc:'+18 AP, -60% Heal on hit (2s, no stack)', cost:480, treeId:'anti', treeBranch:'magical', requires:'ah_heal_ap', apply: (pl)=>{ pl.AP += 18; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); } },
   // AD SLOW branch (part of AD tree)
   { id:'ad_slow', name:'Chilling Blade', desc:'+10 AD, +40 HP, 10% Slow on hit', cost:350, treeId:'ad', treeBranch:'slow', requires:'ad', apply: (pl)=>{ pl.AD += 10; pl.maxHp += 40; pl.hp += 40; pl.onHitSlow = Math.max(pl.onHitSlow || 0, 0.10); } },
   { id:'slow', name:'Glacial Mantle', desc:'+80 HP, +15 Armor, 20% Slow on hit', cost:350, treeId:'ad', treeBranch:'slow', requires:'ad_slow', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.armor += 15; pl.onHitSlow = Math.max(pl.onHitSlow || 0, 0.20); } },

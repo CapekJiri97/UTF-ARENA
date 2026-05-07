@@ -1657,9 +1657,11 @@ function getStaticVisionPoints() {
 
 function drawFogOfWar(ctx, cw, ch, dpr) {
   if (!player || !game.started || game.gameOver || game.isSpectator) return;
+  const SPAWN_FOG_R = 380;
+  const PIXEL = 16;
+  const enemyTeam = player.team === 0 ? 1 : 0;
+  const es = spawnPoints[enemyTeam];
   const pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
-  // Render fog at 1/8 resolution and scale up → chunky pixel blocks that fit the ASCII aesthetic
-  const PIXEL = 8;
   const fw = Math.ceil(pw / PIXEL), fh = Math.ceil(ph / PIXEL);
   if (!game._fogCanvas || game._fogCanvas.width !== fw || game._fogCanvas.height !== fh) {
     game._fogCanvas = document.createElement('canvas');
@@ -1668,33 +1670,20 @@ function drawFogOfWar(ctx, cw, ch, dpr) {
   }
   const fc = game._fogCtx;
   fc.setTransform(1, 0, 0, 1, 0, 0);
-  fc.globalCompositeOperation = 'source-over';
-  fc.fillStyle = 'rgba(90,90,100,1.0)'; // solid in small canvas; alpha applied on upscale
-  fc.fillRect(0, 0, fw, fh);
-  fc.globalCompositeOperation = 'destination-out';
-  const visionR = Math.min(cw, ch) * 0.676 * dpr; // full-res vision radius
-  function cutCircle(wx, wy, rFull) {
-    const sx = (wx - camera.x) * camera.scale * dpr / PIXEL;
-    const sy = (wy - camera.y) * camera.scale * dpr / PIXEL;
-    const r = rFull / PIXEL;
-    // Short gradient so the edge is chunky when scaled up (70%→100% of radius only)
-    const grad = fc.createRadialGradient(sx, sy, r * 0.70, sx, sy, r);
-    grad.addColorStop(0, 'rgba(0,0,0,1)');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    fc.fillStyle = grad;
-    fc.beginPath(); fc.arc(sx, sy, r, 0, Math.PI * 2); fc.fill();
-  }
-  for (const p of game.players) {
-    if (!p.alive || p.team !== player.team) continue;
-    cutCircle(p.pos.x, p.pos.y, visionR);
-  }
-  for (const sp of getStaticVisionPoints()) {
-    cutCircle(sp.x, sp.y, sp.r * camera.scale * dpr);
-  }
-  fc.globalCompositeOperation = 'source-over';
-  // Upscale with nearest-neighbour → pixelated blocks; 0.72 alpha → floor/walls dimly visible
+  fc.clearRect(0, 0, fw, fh);
+  const sx = (es.x - camera.x) * camera.scale * dpr / PIXEL;
+  const sy = (es.y - camera.y) * camera.scale * dpr / PIXEL;
+  const sr = SPAWN_FOG_R * camera.scale * dpr / PIXEL;
+  // Solid inner fill + short gradient edge → chunky pixelated border when upscaled at PIXEL=16
+  fc.fillStyle = 'rgba(30,30,38,1)';
+  fc.beginPath(); fc.arc(sx, sy, sr * 0.65, 0, Math.PI * 2); fc.fill();
+  const grad = fc.createRadialGradient(sx, sy, sr * 0.65, sx, sy, sr);
+  grad.addColorStop(0, 'rgba(30,30,38,1)');
+  grad.addColorStop(1, 'rgba(30,30,38,0)');
+  fc.fillStyle = grad;
+  fc.beginPath(); fc.arc(sx, sy, sr, 0, Math.PI * 2); fc.fill();
   ctx.save();
-  ctx.globalAlpha = 0.72;
+  ctx.globalAlpha = 0.88;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(game._fogCanvas, 0, 0, cw, ch);
   ctx.imageSmoothingEnabled = true;
@@ -1744,23 +1733,13 @@ export function drawMinimap(){
       }
   }
   ctxm.drawImage(game.minimapBg, 0, 0, w, h);
-  // Vision radius matching what the player sees on screen (+30%)
-  const cw_fog = canvas.clientWidth, ch_fog = canvas.clientHeight;
-  const visionRWorld = (!player || game.isSpectator) ? Infinity : Math.min(cw_fog, ch_fog) * 0.676 / camera.scale;
-  const visionRSq = visionRWorld * visionRWorld;
-  const _staticVisionPts = getStaticVisionPoints();
+  const SPAWN_FOG_R_MM = 380;
+  const _enemyTeamMM = (!player || game.isSpectator) ? -1 : (player.team === 0 ? 1 : 0);
   function mmVisible(wx, wy) {
-    if (!isFinite(visionRSq)) return true;
-    for (const ap of game.players) {
-      if (!ap.alive || ap.team !== player.team) continue;
-      const dx = wx - ap.pos.x, dy = wy - ap.pos.y;
-      if (dx*dx + dy*dy <= visionRSq) return true;
-    }
-    for (const sp of _staticVisionPts) {
-      const dx = wx - sp.x, dy = wy - sp.y;
-      if (dx*dx + dy*dy <= sp.r * sp.r) return true;
-    }
-    return false;
+    if (_enemyTeamMM < 0) return true;
+    const es = spawnPoints[_enemyTeamMM];
+    const dx = wx - es.x, dy = wy - es.y;
+    return (dx * dx + dy * dy) > SPAWN_FOG_R_MM * SPAWN_FOG_R_MM;
   }
 
   for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#486FED' : t.owner===1? '#FF4E4E' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
@@ -1778,39 +1757,36 @@ export function drawMinimap(){
     ctxm.fillText(p.glyph, x, y);
   }
 
-  // Fog overlay on minimap
-  if (player && !game.isSpectator && isFinite(visionRWorld)) {
+  // Spawn-zone fog on minimap — only hide enemy spawn, pixelated + high opacity
+  if (player && !game.isSpectator && _enemyTeamMM >= 0) {
     const mmDpr = window.devicePixelRatio || 1;
-    const mmFogW = Math.round(w * mmDpr), mmFogH = Math.round(h * mmDpr);
-    if (!game._mmFogCanvas || game._mmFogCanvas.width !== mmFogW || game._mmFogCanvas.height !== mmFogH) {
+    const PIXEL_MM = 3;
+    const fwMM = Math.ceil(Math.round(w * mmDpr) / PIXEL_MM), fhMM = Math.ceil(Math.round(h * mmDpr) / PIXEL_MM);
+    if (!game._mmFogCanvas || game._mmFogCanvas.width !== fwMM || game._mmFogCanvas.height !== fhMM) {
       game._mmFogCanvas = document.createElement('canvas');
-      game._mmFogCanvas.width = mmFogW; game._mmFogCanvas.height = mmFogH;
+      game._mmFogCanvas.width = fwMM; game._mmFogCanvas.height = fhMM;
       game._mmFogCtx = game._mmFogCanvas.getContext('2d');
     }
     const fmCtx = game._mmFogCtx;
     fmCtx.setTransform(1, 0, 0, 1, 0, 0);
-    fmCtx.globalCompositeOperation = 'source-over';
-    fmCtx.fillStyle = 'rgba(90,90,100,0.76)';
-    fmCtx.fillRect(0, 0, mmFogW, mmFogH);
-    fmCtx.globalCompositeOperation = 'destination-out';
-    const visionRMM = visionRWorld * scaleX * mmDpr;
-    function mmCutCircle(wx, wy, rMM) {
-      const mx = wx * scaleX * mmDpr, my = wy * scaleY * mmDpr;
-      const grad = fmCtx.createRadialGradient(mx, my, rMM * 0.65, mx, my, rMM);
-      grad.addColorStop(0, 'rgba(0,0,0,1)');
-      grad.addColorStop(1, 'rgba(0,0,0,0)');
-      fmCtx.fillStyle = grad;
-      fmCtx.beginPath(); fmCtx.arc(mx, my, rMM, 0, Math.PI*2); fmCtx.fill();
-    }
-    for (const ap of game.players) {
-      if (!ap.alive || ap.team !== player.team) continue;
-      mmCutCircle(ap.pos.x, ap.pos.y, visionRMM);
-    }
-    for (const sp of _staticVisionPts) {
-      mmCutCircle(sp.x, sp.y, sp.r * scaleX * mmDpr);
-    }
-    fmCtx.globalCompositeOperation = 'source-over';
+    fmCtx.clearRect(0, 0, fwMM, fhMM);
+    const es = spawnPoints[_enemyTeamMM];
+    const mx = es.x * scaleX * mmDpr / PIXEL_MM;
+    const my = es.y * scaleY * mmDpr / PIXEL_MM;
+    const mr = SPAWN_FOG_R_MM * scaleX * mmDpr / PIXEL_MM;
+    fmCtx.fillStyle = 'rgba(30,30,38,1)';
+    fmCtx.beginPath(); fmCtx.arc(mx, my, mr * 0.65, 0, Math.PI * 2); fmCtx.fill();
+    const mmGrad = fmCtx.createRadialGradient(mx, my, mr * 0.65, mx, my, mr);
+    mmGrad.addColorStop(0, 'rgba(30,30,38,1)');
+    mmGrad.addColorStop(1, 'rgba(30,30,38,0)');
+    fmCtx.fillStyle = mmGrad;
+    fmCtx.beginPath(); fmCtx.arc(mx, my, mr, 0, Math.PI * 2); fmCtx.fill();
+    ctxm.save();
+    ctxm.globalAlpha = 0.93;
+    ctxm.imageSmoothingEnabled = false;
     ctxm.drawImage(game._mmFogCanvas, 0, 0, w, h);
+    ctxm.imageSmoothingEnabled = true;
+    ctxm.restore();
   }
 
   // Redraw map boundary + walls on top of fog so they're always visible
