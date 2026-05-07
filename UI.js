@@ -911,11 +911,16 @@ export function draw(){
   ctx.setTransform(camera.scale*dpr,0,0,camera.scale*dpr, -camera.x*camera.scale*dpr, -camera.y*camera.scale*dpr);
   if (game.shake > 0) { const mag = game.shake * 20; ctx.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag); }
   drawBackground(ctx);
+  // Pass 1: dim floor before entities so walls/ground remain faintly visible through fog
+  ctx.save(); ctx.setTransform(dpr,0,0,dpr,0,0);
+  drawFogOfWar(ctx, cw, ch, dpr, 0.38);
+  ctx.restore();
   for(let h of game.heals) h.draw(ctx); if(game.powerup) game.powerup.draw(ctx);
   for(let t of game.towers) t.draw(ctx); for(let m of game.minions) m.draw(ctx); for(let p of game.projectiles) p.draw(ctx); for(let pl of game.players) pl.draw(ctx); for(let d of game.damageNumbers) d.draw(ctx); for(let pt of game.particles) pt.draw(ctx);
-  
+
+  // Pass 2: full opacity — completely hides all entities in fog
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  drawFogOfWar(ctx, cw, ch, dpr);
+  drawFogOfWar(ctx, cw, ch, dpr, 1.0);
 
   // --- SCREEN FLASH EFFECTS ---
   if (game.screenDamageFlash > 0 || game.screenHealFlash > 0) {
@@ -1059,7 +1064,7 @@ export function draw(){
           const _tls = t.lifesteal || 0, _tsv = t.spellVamp || 0;
           const _tgw = t.antiHeal || 0, _tsw = t.onHitSlow || 0, _tss = t.onSpellHitSlow || 0;
           const _tHasItemStats = _tls > 0 || _tsv > 0 || _tgw > 0 || _tsw > 0 || _tss > 0;
-          const tw = 280, th = _tHasItemStats ? 108 : 85; const tx = 0, ty = 0;
+          const tw = 400, th = 82; const tx = 0, ty = 0;
           ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = (t.team >= 0) ? TEAM_COLOR[t.team] : NEUTRAL_COLOR; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
 
           ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left'; let tName = t.className || 'Minion'; ctx.fillText(`${tName} ${t.level ? 'LV'+t.level : ''}`, tx + 15, ty + 25);
@@ -1069,24 +1074,33 @@ export function draw(){
           ctx.fillStyle = '#fff'; ctx.font = '12px monospace'; ctx.fillText(`${Math.floor(t.hp)}/${t.effectiveMaxHp || t.maxHp}`, tx + 15, ty + 68);
 
           if (t.AD !== undefined) {
-              ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; let stX = tx + 150;
               let buffAdMultT = 1.0 + (t.adAsBuffTimer > 0 ? t.adAsBuffAmount : 0);
               let buffAsMultT = 1.0 + (t.adAsBuffTimer > 0 ? t.adAsBuffAmount : 0);
-              ctx.fillText(`AD:${Math.round(t.AD*(t.hasPowerup?1.2:1)*buffAdMultT)}`, stX, ty + 30);
-              ctx.fillText(`AP:${Math.round(t.AP*(t.hasPowerup?1.2:1))}`, stX, ty + 55);
-              ctx.fillText(`AR:${Math.round(t.armor*(t.hasPowerup?1.2:1))}`, stX + 45, ty + 30);
-              ctx.fillText(`MR:${Math.round(t.mr*(t.hasPowerup?1.2:1))}`, stX + 45, ty + 55);
-              ctx.fillText(`SP:${Math.round(t.speed*(t.hasPowerup?1.2:1))}`, stX + 90, ty + 30);
-              ctx.fillText(`AS:${(t.attackDelay / (t.attackSpeed * buffAsMultT)).toFixed(2)}`, stX + 90, ty + 55);
-              if (_tHasItemStats) {
-                  ctx.fillStyle = '#7cf'; ctx.font = '10px monospace';
-                  let _tisx = stX, _tisy = ty + 78;
-                  if (_tls > 0)  { ctx.fillText(`LS:${Math.round(_tls*100)}%`,  _tisx, _tisy); _tisx += 48; }
-                  if (_tsv > 0)  { ctx.fillText(`SV:${Math.round(_tsv*100)}%`,  _tisx, _tisy); _tisx += 48; }
-                  if (_tgw > 0)  { ctx.fillText(`GW:${Math.round(_tgw*100)}%`,  _tisx, _tisy); _tisx += 48; }
-                  if (_tsw > 0)  { ctx.fillText(`SLW:${Math.round(_tsw*100)}%`, _tisx, _tisy); _tisx += 54; }
-                  if (_tss > 0)  { ctx.fillText(`SSP:${Math.round(_tss*100)}%`, _tisx, _tisy); }
-              }
+              if (t.hanaBuffTimer > 0) buffAsMultT *= (t.spells?.Q?.bonusAsMult || 1.25);
+              const _puT = t.hasPowerup ? 1.2 : 1;
+              const _arT = Math.round(t.armor * _puT * (t.boostTimer > 0 ? 1.1 : 1) + (t.defBuffTimer > 0 ? 50 : 0));
+              const _mrT = Math.round(t.mr * _puT * (t.boostTimer > 0 ? 1.1 : 1) + (t.defBuffTimer > 0 ? 50 : 0));
+              const _spT = Math.round(t.speed * _puT * (t.msBuffTimer > 0 ? 1 + t.msBuffAmount : 1));
+              const _tpa = t.armorPenFlat || 0, _tpm = t.magicPenFlat || 0;
+              const stX = tx + 152, r1 = ty + 25, r2 = ty + 48, r3 = ty + 70;
+              const c0 = stX, c1 = stX + 58, c2 = stX + 118, c3 = stX + 178;
+              // Col 0: AD, AP
+              ctx.fillStyle = '#aaa'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+              ctx.fillText(`AD:${Math.round(t.AD * _puT * buffAdMultT)}`, c0, r1);
+              ctx.fillText(`AP:${Math.round(t.AP * _puT)}`, c0, r2);
+              // Col 1: AR, MR, HP
+              ctx.fillText(`AR:${_arT}`, c1, r1);
+              ctx.fillText(`MR:${_mrT}`, c1, r2);
+              ctx.fillText(`HP:${t.effectiveMaxHp || t.maxHp}`, c1, r3);
+              // Col 2: AS, SP, AH
+              ctx.fillText(`AS:${(t.attackDelay / (t.attackSpeed * buffAsMultT)).toFixed(2)}`, c2, r1);
+              ctx.fillText(`SP:${_spT}`, c2, r2);
+              ctx.fillText(`AH:${t.abilityHaste || 0}`, c2, r3);
+              // Col 3: item stats (cyan, same as player HUD)
+              ctx.fillStyle = '#aaa'; ctx.font = '10px monospace';
+              ctx.fillText(`LS:${Math.round(_tls*100)}%|SV:${Math.round(_tsv*100)}%`, c3, r1);
+              ctx.fillText(`PA:${_tpa}|PM:${_tpm}`, c3, r2);
+              ctx.fillText(`SL:${Math.round(_tsw*100)}%|GW:${Math.round(_tgw*100)}%`, c3, r3);
           }
           ctx.restore();
       }
@@ -1167,16 +1181,21 @@ export function draw(){
       const _pa = player.armorPenFlat || 0, _pm = player.magicPenFlat || 0;
       let buffAdMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
       let buffAsMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
+      if (player.hanaBuffTimer > 0) buffAsMult *= (player.spells?.Q?.bonusAsMult || 1.25);
+      const _pu = player.hasPowerup ? 1.2 : 1;
+      const _arHud = Math.round(player.armor * _pu * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
+      const _mrHud = Math.round(player.mr * _pu * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
+      const _spHud = Math.round(player.speed * _pu * (player.msBuffTimer > 0 ? 1 + player.msBuffAmount : 1));
       ctx.fillStyle = '#111'; ctx.fillRect(cx + 160, cy - 40, 290, 75);
       ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 160, cy - 40, 290, 75);
       ctx.fillStyle = '#aaa'; ctx.font = '1Opx monospace'; ctx.textAlign = 'left';
-      ctx.fillText(`AD:${Math.round(player.AD * (player.hasPowerup?1.2:1) * buffAdMult)}`, cx + 165, cy - 25);
-      ctx.fillText(`AP:${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + 165, cy - 5);
-      ctx.fillText(`AR:${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + 225, cy - 25);
-      ctx.fillText(`MR:${Math.round(player.mr * (player.hasPowerup?1.2:1))}`, cx + 225, cy - 5);
+      ctx.fillText(`AD:${Math.round(player.AD * _pu * buffAdMult)}`, cx + 165, cy - 25);
+      ctx.fillText(`AP:${Math.round(player.AP * _pu)}`, cx + 165, cy - 5);
+      ctx.fillText(`AR:${_arHud}`, cx + 225, cy - 25);
+      ctx.fillText(`MR:${_mrHud}`, cx + 225, cy - 5);
       ctx.fillText(`HP:${player.effectiveMaxHp}`, cx + 225, cy + 15);
       ctx.fillText(`AS:${(player.attackDelay / (player.attackSpeed * buffAsMult)).toFixed(2)}`, cx + 295, cy - 25);
-      ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 295, cy - 5);
+      ctx.fillText(`SP:${_spHud}`, cx + 295, cy - 5);
       ctx.fillText(`AH:${player.abilityHaste}`, cx + 295, cy + 15);
       ctx.fillStyle = '#aaa'; ctx.font = '10px monospace';
       ctx.fillText(`LS:${Math.round(_ls*100)}%|SV:${Math.round(_sv*100)}%`, cx + 350, cy - 25);
@@ -1261,12 +1280,14 @@ export function draw(){
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`ATTRIBUTES`, leftM, startY); startY += 25;
         let buffAdMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
         let buffAsMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
-        let adVal = Math.round(player.AD*(player.hasPowerup?1.2:1)*buffAdMultP);
-        let apVal = Math.round(player.AP*(player.hasPowerup?1.2:1));
-        let arVal = Math.round(player.armor*(player.hasPowerup?1.2:1));
-        let mrVal = Math.round(player.mr*(player.hasPowerup?1.2:1));
+        if (player.hanaBuffTimer > 0) buffAsMultP *= (player.spells?.Q?.bonusAsMult || 1.25);
+        const _puP = player.hasPowerup ? 1.2 : 1;
+        let adVal = Math.round(player.AD * _puP * buffAdMultP);
+        let apVal = Math.round(player.AP * _puP);
+        let arVal = Math.round(player.armor * _puP * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
+        let mrVal = Math.round(player.mr * _puP * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
         let asVal = (player.attackSpeed * buffAsMultP).toFixed(2);
-        let msVal = Math.round(player.speed*(player.hasPowerup?1.2:1));
+        let msVal = Math.round(player.speed * _puP * (player.msBuffTimer > 0 ? 1 + player.msBuffAmount : 1));
         let ahVal = player.abilityHaste;
         
         ctx.fillStyle = '#aaa';
@@ -1493,7 +1514,7 @@ export function draw(){
                 if (!it) continue;
                 const cnt = counts[id];
                 const cntStr = cnt > 1 ? ` ×${cnt}` : '';
-                ctx.fillStyle = '#7cf'; ctx.font = `bold 11px monospace`;
+                ctx.fillStyle = '#aaa'; ctx.font = `bold 11px monospace`;
                 ctx.fillText(`  ${it.name}${cntStr}  ${it.cost}g`, leftM, startY); startY += 15;
                 ctx.fillStyle = '#888'; ctx.font = `10px monospace`;
                 const descLine = `    ${it.desc}`;
@@ -1639,23 +1660,31 @@ export function draw(){
 
 // Returns world-space static vision zones: powerup center + tower ring path
 function getStaticVisionPoints() {
-  const pts = [{ x: 1993, y: 1567, r: 380 }]; // powerup center
+  const MAP_CX = 1993, MAP_CY = 1567;
+  const RING_PUSH = 100; // shift each tower-ring vision point this many units outward from map center
+  function pushOut(px, py) {
+    const d = Math.hypot(px - MAP_CX, py - MAP_CY) || 1;
+    return { x: px + (px - MAP_CX) / d * RING_PUSH, y: py + (py - MAP_CY) / d * RING_PUSH };
+  }
+  const pts = [{ x: MAP_CX, y: MAP_CY, r: 380 }]; // powerup center stays fixed
   if (game.towers && game.towers.length > 0) {
     for (let i = 0; i < game.towers.length; i++) {
       const t1 = game.towers[i], t2 = game.towers[(i + 1) % game.towers.length];
-      pts.push({ x: t1.pos.x, y: t1.pos.y, r: 420 });
+      const p1 = pushOut(t1.pos.x, t1.pos.y);
+      pts.push({ x: p1.x, y: p1.y, r: 420 });
       const dx = t2.pos.x - t1.pos.x, dy = t2.pos.y - t1.pos.y;
       const steps = Math.max(1, Math.floor(Math.hypot(dx, dy) / 260));
       for (let s = 1; s < steps; s++) {
         const t = s / steps;
-        pts.push({ x: t1.pos.x + dx * t, y: t1.pos.y + dy * t, r: 340 });
+        const ip = pushOut(t1.pos.x + dx * t, t1.pos.y + dy * t);
+        pts.push({ x: ip.x, y: ip.y, r: 340 });
       }
     }
   }
   return pts;
 }
 
-function drawFogOfWar(ctx, cw, ch, dpr) {
+function drawFogOfWar(ctx, cw, ch, dpr, alpha = 1.0) {
   if (!player || !game.started || game.gameOver || game.isSpectator) return;
   const SPAWN_FOG_R = 380;
   const PIXEL = 16;
@@ -1727,7 +1756,7 @@ function drawFogOfWar(ctx, cw, ch, dpr) {
 
   fc.globalCompositeOperation = 'source-over';
   ctx.save();
-  ctx.globalAlpha = 0.72;
+  ctx.globalAlpha = alpha;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(game._fogCanvas, 0, 0, cw, ch);
   ctx.imageSmoothingEnabled = true;
