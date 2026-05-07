@@ -383,7 +383,7 @@ import { initAudio, playSound } from './Audio.js';
     return 0;
   }
 
-  export function applyDamage(target, amount, type, sourceId, isNetwork = false) {
+  export function applyDamage(target, amount, type, sourceId, isNetwork = false, isSpell = false) {
     if(!target || target.dead || target.hp <= 0) return 0;
     if(target.invulnerableTimer > 0 && type !== 'true') {
         game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-6, "IMMUNE"));
@@ -422,9 +422,9 @@ import { initAudio, playSound } from './Audio.js';
             finalDamage -= sDmg;
         }
         target.hp -= finalDamage;
-        // Titan's Sigil passive: 3% enemy max HP as true damage, 4s cooldown
-        if (finalDamage > 0 && sourceEntity?.titanSigilPassive && (sourceEntity.titanSigilCd || 0) <= 0 && target.maxHp && type !== 'true') {
-            const sigilBonus = Math.round(target.maxHp * 0.03);
+        // Titan's Sigil/Shard passive: % enemy max HP bonus magic dmg on spell hit (4s CD)
+        if (finalDamage > 0 && isSpell && (sourceEntity?.titanSigilSpellDmg || 0) > 0 && (sourceEntity.titanSigilCd || 0) <= 0 && target.maxHp && type !== 'true') {
+            const sigilBonus = Math.round(target.maxHp * sourceEntity.titanSigilSpellDmg);
             target.hp -= sigilBonus;
             sourceEntity.titanSigilCd = 4.0;
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y + 14, sigilBonus, '#e0e0ff'));

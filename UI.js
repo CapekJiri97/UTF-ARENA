@@ -126,14 +126,15 @@ const SHOP_TREE_CONFIGS = {
         nodes: [
             { id: 'hp',          col: 2, row: 1 },
             { id: 'def_ar',      col: 1, row: 2 },
-            { id: 'titan_sigil', col: 2, row: 2 },
+            { id: 'titan_shard', col: 2, row: 2 },
             { id: 'def_mr',      col: 3, row: 2 },
             { id: 'def_ar2',     col: 1, row: 3 },
+            { id: 'titan_sigil', col: 2, row: 3 },
             { id: 'def_mr2',     col: 3, row: 3 }
         ],
         links: [
-            ['hp', 'def_ar'], ['hp', 'titan_sigil'], ['hp', 'def_mr'],
-            ['def_ar', 'def_ar2'], ['def_mr', 'def_mr2']
+            ['hp', 'def_ar'], ['hp', 'titan_shard'], ['hp', 'def_mr'],
+            ['def_ar', 'def_ar2'], ['titan_shard', 'titan_sigil'], ['def_mr', 'def_mr2']
         ]
     },
     anti: {
@@ -1092,7 +1093,7 @@ export function draw(){
 
       ctx.save();
       // Zmenšené měřítko středového HUDu pro mobily (na 60%)
-      let uiScale = isMobile ? 0.60 : 1; 
+      let uiScale = isMobile ? 0.50 : 1; 
       ctx.translate(anchorX, anchorY);
       ctx.scale(uiScale, uiScale);
       
@@ -1168,7 +1169,7 @@ export function draw(){
       let buffAsMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
       ctx.fillStyle = '#111'; ctx.fillRect(cx + 160, cy - 40, 290, 75);
       ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 160, cy - 40, 290, 75);
-      ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+      ctx.fillStyle = '#aaa'; ctx.font = '1Opx monospace'; ctx.textAlign = 'left';
       ctx.fillText(`AD:${Math.round(player.AD * (player.hasPowerup?1.2:1) * buffAdMult)}`, cx + 165, cy - 25);
       ctx.fillText(`AP:${Math.round(player.AP * (player.hasPowerup?1.2:1))}`, cx + 165, cy - 5);
       ctx.fillText(`AR:${Math.round(player.armor * (player.hasPowerup?1.2:1))}`, cx + 225, cy - 25);
@@ -1177,7 +1178,7 @@ export function draw(){
       ctx.fillText(`AS:${(player.attackDelay / (player.attackSpeed * buffAsMult)).toFixed(2)}`, cx + 295, cy - 25);
       ctx.fillText(`SP:${Math.round(player.speed * (player.hasPowerup?1.2:1))}`, cx + 295, cy - 5);
       ctx.fillText(`AH:${player.abilityHaste}`, cx + 295, cy + 15);
-      ctx.fillStyle = '#7cf'; ctx.font = '10px monospace';
+      ctx.fillStyle = '#aaa'; ctx.font = '10px monospace';
       ctx.fillText(`LS:${Math.round(_ls*100)}%|SV:${Math.round(_sv*100)}%`, cx + 350, cy - 25);
       ctx.fillText(`PA:${_pa}|PM:${_pm}`, cx + 350, cy - 5);
       ctx.fillText(`SL:${Math.round(_sw*100)}%|AH:${Math.round(_gw*100)}%`, cx + 350, cy + 15);
@@ -1470,7 +1471,7 @@ export function draw(){
         // ── ITEMS ────────────────────────────────────────────────────────
         const ownedIds = player.items || [];
         ctx.fillStyle = '#ffcc00'; ctx.font = `bold 13px monospace`;
-        ctx.fillText(`ITEMS  (${ownedIds.length}/25)`, leftM, startY); startY += 6;
+        ctx.fillText(`ITEMS  (${ownedIds.length})`, leftM, startY); startY += 6;
         // horizontal rule
         ctx.fillStyle = '#333';
         ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 10;

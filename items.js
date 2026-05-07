@@ -44,8 +44,9 @@ export const shopItems = [
   // SHIELD branch (part of Defense tree)
   { id:'shield', name:'Barrier Core', desc:'+80 HP, +15 MR, Shield on Hit', cost:350, treeId:'def', treeBranch:'shield', requires:'hp', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.mr += 15; pl.shieldOnHit = 120; } },
   { id:'shield_ad', name:'Gilded Bulwark', desc:'+10 AD, +80 HP, +15 Armor, Enhanced Shield', cost:480, treeId:'def', treeBranch:'shield', requires:'shield', apply: (pl)=>{ pl.AD += 10; pl.maxHp += 80; pl.hp += 80; pl.armor += 15; pl.shieldOnHit = 180; } },
-  // TITAN'S SIGIL — anti-tank passive
-  { id:'titan_sigil', name:"Titan's Sigil", desc:'+150 HP, +20 Armor, +20 MR | Passive: On damage, deal 3% enemy max HP as true damage (4s CD)', cost:950, treeId:'def', treeBranch:'titan', requires:'hp', apply: (pl)=>{ pl.maxHp += 150; pl.hp += 150; pl.armor += 20; pl.mr += 20; pl.titanSigilPassive = true; pl.titanSigilCd = 0; } }
+  // TITAN TREE — spell-only % max HP passive, two-tier
+  { id:'titan_shard', name:"Titan's Shard", desc:'+20 HP, +5 Armor, +5 MR | Passive: Spells deal +1% target Max HP as bonus magic dmg (4s CD)', cost:420, treeId:'def', treeBranch:'titan', requires:'hp', apply: (pl)=>{ pl.maxHp += 20; pl.hp += 20; pl.armor += 5; pl.mr += 5; pl.titanSigilSpellDmg = Math.max(pl.titanSigilSpellDmg || 0, 0.01); pl.titanSigilCd = pl.titanSigilCd || 0; } },
+  { id:'titan_sigil', name:"Titan's Sigil", desc:'+40 HP, +5 Armor, +5 MR | Passive: Spells deal +2.5% target Max HP as bonus magic dmg (4s CD)', cost:680, treeId:'def', treeBranch:'titan', requires:'titan_shard', apply: (pl)=>{ pl.maxHp += 40; pl.hp += 40; pl.armor += 5; pl.mr += 5; pl.titanSigilSpellDmg = Math.max(pl.titanSigilSpellDmg || 0, 0.025); pl.titanSigilCd = pl.titanSigilCd || 0; } }
 ];
 
 const itemById = new Map(shopItems.map((item) => [item.id, item]));

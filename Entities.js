@@ -20,7 +20,7 @@ export class Projectile{
     let hitTarget = null;
     for(let m of game.minions){ 
       if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){ 
-        hitTarget = m; applyDamage(m, this.damage, this.dmgType, this.ownerId); 
+        hitTarget = m; applyDamage(m, this.damage, this.dmgType, this.ownerId, false, this.opts.isSpell || false);
         if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
         if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantRewards(owner, 8, 11); } } break; 
       } 
@@ -29,7 +29,7 @@ export class Projectile{
     
     for(let p of game.players){ 
       if(p.id !== this.ownerId && p.team !== this.ownerTeam && p.alive && dist(this.pos, p.pos) < this.radius + p.radius){ 
-        hitTarget = p; applyDamage(p, this.damage, this.dmgType, this.ownerId); 
+        hitTarget = p; applyDamage(p, this.damage, this.dmgType, this.ownerId, false, this.opts.isSpell || false);
         if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
         if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.ownerId); } break; 
       } 
@@ -50,7 +50,7 @@ export class Projectile{
           }
       }
       if (this.opts.bonusMaxHpDmg && target.maxHp && (!socket || game.isHost)) {
-          applyDamage(target, Math.round(target.maxHp * this.opts.bonusMaxHpDmg), 'magical', this.ownerId);
+          applyDamage(target, Math.round(target.maxHp * this.opts.bonusMaxHpDmg), 'magical', this.ownerId, false, true);
       }
       if (this.opts.pullToCaster && (!socket || game.isHost)) {
           const owner = game.players.find(p => p.id === this.ownerId);

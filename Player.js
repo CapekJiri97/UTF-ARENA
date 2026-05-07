@@ -457,8 +457,8 @@ export class Player{
         if (this.shieldExplodeData.timer <= 0 || this.shield <= 0) {
             let expl = this.shieldExplodeData;
             game.particles.push(new Particle(this.pos.x, this.pos.y, '#aaa', {shape: 'ring', radius: expl.radius, life: 0.4, speed: 0, lineWidth: 4}));
-            for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= expl.radius){ applyDamage(m, expl.damage * 0.75, expl.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
-            for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= expl.radius){ applyDamage(p, expl.damage, expl.dmgType, this.id); if (expl.bonusMaxHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.maxHp * expl.bonusMaxHpDmg), 'magical', this.id); } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } }
+            for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= expl.radius){ applyDamage(m, expl.damage * 0.75, expl.dmgType, this.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
+            for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= expl.radius){ applyDamage(p, expl.damage, expl.dmgType, this.id, false, true); if (expl.bonusMaxHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.maxHp * expl.bonusMaxHpDmg), 'magical', this.id, false, true); } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } }
             spawnParticles(this.pos.x, this.pos.y, 10, '#aaa');
             this.shieldExplodeData = null;
             this.shield = 0;
@@ -488,14 +488,14 @@ export class Player{
                     if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
                         const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
                         const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                        if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } 
+                        if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id, false, true); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } }
                     } 
                 }
                 for(let p of game.players){ 
                     if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){ 
                         const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); 
                         const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                        if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
+                        if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id, false, true); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
                     } 
                 }
             }
@@ -513,8 +513,8 @@ export class Player{
                 game.particles.push(new Particle(this.pos.x, this.pos.y, '#ccc', { shape: 'ring', radius: sd.radius, life: 0.1, lineWidth: 2 }));
                 
                 if (!socket || game.isHost || this === player) {
-                    for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= sd.radius) { applyDamage(m, sd.damage * 0.75, sd.dmgType, sd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
-                    for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= sd.radius) { applyDamage(p, sd.damage, sd.dmgType, sd.id); } }
+                    for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= sd.radius) { applyDamage(m, sd.damage * 0.75, sd.dmgType, sd.id, false, true); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
+                    for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= sd.radius) { applyDamage(p, sd.damage, sd.dmgType, sd.id, false, true); } }
                 }
             }
         }
@@ -559,7 +559,7 @@ export class Player{
                 playSound('hit', this.pos);
                 
                 if (!socket || game.isHost || this === player) {
-                    applyDamage(t, this.omnislashData.damage, this.omnislashData.dmgType, this.id);
+                    applyDamage(t, this.omnislashData.damage, this.omnislashData.dmgType, this.id, false, true);
                     if (t.hp <= 0) {
                         if (t.className) {
                             if (!socket || game.isHost) handlePlayerKill(t, this.id);
@@ -602,29 +602,29 @@ export class Player{
             const isMageSupport = isSupport || (this.role === 'SLAYER' && this.dmgType === 'magical') || (this.role === 'SPLITPUSHER' && this.dmgType === 'magical');
             
             const itemCount = (id) => (this.items || []).filter(itemId => itemId === id).length;
-            const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 || (e.spellVamp || 0) > 0.05);
+            const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 || (e.spellVamp || 0) > 0.05 || Object.values(e.spells || {}).some(sp => sp && sp.type && (sp.type.includes('heal') || sp.type === 'projectile_egg' || sp.type === 'summon_healers')));
 
             if (isTank) {
                 if (itemCount('hp') < 3) pool.push('hp', 'hp');
                 if (enemyPhys >= enemyMag) pool.push('def_ar', 'def_ar2');
                 if (enemyMag >= enemyPhys) pool.push('def_mr', 'def_mr2');
-                if (enemyHasHealing) pool.push('ah_heal');
-                pool.push('slow', 'shield');
+                if (enemyHasHealing) pool.push('anti_base', 'ah_heal');
+                pool.push('slow', 'titan_shard', 'titan_sigil');
             } else if (isFighter) {
                 if (itemCount('hp') < 2) pool.push('hp');
                 if (this.dmgType === 'magical') pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls', 'as_ms');
                 if (enemyPhys > enemyMag) pool.push('def_ar'); else if (enemyMag > enemyPhys) pool.push('def_mr');
-                if (enemyHasHealing && this.dmgType === 'physical') pool.push('ah_heal');
-                if (enemyHasHealing && this.dmgType === 'magical') pool.push('ah_heal_ap');
+                if (enemyHasHealing && this.dmgType === 'physical') pool.push('anti_base', 'ah_heal');
+                if (enemyHasHealing && this.dmgType === 'magical') pool.push('anti_base', 'ah_heal_ap');
             } else if (isMageSupport) {
                 if (isSupport) pool.push('ap', 'ap', 'ah', 'ah', 'hp');
                 else pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms', 'hp');
-                if (enemyHasHealing) pool.push('ah_heal_ap');
+                if (enemyHasHealing) pool.push('anti_base', 'ah_heal_ap');
             } else {
                 if (this.role === 'SLAYER' && this.range) pool.push('ad', 'ad', 'ad', 'as', 'as', 'ah', 'ad_pen', 'ad_ls', 'as_ms', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls');
                 if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'def_ar' : 'def_mr');
-                if (enemyHasHealing && this.dmgType === 'physical') pool.push('ah_heal');
-                if (enemyHasHealing && this.dmgType === 'magical') pool.push('ah_heal_ap');
+                if (enemyHasHealing && this.dmgType === 'physical') pool.push('anti_base', 'ah_heal');
+                if (enemyHasHealing && this.dmgType === 'magical') pool.push('anti_base', 'ah_heal_ap');
             }
             const itemToBuy = pickBuyableItem(this, pool, enemies);
             if (itemToBuy) buyItem(itemToBuy.id); // buyItem handles gold/item changes
@@ -678,8 +678,8 @@ export class Player{
         if (this.dashTimer <= 0 && this.dashEndExplosion) {
            const expl = this.dashEndExplosion; const range = expl.radius;
            game.particles.push(new Particle(this.pos.x, this.pos.y, '#f80', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
-           for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage * 0.75, expl.dmgType, expl.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
-           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id); if (expl.bonusCurrentHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.hp * expl.bonusCurrentHpDmg), 'magical', expl.id); } if (expl.silenceDuration) { p.silenceTimer = Math.max(p.silenceTimer || 0, expl.silenceDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "SILENCED", '#fff')); } if (expl.slowDuration) { p.slowTimer = Math.max(p.slowTimer || 0, expl.slowDuration); p.slowMod = expl.slowMod || 0.6; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, expl.id); } } }
+           for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage * 0.75, expl.dmgType, expl.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
+           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id, false, true); if (expl.bonusCurrentHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.hp * expl.bonusCurrentHpDmg), 'magical', expl.id, false, true); } if (expl.silenceDuration) { p.silenceTimer = Math.max(p.silenceTimer || 0, expl.silenceDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "SILENCED", '#fff')); } if (expl.slowDuration) { p.slowTimer = Math.max(p.slowTimer || 0, expl.slowDuration); p.slowMod = expl.slowMod || 0.6; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, expl.id); } } }
            spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
            this.dashEndExplosion = null;
         }
@@ -1114,7 +1114,7 @@ export class Player{
         for(let i=0; i<count; i++) {
             const a = count === 1 ? angle : angle - (spread*(count-1))/2 + i*spread;
             const vx = Math.cos(a)*speed; const vy = Math.sin(a)*speed;
-            game.projectiles.push(new Projectile(this.pos.x + Math.cos(a)*(this.radius+6), this.pos.y + Math.sin(a)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:sp.pGlyph, life: life, slowDuration: slowDur, slowMod: slowMod, pullToCaster: sp.pullToCaster, bonusMaxHpDmg: sp.bonusMaxHpDmg || 0}));
+            game.projectiles.push(new Projectile(this.pos.x + Math.cos(a)*(this.radius+6), this.pos.y + Math.sin(a)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:sp.pGlyph, life: life, slowDuration: slowDur, slowMod: slowMod, pullToCaster: sp.pullToCaster, bonusMaxHpDmg: sp.bonusMaxHpDmg || 0, isSpell: true}));
         }
     } else if (sp.type === 'projectile_summon') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x); const speed = sp.pSpeed || 900; const life = sp.life || (700 / speed);
@@ -1126,7 +1126,7 @@ export class Player{
         game.projectiles.push(new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {
             damage: damage, dmgType: this.dmgType, glyph: sp.pGlyph, life: life,
             spawnMinion: true, mGlyph: sp.summonGlyph, mHp: sumHp, mAd: sumAd,
-            slowDuration: slowDur
+            slowDuration: slowDur, isSpell: true
         }));
     } else if (sp.type === 'buff_ad_as') {
         this.adAsBuffTimer = sp.duration;
@@ -1142,8 +1142,8 @@ export class Player{
             slowDur = Math.max(slowDur, 1.5);
             slowMod = Math.min(slowMod, 1 - this.onSpellHitSlow);
         }
-        for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, damage * 0.75, this.dmgType, this.id); if (slowDur) { m.slowTimer = Math.max(m.slowTimer||0, slowDur); m.slowMod = slowMod; } if (sp.stunDuration) { m.stunTimer = Math.max(m.stunTimer||0, sp.stunDuration); } spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
-        for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, damage, this.dmgType, this.id); if (slowDur) { p.slowTimer = Math.max(p.slowTimer||0, slowDur); p.slowMod = slowMod; } if (sp.stunDuration) { p.stunTimer = Math.max(p.stunTimer||0, sp.stunDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "STUNNED", '#ffcc00')); } if (sp.silenceDuration) { p.silenceTimer = Math.max(p.silenceTimer||0, sp.silenceDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "SILENCED", '#fff')); } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } }
+        for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); if (slowDur) { m.slowTimer = Math.max(m.slowTimer||0, slowDur); m.slowMod = slowMod; } if (sp.stunDuration) { m.stunTimer = Math.max(m.stunTimer||0, sp.stunDuration); } spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
+        for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, damage, this.dmgType, this.id, false, true); if (slowDur) { p.slowTimer = Math.max(p.slowTimer||0, slowDur); p.slowMod = slowMod; } if (sp.stunDuration) { p.stunTimer = Math.max(p.stunTimer||0, sp.stunDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "STUNNED", '#ffcc00')); } if (sp.silenceDuration) { p.silenceTimer = Math.max(p.silenceTimer||0, sp.silenceDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "SILENCED", '#fff')); } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } }
         spawnParticles(this.pos.x, this.pos.y, 10, '#ccf');
     } else if (sp.type === 'heal_self') {
         let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10));
@@ -1172,13 +1172,13 @@ export class Player{
             slowMod = Math.min(slowMod, 1 - this.onSpellHitSlow);
         }
         for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){
-            applyDamage(m, damage * 0.75, this.dmgType, this.id); if (slowDur) { m.slowTimer = Math.max(m.slowTimer||0, slowDur); m.slowMod = slowMod; } spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
+            applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); if (slowDur) { m.slowTimer = Math.max(m.slowTimer||0, slowDur); m.slowMod = slowMod; } spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
             let angle = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
             m.knockbackTimer = 0.2; m.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
             if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); }
         } }
         for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){
-            applyDamage(p, damage, this.dmgType, this.id); if (slowDur) { p.slowTimer = Math.max(p.slowTimer||0, slowDur); p.slowMod = slowMod; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
+            applyDamage(p, damage, this.dmgType, this.id, false, true); if (slowDur) { p.slowTimer = Math.max(p.slowTimer||0, slowDur); p.slowMod = slowMod; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
             let angle = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
             p.knockbackTimer = 0.2; p.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
             if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } 
@@ -1193,7 +1193,7 @@ export class Player{
             const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
             const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
             if (da <= cone/2) {
-                applyDamage(m, damage * 0.75, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
+                applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
                 let angle = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
                 m.knockbackTimer = 0.2; m.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
                 if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); }
@@ -1203,7 +1203,7 @@ export class Player{
             const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
             const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
             if (da <= cone/2) {
-                applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
+                applyDamage(p, damage, this.dmgType, this.id, false, true); spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
                 let angle = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
                 p.knockbackTimer = 0.2; p.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
                 if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); }
@@ -1219,7 +1219,7 @@ export class Player{
             const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
             const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
             if (da <= cone/2) {
-                applyDamage(m, damage * 0.75, this.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
+                applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
                 if (sp.slowDuration) { m.slowTimer = Math.max(m.slowTimer||0, sp.slowDuration); m.slowMod = sp.slowMod || 0.6; }
                 if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); }
             }
@@ -1228,7 +1228,7 @@ export class Player{
             const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
             const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
             if (da <= cone/2) {
-                applyDamage(p, damage, this.dmgType, this.id); spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
+                applyDamage(p, damage, this.dmgType, this.id, false, true); spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
                 if (sp.slowDuration) { p.slowTimer = Math.max(p.slowTimer||0, sp.slowDuration); p.slowMod = sp.slowMod || 0.6; }
                 if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); }
             }
@@ -1383,7 +1383,7 @@ export class Player{
         const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed;
         
         let egg = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {
-            damage: damage, dmgType: this.dmgType, glyph: 'o', life: life, radius: 10
+            damage: damage, dmgType: this.dmgType, glyph: 'o', life: life, radius: 10, isSpell: true
         });
         let pulseDmg = Math.round(10 + pAP * 0.15);
 
@@ -1444,7 +1444,7 @@ export class Player{
     } else if (sp.type === 'tamer_q') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x); const speed = sp.pSpeed || 900; const life = sp.life || (700 / speed);
         const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed;
-        game.projectiles.push(new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, { damage: damage, dmgType: this.dmgType, glyph: sp.pGlyph, life: life, markPetTarget: true, noHitParticles: sp.noHitParticles }));
+        game.projectiles.push(new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, { damage: damage, dmgType: this.dmgType, glyph: sp.pGlyph, life: life, markPetTarget: true, noHitParticles: sp.noHitParticles, isSpell: true }));
     } else if (sp.type === 'tamer_e') {
         let pet = game.minions.find(m => m.ownerId === this.id && m.isTamerPet && !m.dead);
         if (pet) {
@@ -1488,8 +1488,8 @@ export class Player{
                 game.particles.push(new Particle(this.pos.x, this.pos.y, '#800080', {shape: 'ring', radius: pullRadius, life: 0.4, speed: 0, lineWidth: 5}));
                 spawnParticles(this.pos.x, this.pos.y, 20, '#800080', {speed: 100, life: 0.5});
                 if (!socket || game.isHost) {
-                    for(let m of game.minions){ if(!m.dead && m.team !== oTeam && dist(this.pos, m.pos) <= pullRadius){ applyDamage(m, damage * 0.75, dmgType, casterId); let a = Math.atan2(this.pos.y - m.pos.y, this.pos.x - m.pos.x); m.knockbackTimer = 0.3; m.knockbackVel = { x: Math.cos(a)*550, y: Math.sin(a)*550 }; if (stunDur > 0) m.stunTimer = Math.max(m.stunTimer || 0, stunDur); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; let owner = game.players.find(x=>x.id===casterId); if(owner) grantRewards(owner, 8, 11); } } }
-                    for(let ep of game.players){ if(ep.id !== casterId && ep.team !== oTeam && ep.alive && dist(this.pos, ep.pos) <= pullRadius){ applyDamage(ep, damage, dmgType, casterId); let a = Math.atan2(this.pos.y - ep.pos.y, this.pos.x - ep.pos.x); ep.knockbackTimer = 0.3; ep.knockbackVel = { x: Math.cos(a)*550, y: Math.sin(a)*550 }; if (stunDur > 0) { ep.stunTimer = Math.max(ep.stunTimer || 0, stunDur); game.effectTexts.push(new EffectText(ep.pos.x, ep.pos.y-20, "STUNNED", '#ffcc00')); } spawnParticles(ep.pos.x, ep.pos.y, 4, '#fff'); if(ep.hp<=0) handlePlayerKill(ep, casterId); } }
+                    for(let m of game.minions){ if(!m.dead && m.team !== oTeam && dist(this.pos, m.pos) <= pullRadius){ applyDamage(m, damage * 0.75, dmgType, casterId, false, true); let a = Math.atan2(this.pos.y - m.pos.y, this.pos.x - m.pos.x); m.knockbackTimer = 0.3; m.knockbackVel = { x: Math.cos(a)*550, y: Math.sin(a)*550 }; if (stunDur > 0) m.stunTimer = Math.max(m.stunTimer || 0, stunDur); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; let owner = game.players.find(x=>x.id===casterId); if(owner) grantRewards(owner, 8, 11); } } }
+                    for(let ep of game.players){ if(ep.id !== casterId && ep.team !== oTeam && ep.alive && dist(this.pos, ep.pos) <= pullRadius){ applyDamage(ep, damage, dmgType, casterId, false, true); let a = Math.atan2(this.pos.y - ep.pos.y, this.pos.x - ep.pos.x); ep.knockbackTimer = 0.3; ep.knockbackVel = { x: Math.cos(a)*550, y: Math.sin(a)*550 }; if (stunDur > 0) { ep.stunTimer = Math.max(ep.stunTimer || 0, stunDur); game.effectTexts.push(new EffectText(ep.pos.x, ep.pos.y-20, "STUNNED", '#ffcc00')); } spawnParticles(ep.pos.x, ep.pos.y, 4, '#fff'); if(ep.hp<=0) handlePlayerKill(ep, casterId); } }
                 }
             }
         };
@@ -1640,9 +1640,10 @@ export class BotPlayer extends Player {
             ? ((unit.AP * 1.6) * magMult * 2.0) + (unit.abilityHaste || 0) * 0.45
             : ((unit.AD * 1.6) * physMult * 2.0) + (unit.attackSpeed || 0) * 12;
 
+        const titanBonus = (unit.titanSigilSpellDmg || 0) * 750 * magMult / 4; // ~average enemy hp / 4s CD
         const dps = dmgType === 'magical'
-            ? ((unit.AP * (1 + (unit.abilityHaste || 0) / 120)) * magMult * 1.5) + (unit.spellVamp || 0) * unit.AP * 220
-            : ((unit.AD * (unit.attackSpeed || 0)) * physMult * 1.5) + (unit.lifesteal || 0) * unit.AD * (unit.attackSpeed || 0) * 220;
+            ? ((unit.AP * (1 + (unit.abilityHaste || 0) / 120)) * magMult * 1.5) + (unit.spellVamp || 0) * unit.AP * 220 + titanBonus
+            : ((unit.AD * (unit.attackSpeed || 0)) * physMult * 1.5) + (unit.lifesteal || 0) * unit.AD * (unit.attackSpeed || 0) * 220 + titanBonus;
 
         const physicalEhp = (unit.maxHp || 0) * (1 + (unit.armor || 0) / 100);
         const magicEhp = (unit.maxHp || 0) * (1 + (unit.mr || 0) / 100);
@@ -1715,7 +1716,7 @@ export class BotPlayer extends Player {
             ['hp'],
             ['hp', 'def_ar', 'def_ar2'],
             ['hp', 'def_mr', 'def_mr2'],
-            ['hp', 'shield', 'shield_ad'],
+            ['hp', 'titan_shard', 'titan_sigil'],
             // Anti-heal paths
             ['anti_base', 'ah_heal', 'ah_heal2'],
             ['anti_base', 'ah_heal_ap', 'ah_heal_ap2'],
@@ -2310,7 +2311,7 @@ export class BotPlayer extends Player {
             const inBase = dist(bot.pos, spawnPoints[bot.team]) < 250;
             if ((!bot.alive || inBase) && bot.gold >= 300 && bot.items.length < 25) {
                 const enemies = game.players.filter(p => p.team !== bot.team);
-                const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 || (e.spellVamp || 0) > 0.05);
+                const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 || (e.spellVamp || 0) > 0.05 || Object.values(e.spells || {}).some(sp => sp && sp.type && (sp.type.includes('heal') || sp.type === 'projectile_egg' || sp.type === 'summon_healers')));
 
                 // Path commitment: pick or continue a target upgrade path
                 if (!bot.targetPath || BotPlayer.isPathComplete(bot, bot.targetPath)) {
@@ -3325,14 +3326,14 @@ export class BotPlayer extends Player {
                       if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
                           const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
                           const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                              if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } 
+                              if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id, false, true); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } }
                       } 
                   }
                   for(let p of game.players){ 
                       if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){ 
                           const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); 
                           const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                          if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
+                          if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id, false, true); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
                       } 
                   }
               }
@@ -3390,7 +3391,7 @@ export class BotPlayer extends Player {
                   spawnParticles(this.pos.x, this.pos.y, 6, '#fff', { shape: 'line', speed: 250 });
                   playSound('hit', this.pos);
                   if (!socket || game.isHost) {
-                      applyDamage(t, this.omnislashData.damage, this.omnislashData.dmgType, this.id);
+                      applyDamage(t, this.omnislashData.damage, this.omnislashData.dmgType, this.id, false, true);
                       if (t.hp <= 0) {
                           if (t.className) handlePlayerKill(t, this.id);
                           else { t.dead = true; grantRewards(this, 8, 11); }
