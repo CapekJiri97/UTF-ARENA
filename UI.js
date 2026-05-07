@@ -1658,38 +1658,47 @@ function getStaticVisionPoints() {
 function drawFogOfWar(ctx, cw, ch, dpr) {
   if (!player || !game.started || game.gameOver || game.isSpectator) return;
   const pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
-  if (!game._fogCanvas || game._fogCanvas.width !== pw || game._fogCanvas.height !== ph) {
+  // Render fog at 1/8 resolution and scale up → chunky pixel blocks that fit the ASCII aesthetic
+  const PIXEL = 8;
+  const fw = Math.ceil(pw / PIXEL), fh = Math.ceil(ph / PIXEL);
+  if (!game._fogCanvas || game._fogCanvas.width !== fw || game._fogCanvas.height !== fh) {
     game._fogCanvas = document.createElement('canvas');
-    game._fogCanvas.width = pw; game._fogCanvas.height = ph;
+    game._fogCanvas.width = fw; game._fogCanvas.height = fh;
     game._fogCtx = game._fogCanvas.getContext('2d');
   }
   const fc = game._fogCtx;
   fc.setTransform(1, 0, 0, 1, 0, 0);
   fc.globalCompositeOperation = 'source-over';
-  fc.fillStyle = 'rgba(90,90,100,0.84)';
-  fc.fillRect(0, 0, pw, ph);
+  fc.fillStyle = 'rgba(90,90,100,1.0)'; // solid in small canvas; alpha applied on upscale
+  fc.fillRect(0, 0, fw, fh);
   fc.globalCompositeOperation = 'destination-out';
-  const visionR = Math.min(cw, ch) * 0.676 * dpr; // +30% vs original 0.52
-  function cutCircle(wx, wy, rScreen) {
-    const sx = (wx - camera.x) * camera.scale * dpr;
-    const sy = (wy - camera.y) * camera.scale * dpr;
-    const grad = fc.createRadialGradient(sx, sy, rScreen * 0.65, sx, sy, rScreen);
+  const visionR = Math.min(cw, ch) * 0.676 * dpr; // full-res vision radius
+  function cutCircle(wx, wy, rFull) {
+    const sx = (wx - camera.x) * camera.scale * dpr / PIXEL;
+    const sy = (wy - camera.y) * camera.scale * dpr / PIXEL;
+    const r = rFull / PIXEL;
+    // Short gradient so the edge is chunky when scaled up (70%→100% of radius only)
+    const grad = fc.createRadialGradient(sx, sy, r * 0.70, sx, sy, r);
     grad.addColorStop(0, 'rgba(0,0,0,1)');
     grad.addColorStop(1, 'rgba(0,0,0,0)');
     fc.fillStyle = grad;
-    fc.beginPath(); fc.arc(sx, sy, rScreen, 0, Math.PI * 2); fc.fill();
+    fc.beginPath(); fc.arc(sx, sy, r, 0, Math.PI * 2); fc.fill();
   }
-  // Allied player vision
   for (const p of game.players) {
     if (!p.alive || p.team !== player.team) continue;
     cutCircle(p.pos.x, p.pos.y, visionR);
   }
-  // Static vision zones (powerup + tower ring)
   for (const sp of getStaticVisionPoints()) {
     cutCircle(sp.x, sp.y, sp.r * camera.scale * dpr);
   }
   fc.globalCompositeOperation = 'source-over';
+  // Upscale with nearest-neighbour → pixelated blocks; 0.72 alpha → floor/walls dimly visible
+  ctx.save();
+  ctx.globalAlpha = 0.72;
+  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(game._fogCanvas, 0, 0, cw, ch);
+  ctx.imageSmoothingEnabled = true;
+  ctx.restore();
 }
 
 export function drawMinimap(){
@@ -1781,7 +1790,7 @@ export function drawMinimap(){
     const fmCtx = game._mmFogCtx;
     fmCtx.setTransform(1, 0, 0, 1, 0, 0);
     fmCtx.globalCompositeOperation = 'source-over';
-    fmCtx.fillStyle = 'rgba(0,0,0,0.78)';
+    fmCtx.fillStyle = 'rgba(90,90,100,0.76)';
     fmCtx.fillRect(0, 0, mmFogW, mmFogH);
     fmCtx.globalCompositeOperation = 'destination-out';
     const visionRMM = visionRWorld * scaleX * mmDpr;
