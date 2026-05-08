@@ -1,52 +1,163 @@
+// Adaptive Power helper — gives AD to physical heroes, AP to magical heroes
+export const addAdaptive = (pl, amount) => {
+  if (pl.dmgType === 'magical') pl.AP = (pl.AP || 0) + amount;
+  else pl.AD = (pl.AD || 0) + amount;
+};
+
 export const shopItems = [
-  // AD
-  { id:'ad', name:'Iron Shard', desc:'+15 AD', cost:300, treeId:'ad', treeBranch:'core', apply: (pl)=>{ pl.AD += 15; } },
-  { id:'ad_ls', name:'Vampiric Blade', desc:'+12 AD, +4% Lifesteal', cost:350, treeId:'ad', treeBranch:'lifesteal', requires:'ad', apply: (pl)=>{ pl.AD += 12; pl.lifesteal = (pl.lifesteal || 0) + 0.04; } },
-  { id:'ad_ls2', name:'Bloodletter Blade', desc:'+15 AD, +6% Lifesteal', cost:450, treeId:'ad', treeBranch:'lifesteal', requires:'ad_ls', apply: (pl)=>{ pl.AD += 15; pl.lifesteal = (pl.lifesteal || 0) + 0.06; } },
-  { id:'ad_pen', name:'Jagged Cleaver', desc:'+12 AD, +6 Armor Pen', cost:350, treeId:'ad', treeBranch:'armorpen', requires:'ad', apply: (pl)=>{ pl.AD += 12; pl.armorPenFlat = (pl.armorPenFlat || 0) + 6; } },
-  { id:'ad_pen2', name:'Guillotine Blade', desc:'+15 AD, +8 Armor Pen', cost:450, treeId:'ad', treeBranch:'armorpen', requires:'ad_pen', apply: (pl)=>{ pl.AD += 15; pl.armorPenFlat = (pl.armorPenFlat || 0) + 8; } },
-  // AP
-  { id:'ap', name:'Arcane Scroll', desc:'+15 AP', cost:300, treeId:'ap', treeBranch:'core', apply: (pl)=>{ pl.AP += 15; } },
-  { id:'ap_vamp', name:'Soul Talisman', desc:'+12 AP, +4% Spell Vamp', cost:350, treeId:'ap', treeBranch:'vamp', requires:'ap', apply: (pl)=>{ pl.AP += 12; pl.spellVamp = (pl.spellVamp || 0) + 0.04; } },
-  { id:'ap_vamp2', name:'Lifeweave Prism', desc:'+15 AP, +6% Spell Vamp', cost:450, treeId:'ap', treeBranch:'vamp', requires:'ap_vamp', apply: (pl)=>{ pl.AP += 15; pl.spellVamp = (pl.spellVamp || 0) + 0.06; } },
-  { id:'ap_pen', name:'Arcane Needle', desc:'+12 AP, +6 Magic Pen', cost:350, treeId:'ap', treeBranch:'magicpen', requires:'ap', apply: (pl)=>{ pl.AP += 12; pl.magicPenFlat = (pl.magicPenFlat || 0) + 6; } },
-  { id:'ap_pen2', name:'Shadow Prism', desc:'+15 AP, +8 Magic Pen', cost:450, treeId:'ap', treeBranch:'magicpen', requires:'ap_pen', apply: (pl)=>{ pl.AP += 15; pl.magicPenFlat = (pl.magicPenFlat || 0) + 8; } },
-  // AS
-  { id:'as', name:'Dagger', desc:'+20% Attack Speed', cost:300, treeId:'as', treeBranch:'core', apply: (pl)=>{ pl.attackSpeed += 0.20; } },
-  { id:'as_ms', name:'Swift Dagger', desc:'+15% Attack Speed, +3% Move Speed', cost:350, treeId:'as', treeBranch:'tempo', requires:'as', apply: (pl)=>{ pl.attackSpeed += 0.15; pl.speed *= 1.03; } },
-  { id:'as_ms2', name:'Ghoststep Blade', desc:'+20% Attack Speed, +4% Move Speed', cost:450, treeId:'as', treeBranch:'tempo', requires:'as_ms', apply: (pl)=>{ pl.attackSpeed += 0.20; pl.speed *= 1.04; } },
-  { id:'as_dmg', name:'Hunting Bow', desc:'+15% Attack Speed, +10 AD', cost:350, treeId:'as', treeBranch:'damage', requires:'as', apply: (pl)=>{ pl.attackSpeed += 0.15; pl.AD += 10; } },
-  { id:'as_dmg2', name:'Fangblade', desc:'+20% Attack Speed, +12 AD', cost:450, treeId:'as', treeBranch:'damage', requires:'as_dmg', apply: (pl)=>{ pl.attackSpeed += 0.20; pl.AD += 12; } },
-  // AH
-  { id:'ah', name:'Focus Crystal', desc:'+18 Ability Haste', cost:300, treeId:'ah', treeBranch:'core', apply: (pl)=>{ pl.abilityHaste = (pl.abilityHaste || 0) + 18; } },
-  { id:'ah_ms', name:'Quick Gem', desc:'+12 Ability Haste, +3% Move Speed', cost:350, treeId:'ah', treeBranch:'tempo', requires:'ah', apply: (pl)=>{ pl.abilityHaste = (pl.abilityHaste || 0) + 12; pl.speed *= 1.03; } },
-  { id:'ah_ms2', name:'Wind Wisp', desc:'+15 Ability Haste, +4% Move Speed', cost:450, treeId:'ah', treeBranch:'tempo', requires:'ah_ms', apply: (pl)=>{ pl.abilityHaste = (pl.abilityHaste || 0) + 15; pl.speed *= 1.04; } },
-  { id:'ah_hp', name:'Vitality Gem', desc:'+10 Ability Haste, +80 HP', cost:350, treeId:'ah', treeBranch:'vitality', requires:'ah', apply: (pl)=>{ pl.abilityHaste = (pl.abilityHaste || 0) + 10; pl.maxHp += 80; pl.hp += 80; } },
-  { id:'ah_hp2', name:'Colossus Heart', desc:'+15 Ability Haste, +120 HP', cost:450, treeId:'ah', treeBranch:'vitality', requires:'ah_hp', apply: (pl)=>{ pl.abilityHaste = (pl.abilityHaste || 0) + 15; pl.maxHp += 120; pl.hp += 120; } },
-  // DEFENSE
-  { id:'hp', name:'Bloodstone', desc:'+100 HP, +1.5 HP Regen', cost:300, treeId:'def', treeBranch:'core', apply: (pl)=>{ pl.maxHp += 100; pl.hp += 100; pl.hpRegen += 1.5; } },
-  { id:'def_ar', name:'Sentinel Mail', desc:'+80 HP, +15 Armor', cost:350, treeId:'def', treeBranch:'armor', requires:'hp', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.armor += 15; } },
-  { id:'def_ar2', name:'Blazing Plate', desc:'+120 HP, +20 Armor', cost:450, treeId:'def', treeBranch:'armor', requires:'def_ar', apply: (pl)=>{ pl.maxHp += 120; pl.hp += 120; pl.armor += 20; } },
-  { id:'def_mr', name:'Mystic Hood', desc:'+80 HP, +15 Magic Resist', cost:350, treeId:'def', treeBranch:'mr', requires:'hp', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.mr += 15; } },
-  { id:'def_mr2', name:'Soul Ward', desc:'+120 HP, +20 Magic Resist', cost:450, treeId:'def', treeBranch:'mr', requires:'def_mr', apply: (pl)=>{ pl.maxHp += 120; pl.hp += 120; pl.mr += 20; } },
-  // ANTI-HEAL
-  { id:'anti_base', name:'Grievous Shard', desc:'-20% Heal reduction (2s, no stack)', cost:300, treeId:'anti', treeBranch:'core', apply: (pl)=>{ pl.antiHeal = Math.max(pl.antiHeal || 0, 0.20); } },
-  { id:'ah_heal', name:'Plague Axe', desc:'+12 AD, -40% Heal on hit (2s, no stack)', cost:320, treeId:'anti', treeBranch:'physical', requires:'anti_base', apply: (pl)=>{ pl.AD += 12; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.40); } },
-  { id:'ah_heal2', name:'Blight Edge', desc:'+18 AD, -60% Heal on hit (2s, no stack)', cost:480, treeId:'anti', treeBranch:'physical', requires:'ah_heal', apply: (pl)=>{ pl.AD += 18; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); } },
-  { id:'ah_heal_ap', name:'Plague Scroll', desc:'+12 AP, -40% Heal on hit (2s, no stack)', cost:320, treeId:'anti', treeBranch:'magical', requires:'anti_base', apply: (pl)=>{ pl.AP += 12; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.40); } },
-  { id:'ah_heal_ap2', name:'Anguish Prism', desc:'+18 AP, -60% Heal on hit (2s, no stack)', cost:480, treeId:'anti', treeBranch:'magical', requires:'ah_heal_ap', apply: (pl)=>{ pl.AP += 18; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); } },
-  // AD SLOW branch (part of AD tree)
-  { id:'ad_slow', name:'Chilling Blade', desc:'+10 AD, +40 HP, 10% Slow on hit', cost:350, treeId:'ad', treeBranch:'slow', requires:'ad', apply: (pl)=>{ pl.AD += 10; pl.maxHp += 40; pl.hp += 40; pl.onHitSlow = Math.max(pl.onHitSlow || 0, 0.10); } },
-  { id:'slow', name:'Glacial Mantle', desc:'+80 HP, +15 Armor, 20% Slow on hit', cost:350, treeId:'ad', treeBranch:'slow', requires:'ad_slow', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.armor += 15; pl.onHitSlow = Math.max(pl.onHitSlow || 0, 0.20); } },
-  // AP SLOW branch (part of AP tree)
-  { id:'ap_slow', name:'Glacial Tome', desc:'+10 AP, 12% Slow on Spells', cost:350, treeId:'ap', treeBranch:'slow', requires:'ap', apply: (pl)=>{ pl.AP += 10; pl.onSpellHitSlow = Math.max(pl.onSpellHitSlow || 0, 0.12); } },
-  { id:'slow_ms', name:'Frostbind Staff', desc:'+15 AP, 25% Slow on Spells', cost:350, treeId:'ap', treeBranch:'slow', requires:'ap_slow', apply: (pl)=>{ pl.AP += 15; pl.onSpellHitSlow = Math.max(pl.onSpellHitSlow || 0, 0.25); } },
-  // SHIELD branch (part of Defense tree)
-  { id:'shield', name:'Barrier Core', desc:'+80 HP, +15 MR, Shield on Hit', cost:350, treeId:'def', treeBranch:'shield', requires:'hp', apply: (pl)=>{ pl.maxHp += 80; pl.hp += 80; pl.mr += 15; pl.shieldOnHit = 120; } },
-  { id:'shield_ad', name:'Gilded Bulwark', desc:'+10 AD, +80 HP, +15 Armor, Enhanced Shield', cost:480, treeId:'def', treeBranch:'shield', requires:'shield', apply: (pl)=>{ pl.AD += 10; pl.maxHp += 80; pl.hp += 80; pl.armor += 15; pl.shieldOnHit = 180; } },
-  // TITAN TREE — spell-only % max HP passive, two-tier
-  { id:'titan_shard', name:"Titan's Shard", desc:'+20 HP, +5 Armor, +5 MR | Passive: Spells deal +1% target Max HP as bonus magic dmg (4s CD)', cost:420, treeId:'def', treeBranch:'titan', requires:'hp', apply: (pl)=>{ pl.maxHp += 20; pl.hp += 20; pl.armor += 5; pl.mr += 5; pl.titanSigilSpellDmg = Math.max(pl.titanSigilSpellDmg || 0, 0.01); pl.titanSigilCd = pl.titanSigilCd || 0; } },
-  { id:'titan_sigil', name:"Titan's Sigil", desc:'+40 HP, +5 Armor, +5 MR | Passive: Spells deal +2.5% target Max HP as bonus magic dmg (4s CD)', cost:680, treeId:'def', treeBranch:'titan', requires:'titan_shard', apply: (pl)=>{ pl.maxHp += 40; pl.hp += 40; pl.armor += 5; pl.mr += 5; pl.titanSigilSpellDmg = Math.max(pl.titanSigilSpellDmg || 0, 0.025); pl.titanSigilCd = pl.titanSigilCd || 0; } }
+  // ==========================================
+  // 1. OFFENSE TREE (Marksman / Auto-Attack Carry)
+  // ==========================================
+  {
+    id: 'off_t1', name: 'Iron Shard', desc: '+10 Power, +5% AS, +5 AH', cost: 300,
+    treeId: 'offense', treeBranch: 'core',
+    apply: (pl) => { addAdaptive(pl, 10); pl.attackSpeed += 0.05; pl.abilityHaste = (pl.abilityHaste || 0) + 5; }
+  },
+  {
+    id: 'off_t2_as', name: 'Recurve Bow', desc: '+25 Power, +20% AS', cost: 400,
+    treeId: 'offense', treeBranch: 'as_branch', requires: 'off_t1',
+    apply: (pl) => { addAdaptive(pl, 25); pl.attackSpeed += 0.20; }
+  },
+  {
+    id: 'off_t3_ls', name: 'Bloodthirster', desc: '+50 Power, +30% AS, +10% Lifesteal', cost: 600,
+    treeId: 'offense', treeBranch: 'as_branch', requires: 'off_t2_as',
+    apply: (pl) => { addAdaptive(pl, 50); pl.attackSpeed += 0.30; pl.lifesteal = (pl.lifesteal || 0) + 0.10; }
+  },
+  {
+    id: 'off_t3_pen', name: 'Last Whisper', desc: '+55 Power, +20% AS, +25% Pen', cost: 500,
+    treeId: 'offense', treeBranch: 'as_branch', requires: 'off_t2_as',
+    apply: (pl) => { addAdaptive(pl, 55); pl.attackSpeed += 0.20; pl.adaptivePen = (pl.adaptivePen || 0) + 0.25; }
+  },
+
+  // ==========================================
+  // 2. SORCERY TREE (Mage / Ability Caster)
+  // ==========================================
+  {
+    id: 'sorc_t1', name: 'Arcane Page', desc: '+15 Power, +10 AH', cost: 300,
+    treeId: 'sorcery', treeBranch: 'core',
+    apply: (pl) => { addAdaptive(pl, 15); pl.abilityHaste = (pl.abilityHaste || 0) + 10; }
+  },
+  {
+    id: 'sorc_t2_ah', name: "Sage's Stone", desc: '+35 Power, +15 AH', cost: 400,
+    treeId: 'sorcery', treeBranch: 'ah_branch', requires: 'sorc_t1',
+    apply: (pl) => { addAdaptive(pl, 35); pl.abilityHaste = (pl.abilityHaste || 0) + 15; }
+  },
+  {
+    id: 'sorc_t3_vamp', name: 'Hextech Core', desc: '+60 Power, +20 AH, +12% Spellvamp', cost: 600,
+    treeId: 'sorcery', treeBranch: 'ah_branch', requires: 'sorc_t2_ah',
+    apply: (pl) => { addAdaptive(pl, 60); pl.abilityHaste = (pl.abilityHaste || 0) + 20; pl.spellVamp = (pl.spellVamp || 0) + 0.12; }
+  },
+  {
+    id: 'sorc_t3_burn', name: "Liandry's Torch", desc: '+50 Power, +25 AH, +3% Max HP Spell Dmg', cost: 600,
+    treeId: 'sorcery', treeBranch: 'ah_branch', requires: 'sorc_t2_ah',
+    apply: (pl) => { addAdaptive(pl, 50); pl.abilityHaste = (pl.abilityHaste || 0) + 25; pl.titanSigilSpellDmg = Math.max(pl.titanSigilSpellDmg || 0, 0.03); pl.titanSigilCd = pl.titanSigilCd || 0; }
+  },
+  {
+    id: 'sorc_t3_slow', name: "Rylai's Crystal", desc: '+55 Power, +15 AH, 30% Slow on Spells', cost: 500,
+    treeId: 'sorcery', treeBranch: 'ah_branch', requires: 'sorc_t2_ah',
+    apply: (pl) => { addAdaptive(pl, 55); pl.abilityHaste = (pl.abilityHaste || 0) + 15; pl.onSpellHitSlow = Math.max(pl.onSpellHitSlow || 0, 0.30); }
+  },
+
+  // ==========================================
+  // 3. TITAN TREE (Tank / Frontline)
+  // ==========================================
+  {
+    id: 'titan_t1', name: 'Ruby Shard', desc: '+150 HP', cost: 300,
+    treeId: 'titan', treeBranch: 'core',
+    apply: (pl) => { pl.maxHp += 150; pl.hp += 150; }
+  },
+  {
+    id: 'titan_t2_ar', name: 'Chain Vest', desc: '+250 HP, +20 Armor', cost: 400,
+    treeId: 'titan', treeBranch: 'armor_branch', requires: 'titan_t1',
+    apply: (pl) => { pl.maxHp += 250; pl.hp += 250; pl.armor += 20; }
+  },
+  {
+    id: 'titan_t3_sun', name: 'Sunfire Aegis', desc: '+450 HP, +35 Armor, AoE Burn (2% Max HP)', cost: 600,
+    treeId: 'titan', treeBranch: 'armor_branch', requires: 'titan_t2_ar',
+    apply: (pl) => { pl.maxHp += 450; pl.hp += 450; pl.armor += 35; pl.hasAoeBurn = true; }
+  },
+  {
+    id: 'titan_t2_mr', name: 'Negatron Cloak', desc: '+250 HP, +25 MR', cost: 400,
+    treeId: 'titan', treeBranch: 'mr_branch', requires: 'titan_t1',
+    apply: (pl) => { pl.maxHp += 250; pl.hp += 250; pl.mr += 25; }
+  },
+  {
+    id: 'titan_t3_spirit', name: 'Spirit Visage', desc: '+450 HP, +35 MR, +20% Heal Power', cost: 600,
+    treeId: 'titan', treeBranch: 'mr_branch', requires: 'titan_t2_mr',
+    apply: (pl) => { pl.maxHp += 450; pl.hp += 450; pl.mr += 35; pl.healPower = (pl.healPower || 0) + 0.20; }
+  },
+
+  // ==========================================
+  // 4. COMBAT TREE (Bruiser / Fighter)
+  // ==========================================
+  {
+    id: 'comb_t1', name: 'Phage Shard', desc: '+12 Power, +100 HP', cost: 300,
+    treeId: 'combat', treeBranch: 'core',
+    apply: (pl) => { addAdaptive(pl, 12); pl.maxHp += 100; pl.hp += 100; }
+  },
+  {
+    id: 'comb_t2', name: 'Waraxe', desc: '+25 Power, +250 HP, +10 AH', cost: 450,
+    treeId: 'combat', treeBranch: 'bruiser_branch', requires: 'comb_t1',
+    apply: (pl) => { addAdaptive(pl, 25); pl.maxHp += 250; pl.hp += 250; pl.abilityHaste = (pl.abilityHaste || 0) + 10; }
+  },
+  {
+    id: 'comb_t3_cleave', name: 'Black Cleaver', desc: '+45 Power, +400 HP, +20% Pen', cost: 600,
+    treeId: 'combat', treeBranch: 'bruiser_branch', requires: 'comb_t2',
+    apply: (pl) => { addAdaptive(pl, 45); pl.maxHp += 400; pl.hp += 400; pl.adaptivePen = (pl.adaptivePen || 0) + 0.20; }
+  },
+  {
+    id: 'comb_t3_dance', name: "Death's Dance", desc: '+50 Power, +300 HP, +30 Armor, +10% Lifesteal+Vamp', cost: 600,
+    treeId: 'combat', treeBranch: 'bruiser_branch', requires: 'comb_t2',
+    apply: (pl) => { addAdaptive(pl, 50); pl.maxHp += 300; pl.hp += 300; pl.armor += 30; pl.lifesteal = (pl.lifesteal || 0) + 0.10; pl.spellVamp = (pl.spellVamp || 0) + 0.10; }
+  },
+
+  // ==========================================
+  // 5. BENEVOLENCE TREE (Support / Healer)
+  // ==========================================
+  {
+    id: 'ben_t1', name: 'Faerie Charm', desc: '+5 Power, +100 HP, +5 AH', cost: 300,
+    treeId: 'benevolence', treeBranch: 'core',
+    apply: (pl) => { addAdaptive(pl, 5); pl.maxHp += 100; pl.hp += 100; pl.abilityHaste = (pl.abilityHaste || 0) + 5; }
+  },
+  {
+    id: 'ben_t2', name: 'Forbidden Idol', desc: '+10 Power, +200 HP, +15 AH, +10% Heal Power', cost: 400,
+    treeId: 'benevolence', treeBranch: 'utility_branch', requires: 'ben_t1',
+    apply: (pl) => { addAdaptive(pl, 10); pl.maxHp += 200; pl.hp += 200; pl.abilityHaste = (pl.abilityHaste || 0) + 15; pl.healPower = (pl.healPower || 0) + 0.10; }
+  },
+  {
+    id: 'ben_t3_red', name: 'Redemption', desc: '+15 Power, +350 HP, +25 AH, +20% Heal Power', cost: 500,
+    treeId: 'benevolence', treeBranch: 'utility_branch', requires: 'ben_t2',
+    apply: (pl) => { addAdaptive(pl, 15); pl.maxHp += 350; pl.hp += 350; pl.abilityHaste = (pl.abilityHaste || 0) + 25; pl.healPower = (pl.healPower || 0) + 0.20; }
+  },
+
+  // ==========================================
+  // 6. BLIGHT TREE (Grievous Wounds / Anti-Heal)
+  // ==========================================
+  {
+    id: 'blight_t1', name: 'Blighted Shard', desc: '+5 Power, 20% Grievous Wounds', cost: 300,
+    treeId: 'blight', treeBranch: 'core',
+    apply: (pl) => { addAdaptive(pl, 5); pl.antiHeal = Math.max(pl.antiHeal || 0, 0.20); }
+  },
+  {
+    id: 'blight_t2_off', name: 'Plague Edge', desc: '+20 Power, 40% Grievous Wounds', cost: 450,
+    treeId: 'blight', treeBranch: 'offense', requires: 'blight_t1',
+    apply: (pl) => { addAdaptive(pl, 20); pl.antiHeal = Math.max(pl.antiHeal || 0, 0.40); }
+  },
+  {
+    id: 'blight_t3_off', name: "Executioner's Reaper", desc: '+45 Power, +10% Pen, 60% Grievous Wounds', cost: 600,
+    treeId: 'blight', treeBranch: 'offense', requires: 'blight_t2_off',
+    apply: (pl) => { addAdaptive(pl, 45); pl.adaptivePen = (pl.adaptivePen || 0) + 0.10; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); }
+  },
+  {
+    id: 'blight_t2_tank', name: 'Bramble Vest', desc: '+150 HP, +15 Armor, 40% Grievous Wounds', cost: 450,
+    treeId: 'blight', treeBranch: 'tank', requires: 'blight_t1',
+    apply: (pl) => { pl.maxHp += 150; pl.hp += 150; pl.armor += 15; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.40); }
+  },
+  {
+    id: 'blight_t3_tank', name: 'Thornmail Carapace', desc: '+350 HP, +35 Armor, 60% Grievous Wounds', cost: 600,
+    treeId: 'blight', treeBranch: 'tank', requires: 'blight_t2_tank',
+    apply: (pl) => { pl.maxHp += 350; pl.hp += 350; pl.armor += 35; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); }
+  }
 ];
 
 const itemById = new Map(shopItems.map((item) => [item.id, item]));
@@ -65,8 +176,6 @@ function getOwnedTreeBranch(player, treeId) {
   return null;
 }
 
-// Počet "volných" (nespotřebovaných) kusů daného itemu v inventáři.
-// Každý item co vyžaduje reqId spotřebuje jeden kus.
 function countFreeItems(player, itemId) {
   const owned = (player.items || []).filter(id => id === itemId).length;
   const consumed = (player.items || []).reduce((sum, id) => {
@@ -80,18 +189,24 @@ function countFreeItems(player, itemId) {
 
 export function canBuyShopItem(player, item) {
   if (!player || !item) return { ok: false, reason: 'Invalid item' };
-  if (player.items && player.items.length >= 25) return { ok: false, reason: 'Inventory full (max 25)' };
 
-  const requiredItems = item.requires ? (Array.isArray(item.requires) ? item.requires : [item.requires]) : [];
-  for (const reqId of requiredItems) {
+  const reqs = Array.isArray(item.requires) ? item.requires : (item.requires ? [item.requires] : []);
+
+  // Check prerequisites exist in inventory
+  for (const reqId of reqs) {
     if (countFreeItems(player, reqId) <= 0) {
       const reqItem = getShopItem(reqId);
       return { ok: false, reason: `Need ${reqItem ? reqItem.name : reqId}` };
     }
   }
 
-  if (item.unique && player.items.includes(item.id)) {
-    return { ok: false, reason: `Already owned` };
+  // Inventory check: upgrading replaces a slot, root items take a new slot
+  // slots after = current - prereqs_removed + 1
+  const slotsAfter = (player.items ? player.items.length : 0) - reqs.length + 1;
+  if (slotsAfter > 6) return { ok: false, reason: 'Inventory full (max 6)' };
+
+  if (item.unique && player.items && player.items.includes(item.id)) {
+    return { ok: false, reason: 'Already owned' };
   }
 
   return { ok: true };
@@ -106,10 +221,8 @@ export function getBuyBlockReason(player, item) {
 }
 
 // Total gold needed to buy an item including all unowned prerequisites.
-// Returns item.cost if all prereqs are already freely owned.
 export function calcTotalCost(player, item) {
   if (!item) return 0;
-  // Simulate inventory so we don't double-count shared base items
   const sim = player?.items ? [...player.items] : [];
 
   function freeCount(id) {
@@ -132,7 +245,7 @@ export function calcTotalCost(player, item) {
       if (!reqItem) continue;
       if (freeCount(reqId) <= 0) {
         total += reqItem.cost;
-        sim.push(reqId); // mark as "virtually owned" so multi-level chains don't double-count
+        sim.push(reqId);
         walkUp(reqItem);
       }
     }

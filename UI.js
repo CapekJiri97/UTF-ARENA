@@ -47,117 +47,109 @@ const getTeamDominionSummary = (teamId) => {
 };
 
 const SHOP_TREE_CONFIGS = {
-    ad: {
-        title: 'ATTACK DAMAGE TREE',
+    offense: {
+        title: 'OFFENSE TREE  [AS · Power · Lifesteal · Pen]',
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
-            { id: 'ad',      col: 2, row: 1 },
-            { id: 'ad_ls',   col: 1, row: 2 },
-            { id: 'ad_slow', col: 2, row: 2 },
-            { id: 'ad_pen',  col: 3, row: 2 },
-            { id: 'ad_ls2',  col: 1, row: 3 },
-            { id: 'slow',    col: 2, row: 3 },
-            { id: 'ad_pen2', col: 3, row: 3 }
+            { id: 'off_t1',     col: 2, row: 1 },
+            { id: 'off_t2_as',  col: 2, row: 2 },
+            { id: 'off_t3_ls',  col: 1, row: 3 },
+            { id: 'off_t3_pen', col: 3, row: 3 }
         ],
         links: [
-            ['ad', 'ad_ls'], ['ad', 'ad_slow'], ['ad', 'ad_pen'],
-            ['ad_ls', 'ad_ls2'], ['ad_slow', 'slow'], ['ad_pen', 'ad_pen2']
+            ['off_t1', 'off_t2_as'],
+            ['off_t2_as', 'off_t3_ls'],
+            ['off_t2_as', 'off_t3_pen']
         ]
     },
-    ap: {
-        title: 'ABILITY POWER TREE',
+    sorcery: {
+        title: 'SORCERY TREE  [Power · AH · Vamp · Burn · Slow]',
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
-            { id: 'ap',      col: 2, row: 1 },
-            { id: 'ap_vamp', col: 1, row: 2 },
-            { id: 'ap_slow', col: 2, row: 2 },
-            { id: 'ap_pen',  col: 3, row: 2 },
-            { id: 'ap_vamp2', col: 1, row: 3 },
-            { id: 'slow_ms', col: 2, row: 3 },
-            { id: 'ap_pen2', col: 3, row: 3 }
+            { id: 'sorc_t1',      col: 2, row: 1 },
+            { id: 'sorc_t2_ah',   col: 2, row: 2 },
+            { id: 'sorc_t3_vamp', col: 1, row: 3 },
+            { id: 'sorc_t3_burn', col: 2, row: 3 },
+            { id: 'sorc_t3_slow', col: 3, row: 3 }
         ],
         links: [
-            ['ap', 'ap_vamp'], ['ap', 'ap_slow'], ['ap', 'ap_pen'],
-            ['ap_vamp', 'ap_vamp2'], ['ap_slow', 'slow_ms'], ['ap_pen', 'ap_pen2']
+            ['sorc_t1', 'sorc_t2_ah'],
+            ['sorc_t2_ah', 'sorc_t3_vamp'],
+            ['sorc_t2_ah', 'sorc_t3_burn'],
+            ['sorc_t2_ah', 'sorc_t3_slow']
         ]
     },
-    as: {
-        title: 'ATTACK SPEED TREE',
+    titan: {
+        title: 'TITAN TREE  [HP · Armor · MR · Burn aura]',
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
-            { id: 'as', col: 2, row: 1 },
-            { id: 'as_ms', col: 1, row: 2 },
-            { id: 'as_dmg', col: 3, row: 2 },
-            { id: 'as_ms2', col: 1, row: 3 },
-            { id: 'as_dmg2', col: 3, row: 3 }
+            { id: 'titan_t1',       col: 2, row: 1 },
+            { id: 'titan_t2_ar',    col: 1, row: 2 },
+            { id: 'titan_t2_mr',    col: 3, row: 2 },
+            { id: 'titan_t3_sun',   col: 1, row: 3 },
+            { id: 'titan_t3_spirit',col: 3, row: 3 }
         ],
         links: [
-            ['as', 'as_ms'],
-            ['as', 'as_dmg'],
-            ['as_ms', 'as_ms2'],
-            ['as_dmg', 'as_dmg2']
+            ['titan_t1', 'titan_t2_ar'],
+            ['titan_t1', 'titan_t2_mr'],
+            ['titan_t2_ar', 'titan_t3_sun'],
+            ['titan_t2_mr', 'titan_t3_spirit']
         ]
     },
-    ah: {
-        title: 'ABILITY HASTE TREE',
+    combat: {
+        title: 'COMBAT TREE  [Power · HP · AH · Pen · Lifesteal]',
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
-            { id: 'ah', col: 2, row: 1 },
-            { id: 'ah_ms', col: 1, row: 2 },
-            { id: 'ah_hp', col: 3, row: 2 },
-            { id: 'ah_ms2', col: 1, row: 3 },
-            { id: 'ah_hp2', col: 3, row: 3 }
+            { id: 'comb_t1',        col: 2, row: 1 },
+            { id: 'comb_t2',        col: 2, row: 2 },
+            { id: 'comb_t3_cleave', col: 1, row: 3 },
+            { id: 'comb_t3_dance',  col: 3, row: 3 }
         ],
         links: [
-            ['ah', 'ah_ms'],
-            ['ah', 'ah_hp'],
-            ['ah_ms', 'ah_ms2'],
-            ['ah_hp', 'ah_hp2']
+            ['comb_t1', 'comb_t2'],
+            ['comb_t2', 'comb_t3_cleave'],
+            ['comb_t2', 'comb_t3_dance']
         ]
     },
-    def: {
-        title: 'DEFENSE TREE',
+    benevolence: {
+        title: 'BENEVOLENCE TREE  [HP · AH · Heal Power]',
         note: 'Green links show the next item in the branch is currently buyable.',
-        columns: 3,
+        columns: 2,
         nodes: [
-            { id: 'hp',          col: 2, row: 1 },
-            { id: 'def_ar',      col: 1, row: 2 },
-            { id: 'titan_shard', col: 2, row: 2 },
-            { id: 'def_mr',      col: 3, row: 2 },
-            { id: 'def_ar2',     col: 1, row: 3 },
-            { id: 'titan_sigil', col: 2, row: 3 },
-            { id: 'def_mr2',     col: 3, row: 3 }
+            { id: 'ben_t1',    col: 1, row: 1 },
+            { id: 'ben_t2',    col: 1, row: 2 },
+            { id: 'ben_t3_red',col: 1, row: 3 }
         ],
         links: [
-            ['hp', 'def_ar'], ['hp', 'titan_shard'], ['hp', 'def_mr'],
-            ['def_ar', 'def_ar2'], ['titan_shard', 'titan_sigil'], ['def_mr', 'def_mr2']
+            ['ben_t1', 'ben_t2'],
+            ['ben_t2', 'ben_t3_red']
         ]
     },
-    anti: {
-        title: 'ANTI-HEAL TREE',
+    blight: {
+        title: 'BLIGHT TREE  [Anti-Heal · Power · Armor]',
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
-            { id: 'anti_base', col: 2, row: 1 },
-            { id: 'ah_heal', col: 1, row: 2 },
-            { id: 'ah_heal_ap', col: 3, row: 2 },
-            { id: 'ah_heal2', col: 1, row: 3 },
-            { id: 'ah_heal_ap2', col: 3, row: 3 }
+            { id: 'blight_t1',      col: 2, row: 1 },
+            { id: 'blight_t2_off',  col: 1, row: 2 },
+            { id: 'blight_t2_tank', col: 3, row: 2 },
+            { id: 'blight_t3_off',  col: 1, row: 3 },
+            { id: 'blight_t3_tank', col: 3, row: 3 }
         ],
         links: [
-            ['anti_base', 'ah_heal'],
-            ['anti_base', 'ah_heal_ap'],
-            ['ah_heal', 'ah_heal2'],
-            ['ah_heal_ap', 'ah_heal_ap2']
+            ['blight_t1', 'blight_t2_off'],
+            ['blight_t1', 'blight_t2_tank'],
+            ['blight_t2_off', 'blight_t3_off'],
+            ['blight_t2_tank', 'blight_t3_tank']
         ]
     },
 };
 
-const SHOP_TREE_ORDER = ['ad', 'ap', 'as', 'ah', 'def', 'anti'];
+const SHOP_TREE_ORDER = ['offense', 'sorcery', 'titan', 'combat', 'benevolence', 'blight'];
 
 const formatShopStats = (desc = '') => desc.split(',').map((part) => part.trim()).filter(Boolean);
 
@@ -749,12 +741,11 @@ export function toggleShop(){ const o = document.getElementById('shopOverlay'); 
 
 // Filtr pro shop - jaké kategorie jsou viditelné
 const TREE_FILTER_MAP = {
-    AD:    ['ad', 'anti'],
-    AP:    ['ap', 'anti'],
-    AS:    ['as'],
-    AH:    ['ah'],
-    Armor: ['def'],
-    MR:    ['def'],
+    Offense:  ['offense', 'combat'],
+    Sorcery:  ['sorcery'],
+    Defense:  ['titan', 'blight'],
+    Support:  ['benevolence'],
+    Blight:   ['blight'],
 };
 let _shopFilter = null; // null = vše
 
@@ -809,7 +800,7 @@ export function populateShop() {
     wrap.className = 'shop-owned-bar';
     const title = document.createElement('div');
     title.className = 'shop-owned-title';
-    title.textContent = `OWNED ITEMS  (${ownedItems.length}/25)`;
+    title.textContent = `INVENTORY  (${ownedItems.length}/6)`;
     wrap.appendChild(title);
     const list = document.createElement('div');
     list.className = 'shop-owned-list';
@@ -851,7 +842,26 @@ export function updateShopGold() {
   if (el && player) el.textContent = `[G] ${Math.floor(player.gold || 0)}g`;
 }
 
-export function updateInventory(){ if(!player) return; const inv = document.getElementById('inventory'); inv.innerHTML = ''; for(const id of player.items){ const it = shopItems.find(s=>s.id===id); const slot = document.createElement('div'); slot.className='invSlot'; slot.textContent = it? it.name : id; inv.appendChild(slot); } }
+export function updateInventory() {
+  if (!player) return;
+  const inv = document.getElementById('inventory');
+  if (!inv) return;
+  inv.innerHTML = '';
+  const MAX_SLOTS = 6;
+  for (let i = 0; i < MAX_SLOTS; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'invSlot';
+    if (i < player.items.length) {
+      const it = getShopItem(player.items[i]);
+      slot.textContent = it ? it.name : player.items[i];
+      slot.title = it ? it.desc : '';
+    } else {
+      slot.textContent = '—';
+      slot.style.color = '#333';
+    }
+    inv.appendChild(slot);
+  }
+}
 
 export function drawBackground(ctx){ 
   if (!game.bgCanvas) {
@@ -1091,7 +1101,8 @@ export function draw(){
           const t = player.currentTarget;
           const _tls = t.lifesteal || 0, _tsv = t.spellVamp || 0;
           const _tgw = t.antiHeal || 0, _tsw = t.onHitSlow || 0, _tss = t.onSpellHitSlow || 0;
-          const _tHasItemStats = _tls > 0 || _tsv > 0 || _tgw > 0 || _tsw > 0 || _tss > 0;
+          const _tapen = t.adaptivePen || 0;
+          const _tHasItemStats = _tls > 0 || _tsv > 0 || _tgw > 0 || _tsw > 0 || _tss > 0 || _tapen > 0;
           const tw = 400, th = 82; const tx = 0, ty = 0;
           ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = (t.team >= 0) ? TEAM_COLOR[t.team] : NEUTRAL_COLOR; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
 
@@ -1109,26 +1120,25 @@ export function draw(){
               const _arT = Math.round(t.armor * _puT * (t.boostTimer > 0 ? 1.1 : 1) + (t.defBuffTimer > 0 ? 50 : 0));
               const _mrT = Math.round(t.mr * _puT * (t.boostTimer > 0 ? 1.1 : 1) + (t.defBuffTimer > 0 ? 50 : 0));
               const _spT = Math.round(t.speed * _puT * (t.msBuffTimer > 0 ? 1 + t.msBuffAmount : 1));
-              const _tpa = t.armorPenFlat || 0, _tpm = t.magicPenFlat || 0;
+              const _tPwrLabel = (t.dmgType === 'magical') ? 'AP' : 'AD';
+              const _tPwrVal = (t.dmgType === 'magical') ? Math.round(t.AP * _puT) : Math.round(t.AD * _puT * buffAdMultT);
               const stX = tx + 152, r1 = ty + 25, r2 = ty + 48, r3 = ty + 70;
-              const c0 = stX, c1 = stX + 58, c2 = stX + 118, c3 = stX + 178;
-              // Col 0: AD, AP
+              const c0 = stX, c1 = stX + 70, c2 = stX + 138, c3 = stX + 204;
               ctx.fillStyle = '#aaa'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
-              ctx.fillText(`AD:${Math.round(t.AD * _puT * buffAdMultT)}`, c0, r1);
-              ctx.fillText(`AP:${Math.round(t.AP * _puT)}`, c0, r2);
-              // Col 1: AR, MR, HP
-              ctx.fillText(`AR:${_arT}`, c1, r1);
-              ctx.fillText(`MR:${_mrT}`, c1, r2);
-              ctx.fillText(`HP:${t.effectiveMaxHp || t.maxHp}`, c1, r3);
-              // Col 2: AS, SP, AH
+              // Col 0: Power, AR
+              ctx.fillText(`${_tPwrLabel}:${_tPwrVal}`, c0, r1);
+              ctx.fillText(`AR:${_arT}`, c0, r2);
+              // Col 1: MR, HP, AH
+              ctx.fillText(`MR:${_mrT}`, c1, r1);
+              ctx.fillText(`HP:${t.effectiveMaxHp || t.maxHp}`, c1, r2);
+              ctx.fillText(`AH:${t.abilityHaste || 0}`, c1, r3);
+              // Col 2: AS, SP
               ctx.fillText(`AS:${(t.attackDelay / (t.attackSpeed * buffAsMultT)).toFixed(2)}`, c2, r1);
               ctx.fillText(`SP:${_spT}`, c2, r2);
-              ctx.fillText(`AH:${t.abilityHaste || 0}`, c2, r3);
-              // Col 3: item stats (cyan, same as player HUD)
-              ctx.fillStyle = '#aaa'; ctx.font = '10px monospace';
-              ctx.fillText(`LS:${Math.round(_tls*100)}%|SV:${Math.round(_tsv*100)}%`, c3, r1);
-              ctx.fillText(`PA:${_tpa}|PM:${_tpm}`, c3, r2);
-              ctx.fillText(`SL:${Math.round(_tsw*100)}%|GW:${Math.round(_tgw*100)}%`, c3, r3);
+              // Col 3: item stats
+              ctx.fillText(`LS:${Math.round(_tls*100)}%`, c3, r1);
+              ctx.fillText(`Pen:${Math.round(_tapen*100)}%`, c3, r2);
+              ctx.fillText(`GW:${Math.round(_tgw*100)}%`, c3, r3);
           }
           ctx.restore();
       }
@@ -1206,7 +1216,7 @@ export function draw(){
       // STATS TABLE
       const _ls = player.lifesteal || 0, _sv = player.spellVamp || 0;
       const _gw = player.antiHeal || 0, _sw = player.onHitSlow || 0;
-      const _pa = player.armorPenFlat || 0, _pm = player.magicPenFlat || 0;
+      const _apen = player.adaptivePen || 0;
       let buffAdMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
       let buffAsMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
       if (player.hanaBuffTimer > 0) buffAsMult *= (player.spells?.Q?.bonusAsMult || 1.25);
@@ -1214,21 +1224,24 @@ export function draw(){
       const _arHud = Math.round(player.armor * _pu * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
       const _mrHud = Math.round(player.mr * _pu * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
       const _spHud = Math.round(player.speed * _pu * (player.msBuffTimer > 0 ? 1 + player.msBuffAmount : 1));
+      const _powerVal = player.dmgType === 'magical'
+        ? Math.round(player.AP * _pu)
+        : Math.round(player.AD * _pu * buffAdMult);
+      const _powerLabel = player.dmgType === 'magical' ? 'AP' : 'AD';
       ctx.fillStyle = '#111'; ctx.fillRect(cx + 160, cy - 40, 290, 75);
       ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx + 160, cy - 40, 290, 75);
       ctx.fillStyle = '#aaa'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(`AD:${Math.round(player.AD * _pu * buffAdMult)}`, cx + 165, cy - 25);
-      ctx.fillText(`AP:${Math.round(player.AP * _pu)}`, cx + 165, cy - 5);
-      ctx.fillText(`AR:${_arHud}`, cx + 225, cy - 25);
-      ctx.fillText(`MR:${_mrHud}`, cx + 225, cy - 5);
-      ctx.fillText(`HP:${player.effectiveMaxHp}`, cx + 225, cy + 15);
-      ctx.fillText(`AS:${(player.attackDelay / (player.attackSpeed * buffAsMult)).toFixed(2)}`, cx + 295, cy - 25);
-      ctx.fillText(`SP:${_spHud}`, cx + 295, cy - 5);
-      ctx.fillText(`AH:${player.abilityHaste}`, cx + 295, cy + 15);
-      ctx.fillStyle = '#aaa'; ctx.font = '10px monospace';
-      ctx.fillText(`LS:${Math.round(_ls*100)}%|SV:${Math.round(_sv*100)}%`, cx + 350, cy - 25);
-      ctx.fillText(`PA:${_pa}|PM:${_pm}`, cx + 350, cy - 5);
-      ctx.fillText(`SL:${Math.round(_sw*100)}%|AH:${Math.round(_gw*100)}%`, cx + 350, cy + 15);
+      ctx.fillText(`PWR(${_powerLabel}):${_powerVal}`, cx + 165, cy - 25);
+      ctx.fillText(`AR:${_arHud}`, cx + 165, cy - 5);
+      ctx.fillText(`MR:${_mrHud}`, cx + 165, cy + 15);
+      ctx.fillText(`HP:${player.effectiveMaxHp}`, cx + 245, cy - 25);
+      ctx.fillText(`AS:${(player.attackDelay / (player.attackSpeed * buffAsMult)).toFixed(2)}`, cx + 245, cy - 5);
+      ctx.fillText(`SP:${_spHud}`, cx + 245, cy + 15);
+      ctx.fillText(`AH:${player.abilityHaste}`, cx + 325, cy - 25);
+      ctx.fillText(`LS:${Math.round(_ls*100)}%`, cx + 325, cy - 5);
+      ctx.fillText(`SV:${Math.round(_sv*100)}%`, cx + 325, cy + 15);
+      ctx.fillText(`Pen:${Math.round(_apen*100)}%`, cx + 385, cy - 25);
+      ctx.fillText(`GW:${Math.round(_gw*100)}%`, cx + 385, cy - 5);
       
       ctx.restore();
     }
@@ -1338,19 +1351,19 @@ export function draw(){
         let msVal = Math.round(player.speed * _puP * (player.msBuffTimer > 0 ? 1 + player.msBuffAmount : 1));
         let ahVal = player.abilityHaste;
         
-        ctx.fillStyle = '#aaa';
-        ctx.fillText(`AD:    ${String(adVal).padEnd(5, ' ')} | AP:    ${apVal}`, leftM, startY); startY += 20;
-        ctx.fillText(`Armor: ${String(arVal).padEnd(5, ' ')} | MR:    ${mrVal}`, leftM, startY); startY += 20;
-        ctx.fillText(`A.Spd: ${String(asVal).padEnd(5, ' ')} | Speed: ${msVal}`, leftM, startY); startY += 20;
-        ctx.fillText(`Haste: ${String(ahVal).padEnd(5, ' ')} |`, leftM, startY); startY += 18;
-
         const _cLs = player.lifesteal || 0, _cSv = player.spellVamp || 0;
         const _cGw = player.antiHeal || 0, _cSw = player.onHitSlow || 0, _cSs = player.onSpellHitSlow || 0;
-        const _cAP = player.armorPenFlat || 0, _cMP = player.magicPenFlat || 0;
+        const _cApen = player.adaptivePen || 0;
+        const powerLabel = player.dmgType === 'magical' ? 'AP (Power)' : 'AD (Power)';
+        const powerVal = player.dmgType === 'magical' ? apVal : adVal;
+        ctx.fillStyle = '#aaa';
+        ctx.fillText(`${powerLabel}: ${String(powerVal).padEnd(5, ' ')} | Armor: ${arVal}`, leftM, startY); startY += 20;
+        ctx.fillText(`MR:    ${String(mrVal).padEnd(5, ' ')} | Speed: ${msVal}`, leftM, startY); startY += 20;
+        ctx.fillText(`A.Spd: ${String(asVal).padEnd(5, ' ')} | Haste: ${ahVal}`, leftM, startY); startY += 18;
         ctx.fillStyle = '#7cf';
         ctx.fillText(`LS: ${Math.round(_cLs*100)}%  | SV: ${Math.round(_cSv*100)}%`, leftM, startY); startY += 18;
-        ctx.fillText(`Pen A: ${_cAP}  | Pen M: ${_cMP}`, leftM, startY); startY += 18;
-        ctx.fillText(`Slow: ${Math.round(_cSw*100)}%  | AH: ${Math.round(_cGw*100)}%`, leftM, startY); startY += 18;
+        ctx.fillText(`Pen: ${Math.round(_cApen*100)}%  | GW: ${Math.round(_cGw*100)}%`, leftM, startY); startY += 18;
+        if (_cSw > 0) { ctx.fillText(`AA Slow: ${Math.round(_cSw*100)}%`, leftM, startY); startY += 18; }
         if (_cSs > 0) { ctx.fillText(`Spell Slow: ${Math.round(_cSs*100)}%`, leftM, startY); startY += 18; }
         startY += 12;
 
@@ -1537,79 +1550,91 @@ export function draw(){
         ctx.fillStyle = '#fff'; ctx.fillText(`[F / L] ${player.summonerSpell} - Cooldown: ${sumSpell.cd}s`, leftM, startY); startY += 20;
         ctx.fillStyle = '#ddd'; startY = wrapText(`    "${sumSpell.desc}"`, leftM, startY, panelW - 40, 18) + 18;
 
-        // ── ITEMS ────────────────────────────────────────────────────────
+        // ── ITEMS (3 řady × 2 sloupce) ──────────────────────────────────
         const ownedIds = player.items || [];
         ctx.fillStyle = '#ffcc00'; ctx.font = `bold 13px monospace`;
-        ctx.fillText(`ITEMS  (${ownedIds.length})`, leftM, startY); startY += 6;
-        // horizontal rule
+        ctx.fillText(`INVENTORY  (${ownedIds.length}/6)`, leftM, startY); startY += 8;
         ctx.fillStyle = '#333';
-        ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 10;
+        ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 8;
 
-        if (ownedIds.length === 0) {
-            ctx.fillStyle = '#444'; ctx.font = `12px monospace`;
-            ctx.fillText('  No items purchased yet', leftM, startY); startY += 18;
-        } else {
-            // Aggregate duplicates
-            const counts = {};
-            const order = [];
-            for (const id of ownedIds) {
-                if (!counts[id]) order.push(id);
-                counts[id] = (counts[id] || 0) + 1;
-            }
-            for (const id of order) {
-                if (startY > panelH - 20) break;
-                const it = getShopItem(id);
-                if (!it) continue;
-                const cnt = counts[id];
-                const cntStr = cnt > 1 ? ` ×${cnt}` : '';
-                ctx.fillStyle = '#aaa'; ctx.font = `bold 11px monospace`;
-                ctx.fillText(`  ${it.name}${cntStr}  ${it.cost}g`, leftM, startY); startY += 15;
-                ctx.fillStyle = '#888'; ctx.font = `10px monospace`;
-                const descLine = `    ${it.desc}`;
-                if (ctx.measureText(descLine).width > panelW - leftM - 10) {
-                    startY = wrapText(descLine, leftM, startY, panelW - leftM - 8, 14) + 6;
-                } else {
-                    ctx.fillText(descLine, leftM, startY); startY += 16;
+        {
+          const INV_COLS = 2, INV_ROWS = 3;
+          const slotGap = 5;
+          const totalW = panelW - leftM * 2;
+          const slotW = Math.floor((totalW - slotGap) / INV_COLS);
+          const slotH = 52;
+          const invStartY = startY;
+
+          for (let i = 0; i < INV_ROWS * INV_COLS; i++) {
+            const col = i % INV_COLS;
+            const row = Math.floor(i / INV_COLS);
+            const sx = leftM + col * (slotW + slotGap);
+            const sy = invStartY + row * (slotH + slotGap);
+
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(sx, sy, slotW, slotH);
+            ctx.strokeStyle = i < ownedIds.length ? '#2a4a2a' : '#222';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(sx, sy, slotW, slotH);
+
+            if (i < ownedIds.length) {
+              const it = getShopItem(ownedIds[i]);
+              if (it) {
+                ctx.fillStyle = '#0f0'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
+                ctx.fillText(it.name, sx + 5, sy + 16);
+                ctx.fillStyle = '#888'; ctx.font = '9px monospace';
+                const stats = it.desc.split(',');
+                for (let si = 0; si < Math.min(stats.length, 3); si++) {
+                  ctx.fillText(stats[si].trim(), sx + 5, sy + 28 + si * 10);
                 }
+              }
+            } else {
+              ctx.fillStyle = '#333'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+              ctx.fillText('[ empty ]', sx + slotW / 2, sy + slotH / 2 + 4);
             }
+          }
+          ctx.textAlign = 'left';
+          startY = invStartY + INV_ROWS * (slotH + slotGap) + 8;
         }
 
         // ── ITEM MECHANICS GUIDE ─────────────────────────────────────────
         const _mLs = player.lifesteal || 0, _mSv = player.spellVamp || 0;
         const _mGw = player.antiHeal || 0, _mSw = player.onHitSlow || 0, _mSs = player.onSpellHitSlow || 0;
-        if (_mLs > 0 || _mSv > 0 || _mGw > 0 || _mSw > 0 || _mSs > 0) {
+        const _mApen = player.adaptivePen || 0;
+        if (_mLs > 0 || _mSv > 0 || _mGw > 0 || _mSw > 0 || _mSs > 0 || _mApen > 0) {
             if (startY < panelH - 30) {
                 startY += 6;
                 ctx.fillStyle = '#ffcc00'; ctx.font = `bold 12px monospace`;
                 ctx.fillText('ITEM MECHANICS', leftM, startY); startY += 5;
                 ctx.fillStyle = '#333'; ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 10;
                 const mLines = [];
+                if (_mApen > 0) mLines.push(
+                    { h: `ADAPTIVE PEN  (${Math.round(_mApen*100)}%)`, c: '#ffaa44' },
+                    { t: `Reduces enemy Armor (physical dmg) or Magic Resist (magical dmg)` },
+                    { t: `by ${Math.round(_mApen*100)}% multiplicatively before damage is applied.` }
+                );
                 if (_mLs > 0) mLines.push(
                     { h: `LIFESTEAL  (${Math.round(_mLs*100)}%)`, c: '#cc88ff' },
                     { t: `Heals you for ${Math.round(_mLs*100)}% of basic-attack damage dealt.` },
-                    { t: `AoE hits (e.g. splash) heal only 20% of the normal rate` },
-                    { t: `to prevent heal-stacking when hitting multiple targets.` }
+                    { t: `AoE hits heal only 20% of normal rate (anti-stacking).` }
                 );
                 if (_mSv > 0) mLines.push(
                     { h: `SPELL VAMP  (${Math.round(_mSv*100)}%)`, c: '#cc88ff' },
                     { t: `Heals you for ${Math.round(_mSv*100)}% of spell damage dealt.` },
-                    { t: `Same AoE cap as Lifesteal — 20% rate past the first target.` }
+                    { t: `AoE: same 20% cap as Lifesteal past the first target.` }
                 );
                 if (_mGw > 0) mLines.push(
-                    { h: `ANTI-HEAL / GRIEVOUS WOUNDS  (${Math.round(_mGw*100)}%)`, c: '#ff8844' },
-                    { t: `On-hit: applies GRIEVOUS WOUNDS to the enemy for 3 seconds.` },
-                    { t: `Reduces ALL healing they receive by ${Math.round(_mGw*100)}% (heals, lifesteal,` },
-                    { t: `spell vamp, HP regen). Does NOT stack — strongest effect wins.` }
+                    { h: `GRIEVOUS WOUNDS  (${Math.round(_mGw*100)}%)`, c: '#ff8844' },
+                    { t: `On-hit: reduces ALL healing target receives by ${Math.round(_mGw*100)}%.` },
+                    { t: `Does NOT stack — strongest effect wins.` }
                 );
                 if (_mSw > 0) mLines.push(
-                    { h: `SLOW ON HIT  (${Math.round(_mSw*100)}%)`, c: '#44ccff' },
-                    { t: `Basic attacks reduce enemy movement speed by ${Math.round(_mSw*100)}%` },
-                    { t: `for a short duration after impact.` }
+                    { h: `AA SLOW  (${Math.round(_mSw*100)}%)`, c: '#44ccff' },
+                    { t: `Basic attacks slow enemy by ${Math.round(_mSw*100)}% for a short duration.` }
                 );
                 if (_mSs > 0) mLines.push(
-                    { h: `SLOW ON SPELL  (${Math.round(_mSs*100)}%)`, c: '#44ccff' },
-                    { t: `Spells reduce enemy movement speed by ${Math.round(_mSs*100)}%` },
-                    { t: `for a short duration after impact.` }
+                    { h: `SPELL SLOW  (${Math.round(_mSs*100)}%)`, c: '#44ccff' },
+                    { t: `Spells slow enemy by ${Math.round(_mSs*100)}% for a short duration.` }
                 );
                 for (const ml of mLines) {
                     if (startY > panelH - 14) break;

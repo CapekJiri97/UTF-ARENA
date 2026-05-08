@@ -394,8 +394,9 @@ import { initAudio, playSound } from './Audio.js';
     if(target.boostTimer > 0) { arm *= 1.1; mr *= 1.1; }
     if(target.defBuffTimer > 0) { arm += 50; mr += 50; }
     if (sourceEntity) {
-      if (type === 'physical') arm = Math.max(0, arm - (sourceEntity.armorPenFlat || 0));
-      if (type === 'magical') mr = Math.max(0, mr - (sourceEntity.magicPenFlat || 0));
+      const pen = sourceEntity.adaptivePen || 0;
+      if (type === 'physical') arm = Math.round(arm * (1 - pen));
+      else if (type === 'magical') mr = Math.round(mr * (1 - pen));
     }
     if (type === 'physical') multiplier = 100 / (100 + arm);
     else if (type === 'magical') multiplier = 100 / (100 + mr);
@@ -816,13 +817,73 @@ import { initAudio, playSound } from './Audio.js';
 
   let spawnTimer = 0; const spawnInterval = 12.0; const nexusDrainRate = 0.75; // Sníženo odečítání skóre (cca 30%)
 
-  export function buyItem(id) { 
-    if (!player) return; const it = getShopItem(id); if (!it) return; 
-    const allyBaseDist = dist(player.pos, spawnPoints[player.team]); if (allyBaseDist > 250 && player.alive) { return flashMessage('Shop available only in your base!'); } 
-    const buyCheck = canBuyShopItem(player, it); if (!buyCheck.ok) { return flashMessage(buyCheck.reason); }
-    if (player.gold < it.cost){ return flashMessage('Not enough gold'); } player.gold -= it.cost; player.items.push(it.id); it.apply(player); player.isDirty = true; flashMessage('Bought ' + it.name); updateInventory(); populateShop(); 
+  function recalcPlayerItemStats(pl) {
+    const cData = CLASSES[pl.className];
+    if (!cData) return;
+    const hpFrac = pl.maxHp > 0 ? Math.max(0, Math.min(1, pl.hp / pl.maxHp)) : 1;
+
+    // Reset to base class stats
+    pl.AD = cData.baseAD;
+    pl.AP = cData.baseAP;
+    pl.attackSpeed = 1.0;
+    pl.abilityHaste = 0;
+    pl.armor = cData.baseArmor;
+    pl.mr = cData.baseMR;
+    pl.maxHp = cData.hp;
+    pl.hpRegen = cData.hpRegen || 2.0;
+    pl.lifesteal = 0;
+    pl.spellVamp = 0;
+    pl.antiHeal = 0;
+    pl.onHitSlow = 0;
+    pl.onSpellHitSlow = 0;
+    pl.adaptivePen = 0;
+    pl.armorPenFlat = 0;
+    pl.magicPenFlat = 0;
+    pl.titanSigilSpellDmg = 0;
+    pl.titanSigilCd = pl.titanSigilCd || 0;
+    pl.hasAoeBurn = false;
+    pl.healPower = 0;
+    pl.shieldOnHit = 0;
+    pl.speed = cData.speed + 40 + (cData.range && cData.role !== 'SUPPORT' ? 5 : 0);
+
+    // Re-apply all items
+    for (const itemId of (pl.items || [])) {
+      const it = getShopItem(itemId);
+      if (it && it.apply) it.apply(pl);
+    }
+
+    // Restore HP proportionally (don't let current HP exceed new max)
+    pl.hp = Math.min(pl.maxHp, Math.max(1, Math.round(hpFrac * pl.maxHp)));
+  }
+
+  export function buyItem(id) {
+    if (!player) return;
+    const it = getShopItem(id);
+    if (!it) return;
+    const allyBaseDist = dist(player.pos, spawnPoints[player.team]);
+    if (allyBaseDist > 250 && player.alive) return flashMessage('Shop available only in your base!');
+    const buyCheck = canBuyShopItem(player, it);
+    if (!buyCheck.ok) return flashMessage(buyCheck.reason);
+    if (player.gold < it.cost) return flashMessage('Not enough gold');
+
+    player.gold -= it.cost;
+
+    // Upgrade: remove prerequisite items from inventory (tier override)
+    const reqs = Array.isArray(it.requires) ? it.requires : (it.requires ? [it.requires] : []);
+    for (const reqId of reqs) {
+      const idx = player.items.indexOf(reqId);
+      if (idx !== -1) player.items.splice(idx, 1);
+    }
+
+    player.items.push(it.id);
+    recalcPlayerItemStats(player);
+    player.isDirty = true;
+    flashMessage('Bought ' + it.name);
+    updateInventory();
+    populateShop();
+
     if (socket && !game.isHost) {
-        socket.emit('player_action', { type: 'buy_item', id: player.id, itemId: it.id, cost: it.cost });
+      socket.emit('player_action', { type: 'buy_item', id: player.id, itemId: it.id, cost: it.cost });
     }
   }
   export function flashMessage(txt){ const el = document.createElement('div'); el.style.position='fixed'; el.style.left='50%'; el.style.top='18px'; el.style.transform='translateX(-50%)'; el.style.background='rgba(255,255,255,0.06)'; el.style.padding='6px 10px'; el.style.borderRadius='6px'; el.style.zIndex=100000; el.textContent = txt; document.body.appendChild(el); setTimeout(()=>el.remove(),1200); }

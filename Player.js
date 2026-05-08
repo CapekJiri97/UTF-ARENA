@@ -19,6 +19,7 @@ export class Player{
     this.flashTimer = 0;
     this.dmgType = cData.dmgType;
     this.shield = 0;
+    this.adaptivePen = 0;
     this.armorPenFlat = 0;
     this.magicPenFlat = 0;
     this.lifesteal = 0;
@@ -1639,8 +1640,9 @@ export class BotPlayer extends Player {
             avgEnemyMR = enemies.reduce((sum, e) => sum + (e.mr || 0), 0) / enemies.length;
         }
 
-        let effEnemyArmor = Math.max(0, avgEnemyArmor - (unit.armorPenFlat || 0));
-        let effEnemyMR = Math.max(0, avgEnemyMR - (unit.magicPenFlat || 0));
+        const _pen = unit.adaptivePen || 0;
+        let effEnemyArmor = Math.round(avgEnemyArmor * (1 - _pen));
+        let effEnemyMR = Math.round(avgEnemyMR * (1 - _pen));
 
         let physMult = 100 / (100 + effEnemyArmor);
         let magMult = 100 / (100 + effEnemyMR);
