@@ -1,0 +1,72 @@
+nefunguje slow on spell item - možna jen na pyro Q
+neukazuje je Slow statistika v GUI 
+v "C" menu je slow statistika dvarkat a jednou ukazuje jednou ne
+přidat talčítka na auto veci stejne jako je na telefonu	
+shop si neupdatuje goldy, takže když je nemam když shiop otevřu a pak začnu mit tak se to neupdatuje
+předelat jednoho až dva supporty na AD
+zarovnat target okno na pc stejne jako to stredove gui
+předelat trochu itemy na 1-1-2 stromy, a udělat inventar + pořadny zrevidovany item system
+vic zpomalit snowball a zrychlit catchup system (asi jen na +- 2 levely)
+v M menu se špatne zarovnavli ty hotkeys vysvětlivky
+TAMER DAVA MEGA DAMAGE v late game hlavne
+zmenit ress a death místa pro miniony
+možna přidat range miniony?
+nevyskakovat plus u spellu ktere nejdou kvuli omezeni lvlup
+na mobilu udelat lepsi minimap
+tank itemy jsou asi moc silne na ne tank hrdiny a silne jsou i AH a AS, slabší mi  přidjuo AD a AP itemy - možna itemy jako hp předelat na % base hp? a buff ad a ap itemu?
+u wanderea je zase nějaka dloua range na přeskoky na E
+možna zvetist scaling na vetsine auto attacku a snižit attackspeed?
+určite zlepsi penetration itemy
+až moc goldu za capture a malo golud za kill v late game.
+
+
+🛠 Chyby a Technické problémy (Bugs)
+Mechanika zpomalení: Opravit nefunkční "Slow on spell" u itemů (prověřit, zda funguje korektně u Pyro Q).
+
+Statistiky v GUI: Opravit nezobrazování "Slow" statistiky v hlavním rozhraní.
+
+Menu "C": Odstranit duplicitní "Slow" statistiku a opravit tu nefunkční.
+
+Aktualizace obchodu: Implementovat real-time update goldů v GUI shopu (aby se hodnota změnila i při otevřeném okně po získání goldů).
+
+Menu "M": Opravit zarovnání vysvětlivek pro hotkeys.
+
+Level-up spellů: Skrýt symbol "+" u schopností, které již nelze vylepšit kvůli level capu postavy.
+
+⚖️ Balanc hrdinů a tříd (Class Balancing)
+Supporti: Vybrat 1 až 2 support hrdiny a předělat je na AD scaling.
+
+Tamer: Výrazně snížit poškození v late game (aktuálně příliš vysoké).
+
+Wanderer: Zkrátit dosah (range) u přeskoků na schopnosti E.
+
+Auto-Attacky: Zvýšit scaling poškození u většiny hrdinů výměnou za snížení celkové rychlosti útoku (Attack Speed).
+
+🧪 Item systém a Ekonomika
+Revidovaný systém: Předělat itemy na stromovou strukturu 1-1-2 a implementovat funkční inventář.
+
+Balanc statů: * Nerfovat Tank itemy (příliš silné na non-tank postavách).
+
+Nerfovat Ability Haste (AH) a Attack Speed (AS) itemy.
+
+Buffovat AD a AP itemy.
+
+Zvážit změnu HP itemů z plochých hodnot na % base HP.
+
+Penetrace: Vytvořit nebo vylepšit itemy pro průraznost (penetration).
+
+Odměny (Goldy): Snížit goldy za obsazování (capture) a zvýšit odměnu za zabití (kill) v pozdní fázi hry.
+
+🎮 Mechaniky a Herní systém
+Snowball & Catchup: Více omezit snowball efekt a posílit catchup mechaniku (udržovat rozdíl ideálně kolem ± 2 levelů).
+
+Minioni: * Změnit lokace spawnu a úmrtí.
+
+Zvážit přidání ranged minionů.
+
+📱 UI/UX a Ovládání
+GUI Zarovnání: Sjednotit zarovnání target okna na PC se středovým panelem.
+
+Nová tlačítka: Přidat na PC tlačítka pro automatické akce (stejně jako jsou na mobilní verzi).
+
+Mobilní verze: Kompletně přepracovat a vylepšit minimapu.
