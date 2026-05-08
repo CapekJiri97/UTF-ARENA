@@ -43,9 +43,9 @@ export const shopItems = [
     apply: (pl) => { addAdaptive(pl, 35); pl.abilityHaste = (pl.abilityHaste || 0) + 15; }
   },
   {
-    id: 'sorc_t3_vamp', name: 'Hextech Core', desc: '+60 Power, +20 AH, +12% Spellvamp', cost: 600,
+    id: 'sorc_t3_vamp', name: 'Hextech Core', desc: '+60 Power, +20 AH, +12% Lifesteal', cost: 600,
     treeId: 'sorcery', treeBranch: 'ah_branch', requires: 'sorc_t2_ah',
-    apply: (pl) => { addAdaptive(pl, 60); pl.abilityHaste = (pl.abilityHaste || 0) + 20; pl.spellVamp = (pl.spellVamp || 0) + 0.12; }
+    apply: (pl) => { addAdaptive(pl, 60); pl.abilityHaste = (pl.abilityHaste || 0) + 20; pl.lifesteal = (pl.lifesteal || 0) + 0.12; }
   },
   {
     id: 'sorc_t3_burn', name: "Liandry's Torch", desc: '+50 Power, +25 AH, +3% Max HP Spell Dmg', cost: 600,
@@ -72,7 +72,7 @@ export const shopItems = [
     apply: (pl) => { pl.maxHp += 250; pl.hp += 250; pl.armor += 20; }
   },
   {
-    id: 'titan_t3_sun', name: 'Sunfire Aegis', desc: '+450 HP, +35 Armor, AoE Burn (2% Max HP)', cost: 600,
+    id: 'titan_t3_sun', name: 'Sunfire Aegis', desc: '+450 HP, +35 Armor, Proximity Burn Aura (2%/s)', cost: 600,
     treeId: 'titan', treeBranch: 'armor_branch', requires: 'titan_t2_ar',
     apply: (pl) => { pl.maxHp += 450; pl.hp += 450; pl.armor += 35; pl.hasAoeBurn = true; }
   },
@@ -106,9 +106,9 @@ export const shopItems = [
     apply: (pl) => { addAdaptive(pl, 45); pl.maxHp += 400; pl.hp += 400; pl.adaptivePen = (pl.adaptivePen || 0) + 0.20; }
   },
   {
-    id: 'comb_t3_dance', name: "Death's Dance", desc: '+50 Power, +300 HP, +30 Armor, +10% Lifesteal+Vamp', cost: 600,
+    id: 'comb_t3_dance', name: "Death's Dance", desc: '+50 Power, +300 HP, +30 Armor, +15% Lifesteal', cost: 600,
     treeId: 'combat', treeBranch: 'bruiser_branch', requires: 'comb_t2',
-    apply: (pl) => { addAdaptive(pl, 50); pl.maxHp += 300; pl.hp += 300; pl.armor += 30; pl.lifesteal = (pl.lifesteal || 0) + 0.10; pl.spellVamp = (pl.spellVamp || 0) + 0.10; }
+    apply: (pl) => { addAdaptive(pl, 50); pl.maxHp += 300; pl.hp += 300; pl.armor += 30; pl.lifesteal = (pl.lifesteal || 0) + 0.15; }
   },
 
   // ==========================================
@@ -128,6 +128,16 @@ export const shopItems = [
     id: 'ben_t3_red', name: 'Redemption', desc: '+15 Power, +350 HP, +25 AH, +20% Heal Power', cost: 500,
     treeId: 'benevolence', treeBranch: 'utility_branch', requires: 'ben_t2',
     apply: (pl) => { addAdaptive(pl, 15); pl.maxHp += 350; pl.hp += 350; pl.abilityHaste = (pl.abilityHaste || 0) + 25; pl.healPower = (pl.healPower || 0) + 0.20; }
+  },
+  {
+    id: 'ben_t2b', name: "Warden's Charm", desc: '+5 Power, +300 HP, +20 Armor, +10% Heal Power', cost: 400,
+    treeId: 'benevolence', treeBranch: 'warden_branch', requires: 'ben_t1',
+    apply: (pl) => { addAdaptive(pl, 5); pl.maxHp += 300; pl.hp += 300; pl.armor += 20; pl.healPower = (pl.healPower || 0) + 0.10; }
+  },
+  {
+    id: 'ben_t3_locket', name: 'Locket of Solari', desc: '+10 Power, +500 HP, +35 Armor, +20% Heal Power', cost: 600,
+    treeId: 'benevolence', treeBranch: 'warden_branch', requires: 'ben_t2b',
+    apply: (pl) => { addAdaptive(pl, 10); pl.maxHp += 500; pl.hp += 500; pl.armor += 35; pl.healPower = (pl.healPower || 0) + 0.20; }
   },
 
   // ==========================================

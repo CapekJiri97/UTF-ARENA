@@ -5,7 +5,7 @@ import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANG
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
 import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
-import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards } from './main.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards, recalcPlayerItemStats } from './main.js';
 import { updateSpellLabels } from './UI.js';
 import { playSound } from './Audio.js';
 
@@ -23,7 +23,6 @@ export class Player{
     this.armorPenFlat = 0;
     this.magicPenFlat = 0;
     this.lifesteal = 0;
-    this.spellVamp = 0;
     this.silenceTimer = 0;
     this.stunTimer = 0;
     this.shieldTimer = 0;
@@ -584,45 +583,21 @@ export class Player{
 
     if (this === player) {
 
-        // AUTO BUY
-        if (game.autoBuy && (!this.alive || allyBaseDist < 250) && this.gold >= 300 && this.items.length < 25) {
-            let enemyPhys = 0, enemyMag = 0;
+        // AUTO BUY — uses the same path-based system as bots
+        if (game.autoBuy && (!this.alive || allyBaseDist < 250) && this.gold >= 300) {
             const enemies = game.players.filter(p => p.team !== this.team);
-            for (let e of enemies) { if (e.dmgType === 'physical') enemyPhys++; else enemyMag++; }
+            const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 ||
+                Object.values(e.spells || {}).some(sp => sp && sp.type &&
+                    (sp.type.includes('heal') || sp.type === 'projectile_egg' || sp.type === 'summon_healers')));
 
-            let pool = [];
-            const isTank = this.role === 'TANK';
-            const isFighter = this.role === 'FIGHTER' || this.role === 'SPLITPUSHER';
-            const isSupport = this.role === 'SUPPORT';
-            const isMageSupport = isSupport || (this.role === 'SLAYER' && this.dmgType === 'magical') || (this.role === 'SPLITPUSHER' && this.dmgType === 'magical');
-            
-            const itemCount = (id) => (this.items || []).filter(itemId => itemId === id).length;
-            const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 || (e.spellVamp || 0) > 0.05 || Object.values(e.spells || {}).some(sp => sp && sp.type && (sp.type.includes('heal') || sp.type === 'projectile_egg' || sp.type === 'summon_healers')));
-
-            if (isTank) {
-                if (itemCount('hp') < 3) pool.push('hp', 'hp');
-                if (enemyPhys >= enemyMag) pool.push('def_ar', 'def_ar2');
-                if (enemyMag >= enemyPhys) pool.push('def_mr', 'def_mr2');
-                if (enemyHasHealing) pool.push('anti_base', 'ah_heal');
-                pool.push('slow', 'titan_shard', 'titan_sigil');
-            } else if (isFighter) {
-                if (itemCount('hp') < 2) pool.push('hp');
-                if (this.dmgType === 'magical') pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls', 'as_ms');
-                if (enemyPhys > enemyMag) pool.push('def_ar'); else if (enemyMag > enemyPhys) pool.push('def_mr');
-                if (enemyHasHealing && this.dmgType === 'physical') pool.push('anti_base', 'ah_heal');
-                if (enemyHasHealing && this.dmgType === 'magical') pool.push('anti_base', 'ah_heal_ap');
-            } else if (isMageSupport) {
-                if (isSupport) pool.push('ap', 'ap', 'ah', 'ah', 'hp');
-                else pool.push('ap', 'ap', 'ah', 'ah', 'ap_pen', 'ap_vamp', 'ah_ms', 'hp');
-                if (enemyHasHealing) pool.push('anti_base', 'ah_heal_ap');
-            } else {
-                if (this.role === 'SLAYER' && this.range) pool.push('ad', 'ad', 'ad', 'as', 'as', 'ah', 'ad_pen', 'ad_ls', 'as_ms', 'ah_ms'); else pool.push('ad', 'ad', 'ah', 'ah', 'as', 'as', 'ad_pen', 'ad_ls');
-                if (Math.random() < 0.2) pool.push(enemyPhys > enemyMag ? 'def_ar' : 'def_mr');
-                if (enemyHasHealing && this.dmgType === 'physical') pool.push('anti_base', 'ah_heal');
-                if (enemyHasHealing && this.dmgType === 'magical') pool.push('anti_base', 'ah_heal_ap');
+            if (!this.targetPath || BotPlayer.isPathComplete(this, this.targetPath)) {
+                this.targetPath = BotPlayer.selectTargetPath(this, enemies, enemyHasHealing);
             }
-            const itemToBuy = pickBuyableItem(this, pool, enemies);
-            if (itemToBuy) buyItem(itemToBuy.id); // buyItem handles gold/item changes
+
+            const item = this.targetPath ? BotPlayer.getNextPathItem(this, this.targetPath) : null;
+            if (item && this.gold >= item.cost && canBuyShopItem(this, item).ok) {
+                buyItem(item.id);
+            }
         }
     }
 
@@ -631,12 +606,27 @@ export class Player{
         if(this.hp < this.effectiveMaxHp) this.hp = Math.min(this.effectiveMaxHp, this.hp + this.hpRegen * dt);
     }
 
-    // Fountain Logic (Heal in own base, Laser in enemy base) - Host-only
+    // Fountain Logic + AoE Burn Aura - Host-only
     if (!socket || game.isHost) {
-        // Fountain Logic (Heal in own base, Laser in enemy base)
         if (allyBaseDist < 200) this.hp = Math.min(this.effectiveMaxHp, this.hp + (this.effectiveMaxHp * 0.15 * dt));
         const enemyBaseDist = dist(this.pos, spawnPoints[1-this.team]);
         if (enemyBaseDist < 200) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) handlePlayerKill(this, 'laser'); }
+
+        // Sunfire Aegis: proximity burn aura — 2% enemy maxHP/s (ticks twice per second)
+        if (this.hasAoeBurn && this.alive) {
+            this._aoeBurnTimer = (this._aoeBurnTimer || 0) - dt;
+            if (this._aoeBurnTimer <= 0) {
+                this._aoeBurnTimer = 0.5;
+                for (const target of game.players) {
+                    if (target.team === this.team || !target.alive || target.hp <= 0) continue;
+                    if (dist(this.pos, target.pos) > 180) continue;
+                    const burnDmg = target.maxHp * 0.01; // 1% per tick = 2%/s
+                    applyDamage(target, burnDmg, 'true', this);
+                    if (target.hp <= 0) handlePlayerKill(target, this);
+                    spawnParticles(target.pos.x, target.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
+                }
+            }
+        }
     }
 
     if(this.msBuffTimer > 0) this.msBuffTimer -= dt;
@@ -1652,9 +1642,10 @@ export class BotPlayer extends Player {
             : ((unit.AD * 1.6) * physMult * 2.0) + (unit.attackSpeed || 0) * 12;
 
         const titanBonus = (unit.titanSigilSpellDmg || 0) * 750 * magMult / 4; // ~average enemy hp / 4s CD
+        const ls = unit.lifesteal || 0;
         const dps = dmgType === 'magical'
-            ? ((unit.AP * (1 + (unit.abilityHaste || 0) / 120)) * magMult * 1.5) + (unit.spellVamp || 0) * unit.AP * 220 + titanBonus
-            : ((unit.AD * (unit.attackSpeed || 0)) * physMult * 1.5) + (unit.lifesteal || 0) * unit.AD * (unit.attackSpeed || 0) * 220 + titanBonus;
+            ? ((unit.AP * (1 + (unit.abilityHaste || 0) / 120)) * magMult * 1.5) + ls * unit.AP * 220 + titanBonus
+            : ((unit.AD * (unit.attackSpeed || 0)) * physMult * 1.5) + ls * unit.AD * (unit.attackSpeed || 0) * 220 + titanBonus;
 
         const physicalEhp = (unit.maxHp || 0) * (1 + (unit.armor || 0) / 100);
         const magicEhp = (unit.maxHp || 0) * (1 + (unit.mr || 0) / 100);
@@ -1663,8 +1654,7 @@ export class BotPlayer extends Player {
             + (unit.hpRegen || 0) * 70
             + (unit.speed || 0) * 6
             + (unit.shield || 0) * 0.8
-            + (unit.lifesteal || 0) * unit.AD * 120
-            + (unit.spellVamp || 0) * unit.AP * 120;
+            + ls * (dmgType === 'magical' ? unit.AP : unit.AD) * 120;
 
         return (burst * weights.burst) + (dps * weights.dps) + (ttd * weights.ttd);
     }
@@ -1705,101 +1695,103 @@ export class BotPlayer extends Player {
     // All upgrade paths — each is an ordered list of item IDs from base to final
     static get ITEM_PATHS() {
         return [
-            // AD paths (always commit to a branch, never just the base)
-            ['ad', 'ad_ls', 'ad_ls2'],
-            ['ad', 'ad_pen', 'ad_pen2'],
-            ['ad', 'ad_slow', 'slow'],
-            // AP paths
-            ['ap', 'ap_vamp', 'ap_vamp2'],
-            ['ap', 'ap_pen', 'ap_pen2'],
-            ['ap', 'ap_slow', 'slow_ms'],
-            // AS paths
-            ['as', 'as_ms', 'as_ms2'],
-            ['as', 'as_dmg', 'as_dmg2'],
-            // AH paths
-            ['ah', 'ah_ms', 'ah_ms2'],
-            ['ah', 'ah_hp', 'ah_hp2'],
-            // Defense paths (3 branches)
-            ['hp', 'def_ar', 'def_ar2'],
-            ['hp', 'def_mr', 'def_mr2'],
-            ['hp', 'titan_shard', 'titan_sigil'],
-            // Anti-heal paths
-            ['anti_base', 'ah_heal', 'ah_heal2'],
-            ['anti_base', 'ah_heal_ap', 'ah_heal_ap2'],
+            // Offense tree (physical carries / attack speed)
+            ['off_t1', 'off_t2_as', 'off_t3_ls'],
+            ['off_t1', 'off_t2_as', 'off_t3_pen'],
+            // Sorcery tree (mages / ability casters)
+            ['sorc_t1', 'sorc_t2_ah', 'sorc_t3_vamp'],
+            ['sorc_t1', 'sorc_t2_ah', 'sorc_t3_burn'],
+            ['sorc_t1', 'sorc_t2_ah', 'sorc_t3_slow'],
+            // Titan tree (tanks)
+            ['titan_t1', 'titan_t2_ar', 'titan_t3_sun'],
+            ['titan_t1', 'titan_t2_mr', 'titan_t3_spirit'],
+            // Combat tree (bruisers / fighters)
+            ['comb_t1', 'comb_t2', 'comb_t3_cleave'],
+            ['comb_t1', 'comb_t2', 'comb_t3_dance'],
+            // Benevolence tree (supports / healers)
+            ['ben_t1', 'ben_t2', 'ben_t3_red'],
+            ['ben_t1', 'ben_t2b', 'ben_t3_locket'],
+            // Blight tree (anti-heal)
+            ['blight_t1', 'blight_t2_off', 'blight_t3_off'],
+            ['blight_t1', 'blight_t2_tank', 'blight_t3_tank'],
         ];
     }
 
+    // Path is complete when the terminal (last) item is in inventory — predecessors are consumed on upgrade
     static isPathComplete(owner, path) {
-        for (const id of path) {
-            if (!(owner.items || []).includes(id)) return false;
-        }
-        return true;
+        return (owner.items || []).includes(path[path.length - 1]);
     }
 
-    // Returns the next item in the path that the bot needs to buy (including re-buying a base item when its copy is consumed by a branch)
+    // Returns the next item in the path to buy, accounting for the override system (predecessors consumed)
     static getNextPathItem(owner, path) {
-        for (let i = 0; i < path.length; i++) {
-            const id = path[i];
-            if (!(owner.items || []).includes(id)) return getShopItem(id);
-            // If the next item can't be bought because this base copy is consumed, re-buy it
-            if (i + 1 < path.length) {
-                const nextItem = getShopItem(path[i + 1]);
-                if (nextItem && !canBuyShopItem(owner, nextItem).ok) {
-                    const reqs = Array.isArray(nextItem.requires) ? nextItem.requires : (nextItem.requires ? [nextItem.requires] : []);
-                    if (reqs.includes(id)) return getShopItem(id);
-                }
-            }
+        const items = owner.items || [];
+        if (items.includes(path[path.length - 1])) return null; // already complete
+        // Find the highest tier currently in inventory, next purchase is one step up
+        for (let i = path.length - 2; i >= 0; i--) {
+            if (items.includes(path[i])) return getShopItem(path[i + 1]);
         }
-        return null;
+        return getShopItem(path[0]); // nothing owned yet, start from root
     }
 
-    // Score a full path by simulating applying all its remaining items, normalized by total remaining cost
+    // Score a full path by simulating applying remaining items, accounting for override system
     static scorePathFull(owner, path, enemies) {
         const probe = { ...owner, items: Array.isArray(owner.items) ? [...owner.items] : [] };
         let totalCost = 0;
         const remaining = [];
-        for (const id of path) {
-            if (!probe.items.includes(id)) {
-                const it = getShopItem(id);
-                if (it) { remaining.push(it); totalCost += it.cost; }
-            }
+
+        // Find start index: everything after the highest owned tier
+        let startIdx = 0;
+        for (let i = path.length - 1; i >= 0; i--) {
+            if (probe.items.includes(path[i])) { startIdx = i + 1; break; }
         }
-        if (remaining.length === 0) return -Infinity; // Already complete
+
+        for (let i = startIdx; i < path.length; i++) {
+            const it = getShopItem(path[i]);
+            if (it) { remaining.push(it); totalCost += it.cost; }
+        }
+        if (remaining.length === 0) return -Infinity;
         const before = BotPlayer.evaluateCombatProfile(probe, enemies);
         for (const it of remaining) it.apply(probe);
         const after = BotPlayer.evaluateCombatProfile(probe, enemies);
         return (after - before) / Math.max(1, totalCost / 300);
     }
 
-    // Pick the best new path to commit to, avoiding branches already owned
+    // Pick the best new path to commit to, avoiding branches already chosen in the same tree
     static selectTargetPath(owner, enemies, enemyHasHealing = false) {
         const isTank = owner.role === 'TANK';
         const isSupport = owner.role === 'SUPPORT';
         const isMagical = owner.dmgType === 'magical';
+        const items = owner.items || [];
 
-        // Filter paths: skip if branch-specific items (past the root) are already owned,
-        // or if single-item path root is already owned.
-        // This allows multiple branches from the same tree root (e.g. ad_ls + ad_slow).
         const pathFilter = (path) => {
             const rootItem = getShopItem(path[0]);
             if (!rootItem) return false;
             const tid = rootItem.treeId;
 
-            // Single-item path: skip if root already owned
-            if (path.length === 1 && (owner.items || []).includes(path[0])) return false;
-            // Multi-item path: skip if any branch-specific item (index ≥ 1) already owned
-            if (path.length > 1 && path.slice(1).some(id => (owner.items || []).includes(id))) return false;
+            // Skip completed paths
+            if (BotPlayer.isPathComplete(owner, path)) return false;
+
+            // Skip if a different terminal from the same tree is already owned (committed elsewhere)
+            const terminal = path[path.length - 1];
+            for (const other of BotPlayer.ITEM_PATHS) {
+                if (other[other.length - 1] === terminal) continue; // same terminal, same path family
+                const otherRoot = getShopItem(other[0]);
+                if (!otherRoot || otherRoot.treeId !== tid) continue;
+                // Paths share a common prefix but diverge — if other terminal is owned, skip this path
+                const minLen = Math.min(path.length, other.length);
+                let shared = 0;
+                for (let i = 0; i < minLen - 1; i++) { if (path[i] === other[i]) shared++; else break; }
+                if (shared > 0 && items.includes(other[other.length - 1])) return false;
+            }
 
             // Role/type filters
-            if (isTank && (tid === 'as' || (!isMagical && tid === 'ap') || (isMagical && tid === 'ad'))) return false;
-            if (isMagical && (tid === 'ad' || tid === 'as')) return false;
-            if (!isMagical && tid === 'ap') return false;
-            if (tid === 'anti' && !enemyHasHealing) return false;
-            if (isSupport && tid === 'as') return false;
-            // Mages don't benefit from AD-slow (Frozen Heart gives AD+Armor)
-            if (isMagical && path.includes('slow')) return false;
-            // Non-magical don't need AP-slow (Rylai's gives only AP+slow)
-            if (!isMagical && path.includes('slow_ms')) return false;
+            if (isTank && (tid === 'offense' || tid === 'sorcery' || tid === 'combat')) return false;
+            if (isMagical && tid === 'offense') return false;
+            if (!isMagical && tid === 'sorcery') return false;
+            if (isSupport && (tid === 'offense' || tid === 'combat')) return false;
+            if (tid === 'blight' && !enemyHasHealing) return false;
+            // Mages don't need sorcery_slow unless they have AP
+            if (isMagical && path.includes('sorc_t3_slow') && (owner.AP || 0) < 50) return false;
             return true;
         };
 
@@ -2324,9 +2316,11 @@ export class BotPlayer extends Player {
         // 0. Údržba vojáků (Nakupování a levelování) JEN PRO BOTY
         for (let bot of teamBots) {
             const inBase = dist(bot.pos, spawnPoints[bot.team]) < 250;
-            if ((!bot.alive || inBase) && bot.gold >= 300 && bot.items.length < 25) {
+            if ((!bot.alive || inBase) && bot.gold >= 300) {
                 const enemies = game.players.filter(p => p.team !== bot.team);
-                const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 || (e.spellVamp || 0) > 0.05 || Object.values(e.spells || {}).some(sp => sp && sp.type && (sp.type.includes('heal') || sp.type === 'projectile_egg' || sp.type === 'summon_healers')));
+                const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 ||
+                    Object.values(e.spells || {}).some(sp => sp && sp.type &&
+                        (sp.type.includes('heal') || sp.type === 'projectile_egg' || sp.type === 'summon_healers')));
 
                 // Path commitment: pick or continue a target upgrade path
                 if (!bot.targetPath || BotPlayer.isPathComplete(bot, bot.targetPath)) {
@@ -2334,9 +2328,9 @@ export class BotPlayer extends Player {
                 }
 
                 // Reactively add anti-heal path if enemies have lifesteal and we don't have it yet
-                const hasAntiHeal = (bot.items || []).some(id => ['anti_base','ah_heal','ah_heal2','ah_heal_ap','ah_heal_ap2'].includes(id));
+                const hasAntiHeal = (bot.items || []).some(id => ['blight_t1','blight_t2_off','blight_t3_off','blight_t2_tank','blight_t3_tank'].includes(id));
                 if (enemyHasHealing && !hasAntiHeal) {
-                    const antiPath = bot.dmgType === 'magical' ? ['anti_base', 'ah_heal_ap', 'ah_heal_ap2'] : ['anti_base', 'ah_heal', 'ah_heal2'];
+                    const antiPath = bot.role === 'TANK' ? ['blight_t1', 'blight_t2_tank', 'blight_t3_tank'] : ['blight_t1', 'blight_t2_off', 'blight_t3_off'];
                     const antiNext = BotPlayer.getNextPathItem(bot, antiPath);
                     if (antiNext && bot.gold >= antiNext.cost && canBuyShopItem(bot, antiNext).ok) {
                         bot.targetPath = antiPath;
@@ -2344,9 +2338,8 @@ export class BotPlayer extends Player {
                 }
 
                 let item = bot.targetPath ? BotPlayer.getNextPathItem(bot, bot.targetPath) : null;
-                // If the next item costs more than we have, don't buy anything this tick
                 if (item && (bot.gold < item.cost || !canBuyShopItem(bot, item).ok)) item = null;
-                // Fallback: if path is somehow stuck, pick best available item from whole shop
+                // Fallback: if path is stuck, pick a new one
                 if (!item && bot.targetPath) {
                     bot.targetPath = BotPlayer.selectTargetPath(bot, enemies, enemyHasHealing);
                     item = bot.targetPath ? BotPlayer.getNextPathItem(bot, bot.targetPath) : null;
@@ -2354,19 +2347,33 @@ export class BotPlayer extends Player {
                 }
 
                 if (item) {
-                        bot.gold -= item.cost; bot.items.push(item.id);
-                        let oldHp = bot.maxHp, oldAD = bot.AD, oldAP = bot.AP, oldArmor = bot.armor, oldMR = bot.mr;
-                        item.apply(bot);
-                        let extraMod = (bot.difficultyMod || 1.0) - 1.0;
-                        if (extraMod !== 0) {
-                            bot.maxHp += Math.round((bot.maxHp - oldHp) * extraMod); bot.hp += Math.round((bot.maxHp - oldHp) * extraMod);
-                            bot.AD += Math.round((bot.AD - oldAD) * extraMod); bot.AP += Math.round((bot.AP - oldAP) * extraMod);
-                            bot.armor += Math.round((bot.armor - oldArmor) * extraMod); bot.mr += Math.round((bot.mr - oldMR) * extraMod);
-                        }
-                        bot.isDirty = true;
-                        console.log(`[BOT ${bot.className}] bought ${item.name} (path: ${bot.targetPath ? bot.targetPath.join('→') : 'none'})`);
+                    // Override: remove prereqs from inventory before adding new item
+                    const reqs = Array.isArray(item.requires) ? item.requires : (item.requires ? [item.requires] : []);
+                    for (const reqId of reqs) {
+                        const idx = bot.items.indexOf(reqId);
+                        if (idx !== -1) bot.items.splice(idx, 1);
                     }
+                    bot.gold -= item.cost;
+                    bot.items.push(item.id);
+
+                    const cData = CLASSES[bot.className];
+                    recalcPlayerItemStats(bot);
+
+                    // Apply difficulty modifier on item-derived stats (above base class)
+                    const extraMod = (bot.difficultyMod || 1.0) - 1.0;
+                    if (extraMod !== 0 && cData) {
+                        const dHp = bot.maxHp - cData.hp;
+                        const dHP = Math.round(dHp * extraMod);
+                        bot.maxHp += dHP; bot.hp = Math.min(bot.maxHp, bot.hp + dHP);
+                        bot.AD += Math.round((bot.AD - cData.baseAD) * extraMod);
+                        bot.AP += Math.round((bot.AP - cData.baseAP) * extraMod);
+                        bot.armor += Math.round((bot.armor - cData.baseArmor) * extraMod);
+                        bot.mr += Math.round((bot.mr - cData.baseMR) * extraMod);
+                    }
+                    bot.isDirty = true;
+                    console.log(`[BOT ${bot.className}] bought ${item.name} (path: ${bot.targetPath ? bot.targetPath.join('→') : 'none'})`);
                 }
+            }
             while(bot.spellPoints > 0) {
                 let canQ = ((bot.spells.Q.level + 1) / bot.spells.E.level) <= 2.5;
                 let canE = ((bot.spells.E.level + 1) / bot.spells.Q.level) <= 2.5;

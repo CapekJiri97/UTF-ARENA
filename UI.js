@@ -116,17 +116,21 @@ const SHOP_TREE_CONFIGS = {
         ]
     },
     benevolence: {
-        title: 'BENEVOLENCE TREE  [HP · AH · Heal Power]',
+        title: 'BENEVOLENCE TREE  [HP · AH · Heal Power · Armor]',
         note: 'Green links show the next item in the branch is currently buyable.',
-        columns: 2,
+        columns: 3,
         nodes: [
-            { id: 'ben_t1',    col: 1, row: 1 },
-            { id: 'ben_t2',    col: 1, row: 2 },
-            { id: 'ben_t3_red',col: 1, row: 3 }
+            { id: 'ben_t1',        col: 2, row: 1 },
+            { id: 'ben_t2',        col: 1, row: 2 },
+            { id: 'ben_t2b',       col: 3, row: 2 },
+            { id: 'ben_t3_red',    col: 1, row: 3 },
+            { id: 'ben_t3_locket', col: 3, row: 3 }
         ],
         links: [
             ['ben_t1', 'ben_t2'],
-            ['ben_t2', 'ben_t3_red']
+            ['ben_t1', 'ben_t2b'],
+            ['ben_t2', 'ben_t3_red'],
+            ['ben_t2b', 'ben_t3_locket']
         ]
     },
     blight: {
@@ -1007,9 +1011,9 @@ export function draw(){
     // --- TOP LEFT CONTROLS ---
     if (!isMobile) {
         ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = '12px monospace'; ctx.fillStyle = '#888';
-        ctx.fillText('B - SHOP', 20, 20); ctx.fillText('C - CHAR. INFO', 20, 36); ctx.fillText('M - GENERAL INFO', 20, 52);
-        
-        let yOff = 76;
+        ctx.fillText('B - SHOP', 20, 20); ctx.fillText('C - SPELLS', 20, 36); ctx.fillText('V - STATS & INV', 20, 52); ctx.fillText('M - GENERAL INFO', 20, 68);
+
+        let yOff = 90;
         if (player && player.macroOrder) {
             ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 12px monospace';
             ctx.fillText(`AI SUGGEST: ${player.macroOrder.type.replace('_', ' ')}`, 20, yOff);
@@ -1099,10 +1103,10 @@ export function draw(){
           ctx.globalAlpha = isMobile ? 0.4 : 0.3; // 40% průhlednost okna targetu na mobilu, 30% na PC
 
           const t = player.currentTarget;
-          const _tls = t.lifesteal || 0, _tsv = t.spellVamp || 0;
+          const _tls = t.lifesteal || 0;
           const _tgw = t.antiHeal || 0, _tsw = t.onHitSlow || 0, _tss = t.onSpellHitSlow || 0;
           const _tapen = t.adaptivePen || 0;
-          const _tHasItemStats = _tls > 0 || _tsv > 0 || _tgw > 0 || _tsw > 0 || _tss > 0 || _tapen > 0;
+          const _tHasItemStats = _tls > 0 || _tgw > 0 || _tsw > 0 || _tss > 0 || _tapen > 0;
           const tw = 400, th = 82; const tx = 0, ty = 0;
           ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = (t.team >= 0) ? TEAM_COLOR[t.team] : NEUTRAL_COLOR; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
 
@@ -1214,7 +1218,7 @@ export function draw(){
       }
 
       // STATS TABLE
-      const _ls = player.lifesteal || 0, _sv = player.spellVamp || 0;
+      const _ls = player.lifesteal || 0;
       const _gw = player.antiHeal || 0, _sw = player.onHitSlow || 0;
       const _apen = player.adaptivePen || 0;
       let buffAdMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
@@ -1239,9 +1243,9 @@ export function draw(){
       ctx.fillText(`SP:${_spHud}`, cx + 245, cy + 15);
       ctx.fillText(`AH:${player.abilityHaste}`, cx + 325, cy - 25);
       ctx.fillText(`LS:${Math.round(_ls*100)}%`, cx + 325, cy - 5);
-      ctx.fillText(`SV:${Math.round(_sv*100)}%`, cx + 325, cy + 15);
-      ctx.fillText(`Pen:${Math.round(_apen*100)}%`, cx + 385, cy - 25);
-      ctx.fillText(`GW:${Math.round(_gw*100)}%`, cx + 385, cy - 5);
+      ctx.fillText(`Pen:${Math.round(_apen*100)}%`, cx + 325, cy + 15);
+      ctx.fillText(`GW:${Math.round(_gw*100)}%`, cx + 385, cy - 25);
+      ctx.fillText(`HP+:${Math.round((player.healPower||0)*100)}%`, cx + 385, cy - 5);
       
       ctx.restore();
     }
@@ -1316,61 +1320,32 @@ export function draw(){
     if (keys['c'] && player) {
         ctx.save();
         let isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        // Zmenšíme měřítko, pokud je obrazovka na výšku menší než 850px (pro PC i mobily), aby se detailní texty vždy vešly
-        let uiScale = Math.min(1, ch / 850); 
+        let uiScale = Math.min(1, ch / 850);
         ctx.scale(uiScale, uiScale);
         let invScale = 1 / uiScale;
 
-        let panelW = Math.max(480, (cw * 0.38) * invScale); 
+        let panelW = Math.max(480, (cw * 0.38) * invScale);
         let panelH = ch * invScale;
-        
+
         ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, panelW, panelH);
         ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, panelW, panelH);
-        
+
         let leftM = 20; let startY = 30;
         ctx.fillStyle = '#fff'; ctx.font = `bold 20px monospace`; ctx.textAlign = 'left';
-        ctx.fillText('CHARACTER INFO  ▲ ▼', leftM, startY); startY += 35;
-        
+        ctx.fillText('SPELLS  [C]', leftM, startY); startY += 35;
+
         ctx.font = `13px monospace`;
-        ctx.fillText(`Class: ${player.className}`, leftM, startY); startY += 22;
-        ctx.fillText(`Level: ${player.level} (${Math.floor(player.exp)}/${expForLevel(player.level)} XP)`, leftM, startY); startY += 22;
-        ctx.fillText(`HP: ${Math.floor(player.hp)} / ${player.effectiveMaxHp}`, leftM, startY); startY += 22;
-        ctx.fillText(`Gold: ${Math.floor(player.gold)}`, leftM, startY); startY += 22;
-        ctx.fillText(`Kills: ${player.kills} | Deaths: ${player.deaths} | Assists: ${player.assists}`, leftM, startY); startY += 35;
-        
-        ctx.fillStyle = '#ffcc00'; ctx.fillText(`ATTRIBUTES`, leftM, startY); startY += 25;
+        ctx.fillText(`Class: ${player.className}  LV${player.level}`, leftM, startY); startY += 30;
+
         let buffAdMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
-        let buffAsMultP = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
-        if (player.hanaBuffTimer > 0) buffAsMultP *= (player.spells?.Q?.bonusAsMult || 1.25);
         const _puP = player.hasPowerup ? 1.2 : 1;
         let adVal = Math.round(player.AD * _puP * buffAdMultP);
         let apVal = Math.round(player.AP * _puP);
-        let arVal = Math.round(player.armor * _puP * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
-        let mrVal = Math.round(player.mr * _puP * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
-        let asVal = (player.attackSpeed * buffAsMultP).toFixed(2);
-        let msVal = Math.round(player.speed * _puP * (player.msBuffTimer > 0 ? 1 + player.msBuffAmount : 1));
-        let ahVal = player.abilityHaste;
-        
-        const _cLs = player.lifesteal || 0, _cSv = player.spellVamp || 0;
-        const _cGw = player.antiHeal || 0, _cSw = player.onHitSlow || 0, _cSs = player.onSpellHitSlow || 0;
-        const _cApen = player.adaptivePen || 0;
-        const powerLabel = player.dmgType === 'magical' ? 'AP (Power)' : 'AD (Power)';
-        const powerVal = player.dmgType === 'magical' ? apVal : adVal;
-        ctx.fillStyle = '#aaa';
-        ctx.fillText(`${powerLabel}: ${String(powerVal).padEnd(5, ' ')} | Armor: ${arVal}`, leftM, startY); startY += 20;
-        ctx.fillText(`MR:    ${String(mrVal).padEnd(5, ' ')} | Speed: ${msVal}`, leftM, startY); startY += 20;
-        ctx.fillText(`A.Spd: ${String(asVal).padEnd(5, ' ')} | Haste: ${ahVal}`, leftM, startY); startY += 18;
-        ctx.fillStyle = '#7cf';
-        ctx.fillText(`LS: ${Math.round(_cLs*100)}%  | SV: ${Math.round(_cSv*100)}%`, leftM, startY); startY += 18;
-        ctx.fillText(`Pen: ${Math.round(_cApen*100)}%  | GW: ${Math.round(_cGw*100)}%`, leftM, startY); startY += 18;
-        if (_cSw > 0) { ctx.fillText(`AA Slow: ${Math.round(_cSw*100)}%`, leftM, startY); startY += 18; }
-        if (_cSs > 0) { ctx.fillText(`Spell Slow: ${Math.round(_cSs*100)}%`, leftM, startY); startY += 18; }
-        startY += 12;
 
         let baScale = CLASSES[player.className].aaScale || 0.3;
-        let baDmg = Math.round(CLASSES[player.className].baseAtk + ((player.dmgType === 'magical' ? apVal : adVal) * baScale)); 
+        let baDmg = Math.round(CLASSES[player.className].baseAtk + ((player.dmgType === 'magical' ? apVal : adVal) * baScale));
         ctx.fillStyle = '#fff'; ctx.fillText(`Basic Attack: Base ${CLASSES[player.className].baseAtk} + (${Math.round(baScale*100)}% ${player.dmgType === 'magical' ? 'AP' : 'AD'}) = ${baDmg} Dmg`, leftM, startY); startY += 30;
-        
+
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`SPELLS`, leftM, startY); startY += 25;
         const q = player.spells.Q, e = player.spells.E;
         
@@ -1550,12 +1525,64 @@ export function draw(){
         ctx.fillStyle = '#fff'; ctx.fillText(`[F / L] ${player.summonerSpell} - Cooldown: ${sumSpell.cd}s`, leftM, startY); startY += 20;
         ctx.fillStyle = '#ddd'; startY = wrapText(`    "${sumSpell.desc}"`, leftM, startY, panelW - 40, 18) + 18;
 
-        // ── ITEMS (3 řady × 2 sloupce) ──────────────────────────────────
+        ctx.restore();
+    }
+
+    // ── V MENU: STATS & INVENTORY ─────────────────────────────────────────
+    if (keys['v'] && player) {
+        ctx.save();
+        let isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        let uiScale = Math.min(1, ch / 850);
+        ctx.scale(uiScale, uiScale);
+        let invScale = 1 / uiScale;
+
+        let panelW = Math.max(480, (cw * 0.38) * invScale);
+        let panelH = ch * invScale;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0, 0, panelW, panelH);
+        ctx.strokeStyle = '#fc0'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, panelW, panelH);
+
+        let leftM = 20; let startY = 30;
+        ctx.fillStyle = '#fff'; ctx.font = `bold 20px monospace`; ctx.textAlign = 'left';
+        ctx.fillText('STATS & INVENTORY  [V]', leftM, startY); startY += 35;
+
+        ctx.font = `13px monospace`;
+        ctx.fillText(`Class: ${player.className}  LV${player.level}`, leftM, startY); startY += 22;
+        ctx.fillText(`HP: ${Math.floor(player.hp)} / ${player.effectiveMaxHp}  |  Gold: ${Math.floor(player.gold)}`, leftM, startY); startY += 22;
+        ctx.fillText(`Kills: ${player.kills}  Deaths: ${player.deaths}  Assists: ${player.assists}`, leftM, startY); startY += 30;
+
+        ctx.fillStyle = '#ffcc00'; ctx.fillText(`ATTRIBUTES`, leftM, startY); startY += 22;
+        let vBuffAdMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
+        let vBuffAsMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
+        if (player.hanaBuffTimer > 0) vBuffAsMult *= (player.spells?.Q?.bonusAsMult || 1.25);
+        const _vPu = player.hasPowerup ? 1.2 : 1;
+        let vAdVal = Math.round(player.AD * _vPu * vBuffAdMult);
+        let vApVal = Math.round(player.AP * _vPu);
+        let vArVal = Math.round(player.armor * _vPu * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
+        let vMrVal = Math.round(player.mr * _vPu * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
+        let vAsVal = (player.attackSpeed * vBuffAsMult).toFixed(2);
+        let vMsVal = Math.round(player.speed * _vPu * (player.msBuffTimer > 0 ? 1 + player.msBuffAmount : 1));
+        const _vLs = player.lifesteal || 0;
+        const _vGw = player.antiHeal || 0, _vSw = player.onHitSlow || 0, _vSs = player.onSpellHitSlow || 0;
+        const _vApen = player.adaptivePen || 0;
+        const vPowerLabel = player.dmgType === 'magical' ? 'AP (Power)' : 'AD (Power)';
+        const vPowerVal = player.dmgType === 'magical' ? vApVal : vAdVal;
+        ctx.fillStyle = '#aaa';
+        ctx.fillText(`${vPowerLabel}: ${String(vPowerVal).padEnd(5)} | Armor: ${vArVal}`, leftM, startY); startY += 20;
+        ctx.fillText(`MR:    ${String(vMrVal).padEnd(5)} | Speed: ${vMsVal}`, leftM, startY); startY += 20;
+        ctx.fillText(`A.Spd: ${String(vAsVal).padEnd(5)} | Haste: ${player.abilityHaste}`, leftM, startY); startY += 18;
+        ctx.fillStyle = '#7cf';
+        ctx.fillText(`LS: ${Math.round(_vLs*100)}%  | Pen: ${Math.round(_vApen*100)}%  | GW: ${Math.round(_vGw*100)}%`, leftM, startY); startY += 18;
+        if (player.healPower > 0) { ctx.fillText(`Heal Power: +${Math.round(player.healPower*100)}%`, leftM, startY); startY += 18; }
+        if (_vSw > 0) { ctx.fillText(`AA Slow: ${Math.round(_vSw*100)}%`, leftM, startY); startY += 18; }
+        if (_vSs > 0) { ctx.fillText(`Spell Slow: ${Math.round(_vSs*100)}%`, leftM, startY); startY += 18; }
+        startY += 12;
+
+        // ── INVENTORY (3×2 grid) ─────────────────────────────────────────
         const ownedIds = player.items || [];
         ctx.fillStyle = '#ffcc00'; ctx.font = `bold 13px monospace`;
         ctx.fillText(`INVENTORY  (${ownedIds.length}/6)`, leftM, startY); startY += 8;
-        ctx.fillStyle = '#333';
-        ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 8;
+        ctx.fillStyle = '#333'; ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 8;
 
         {
           const INV_COLS = 2, INV_ROWS = 3;
@@ -1573,14 +1600,14 @@ export function draw(){
 
             ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(sx, sy, slotW, slotH);
-            ctx.strokeStyle = i < ownedIds.length ? '#2a4a2a' : '#222';
+            ctx.strokeStyle = i < ownedIds.length ? '#4a4a0a' : '#222';
             ctx.lineWidth = 1;
             ctx.strokeRect(sx, sy, slotW, slotH);
 
             if (i < ownedIds.length) {
               const it = getShopItem(ownedIds[i]);
               if (it) {
-                ctx.fillStyle = '#0f0'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
+                ctx.fillStyle = '#fc0'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
                 ctx.fillText(it.name, sx + 5, sy + 16);
                 ctx.fillStyle = '#888'; ctx.font = '9px monospace';
                 const stats = it.desc.split(',');
@@ -1594,14 +1621,14 @@ export function draw(){
             }
           }
           ctx.textAlign = 'left';
-          startY = invStartY + INV_ROWS * (slotH + slotGap) + 8;
+          startY = invStartY + INV_ROWS * (slotH + slotGap) + 10;
         }
 
         // ── ITEM MECHANICS GUIDE ─────────────────────────────────────────
-        const _mLs = player.lifesteal || 0, _mSv = player.spellVamp || 0;
+        const _mLs = player.lifesteal || 0;
         const _mGw = player.antiHeal || 0, _mSw = player.onHitSlow || 0, _mSs = player.onSpellHitSlow || 0;
         const _mApen = player.adaptivePen || 0;
-        if (_mLs > 0 || _mSv > 0 || _mGw > 0 || _mSw > 0 || _mSs > 0 || _mApen > 0) {
+        if (_mLs > 0 || _mGw > 0 || _mSw > 0 || _mSs > 0 || _mApen > 0) {
             if (startY < panelH - 30) {
                 startY += 6;
                 ctx.fillStyle = '#ffcc00'; ctx.font = `bold 12px monospace`;
@@ -1610,18 +1637,13 @@ export function draw(){
                 const mLines = [];
                 if (_mApen > 0) mLines.push(
                     { h: `ADAPTIVE PEN  (${Math.round(_mApen*100)}%)`, c: '#ffaa44' },
-                    { t: `Reduces enemy Armor (physical dmg) or Magic Resist (magical dmg)` },
-                    { t: `by ${Math.round(_mApen*100)}% multiplicatively before damage is applied.` }
+                    { t: `Reduces enemy Armor (physical) or MR (magical) by ${Math.round(_mApen*100)}%` },
+                    { t: `multiplicatively before damage is applied.` }
                 );
                 if (_mLs > 0) mLines.push(
                     { h: `LIFESTEAL  (${Math.round(_mLs*100)}%)`, c: '#cc88ff' },
-                    { t: `Heals you for ${Math.round(_mLs*100)}% of basic-attack damage dealt.` },
+                    { t: `Heals you for ${Math.round(_mLs*100)}% of ALL damage dealt (AA and spells).` },
                     { t: `AoE hits heal only 20% of normal rate (anti-stacking).` }
-                );
-                if (_mSv > 0) mLines.push(
-                    { h: `SPELL VAMP  (${Math.round(_mSv*100)}%)`, c: '#cc88ff' },
-                    { t: `Heals you for ${Math.round(_mSv*100)}% of spell damage dealt.` },
-                    { t: `AoE: same 20% cap as Lifesteal past the first target.` }
                 );
                 if (_mGw > 0) mLines.push(
                     { h: `GRIEVOUS WOUNDS  (${Math.round(_mGw*100)}%)`, c: '#ff8844' },
@@ -1679,7 +1701,7 @@ export function draw(){
         const aimMode = game.autoTarget ? 'auto-focus (J/K/L)' : 'manual (Q/E/F)';
         ctx.fillText(`[Q/J] / [E/K] : Cast Spells  [${aimMode}]`, leftM, startY); startY += 20;
         ctx.fillText(`[SHIFT + Q/E] : Level Up Spell`, leftM, startY); startY += 20;
-        ctx.fillText(`[B] : Shop | [TAB] : Scoreboard`, leftM, startY); startY += 35;
+        ctx.fillText(`[B] : Shop | [C] : Spells | [V] : Stats & Inv | [TAB] : Scoreboard`, leftM, startY); startY += 35;
 
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`AUTO HELPERS  (toggle on/off)`, leftM, startY); startY += 25;
 

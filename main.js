@@ -294,7 +294,7 @@ import { initAudio, playSound } from './Audio.js';
   // =========================================================================
 
   export const keys = {};
-  window.addEventListener('keydown', e=>{ if(e.target.tagName === 'INPUT') return; keys[e.key.toLowerCase()] = true; if(['w','a','s','d','tab','c','m','j','k','arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault(); });
+  window.addEventListener('keydown', e=>{ if(e.target.tagName === 'INPUT') return; keys[e.key.toLowerCase()] = true; if(['w','a','s','d','tab','c','v','m','j','k','arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault(); });
   window.addEventListener('keyup', e=>{ if(e.target.tagName === 'INPUT') return; keys[e.key.toLowerCase()] = false; });
   
   // Prohlížeče vyžadují k aktivaci audia akci uživatele
@@ -457,7 +457,7 @@ import { initAudio, playSound } from './Audio.js';
     }
 
         if ((!socket || game.isHost || isNetwork) && sourceEntity instanceof Player && finalDamage > 0) {
-          const sustain = type === 'physical' ? (sourceEntity.lifesteal || 0) : (type === 'magical' ? (sourceEntity.spellVamp || 0) : 0);
+          const sustain = type !== 'true' ? (sourceEntity.lifesteal || 0) : 0;
           if (sustain > 0) {
             // AoE sustain cap: first target in a 50ms window heals at 100%, subsequent at 20%
             // This prevents AoE spells from healing 5x more than single-target attacks
@@ -817,7 +817,7 @@ import { initAudio, playSound } from './Audio.js';
 
   let spawnTimer = 0; const spawnInterval = 12.0; const nexusDrainRate = 0.75; // Sníženo odečítání skóre (cca 30%)
 
-  function recalcPlayerItemStats(pl) {
+  export function recalcPlayerItemStats(pl) {
     const cData = CLASSES[pl.className];
     if (!cData) return;
     const hpFrac = pl.maxHp > 0 ? Math.max(0, Math.min(1, pl.hp / pl.maxHp)) : 1;
@@ -832,7 +832,6 @@ import { initAudio, playSound } from './Audio.js';
     pl.maxHp = cData.hp;
     pl.hpRegen = cData.hpRegen || 2.0;
     pl.lifesteal = 0;
-    pl.spellVamp = 0;
     pl.antiHeal = 0;
     pl.onHitSlow = 0;
     pl.onSpellHitSlow = 0;
