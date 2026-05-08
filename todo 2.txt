@@ -1,24 +1,3 @@
-nefunguje slow on spell item - možna jen na pyro Q
-neukazuje je Slow statistika v GUI 
-v "C" menu je slow statistika dvarkat a jednou ukazuje jednou ne
-přidat talčítka na auto veci stejne jako je na telefonu	
-shop si neupdatuje goldy, takže když je nemam když shiop otevřu a pak začnu mit tak se to neupdatuje
-předelat jednoho až dva supporty na AD
-zarovnat target okno na pc stejne jako to stredove gui
-předelat trochu itemy na 1-1-2 stromy, a udělat inventar + pořadny zrevidovany item system
-vic zpomalit snowball a zrychlit catchup system (asi jen na +- 2 levely)
-v M menu se špatne zarovnavli ty hotkeys vysvětlivky
-TAMER DAVA MEGA DAMAGE v late game hlavne
-zmenit ress a death místa pro miniony
-možna přidat range miniony?
-nevyskakovat plus u spellu ktere nejdou kvuli omezeni lvlup
-na mobilu udelat lepsi minimap
-tank itemy jsou asi moc silne na ne tank hrdiny a silne jsou i AH a AS, slabší mi  přidjuo AD a AP itemy - možna itemy jako hp předelat na % base hp? a buff ad a ap itemu?
-u wanderea je zase nějaka dloua range na přeskoky na E
-možna zvetist scaling na vetsine auto attacku a snižit attackspeed?
-určite zlepsi penetration itemy
-až moc goldu za capture a malo golud za kill v late game.
-
 
 🛠 Chyby a Technické problémy (Bugs)
 Mechanika zpomalení: Opravit nefunkční "Slow on spell" u itemů (prověřit, zda funguje korektně u Pyro Q).
@@ -70,3 +49,57 @@ GUI Zarovnání: Sjednotit zarovnání target okna na PC se středovým panelem.
 Nová tlačítka: Přidat na PC tlačítka pro automatické akce (stejně jako jsou na mobilní verzi).
 
 Mobilní verze: Kompletně přepracovat a vylepšit minimapu.
+
+
+--
+
+1. Neshoda v názvech proměnných (Zásadní bug)
+V CLASSES definuješ základní poškození jako baseAD a baseAP. Ale v pomocné funkci voláš pl.baseAD_stat:
+
+JavaScript
+export const addAdaptive = (pl, pct) => {
+  if (pl.dmgType === 'magical') pl.AP = (pl.AP || 0) + Math.round((pl.baseAP_stat || 0) * pct);
+  // ...
+Jak to opravit:
+Buď v konstruktoru tvého Player.js při vytváření hrdiny musíš udělat:
+this.baseAP_stat = CLASSES[this.className].baseAP;
+Nebo tu pomocnou funkci jednoduše přepiš, aby brala přímo tu správnou proměnnou z CLASSES:
+
+JavaScript
+export const addAdaptive = (pl, pct) => {
+  const baseAP = CLASSES[pl.className]?.baseAP || 0;
+  const baseAD = CLASSES[pl.className]?.baseAD || 0;
+  
+  if (pl.dmgType === 'magical') pl.AP = (pl.AP || 0) + Math.round(baseAP * pct);
+  else pl.AD = (pl.AD || 0) + Math.round(baseAD * pct);
+};
+2. Pořád ti chybí unique: true!
+Ve funkci canBuyShopItem tu kontrolu máš připravenou skvěle (if (item.unique && ...)). Jenže v poli shopItems jsi ten flag k itemům nepřidal. To znamená, že item není unikátní a hráč si pořád může poskládat inventář šesti Bloodthirsterů.
+
+Jak to opravit:
+Projdi si všechny itemy (nebo alespoň ty Tier 3 finální) a přidej jim tam ten parametr. Například:
+
+JavaScript
+{
+  id: 'off_t3_ls', name: 'Bloodthirster', desc: '+~50 Power, +30% AS, +10% Lifesteal', cost: 600,
+  treeId: 'offense', treeBranch: 'as_branch', requires: 'off_t2_as', unique: true, // <-- TADY
+  apply: (pl) => { /* ... */ }
+}
+3. Zmizely nám boty a rozbijí AI
+V minulém bloku jsme pro AI (bota) nastavovali logiku, která začíná tímto:
+let boots = shopItems.find(it => it.id === 'boots');
+Pokud boti v shopu nenajdou item s ID boots, nakupovací skript se jim zacyklí nebo začne házet errory a boti nevyjdou z fontány.
+
+Jak to opravit:
+Přidej na konec shopItems aspoň jedny univerzální boty mimo stromy:
+
+JavaScript
+  // ==========================================
+  // BOOTS (Core for AI and players)
+  // ==========================================
+  {
+    id: 'boots', name: 'Traveler Boots', desc: '+40 Movement Speed', cost: 300,
+    treeId: 'boots', treeBranch: 'core', unique: true,
+    apply: (pl) => { pl.speed += 40; }
+  }
+Jakmile ošetříš tyhle tři věci, tvůj datový základ pro itemy je neprůstřelný. Pak už bude "jen" stačit pohlídat si v Player.js, aby se při nákupu upgradu ten starý item opravdu smazal z inventáře a staty se přepočítaly od nuly, jak jsme řešili.

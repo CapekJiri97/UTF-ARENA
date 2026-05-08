@@ -30,8 +30,14 @@ export class Player{
     this.reaperTimer = 0;
 
     // stats
-    this.maxHp = cData.hp; this.hp = this.maxHp; this.hpRegen = cData.hpRegen || 2.0; 
+    this.maxHp = cData.hp; this.hp = this.maxHp; this.hpRegen = cData.hpRegen || 2.0;
     this.AD = cData.baseAD; this.AP = cData.baseAP; this.attackSpeed = 1.0; this.abilityHaste = 0; this.armor = cData.baseArmor; this.mr = cData.baseMR;
+    // Immutable base references used by %-based item scaling — never modified after spawn
+    this.baseMaxHp = cData.hp;
+    this.baseAD_stat = cData.baseAD;
+    this.baseAP_stat = cData.baseAP;
+    this.baseArmor_stat = cData.baseArmor;
+    this.baseMR_stat = cData.baseMR;
     
     // economy & stats
     this.gold = 600; this.totalGold = 600; this.kills = 0; this.deaths = 0; this.assists = 0;
@@ -488,15 +494,15 @@ export class Player{
                     if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
                         const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
                         const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                        if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id, false, true); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } }
-                    } 
+                        if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id, false, true); if (fd.onSpellHitSlow) { m.slowTimer = Math.max(m.slowTimer||0, 0.3); m.slowMod = Math.min(m.slowMod||1, 1-fd.onSpellHitSlow); } if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } }
+                    }
                 }
-                for(let p of game.players){ 
-                    if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){ 
-                        const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); 
-                        const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                        if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id, false, true); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
-                    } 
+                for(let p of game.players){
+                    if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){
+                        const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
+                        const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle)));
+                        if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id, false, true); if (fd.onSpellHitSlow) { p.slowTimer = Math.max(p.slowTimer||0, 0.3); p.slowMod = Math.min(p.slowMod||1, 1-fd.onSpellHitSlow); } if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } }
+                    }
                 }
             }
         }
@@ -1122,11 +1128,12 @@ export class Player{
         let sumHp = Math.round((sp.summonHp || 120) + pAD * 0.5);
         let sumAd = Math.round((sp.summonAd || 50) + pAD * 0.2);
         let slowDur = sp.slowDuration || 0;
-        if (this.onSpellHitSlow) slowDur = Math.max(slowDur, 1.5);
+        let slowMod = sp.slowMod || 1;
+        if (this.onSpellHitSlow) { slowDur = Math.max(slowDur, 1.5); slowMod = Math.min(slowMod, 1 - this.onSpellHitSlow); }
         game.projectiles.push(new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {
             damage: damage, dmgType: this.dmgType, glyph: sp.pGlyph, life: life,
             spawnMinion: true, mGlyph: sp.summonGlyph, mHp: sumHp, mAd: sumAd,
-            slowDuration: slowDur, isSpell: true
+            slowDuration: slowDur, slowMod: slowMod, isSpell: true
         }));
     } else if (sp.type === 'buff_ad_as') {
         this.adAsBuffTimer = sp.duration;
@@ -1189,11 +1196,13 @@ export class Player{
         const cone = sp.cone || (90 * Math.PI / 180);
         const ang = Math.atan2(ty - this.pos.y, tx - this.pos.x);
         game.particles.push(new Particle(this.pos.x, this.pos.y, '#f55', {shape: 'arc', radius: range, life: 0.35, speed: 0, lineWidth: 3, angle: ang, cone: cone}));
+        let ckSlowDur = sp.slowDuration || 0; let ckSlowMod = sp.slowMod || 0.6;
+        if (this.onSpellHitSlow) { ckSlowDur = Math.max(ckSlowDur, 1.5); ckSlowMod = Math.min(ckSlowMod, 1 - this.onSpellHitSlow); }
         for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){
             const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
             const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
             if (da <= cone/2) {
-                applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
+                applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); if (ckSlowDur) { m.slowTimer = Math.max(m.slowTimer||0, ckSlowDur); m.slowMod = ckSlowMod; } spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
                 let angle = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
                 m.knockbackTimer = 0.2; m.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
                 if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); }
@@ -1203,7 +1212,7 @@ export class Player{
             const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
             const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
             if (da <= cone/2) {
-                applyDamage(p, damage, this.dmgType, this.id, false, true); spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
+                applyDamage(p, damage, this.dmgType, this.id, false, true); if (ckSlowDur) { p.slowTimer = Math.max(p.slowTimer||0, ckSlowDur); p.slowMod = ckSlowMod; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
                 let angle = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
                 p.knockbackTimer = 0.2; p.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
                 if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); }
@@ -1215,12 +1224,14 @@ export class Player{
         const cone = sp.cone || (90 * Math.PI / 180);
         const ang = Math.atan2(ty - this.pos.y, tx - this.pos.x);
         game.particles.push(new Particle(this.pos.x, this.pos.y, '#7ff', {shape: 'arc', radius: range, life: 0.35, speed: 0, lineWidth: 3, angle: ang, cone: cone}));
+        let csSlowDur = sp.slowDuration || 0; let csSlowMod = sp.slowMod || 0.6;
+        if (this.onSpellHitSlow) { csSlowDur = Math.max(csSlowDur, 1.5); csSlowMod = Math.min(csSlowMod, 1 - this.onSpellHitSlow); }
         for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){
             const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
             const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
             if (da <= cone/2) {
                 applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
-                if (sp.slowDuration) { m.slowTimer = Math.max(m.slowTimer||0, sp.slowDuration); m.slowMod = sp.slowMod || 0.6; }
+                if (csSlowDur) { m.slowTimer = Math.max(m.slowTimer||0, csSlowDur); m.slowMod = csSlowMod; }
                 if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); }
             }
         } }
@@ -1229,7 +1240,7 @@ export class Player{
             const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
             if (da <= cone/2) {
                 applyDamage(p, damage, this.dmgType, this.id, false, true); spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
-                if (sp.slowDuration) { p.slowTimer = Math.max(p.slowTimer||0, sp.slowDuration); p.slowMod = sp.slowMod || 0.6; }
+                if (csSlowDur) { p.slowTimer = Math.max(p.slowTimer||0, csSlowDur); p.slowMod = csSlowMod; }
                 if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); }
             }
         } }
@@ -1250,7 +1261,9 @@ export class Player{
         spawnParticles(this.pos.x, this.pos.y, 8, '#fff');
         if (sp.type === 'dash_def') { this.defBuffTimer = 4.0; spawnParticles(this.pos.x, this.pos.y, 10, '#88f', {speed: 100}); }
         if (sp.radius && sp.baseDamage !== undefined) { 
-            this.dashEndExplosion = { radius: sp.radius, damage: damage, dmgType: this.dmgType, id: this.id, slowDuration: sp.slowDuration, slowMod: sp.slowMod, silenceDuration: sp.silenceDuration, bonusCurrentHpDmg: sp.bonusCurrentHpDmg || 0 };
+            const _dSlowDur = this.onSpellHitSlow ? Math.max(sp.slowDuration || 0, 1.5) : (sp.slowDuration || 0);
+            const _dSlowMod = this.onSpellHitSlow ? Math.min(sp.slowMod || 0.6, 1 - this.onSpellHitSlow) : sp.slowMod;
+            this.dashEndExplosion = { radius: sp.radius, damage: damage, dmgType: this.dmgType, id: this.id, slowDuration: _dSlowDur, slowMod: _dSlowMod, silenceDuration: sp.silenceDuration, bonusCurrentHpDmg: sp.bonusCurrentHpDmg || 0 };
         }
     } else if (sp.type === 'shield_explode') {
         this.shield = (sp.amount || 0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 20);
@@ -1260,9 +1273,10 @@ export class Player{
         this.flamethrowerTimer = sp.duration || 2.5;
         this.flamethrowerTick = 0;
         let ticks = (sp.duration || 2.5) / (sp.tickRate || 0.10);
-        this.flamethrowerData = { 
-            damage: damage / ticks, dmgType: this.dmgType, id: this.id, 
-            range: sp.range || 160, cone: sp.cone || (40 * Math.PI / 180) 
+        this.flamethrowerData = {
+            damage: damage / ticks, dmgType: this.dmgType, id: this.id,
+            range: sp.range || 160, cone: sp.cone || (40 * Math.PI / 180),
+            onSpellHitSlow: this.onSpellHitSlow || 0
         };
     } else if (sp.type === 'dash_heal_silence') {
         let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10));
@@ -3231,19 +3245,19 @@ export class BotPlayer extends Player {
                           game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['≈','~','≡','-','*','@','f','p'][Math.floor(Math.random()*8)], size: 16 + Math.random()*12, grow: 25, rotate: true }));
                       }
                       
-                      for(let m of game.minions){ 
-                          if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
-                              const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
-                              const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                              if(da <= fd.cone/2){ applyDamage(m, fd.damage, fd.dmgType, fd.id); } 
-                          } 
+                      for(let m of game.minions){
+                          if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){
+                              const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
+                              const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle)));
+                              if(da <= fd.cone/2){ applyDamage(m, fd.damage, fd.dmgType, fd.id); if (fd.onSpellHitSlow) { m.slowTimer = Math.max(m.slowTimer||0, 0.3); m.slowMod = Math.min(m.slowMod||1, 1-fd.onSpellHitSlow); } }
+                          }
                       }
-                      for(let p of game.players){ 
-                          if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){ 
-                              const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); 
-                              const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                              if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id); } 
-                          } 
+                      for(let p of game.players){
+                          if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){
+                              const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
+                              const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle)));
+                              if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id); if (fd.onSpellHitSlow) { p.slowTimer = Math.max(p.slowTimer||0, 0.3); p.slowMod = Math.min(p.slowMod||1, 1-fd.onSpellHitSlow); } }
+                          }
                       }
                   }
               }
@@ -3345,19 +3359,19 @@ export class BotPlayer extends Player {
                       game.particles.push(new Particle(this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius, pCol, { angle: a, speed: spd, life: fd.range/spd, glyph: ['≈','~','≡','-','*','@','f','p'][Math.floor(Math.random()*8)], size: 16 + Math.random()*12, grow: 25, rotate: true }));
                   }
                   
-                  for(let m of game.minions){ 
-                      if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
-                          const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
-                          const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                              if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id, false, true); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } }
-                      } 
+                  for(let m of game.minions){
+                      if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){
+                          const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
+                          const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle)));
+                          if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id, false, true); if (fd.onSpellHitSlow) { m.slowTimer = Math.max(m.slowTimer||0, 0.3); m.slowMod = Math.min(m.slowMod||1, 1-fd.onSpellHitSlow); } if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } }
+                      }
                   }
-                  for(let p of game.players){ 
-                      if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){ 
-                          const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); 
-                          const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                          if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id, false, true); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } } 
-                      } 
+                  for(let p of game.players){
+                      if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){
+                          const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
+                          const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle)));
+                          if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id, false, true); if (fd.onSpellHitSlow) { p.slowTimer = Math.max(p.slowTimer||0, 0.3); p.slowMod = Math.min(p.slowMod||1, 1-fd.onSpellHitSlow); } if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, fd.id); } }
+                      }
                   }
               }
           }

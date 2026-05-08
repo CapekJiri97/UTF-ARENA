@@ -45,7 +45,7 @@ export const CLASSES = {
   Jirina: {
     glyph: '❋', role: 'FIGHTER', range: false, dmgType: 'magical', aaScale: 0.30,
     hp: 950, speed: 118, attackDelay: 1.2,
-    baseAtk: 40, baseAD: 0, baseAP: 55,
+    baseAtk: 40, baseAD: 0, baseAP: 58,
     baseArmor: 38, baseMR: 38,
     Q: {
       baseCooldown: 5.5, castTime: 0.1,
@@ -125,7 +125,7 @@ export const CLASSES = {
   Jailer: {
     glyph: 'J', role: 'TANK', range: false, dmgType: 'magical', aaScale: 0.30,
     hp: 1150, speed: 105, attackDelay: 1.5,
-    baseAtk: 40, baseAD: 0, baseAP: 45,
+    baseAtk: 45, baseAD: 0, baseAP: 52,
     baseArmor: 45, baseMR: 45,
     Q: {
       baseCooldown: 10.0, castTime: 0.3,
@@ -166,9 +166,9 @@ export const CLASSES = {
   // ==========================================
 
   Lynx: {
-    glyph: 'L', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.55,
+    glyph: 'L', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.50,
     hp: 580, speed: 130, attackDelay: 0.8,
-    baseAtk: 50, baseAD: 55, baseAP: 0,
+    baseAtk: 50, baseAD: 58, baseAP: 0,
     baseArmor: 20, baseMR: 20,
     Q: {
       baseCooldown: 5.0, castTime: 0.05,
@@ -205,9 +205,9 @@ export const CLASSES = {
   },
 
   Reaper: {
-    glyph: 'R', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.50,
-    hp: 500, speed: 120, attackDelay: 0.82,
-    baseAtk: 35, baseAD: 0, baseAP: 40,
+    glyph: 'R', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.28,
+    hp: 540, speed: 120, attackDelay: 0.82,
+    baseAtk: 35, baseAD: 0, baseAP: 52,
     baseArmor: 18, baseMR: 20,
     Q: {
       baseCooldown: 10.0, castTime: 0.15,
@@ -266,7 +266,7 @@ export const CLASSES = {
   Quiller: {
     glyph: 'Q', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.50,
     hp: 550, speed: 110, attackDelay: 1.2,
-    baseAtk: 55, baseAD: 80, baseAP: 0,
+    baseAtk: 55, baseAD: 68, baseAP: 0,
     baseArmor: 15, baseMR: 15,
     Q: {
       baseCooldown: 3.0, castTime: 0.4,
@@ -285,7 +285,7 @@ export const CLASSES = {
   Fusilier: {
     glyph: 'F', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.40,
     hp: 580, speed: 115, attackDelay: 0.9,
-    baseAtk: 40, baseAD: 78, baseAP: 0,
+    baseAtk: 40, baseAD: 70, baseAP: 0,
     baseArmor: 17, baseMR: 17,
     Q: {
       baseCooldown: 5.0, castTime: 0.15,
@@ -327,7 +327,7 @@ export const CLASSES = {
   Summoner: {
     glyph: 'S', role: 'SLAYER', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 620, speed: 108, attackDelay: 1.3,
-    baseAtk: 30, baseAD: 0, baseAP: 80,
+    baseAtk: 30, baseAD: 0, baseAP: 75,
     baseArmor: 22, baseMR: 22,
     Q: {
       baseCooldown: 4.0, castTime: 0.3,
@@ -407,7 +407,7 @@ export const CLASSES = {
   Cleric: {
     glyph: 'C', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 630, speed: 108, attackDelay: 1.2,
-    baseAtk: 25, baseAD: 0, baseAP: 80,
+    baseAtk: 25, baseAD: 0, baseAP: 75,
     baseArmor: 20, baseMR: 25,
     Q: {
       baseCooldown: 6.0, castTime: 0.3,
@@ -427,7 +427,7 @@ export const CLASSES = {
   Eggchanter: {
     glyph: 'E', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 640, speed: 105, attackDelay: 1.2,
-    baseAtk: 25, baseAD: 0, baseAP: 50,
+    baseAtk: 25, baseAD: 0, baseAP: 60,
     baseArmor: 22, baseMR: 25,
     Q: {
       baseCooldown: 8.0, castTime: 0.3,
