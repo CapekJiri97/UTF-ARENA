@@ -1158,7 +1158,7 @@ export function draw(){
           ctx.save();
           let tgtScale = isMobile ? 0.5 : 1.0; // Zvětšeno o cca 20 % (z 0.4 na 0.5)
           let txBase = isMobile ? 15 : anchorX - 200;
-          let tyBase = isMobile ? (ch / 2) - 20 : ch - 210;
+          let tyBase = isMobile ? (ch / 2) - 20 : ch - 310;
           
           ctx.translate(txBase, tyBase);
           ctx.scale(tgtScale, tgtScale);
@@ -1645,25 +1645,22 @@ export function draw(){
         if (_vSs > 0) { ctx.fillText(`Spell Slow: ${Math.round(_vSs*100)}%`, leftM, startY); startY += 18; }
         startY += 12;
 
-        // ── INVENTORY (3×2 grid) ─────────────────────────────────────────
+        // ── INVENTORY (1×6 column) ─────────────────────────────────────────
         const ownedIds = player.items || [];
-        ctx.fillStyle = '#ffcc00'; ctx.font = `bold 13px monospace`;
-        ctx.fillText(`INVENTORY  (${ownedIds.length}/6)`, leftM, startY); startY += 8;
+        ctx.fillStyle = '#ffcc00'; ctx.font = `bold 15px monospace`;
+        ctx.fillText(`INVENTORY  (${ownedIds.length}/6)`, leftM, startY); startY += 10;
         ctx.fillStyle = '#333'; ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 8;
 
         {
-          const INV_COLS = 2, INV_ROWS = 3;
-          const slotGap = 5;
+          const slotGap = 6;
           const totalW = panelW - leftM * 2;
-          const slotW = Math.floor((totalW - slotGap) / INV_COLS);
-          const slotH = 52;
+          const slotW = totalW;
+          const slotH = 60;
           const invStartY = startY;
 
-          for (let i = 0; i < INV_ROWS * INV_COLS; i++) {
-            const col = i % INV_COLS;
-            const row = Math.floor(i / INV_COLS);
-            const sx = leftM + col * (slotW + slotGap);
-            const sy = invStartY + row * (slotH + slotGap);
+          for (let i = 0; i < 6; i++) {
+            const sx = leftM;
+            const sy = invStartY + i * (slotH + slotGap);
 
             ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(sx, sy, slotW, slotH);
@@ -1674,21 +1671,21 @@ export function draw(){
             if (i < ownedIds.length) {
               const it = getShopItem(ownedIds[i]);
               if (it) {
-                ctx.fillStyle = '#fc0'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
-                ctx.fillText(it.name, sx + 5, sy + 16);
-                ctx.fillStyle = '#888'; ctx.font = '9px monospace';
+                ctx.fillStyle = '#fc0'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left';
+                ctx.fillText(it.name, sx + 8, sy + 20);
+                ctx.fillStyle = '#999'; ctx.font = '12px monospace';
                 const stats = it.desc.split(',');
-                for (let si = 0; si < Math.min(stats.length, 3); si++) {
-                  ctx.fillText(stats[si].trim(), sx + 5, sy + 28 + si * 10);
+                for (let si = 0; si < Math.min(stats.length, 2); si++) {
+                  ctx.fillText(stats[si].trim(), sx + 8, sy + 36 + si * 14);
                 }
               }
             } else {
-              ctx.fillStyle = '#333'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+              ctx.fillStyle = '#333'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
               ctx.fillText('[ empty ]', sx + slotW / 2, sy + slotH / 2 + 4);
             }
           }
           ctx.textAlign = 'left';
-          startY = invStartY + INV_ROWS * (slotH + slotGap) + 10;
+          startY = invStartY + 6 * (slotH + slotGap) + 10;
         }
 
         // ── ITEM MECHANICS GUIDE ─────────────────────────────────────────

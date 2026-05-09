@@ -272,7 +272,7 @@ export class Player{
                   if (this.attackCooldown <= 0) {
                       const ang = Math.atan2(target.pos.y - this.pos.y, target.pos.x - this.pos.x);
                       const meleeRange = 80;
-                      const cone = 70 * Math.PI / 180;
+                      const cone = 56 * Math.PI / 180;
                       let pColor = '#fff';
                       let mGlyph = ')';
                       let finalSize = 130;
@@ -1045,23 +1045,31 @@ export class Player{
       const meleeRange = isEmpowered ? this.attackRange + (this.spells.Q.bonusRange || 70) : this.attackRange; 
       if (CLASSES[this.className].customMeleeAoE === 'ring') {
           spawnParticles(this.pos.x, this.pos.y, 2, '#f0f', { shape: 'ring', radius: meleeRange, life: 0.2, speed: 0, lineWidth: 2 });
-          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ if(dist(this.pos, m.pos) <= meleeRange){ applyDamage(m, Math.round(damage * 0.6), this.dmgType, this.id); if(this.onHitSlow){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = Math.min(m.slowMod||1, 1-this.onHitSlow); } spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } } }
+          const _RING_SPLIT = [1.0, 0.75, 0.50, 0.33, 0.25];
+          const ringHitMinions = game.minions.filter(m => !m.dead && m.team !== this.team && dist(this.pos, m.pos) <= meleeRange);
+          const ringMult = _RING_SPLIT[Math.min(ringHitMinions.length - 1, _RING_SPLIT.length - 1)] || 0.25;
+          for(let m of ringHitMinions){ applyDamage(m, Math.round(damage * 0.6 * ringMult), this.dmgType, this.id); if(this.onHitSlow){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = Math.min(m.slowMod||1, 1-this.onHitSlow); } spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } }
           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ if(dist(this.pos, p.pos) <= meleeRange){ applyDamage(p, damage, this.dmgType, this.id); if(this.onHitSlow){ p.slowTimer = Math.max(p.slowTimer||0, 1.5); p.slowMod = Math.min(p.slowMod||1, 1-this.onHitSlow); } spawnParticles(p.pos.x, p.pos.y, 2, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } }
       } else {
           // hit minions in cone
-            const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = isEmpowered ? (60 * Math.PI / 180) : (70 * Math.PI / 180); // 70deg základní, 60deg pro posílené (Reaper Q)
+            const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = isEmpowered ? (48 * Math.PI / 180) : (56 * Math.PI / 180); // 56deg základní, 48deg pro posílené (Reaper Q)
           let pColor = isEmpowered ? '#800080' : '#fff';
           let mGlyph = isEmpowered ? '}' : ')';
           let finalSize = isEmpowered ? 160 : 130; // Zvětšeno na pokrytí kuželu, ale zúženo přes stretchX
           let startSize = 20;
           let mSpeed = (meleeRange - 20) / 0.15; // Závorka přesně doletí na okraj dosahu
           let growRate = (finalSize - startSize) / 0.15; // Rychlost zvětšování během letu
-          
-          // Letící a dynamicky se zvětšující út ok (Kužel / Výseč)
+
+          // Letící a dynamicky se zvětšující útok (Kužel / Výseč)
           game.particles.push(new Particle(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, pColor, { angle: ang, speed: mSpeed, life: 0.15, glyph: mGlyph, size: startSize, grow: growRate, rotate: true, stretchX: 0.3 }));
-          // Statická závorka na okraji dosahu (Místo původní kulaté čáry)
+          // Statická závorka na okraji dosahu
           game.particles.push(new Particle(this.pos.x + Math.cos(ang)*(meleeRange - 10), this.pos.y + Math.sin(ang)*(meleeRange - 10), pColor, { angle: ang, speed: 0, life: 0.2, glyph: mGlyph, size: finalSize, rotate: true, stretchX: 0.3 }));
-          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, Math.round(damage * 0.6), this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.0); m.slowMod = 0.6; } else if(this.onHitSlow){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = Math.min(m.slowMod||1, 1-this.onHitSlow); } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } } } }
+          // Collect minions in cone first to compute split multiplier (max 150% total)
+          const _MELEE_SPLIT = [1.0, 0.75, 0.50, 0.33, 0.25];
+          const hitMinions = [];
+          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2) hitMinions.push(m); } } }
+          const mMult = _MELEE_SPLIT[Math.min(hitMinions.length - 1, _MELEE_SPLIT.length - 1)] || 0.25;
+          for(let m of hitMinions){ applyDamage(m, Math.round(damage * 0.6 * mMult), this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.0); m.slowMod = 0.6; } else if(this.onHitSlow){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = Math.min(m.slowMod||1, 1-this.onHitSlow); } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } }
           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); if(isEmpowered){ p.slowTimer = Math.max(p.slowTimer||0, 1.0); p.slowMod = 0.6; } else if(this.onHitSlow){ p.slowTimer = Math.max(p.slowTimer||0, 1.5); p.slowMod = Math.min(p.slowMod||1, 1-this.onHitSlow); } spawnParticles(p.pos.x, p.pos.y, 2, pColor); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } } }
       }
     } }

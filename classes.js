@@ -444,38 +444,38 @@ export const CLASSES = {
   },
 
   Oracle: {
-    glyph: 'O', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
+    glyph: 'O', role: 'SUPPORT', range: true, dmgType: 'physical', aaScale: 0.20,
     hp: 610, speed: 106, attackDelay: 1.3,
-    baseAtk: 25, baseAD: 0, baseAP: 70,
+    baseAtk: 25, baseAD: 55, baseAP: 0,
     baseArmor: 20, baseMR: 25,
     Q: {
       baseCooldown: 11.0, castTime: 0.25,
-      baseDamage: 70, scaleAP: 0.6, scaleAD: 0, scaleLevel: 10,
+      baseDamage: 70, scaleAP: 0, scaleAD: 0.6, scaleLevel: 10,
       type: 'projectile_pull', pSpeed: 650, life: 0.5, radius: 100, pGlyph: 'O', stunDuration: 1.0,
       desc: 'Fires a sphere. On impact or hitting a target, it explodes, dealing damage to enemies in the area, pulling them to the center, and briefly stunning them.'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.2,
-      baseDamage: 0, scaleAP: 0.5, scaleAD: 0, amount: 80, scaleLevel: 15, duration: 5.0,
+      baseDamage: 0, scaleAP: 0, scaleAD: 0.5, amount: 80, scaleLevel: 15, duration: 5.0,
       type: 'shield_aoe', radius: 250,
       desc: 'Creates a magic barrier around you. You and all nearby allies gain a strong shield for 5 seconds.'
     }
   },
 
   Doctor: {
-    glyph: 'D', role: 'SUPPORT', range: false, dmgType: 'magical', aaScale: 0.25,
+    glyph: 'D', role: 'SUPPORT', range: false, dmgType: 'physical', aaScale: 0.25,
     hp: 600, speed: 115, attackDelay: 1.2,
-    baseAtk: 30, baseAD: 0, baseAP: 60,
+    baseAtk: 30, baseAD: 50, baseAP: 0,
     baseArmor: 20, baseMR: 20,
     Q: {
       baseCooldown: 6.2, castTime: 0.0,
-      baseDamage: 0, scaleAP: 0.065, scaleAD: 0, amount: 2.6, scaleLevel: 0.65, range: 200, tickRate: 0.1,
+      baseDamage: 0, scaleAP: 0, scaleAD: 0.065, amount: 2.6, scaleLevel: 0.65, range: 200, tickRate: 0.1,
       type: 'heal_beam',
       desc: 'Heal Beam: Toggle ability. Connects to the nearest ally (200 range) and continuously heals both of you. After 5s, automatically triggers a brief Uber effect.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.15,
-      baseDamage: 60, scaleAP: 0.2, scaleAD: 0, scaleLevel: 8,
+      baseDamage: 60, scaleAP: 0, scaleAD: 0.2, scaleLevel: 8,
       type: 'cone_slow_shield', radius: 120, cone: 90 * Math.PI / 180, slowDuration: 1.5, slowMod: 0.6, shieldAmount: 90, duration: 2.5,
       desc: 'Support Slash: Slash forward, damaging and slowing enemies. The Medic gains a shield.'
     }

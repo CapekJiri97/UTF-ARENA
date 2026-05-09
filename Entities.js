@@ -276,15 +276,34 @@ export class Minion{
         const stopRange = this.isRanged ? atkRange - 15 : atkRange - 10;
         const atkCd    = this.isRanged ? 1.8 : 1.2;
         if (this.attackCooldown <= 0 && d <= atkRange) {
-            if (!socket || game.isHost) {
-                applyDamage(this.currentTarget, this.attackDamage, 'physical', this.id);
-                this.attackCooldown = atkCd;
-                if (this.isRanged) spawnParticles(this.currentTarget.pos.x, this.currentTarget.pos.y, 3, '#ffd700', {speed: 180, life: 0.25});
-            }
-            if (this.currentTarget.hp <= 0 && (!socket || game.isHost)) {
-                if (this.currentTarget.className) handlePlayerKill(this.currentTarget, this.id);
-                else { if (this.currentTarget.die) this.currentTarget.die(); else this.currentTarget.dead = true; }
-                this.currentTarget = null; this.state = 'PUSH';
+            this.attackCooldown = atkCd;
+            if (this.isRanged) {
+                // Ranged: fire a projectile — damage handled by Projectile.update()
+                const angle = Math.atan2(this.currentTarget.pos.y - this.pos.y, this.currentTarget.pos.x - this.pos.x);
+                const projSpeed = 320;
+                const projLife = (atkRange + 20) / projSpeed;
+                game.projectiles.push(new Projectile(
+                    this.pos.x, this.pos.y,
+                    Math.cos(angle) * projSpeed, Math.sin(angle) * projSpeed,
+                    this.id, this.team,
+                    { damage: this.attackDamage, dmgType: 'physical', glyph: '•', life: projLife, radius: 5 }
+                ));
+            } else {
+                // Melee: instant damage + small swipe animation
+                if (!socket || game.isHost) {
+                    applyDamage(this.currentTarget, this.attackDamage, 'physical', this.id);
+                }
+                const ang = Math.atan2(this.currentTarget.pos.y - this.pos.y, this.currentTarget.pos.x - this.pos.x);
+                spawnParticles(this.pos.x + Math.cos(ang) * 12, this.pos.y + Math.sin(ang) * 12,
+                    1, this.team === 0 ? '#7af' : '#f87',
+                    { glyph: ')', angle: ang, speed: 120, life: 0.18, size: 60, rotate: true, stretchX: 0.35 });
+                if (!socket || game.isHost) {
+                    if (this.currentTarget.hp <= 0) {
+                        if (this.currentTarget.className) handlePlayerKill(this.currentTarget, this.id);
+                        else { if (this.currentTarget.die) this.currentTarget.die(); else this.currentTarget.dead = true; }
+                        this.currentTarget = null; this.state = 'PUSH';
+                    }
+                }
             }
         }
         if (this.currentTarget && d > stopRange) { dx = this.currentTarget.pos.x - this.pos.x; dy = this.currentTarget.pos.y - this.pos.y; }
