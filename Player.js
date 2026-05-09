@@ -609,7 +609,7 @@ export class Player{
             }
         }
     }
-
+    }
     // Passive HP Regen (Host počítá i pro síťové hráče pro synchronizaci, lokální hráč počítá sám pro plynulost)
     if (!socket || game.isHost || this === player) {
         if(this.hp < this.effectiveMaxHp) this.hp = Math.min(this.effectiveMaxHp, this.hp + this.hpRegen * dt);
@@ -3968,4 +3968,3 @@ export class BotPlayer extends Player {
       }
     }
   }
-  
