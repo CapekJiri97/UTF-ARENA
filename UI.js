@@ -157,6 +157,13 @@ const SHOP_TREE_ORDER = ['offense', 'sorcery', 'titan', 'combat', 'benevolence',
 
 const formatShopStats = (desc = '') => desc.split(',').map((part) => part.trim()).filter(Boolean);
 
+const getItemTierLabel = (itemId = '') => {
+    const m = itemId.match(/_t(\d+)/);
+    if (!m) return null;
+    const n = parseInt(m[1]);
+    return n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
+};
+
 // Generates computed stat strings for an item using the player's actual base stats.
 // Falls back to parsing item.desc when no structured stats object is present.
 const computeItemPreview = (item, player) => {
@@ -878,7 +885,8 @@ export function populateShop() {
         tag.className = 'shop-owned-tag';
         tag.title = it.desc;
         const nameSpan = document.createElement('span');
-        nameSpan.textContent = it.name;
+        const tierLabel = getItemTierLabel(id);
+        nameSpan.textContent = tierLabel ? `${it.name} (${tierLabel})` : it.name;
         const sellBtn = document.createElement('button');
         sellBtn.className = 'sell-btn';
         sellBtn.textContent = `sell ${sellPrice}g`;
@@ -1653,22 +1661,27 @@ export function draw(){
         if (_vSs > 0) { ctx.fillText(`Spell Slow: ${Math.round(_vSs*100)}%`, leftM, startY); startY += 18; }
         startY += 12;
 
-        // ── INVENTORY (1×6 column) ─────────────────────────────────────────
+        // ── INVENTORY (2×3 grid) ─────────────────────────────────────────
         const ownedIds = player.items || [];
         ctx.fillStyle = '#ffcc00'; ctx.font = `bold 16px monospace`;
         ctx.fillText(`INVENTORY  (${ownedIds.length}/6)`, leftM, startY); startY += 14;
         ctx.fillStyle = '#333'; ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 10;
 
         {
-          const slotGap = 7;
+          const cols = 2;
+          const rows = 3;
+          const slotGap = 6;
           const totalW = panelW - leftM * 2;
-          const slotW = totalW;
-          const slotH = 68;
+          const slotW = (totalW - slotGap) / cols;
+          const remainingH = panelH - startY - 10;
+          const slotH = Math.floor((remainingH - slotGap * (rows - 1)) / rows);
           const invStartY = startY;
 
           for (let i = 0; i < 6; i++) {
-            const sx = leftM;
-            const sy = invStartY + i * (slotH + slotGap);
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const sx = leftM + col * (slotW + slotGap);
+            const sy = invStartY + row * (slotH + slotGap);
 
             ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(sx, sy, slotW, slotH);
@@ -1679,14 +1692,19 @@ export function draw(){
             if (i < ownedIds.length) {
               const it = getShopItem(ownedIds[i]);
               if (it) {
-                const sellPrice = Math.floor(it.cost * 0.6);
-                ctx.fillStyle = '#fc0'; ctx.font = 'bold 16px monospace'; ctx.textAlign = 'left';
-                ctx.fillText(it.name, sx + 10, sy + 22);
-                ctx.fillStyle = '#f88'; ctx.font = '12px monospace';
-                ctx.fillText(`sell: ${sellPrice}g`, sx + 10, sy + 40);
+                const statLines = it.desc.split(',').map(s => s.trim()).filter(Boolean);
+                const lineH = 16;
+                const totalContentH = 22 + statLines.length * lineH;
+                const paddingTop = Math.max(10, (slotH - totalContentH) / 2);
+
+                ctx.fillStyle = '#fc0'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left';
+                const vTier = getItemTierLabel(ownedIds[i]);
+                ctx.fillText(vTier ? `${it.name} (${vTier})` : it.name, sx + 8, sy + paddingTop);
+
                 ctx.fillStyle = '#888'; ctx.font = '12px monospace';
-                const stats = it.desc.split(',');
-                ctx.fillText(stats[0].trim(), sx + 10, sy + 56);
+                statLines.forEach((line, li) => {
+                  ctx.fillText(line, sx + 8, sy + paddingTop + 22 + li * lineH);
+                });
               }
             } else {
               ctx.fillStyle = '#333'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
@@ -1694,7 +1712,7 @@ export function draw(){
             }
           }
           ctx.textAlign = 'left';
-          startY = invStartY + 6 * (slotH + slotGap) + 10;
+          startY = invStartY + rows * (slotH + slotGap) + 10;
         }
 
         // ── ITEM MECHANICS GUIDE ─────────────────────────────────────────
