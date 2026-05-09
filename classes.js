@@ -364,8 +364,8 @@ export const CLASSES = {
 
   Tamer: {
     glyph: 'T', role: 'MAGE', range: true, attackRange: 205, dmgType: 'magical', aaScale: 0.15,
-    hp: 530, speed: 110, attackDelay: 1.1,
-    baseAtk: 25, baseAD: 0, baseAP: 62,
+    hp: 540, speed: 110, attackDelay: 1.1,
+    baseAtk: 25, baseAD: 0, baseAP: 65,
     baseArmor: 15, baseMR: 20,
     Q: {
       baseCooldown: 6.0, castTime: 0.2,
@@ -407,7 +407,7 @@ export const CLASSES = {
   Cleric: {
     glyph: 'C', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 630, speed: 108, attackDelay: 1.2,
-    baseAtk: 25, baseAD: 0, baseAP: 75,
+    baseAtk: 25, baseAD: 0, baseAP: 70,
     baseArmor: 20, baseMR: 25,
     Q: {
       baseCooldown: 6.0, castTime: 0.3,

@@ -3,6 +3,17 @@ import { smoothPolygon } from './Utils.js';
 export const world = { width: 4000, height: 3150 };
 export const spawnPoints = [ { x: 350, y: 2173 }, { x: 3650, y: 2173 } ];
 
+// Midpoints between each tower and its nearest heal pickup — minion spawn/expire zone per lane
+// Tower0(827,1224)↔Heal4(481,1110)  Tower1(1973,394)↔Heal3(1994,152)
+// Tower2(3155,1242)↔Heal2(3438,1144) Tower3(2658,2606)↔Heal1(2811,2860) Tower4(1266,2603)↔Heal0(1079,2870)
+export const MINION_SPAWN_POINTS = [
+    {x: 654,  y: 1167},
+    {x: 1984, y: 273},
+    {x: 3297, y: 1193},
+    {x: 2735, y: 2733},
+    {x: 1173, y: 2737},
+];
+
 export const rawPolys = [
   [{x:432,y:1870}, {x:631,y:1790}, {x:837,y:2313}, {x:532,y:2295}],
   [{x:915,y:1682}, {x:1089,y:1644}, {x:1285,y:2030}, {x:1031,y:2164}],

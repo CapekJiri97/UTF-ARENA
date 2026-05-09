@@ -2,7 +2,7 @@ import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
 import { shopItems, canBuyShopItem, getShopItem, getBuyBlockReason, calcTotalCost } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
-import { world, spawnPoints, mapBoundary } from './MapConfig.js';
+import { world, spawnPoints, mapBoundary, MINION_SPAWN_POINTS } from './MapConfig.js';
 import { canvas, ctx, keys, player, socket, startGame, buyItem, drawHealthBar } from './main.js';
 
 const computeDominionPCS = (p) => {
@@ -157,6 +157,60 @@ const SHOP_TREE_ORDER = ['offense', 'sorcery', 'titan', 'combat', 'benevolence',
 
 const formatShopStats = (desc = '') => desc.split(',').map((part) => part.trim()).filter(Boolean);
 
+// Generates computed stat strings for an item using the player's actual base stats.
+// Falls back to parsing item.desc when no structured stats object is present.
+const computeItemPreview = (item, player) => {
+    if (!item.stats) return formatShopStats(item.desc);
+    const s = item.stats;
+    const parts = [];
+
+    if (s.power) {
+        const pct = Math.round(s.power * 100);
+        if (player) {
+            const base = player.dmgType === 'magical' ? (player.baseAP_stat || 0) : (player.baseAD_stat || 0);
+            const label = player.dmgType === 'magical' ? 'AP' : 'AD';
+            parts.push(`+${pct}% Power (${Math.round(base * s.power)} ${label})`);
+        } else {
+            parts.push(`+${pct}% Power`);
+        }
+    }
+    if (s.hpPct) {
+        const pct = Math.round(s.hpPct * 100);
+        if (player) {
+            parts.push(`+${pct}% HP (${Math.round((player.baseMaxHp || 0) * s.hpPct)})`);
+        } else {
+            parts.push(`+${pct}% HP`);
+        }
+    }
+    if (s.armorPct) {
+        const pct = Math.round(s.armorPct * 100);
+        if (player) {
+            parts.push(`+${pct}% Armor (${Math.round((player.baseArmor_stat || 0) * s.armorPct)})`);
+        } else {
+            parts.push(`+${pct}% Armor`);
+        }
+    }
+    if (s.mrPct) {
+        const pct = Math.round(s.mrPct * 100);
+        if (player) {
+            parts.push(`+${pct}% MR (${Math.round((player.baseMR_stat || 0) * s.mrPct)})`);
+        } else {
+            parts.push(`+${pct}% MR`);
+        }
+    }
+    if (s.asPct)        parts.push(`+${Math.round(s.asPct * 100)}% AS`);
+    if (s.ahFlat)       parts.push(`+${s.ahFlat} AH`);
+    if (s.lifestealPct) parts.push(`+${Math.round(s.lifestealPct * 100)}% Lifesteal`);
+    if (s.penPct)       parts.push(`+${Math.round(s.penPct * 100)}% Pen`);
+    if (s.antiHeal)     parts.push(`${Math.round(s.antiHeal * 100)}% Grievous Wounds`);
+    if (s.healPower)    parts.push(`+${Math.round(s.healPower * 100)}% Heal Power`);
+    if (s.spellDmg)     parts.push(`+${Math.round(s.spellDmg * 100)}% Max HP Spell Dmg`);
+    if (s.slowOnSpell)  parts.push(`${Math.round(s.slowOnSpell * 100)}% Slow on Spell`);
+    if (s.burnAura)     parts.push('Proximity Burn (2%/s)');
+
+    return parts;
+};
+
 const createShopStatPill = (text) => {
     const pill = document.createElement('span');
     pill.className = 'shop-stat-pill';
@@ -211,7 +265,7 @@ const createShopCard = (item, currentPlayer, { tree = false } = {}) => {
     // ── Stat pills ───────────────────────────────────────────────────
     const stats = document.createElement('div');
     stats.className = 'shop-card-stats';
-    for (const statText of formatShopStats(item.desc)) {
+    for (const statText of computeItemPreview(item, currentPlayer)) {
         stats.appendChild(createShopStatPill(statText));
     }
     left.appendChild(stats);
@@ -892,6 +946,10 @@ export function drawBackground(ctx){
         for(let a=0; a<Math.PI*2; a+=0.15) bgCtx.fillText('#', sp.x + Math.cos(a)*200, sp.y + Math.sin(a)*200);
       }
 
+      // Minion spawn/expire zone markers (static — drawn once into cache)
+      bgCtx.fillStyle = 'rgba(160,160,160,0.55)'; bgCtx.font = 'bold 20px monospace'; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+      for (const sp of MINION_SPAWN_POINTS) bgCtx.fillText('M', sp.x, sp.y);
+
       bgCtx.font = '16px monospace'; const natureColors = ['#334d1e', '#426b27', '#528530', '#4d3d26', '#614f33', '#2a3b18'];
       for (let w of game.walls) {
         let startX = Math.floor((w.bbox.minX - w.r)/20)*20, endX = Math.ceil((w.bbox.maxX + w.r)/20)*20;
@@ -917,7 +975,11 @@ export function drawBackground(ctx){
   }
 }
 
-export function draw(){ 
+export function draw(){
+  // Real-time shop gold sync
+  const _sgEl = document.getElementById('shopGoldDisplay');
+  if (_sgEl && player) _sgEl.textContent = `[G] ${Math.floor(player.gold || 0)}g`;
+
   const cw = canvas.clientWidth; const ch = canvas.clientHeight;
   const dpr = window.devicePixelRatio || 1;
   
@@ -1095,8 +1157,8 @@ export function draw(){
       if (player.currentTarget && player.currentTarget.hp > 0 && !player.currentTarget.dead) {
           ctx.save();
           let tgtScale = isMobile ? 0.5 : 1.0; // Zvětšeno o cca 20 % (z 0.4 na 0.5)
-          let txBase = isMobile ? 15 : cw / 2 - 140;
-          let tyBase = isMobile ? (ch / 2) - 20 : ch - 250; // Posunuto přesně doprostřed na levý okraj
+          let txBase = isMobile ? 15 : anchorX - 200;
+          let tyBase = isMobile ? (ch / 2) - 20 : ch - 210;
           
           ctx.translate(txBase, tyBase);
           ctx.scale(tgtScale, tgtScale);
@@ -1209,18 +1271,22 @@ export function draw(){
       drawSpell(cx + 60, cy - 20, eKey, player.spells.E.level, player.spells.E.cd, player.computeSpellCooldown('E'), false, getTypeLabel(player.spells.E.type));
       drawSpell(cx + 110, cy - 20, sumKey, 0, player.summonerCooldown, SUMMONER_SPELLS[player.summonerSpell].cd, true, player.summonerSpell);
 
-      // Lvl Up indikátor (+)
+      // Lvl Up indikátor (+) — ratio-only cap, mirrors allocateSpellPoint in Player.js
       if (player.spellPoints > 0) {
-          ctx.fillStyle = (performance.now() % 1000 > 500) ? '#fff' : '#888'; 
+          const qLv = player.spells.Q.level, eLv = player.spells.E.level;
+          const canLvQ = (qLv + 1) / Math.max(1, eLv) <= 2.5;
+          const canLvE = (eLv + 1) / Math.max(1, qLv) <= 2.5;
+          const blink = performance.now() % 1000 > 500;
           ctx.font = 'bold 18px monospace';
-          ctx.fillText('+', cx + 30, cy - 45);
-          ctx.fillText('+', cx + 80, cy - 45);
+          if (canLvQ) { ctx.fillStyle = blink ? '#fff' : '#888'; ctx.fillText('+', cx + 30, cy - 45); }
+          if (canLvE) { ctx.fillStyle = blink ? '#fff' : '#888'; ctx.fillText('+', cx + 80, cy - 45); }
       }
 
       // STATS TABLE
       const _ls = player.lifesteal || 0;
-      const _gw = player.antiHeal || 0, _sw = player.onHitSlow || 0;
+      const _gw = player.antiHeal || 0, _ss = player.onSpellHitSlow || 0;
       const _apen = player.adaptivePen || 0;
+      const _hp = player.healPower || 0;
       let buffAdMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
       let buffAsMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
       if (player.hanaBuffTimer > 0) buffAsMult *= (player.spells?.Q?.bonusAsMult || 1.25);
@@ -1245,7 +1311,8 @@ export function draw(){
       ctx.fillText(`LS:${Math.round(_ls*100)}%`, cx + 325, cy - 5);
       ctx.fillText(`Pen:${Math.round(_apen*100)}%`, cx + 325, cy + 15);
       ctx.fillText(`GW:${Math.round(_gw*100)}%`, cx + 385, cy - 25);
-      ctx.fillText(`HP+:${Math.round((player.healPower||0)*100)}%`, cx + 385, cy - 5);
+      if (_ss > 0) ctx.fillText(`Sp:${Math.round(_ss*100)}%`, cx + 385, cy - 5);
+      if (_hp > 0) ctx.fillText(`HP+:${Math.round(_hp*100)}%`, cx + 385, cy + 15);
       
       ctx.restore();
     }
@@ -1694,22 +1761,27 @@ export function draw(){
         ctx.font = `13px monospace`;
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`CONTROLS`, leftM, startY); startY += 25;
 
-        ctx.fillStyle = '#fff';
-        ctx.fillText(`[W,A,S,D]     : Move`, leftM, startY); startY += 20;
-        ctx.fillText(`[ARROWS]      : Manual Aim`, leftM, startY); startY += 20;
-        ctx.fillText(`[SPACE]       : Basic Attack`, leftM, startY); startY += 20;
         const aimMode = game.autoTarget ? 'auto-focus (J/K/L)' : 'manual (Q/E/F)';
-        ctx.fillText(`[Q/J] / [E/K] : Cast Spells  [${aimMode}]`, leftM, startY); startY += 20;
-        ctx.fillText(`[SHIFT + Q/E] : Level Up Spell`, leftM, startY); startY += 20;
-        ctx.fillText(`[B] : Shop | [C] : Spells | [V] : Stats & Inv | [TAB] : Scoreboard`, leftM, startY); startY += 35;
+        const ctrlRow = (key, desc) => {
+            ctx.fillStyle = '#aaa'; ctx.fillText(key, leftM, startY);
+            ctx.fillStyle = '#fff'; ctx.fillText(desc, leftM + 105, startY);
+            startY += 20;
+        };
+        ctrlRow('[W,A,S,D]', 'Move');
+        ctrlRow('[ARROWS]', 'Manual Aim');
+        ctrlRow('[SPACE]', 'Basic Attack');
+        ctrlRow('[Q/J] / [E/K]', `Cast Spells (${game.autoTarget ? 'auto' : 'manual'})`);
+        ctrlRow('[SHIFT+Q/E]', 'Level Up Spell');
+        ctx.fillStyle = '#aaa';
+        ctx.fillText('[B]  Shop   [C]  Spells   [V]  Stats   [TAB]  Score', leftM, startY); startY += 35;
 
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`AUTO HELPERS  (toggle on/off)`, leftM, startY); startY += 25;
 
         const onCol = '#0f0', offCol = '#666';
         const row = (key, label, state) => {
             ctx.fillStyle = '#aaa'; ctx.fillText(`[${key}]`, leftM, startY);
-            ctx.fillStyle = '#fff'; ctx.fillText(` ${label}`, leftM + 40, startY);
-            ctx.fillStyle = state ? onCol : offCol; ctx.fillText(state ? '  ON' : ' OFF', leftM + 175, startY);
+            ctx.fillStyle = '#fff'; ctx.fillText(label, leftM + 105, startY);
+            ctx.fillStyle = state ? onCol : offCol; ctx.fillText(state ? 'ON' : 'OFF', leftM + 225, startY);
             startY += 20;
         };
         row('SHIFT+B', 'Auto-Buy', game.autoBuy);
@@ -1734,11 +1806,11 @@ export function draw(){
         const mobLvlE = document.getElementById('mobLvlE');
 
         if (mobLvlQ && mobLvlE) {
-            const showLvl = player.spellPoints > 0 ? 'flex' : 'none';
-            if (mobLvlQ.style.display !== showLvl) {
-                mobLvlQ.style.display = showLvl;
-                mobLvlE.style.display = showLvl;
-            }
+            const _mQlv = player.spells.Q.level, _mElv = player.spells.E.level;
+            const showQ = player.spellPoints > 0 && (_mQlv + 1) / Math.max(1, _mElv) <= 2.5 ? 'flex' : 'none';
+            const showE = player.spellPoints > 0 && (_mElv + 1) / Math.max(1, _mQlv) <= 2.5 ? 'flex' : 'none';
+            if (mobLvlQ.style.display !== showQ) mobLvlQ.style.display = showQ;
+            if (mobLvlE.style.display !== showE) mobLvlE.style.display = showE;
         }
         if (mobQ) {
             let cd = player.spells.Q.cd;
@@ -1773,6 +1845,24 @@ export function draw(){
             const aimTxt = game.autoTarget ? 'FCUS' : (game.mouseTarget ? 'MSE' : 'AIM');
             if (aimBtn.textContent !== aimTxt) aimBtn.textContent = aimTxt;
         }
+    }
+
+    // PC auto-button state sync
+    const _setPcBtn = (id, active) => {
+        const b = document.getElementById(id);
+        if (!b) return;
+        b.style.color = active ? '#0f0' : '#555';
+        b.style.border = active ? '1px solid #0f0' : '1px solid #333';
+        b.style.background = active ? 'rgba(0,255,0,0.12)' : 'rgba(255,255,255,0.07)';
+    };
+    _setPcBtn('pcBtnAtk', game.autoAttack);
+    _setPcBtn('pcBtnBuy', game.autoBuy);
+    _setPcBtn('pcBtnAim', game.autoTarget || game.mouseTarget);
+    _setPcBtn('pcBtnLvl', game.autoLevelUp);
+    const _pcAimBtn = document.getElementById('pcBtnAim');
+    if (_pcAimBtn) {
+        const _pcAimTxt = game.autoTarget ? 'FCUS' : (game.mouseTarget ? 'MSE' : 'AIM');
+        if (_pcAimBtn.textContent !== _pcAimTxt) _pcAimBtn.textContent = _pcAimTxt;
     }
   }
 }
@@ -1881,17 +1971,17 @@ export function drawMinimap(){
   ctxm.save(); ctxm.beginPath(); ctxm.arc(w/2, h/2, w/2, 0, Math.PI*2); ctxm.clip();
   ctxm.fillStyle='#111'; ctxm.fillRect(0,0,w,h);
   
-  if (!game.minimapBg) {
+  if (!game.minimapBg || game.minimapBg.width !== Math.floor(w * dpr)) {
+      game.minimapBg = null;
       game.minimapBg = document.createElement('canvas');
       game.minimapBg.width = Math.floor(w * dpr); game.minimapBg.height = Math.floor(h * dpr);
       let bgCtx = game.minimapBg.getContext('2d');
       bgCtx.scale(dpr, dpr);
       bgCtx.fillStyle='#111'; bgCtx.fillRect(0,0,w,h);
       bgCtx.beginPath(); bgCtx.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY); for(let i=1; i<mapBoundary.length; i++) bgCtx.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY); bgCtx.closePath(); bgCtx.strokeStyle = '#555'; bgCtx.stroke();
-      bgCtx.fillStyle = '#555'; bgCtx.font = '10px monospace'; bgCtx.textAlign='center'; bgCtx.textBaseline='middle';
-      
       const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      const mmSpacing = isMobile ? 90 : 66;
+      const mmSpacing = isMobile ? 140 : 66;
+      bgCtx.fillStyle = '#555'; bgCtx.font = (isMobile ? '6px' : '10px') + ' monospace'; bgCtx.textAlign='center'; bgCtx.textBaseline='middle';
 
       for(let wObj of game.walls) {
           let startX = Math.floor((wObj.bbox.minX - wObj.r)/mmSpacing)*mmSpacing, endX = Math.ceil((wObj.bbox.maxX + wObj.r)/mmSpacing)*mmSpacing;
@@ -1940,7 +2030,8 @@ export function drawMinimap(){
     if (player && !game.isSpectator && p.team !== player.team && !mmVisible(p.pos.x, p.pos.y)) continue;
     const x = p.pos.x * scaleX; const y = p.pos.y * scaleY;
     ctxm.fillStyle = p.team === 0 ? '#486FED' : '#FF4E4E';
-    ctxm.font = (p === player ? 'bold 16px' : 'bold 12px') + ' monospace';
+    const _isMobMM = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    ctxm.font = (p === player ? (_isMobMM ? 'bold 9px' : 'bold 16px') : (_isMobMM ? 'bold 7px' : 'bold 12px')) + ' monospace';
     ctxm.textAlign = 'center'; ctxm.textBaseline = 'middle';
     ctxm.fillText(p.glyph, x, y);
   }
@@ -2010,8 +2101,8 @@ export function drawMinimap(){
     for (let i = 1; i < mapBoundary.length; i++) ovCtx.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY);
     ovCtx.closePath(); ovCtx.stroke();
     const isMobileOv = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const mmSpacingOv = isMobileOv ? 90 : 66;
-    ovCtx.fillStyle = '#666'; ovCtx.font = '10px monospace'; ovCtx.textAlign = 'center'; ovCtx.textBaseline = 'middle';
+    const mmSpacingOv = isMobileOv ? 140 : 66;
+    ovCtx.fillStyle = '#666'; ovCtx.font = (isMobileOv ? '6px' : '10px') + ' monospace'; ovCtx.textAlign = 'center'; ovCtx.textBaseline = 'middle';
     for (const wObj of game.walls) {
       const sx0 = Math.floor((wObj.bbox.minX - wObj.r) / mmSpacingOv) * mmSpacingOv;
       const ex0 = Math.ceil((wObj.bbox.maxX + wObj.r) / mmSpacingOv) * mmSpacingOv;
@@ -2488,4 +2579,39 @@ export function initMobileUI() {
     }, {passive:false});
     dpadZone.addEventListener('touchcancel', (e) => { dpadTouchId = null; dpadVisual.style.display = 'none'; updateDirs(false, false, false, false); }, {passive:false});
 }
+function initPcUI() {
+    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) return;
+
+    const triggerKey = (keyStr, shift = false) => {
+        if (shift) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }));
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: keyStr, shiftKey: shift, bubbles: true }));
+    };
+    const releaseKey = (keyStr, shift = false) => {
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: keyStr, shiftKey: shift, bubbles: true }));
+        if (shift) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift', bubbles: true }));
+    };
+
+    const bar = document.createElement('div');
+    bar.id = 'pcAutoBar';
+    bar.style.cssText = 'position:fixed;left:10px;bottom:18px;display:flex;gap:5px;z-index:4000;pointer-events:auto;';
+
+    const createAutoBtn = (keyStr, label, id) => {
+        const b = document.createElement('div');
+        b.id = id;
+        b.style.cssText = 'width:38px;height:26px;background:rgba(255,255,255,0.07);border:1px solid #333;border-radius:4px;display:flex;justify-content:center;align-items:center;color:#555;font-size:10px;font-weight:bold;font-family:monospace;cursor:pointer;user-select:none;';
+        b.textContent = label;
+        b.addEventListener('mousedown', (e) => { e.preventDefault(); triggerKey(keyStr, true); });
+        b.addEventListener('mouseup',   (e) => { e.preventDefault(); releaseKey(keyStr, true); });
+        b.addEventListener('mouseleave',(e) => { releaseKey(keyStr, true); });
+        return b;
+    };
+
+    bar.appendChild(createAutoBtn('u', 'ATK', 'pcBtnAtk'));
+    bar.appendChild(createAutoBtn('b', 'BUY', 'pcBtnBuy'));
+    bar.appendChild(createAutoBtn('i', 'AIM', 'pcBtnAim'));
+    bar.appendChild(createAutoBtn('l', 'LVL', 'pcBtnLvl'));
+    document.body.appendChild(bar);
+}
+initPcUI();
 initMobileUI();

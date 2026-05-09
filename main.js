@@ -2,7 +2,7 @@ import { clamp, dist, isPointInPoly, distToPoly, smoothPolygon, expForLevel } fr
 import { shopItems, canBuyShopItem, getShopItem } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
-import { world, spawnPoints, rawPolys, mapBoundary } from './MapConfig.js';
+import { world, spawnPoints, rawPolys, mapBoundary, MINION_SPAWN_POINTS } from './MapConfig.js';
 import { Particle, spawnParticles, DamageNumber, EffectText } from './Effects.js';
 import { Projectile, Tower, Minion, HealPickup, PowerUp } from './Entities.js';
 import { Player, BotPlayer } from './Player.js';
@@ -343,7 +343,7 @@ import { initAudio, playSound } from './Audio.js';
     if (count > 0) avgLevel = totalLevel / count;
 
     let mult = 1.0;
-    if (targetPlayer.level >= avgLevel + 3) mult = 0.5;
+    if (targetPlayer.level >= avgLevel + 2) mult = 0.5;
     else if (targetPlayer.level <= avgLevel - 2) mult = 1.5;
 
     let finalGold = Math.round(baseGold * mult);
@@ -353,6 +353,29 @@ import { initAudio, playSound } from './Audio.js';
     targetPlayer.totalGold += finalGold;
     targetPlayer.exp += finalExp;
     targetPlayer.totalExp = (targetPlayer.totalExp || 0) + finalExp;
+  }
+
+  // Per-hero exp % when N allies are nearby at minion death: 1→100%, 2→75%, 3→50%, 4→33%, 5→25%
+  const _MINION_EXP_PCT = [1.0, 0.75, 0.50, 0.33, 0.25];
+
+  export function grantMinionKillRewards(killer, minionPos) {
+    if (!killer) return;
+    let totalLevel = 0, pCount = 0;
+    for (const p of game.players) { if (p.team >= 0) { totalLevel += p.level; pCount++; } }
+    const avgLevel = pCount > 0 ? totalLevel / pCount : 1;
+    const snowMult = (pl) => pl.level >= avgLevel + 2 ? 0.5 : pl.level <= avgLevel - 2 ? 1.5 : 1.0;
+
+    // Gold AND Exp shared among all nearby allies (same area table)
+    const nearby = game.players.filter(p => p.alive && p.team === killer.team && dist(p.pos, minionPos) <= 300);
+    const recipients = nearby.length > 0 ? nearby : [killer];
+    const pct = _MINION_EXP_PCT[Math.min(recipients.length - 1, _MINION_EXP_PCT.length - 1)];
+    for (const p of recipients) {
+      const m = snowMult(p);
+      p.gold      += Math.round(8  * pct * m);
+      p.totalGold += Math.round(8  * pct * m);
+      p.exp       += Math.round(11 * pct * m);
+      p.totalExp   = (p.totalExp || 0) + Math.round(11 * pct * m);
+    }
   }
 
   export function applyHeal(target, amount) {
@@ -815,7 +838,7 @@ import { initAudio, playSound } from './Audio.js';
   }
   initTowers();
 
-  let spawnTimer = 0; const spawnInterval = 12.0; const nexusDrainRate = 0.75; // Sníženo odečítání skóre (cca 30%)
+  let spawnTimer = 0; const spawnInterval = 16.0; const nexusDrainRate = 0.75; // Sníženo odečítání skóre (cca 30%)
 
   export function recalcPlayerItemStats(pl) {
     const cData = CLASSES[pl.className];
@@ -962,8 +985,15 @@ import { initAudio, playSound } from './Audio.js';
     // spawning: owned towers spawn minions toward neighboring enemy-owned towers
     if(game.startDelay <= 0 && (!socket || game.isHost)) { spawnTimer += dt;
       if(spawnTimer > spawnInterval){ spawnTimer = 0; const N = game.towers.length; for(let i=0;i<N;i++){ const t = game.towers[i]; if(t.owner < 0) continue; const next = game.towers[(i+1)%N]; const prev = game.towers[(i-1+N)%N];
-          if(next.owner !== t.owner){ for(let k=0; k<4; k++){ const sx = t.pos.x + (Math.random()-0.5)*40; const sy = t.pos.y + (Math.random()-0.5)*40; game.minions.push(new Minion(sx,sy,t.owner,(i+1)%N)); } }
-          if(prev.owner !== t.owner){ for(let k=0; k<4; k++){ const sx = t.pos.x + (Math.random()-0.5)*40; const sy = t.pos.y + (Math.random()-0.5)*40; game.minions.push(new Minion(sx,sy,t.owner,(i-1+N)%N)); } }
+          const sp = MINION_SPAWN_POINTS[i] || t.pos;
+          if(next.owner !== t.owner){
+            for(let k=0;k<2;k++){ const sx=sp.x+(Math.random()-0.5)*40; const sy=sp.y+(Math.random()-0.5)*40; game.minions.push(new Minion(sx,sy,t.owner,(i+1)%N)); }
+            for(let k=0;k<2;k++){ const sx=sp.x+(Math.random()-0.5)*40; const sy=sp.y+(Math.random()-0.5)*40; game.minions.push(new Minion(sx,sy,t.owner,(i+1)%N,{isRanged:true})); }
+          }
+          if(prev.owner !== t.owner){
+            for(let k=0;k<2;k++){ const sx=sp.x+(Math.random()-0.5)*40; const sy=sp.y+(Math.random()-0.5)*40; game.minions.push(new Minion(sx,sy,t.owner,(i-1+N)%N)); }
+            for(let k=0;k<2;k++){ const sx=sp.x+(Math.random()-0.5)*40; const sy=sp.y+(Math.random()-0.5)*40; game.minions.push(new Minion(sx,sy,t.owner,(i-1+N)%N,{isRanged:true})); }
+          }
         } }
     }
 

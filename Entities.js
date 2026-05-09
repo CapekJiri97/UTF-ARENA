@@ -1,8 +1,8 @@
 import { dist, isPointInPoly, distToPoly } from './Utils.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
-import { mapBoundary, spawnPoints } from './MapConfig.js';
+import { mapBoundary, spawnPoints, MINION_SPAWN_POINTS } from './MapConfig.js';
 import { spawnParticles, EffectText } from './Effects.js';
-import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, grantRewards } from './main.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, grantRewards, grantMinionKillRewards } from './main.js';
 import { playSound } from './Audio.js';
 
 export class Projectile{
@@ -22,7 +22,7 @@ export class Projectile{
       if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){ 
         hitTarget = m; applyDamage(m, this._scaleBurstDamage(m.id, this.damage), this.dmgType, this.ownerId, false, this.opts.isSpell || false);
         if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
-        if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantRewards(owner, 8, 11); } } break; 
+        if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantMinionKillRewards(owner, m.pos); } } break;
       } 
     }
     if (hitTarget) { this.processOnHit(hitTarget); this.dead = true; return; }
@@ -114,17 +114,17 @@ export class Tower{
       this.control = Math.max(-100, Math.min(100, this.control)); 
       if (this.owner === 0 && this.control < 0) { this.owner = -1; }
       if (this.owner === 1 && this.control > 0) { this.owner = -1; }
-      if (this.control >= 100 && this.owner !== 0){ 
-          this.owner = 0; this.control = 100; game.shake = 0.3; 
+      if (this.control >= 100 && this.owner !== 0){
+          this.owner = 0; this.control = 100; game.shake = 0.3;
           playSound('capture', this.pos);
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 0 && dist(p.pos, this.pos) <= this.captureRadius);
               let totalLvl = 0, pCount = 0;
               for (let p of game.players) { if (p.team >= 0) { totalLvl += p.level; pCount++; } }
               let avgLevel = pCount > 0 ? totalLvl / pCount : 1;
-              let scale = avgLevel / 7.0;
-              let gShare = Math.round((150 * scale) / Math.max(1, caps.length));
-              let eShare = Math.round((200 * scale) / Math.max(1, caps.length));
+              let scale = Math.min(avgLevel, 8) / 7.0;
+              let gShare = Math.round((80 * scale) / Math.max(1, caps.length));
+              let eShare = Math.round((120 * scale) / Math.max(1, caps.length));
               for (let p of caps) grantRewards(p, gShare, eShare);
             for (let p of caps) {
               if (p.towerCaptures !== undefined) p.towerCaptures += 1;
@@ -135,17 +135,17 @@ export class Tower{
               if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
           }
       } 
-      if (this.control <= -100 && this.owner !== 1){ 
-          this.owner = 1; this.control = -100; game.shake = 0.3; 
+      if (this.control <= -100 && this.owner !== 1){
+          this.owner = 1; this.control = -100; game.shake = 0.3;
           playSound('capture', this.pos);
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 1 && dist(p.pos, this.pos) <= this.captureRadius);
               let totalLvl = 0, pCount = 0;
               for (let p of game.players) { if (p.team >= 0) { totalLvl += p.level; pCount++; } }
               let avgLevel = pCount > 0 ? totalLvl / pCount : 1;
-              let scale = avgLevel / 7.0;
-              let gShare = Math.round((150 * scale) / Math.max(1, caps.length));
-              let eShare = Math.round((200 * scale) / Math.max(1, caps.length));
+              let scale = Math.min(avgLevel, 8) / 7.0;
+              let gShare = Math.round((80 * scale) / Math.max(1, caps.length));
+              let eShare = Math.round((120 * scale) / Math.max(1, caps.length));
               for (let p of caps) grantRewards(p, gShare, eShare);
             for (let p of caps) {
               if (p.towerCaptures !== undefined) p.towerCaptures += 1;
@@ -189,30 +189,41 @@ export class Tower{
 }
 
 export class Minion{
-  constructor(x,y,team,targetIndex){ 
-    this.id = 'm_' + Math.random().toString(36).substr(2,9); 
-    this.pos={x,y}; this.team = team; this.radius=8; this.glyph='m'; this.speed = 80; 
-    
+  constructor(x, y, team, targetIndex, opts = {}) {
+    this.id = 'm_' + Math.random().toString(36).substr(2, 9);
+    this.pos = {x, y}; this.team = team; this.radius = 8; this.speed = 80;
+    this.isRanged = opts.isRanged || false;
+    this.glyph = this.isRanged ? 'r' : 'm';
+
     let avgLevel = 1;
     if (game.players && game.players.length > 0) {
         let totalLvl = 0;
         for (let p of game.players) totalLvl += p.level;
         avgLevel = totalLvl / game.players.length;
     }
-    let scale = 1 + Math.max(0, avgLevel - 1) * 0.08; // +15% stats za každý průměrný level hrdinů
-    
-    this.maxHp = Math.round(250 * scale); this.hp = this.maxHp; 
-    this.dead = false; this.targetIndex = targetIndex; this.atTarget = false; this.linger = 3.5; this.attackCooldown = 0; this.attackDamage = Math.round(14 * scale); this.flashTimer = 0; 
+    let scale = 1 + Math.max(0, avgLevel - 1) * 0.08;
+
+    // Melee: -20% HP/DMG vs original. Ranged: 50% HP of melee, 130% DMG of melee, long range.
+    const meleeHp  = Math.round(200 * scale);
+    const meleeDmg = Math.round(11  * scale);
+    this.maxHp       = this.isRanged ? Math.round(meleeHp * 0.5) : meleeHp;
+    this.hp          = this.maxHp;
+    this.attackDamage = this.isRanged ? Math.round(meleeDmg * 1.3) : meleeDmg;
+    this.attackRange  = this.isRanged ? 180 : 55;
+
+    this.dead = false; this.targetIndex = targetIndex; this.atTarget = false; this.linger = 3.5;
+    this.attackCooldown = 0; this.flashTimer = 0;
     this.thinkTimer = Math.random() * 0.5; this.state = 'PUSH'; this.currentTarget = null;
-    this.knockbackTimer = 0; this.knockbackVel = {x:0, y:0};
+    this.knockbackTimer = 0; this.knockbackVel = {x: 0, y: 0};
     this.stunTimer = 0; this.silenceTimer = 0;
   }
   think() {
-    if (this.atTarget || (this.currentTarget && (this.currentTarget.dead || this.currentTarget.hp <= 0 || dist(this.pos, this.currentTarget.pos) > (this.isSummon ? 800 : 200)))) {
+    const giveUpRange = this.isSummon ? 800 : (this.isRanged ? 280 : 200);
+    if (this.currentTarget && (this.currentTarget.dead || this.currentTarget.hp <= 0 || dist(this.pos, this.currentTarget.pos) > giveUpRange)) {
         this.currentTarget = null; this.state = 'PUSH';
     }
     if (this.state === 'PUSH') {
-        let nearestEnemy = null, minDist = this.isSummon ? 600 : 150;
+        let nearestEnemy = null, minDist = this.isSummon ? 600 : (this.isRanged ? 200 : 150);
         const enemyPlayers = game.players.filter(p => p.alive && p.team !== this.team);
         const enemyMinions = game.minions.filter(m => !m.dead && m.team !== this.team && m !== this);
         
@@ -260,24 +271,36 @@ export class Minion{
     this.thinkTimer -= dt; if (this.thinkTimer <= 0) { this.thinkTimer = 0.4 + Math.random() * 0.2; this.think(); }
     let dx = 0, dy = 0;
     if (this.state === 'ATTACK' && this.currentTarget) {
-        const d = dist(this.pos, this.currentTarget.pos); // Klient si může spočítat vzdálenost
-        if (this.attackCooldown <= 0 && d <= 55) {
-            if (!socket || game.isHost) { applyDamage(this.currentTarget, this.attackDamage, 'physical', this.id); this.attackCooldown = 1.2; } // Pouze Host aplikuje damage
-            if (this.currentTarget.hp <= 0 && (!socket || game.isHost)) { if (this.currentTarget.className) handlePlayerKill(this.currentTarget, this.id); else { if (this.currentTarget.die) this.currentTarget.die(); else this.currentTarget.dead = true; } this.currentTarget = null; this.state = 'PUSH'; } // Pouze Host rozhoduje o smrti
+        const d = dist(this.pos, this.currentTarget.pos);
+        const atkRange = this.attackRange;
+        const stopRange = this.isRanged ? atkRange - 15 : atkRange - 10;
+        const atkCd    = this.isRanged ? 1.8 : 1.2;
+        if (this.attackCooldown <= 0 && d <= atkRange) {
+            if (!socket || game.isHost) {
+                applyDamage(this.currentTarget, this.attackDamage, 'physical', this.id);
+                this.attackCooldown = atkCd;
+                if (this.isRanged) spawnParticles(this.currentTarget.pos.x, this.currentTarget.pos.y, 3, '#ffd700', {speed: 180, life: 0.25});
+            }
+            if (this.currentTarget.hp <= 0 && (!socket || game.isHost)) {
+                if (this.currentTarget.className) handlePlayerKill(this.currentTarget, this.id);
+                else { if (this.currentTarget.die) this.currentTarget.die(); else this.currentTarget.dead = true; }
+                this.currentTarget = null; this.state = 'PUSH';
+            }
         }
-        if (this.currentTarget && d > 45) { dx = this.currentTarget.pos.x - this.pos.x; dy = this.currentTarget.pos.y - this.pos.y; }
+        if (this.currentTarget && d > stopRange) { dx = this.currentTarget.pos.x - this.pos.x; dy = this.currentTarget.pos.y - this.pos.y; }
     } else {
         if (!this.atTarget) {
-            const cx = 2000, cy = 1575, Rx = 1250, Ry = 1150; let distToTarget = dist(this.pos, towerTarget.pos);
-            if (distToTarget > 350) { let myA = Math.atan2((this.pos.y - cy)/Ry, (this.pos.x - cx)/Rx); let tA = Math.atan2((towerTarget.pos.y - cy)/Ry, (towerTarget.pos.x - cx)/Rx); let diff = tA - myA; while(diff <= -Math.PI) diff += 2*Math.PI; while(diff > Math.PI) diff -= 2*Math.PI; let lookAhead = myA + Math.sign(diff) * 0.15; dx = (cx + Rx * Math.cos(lookAhead)) - this.pos.x; dy = (cy + Ry * Math.sin(lookAhead)) - this.pos.y;
-            } else { dx = towerTarget.pos.x - this.pos.x; dy = towerTarget.pos.y - this.pos.y; }
-            if(distToTarget <= towerTarget.captureRadius - 10){ this.atTarget = true; this.linger = 3.5; dx = 0; dy = 0; }
+            const cx = 2000, cy = 1575, Rx = 1250, Ry = 1150;
+            const destPos = MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos;
+            let distToTarget = dist(this.pos, destPos);
+            if (distToTarget > 350) { let myA = Math.atan2((this.pos.y - cy)/Ry, (this.pos.x - cx)/Rx); let tA = Math.atan2((destPos.y - cy)/Ry, (destPos.x - cx)/Rx); let diff = tA - myA; while(diff <= -Math.PI) diff += 2*Math.PI; while(diff > Math.PI) diff -= 2*Math.PI; let lookAhead = myA + Math.sign(diff) * 0.15; dx = (cx + Rx * Math.cos(lookAhead)) - this.pos.x; dy = (cy + Ry * Math.sin(lookAhead)) - this.pos.y;
+            } else { dx = destPos.x - this.pos.x; dy = destPos.y - this.pos.y; }
+            if (distToTarget <= 70) { this.atTarget = true; this.linger = 3.5; dx = 0; dy = 0; }
         }
-    } // Pohyb minionů řídí Host
+    }
     if (this.atTarget) {
-        if (towerTarget.owner !== this.team) {
-        if (this.attackCooldown <= 0 && (!socket || game.isHost)) { if (this.team === 0) towerTarget.control += 10; else towerTarget.control -= 10; this.hp -= this.maxHp * 0.10; if (this.hp <= 0) this.dead = true; this.attackCooldown = 1.0; spawnParticles(towerTarget.pos.x, towerTarget.pos.y, 4, '#ffa500'); } // Pouze Host mění control a HP
-        } else { this.linger -= dt; if (this.linger <= 0) this.dead = true; }
+        // Linger at the lane midpoint then expire — no tower siege
+        this.linger -= dt; if (this.linger <= 0) this.dead = true;
     } else {
         if (dx !== 0 || dy !== 0) {
             let currentL = Math.hypot(dx, dy); if (currentL > 0) { dx /= currentL; dy /= currentL; }

@@ -5,7 +5,7 @@ import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANG
 import { world, spawnPoints, mapBoundary } from './MapConfig.js';
 import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
-import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards, recalcPlayerItemStats } from './main.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards, grantMinionKillRewards, recalcPlayerItemStats } from './main.js';
 import { updateSpellLabels } from './UI.js';
 import { playSound } from './Audio.js';
 
@@ -395,7 +395,7 @@ export class Player{
       const otherSp = this.spells[otherKey];
       if(!sp || !otherSp) return false; 
       
-      // Maximální poměr levelů mezi spelly může být 2.5 ku 1
+      // Poměr levelů nesmí přesáhnout 2.5:1
       if ((sp.level + 1) / otherSp.level > 2.5) {
           if (this === player) flashMessage(`Max ratio 2.5:1 reached! Level up ${otherKey} first.`);
           return false;
@@ -463,7 +463,7 @@ export class Player{
         if (this.shieldExplodeData.timer <= 0 || this.shield <= 0) {
             let expl = this.shieldExplodeData;
             game.particles.push(new Particle(this.pos.x, this.pos.y, '#aaa', {shape: 'ring', radius: expl.radius, life: 0.4, speed: 0, lineWidth: 4}));
-            for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= expl.radius){ applyDamage(m, expl.damage * 0.75, expl.dmgType, this.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
+            for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= expl.radius){ applyDamage(m, expl.damage * 0.75, expl.dmgType, this.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } }
             for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= expl.radius){ applyDamage(p, expl.damage, expl.dmgType, this.id, false, true); if (expl.bonusMaxHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.maxHp * expl.bonusMaxHpDmg), 'magical', this.id, false, true); } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } }
             spawnParticles(this.pos.x, this.pos.y, 10, '#aaa');
             this.shieldExplodeData = null;
@@ -494,7 +494,7 @@ export class Player{
                     if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){ 
                         const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); 
                         const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle))); 
-                        if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id, false, true); if (fd.onSpellHitSlow) { m.slowTimer = Math.max(m.slowTimer||0, 0.3); m.slowMod = Math.min(m.slowMod||1, 1-fd.onSpellHitSlow); } if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } }
+                        if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id, false, true); if (fd.onSpellHitSlow) { m.slowTimer = Math.max(m.slowTimer||0, 0.3); m.slowMod = Math.min(m.slowMod||1, 1-fd.onSpellHitSlow); } if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } }
                     }
                 }
                 for(let p of game.players){
@@ -519,7 +519,7 @@ export class Player{
                 game.particles.push(new Particle(this.pos.x, this.pos.y, '#ccc', { shape: 'ring', radius: sd.radius, life: 0.1, lineWidth: 2 }));
                 
                 if (!socket || game.isHost || this === player) {
-                    for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= sd.radius) { applyDamage(m, sd.damage * 0.75, sd.dmgType, sd.id, false, true); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
+                    for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= sd.radius) { applyDamage(m, sd.damage * 0.75, sd.dmgType, sd.id, false, true); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } }
                     for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= sd.radius) { applyDamage(p, sd.damage, sd.dmgType, sd.id, false, true); } }
                 }
             }
@@ -669,7 +669,7 @@ export class Player{
         if (this.dashTimer <= 0 && this.dashEndExplosion) {
            const expl = this.dashEndExplosion; const range = expl.radius;
            game.particles.push(new Particle(this.pos.x, this.pos.y, '#f80', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
-           for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage * 0.75, expl.dmgType, expl.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
+           for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage * 0.75, expl.dmgType, expl.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } }
            for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id, false, true); if (expl.bonusCurrentHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.hp * expl.bonusCurrentHpDmg), 'magical', expl.id, false, true); } if (expl.silenceDuration) { p.silenceTimer = Math.max(p.silenceTimer || 0, expl.silenceDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "SILENCED", '#fff')); } if (expl.slowDuration) { p.slowTimer = Math.max(p.slowTimer || 0, expl.slowDuration); p.slowMod = expl.slowMod || 0.6; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, expl.id); } } }
            spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
            this.dashEndExplosion = null;
@@ -683,7 +683,7 @@ export class Player{
                 spawnParticles(this.pos.x, this.pos.y, 8, '#fff', { speed: 180 });
                 if (t.hp <= 0) {
                     if (t.className) { if (!socket || game.isHost) handlePlayerKill(t, this.id); }
-                    else { t.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); }
+                    else { t.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, t.pos); }
                 }
             }
         }
@@ -1045,7 +1045,7 @@ export class Player{
       const meleeRange = isEmpowered ? this.attackRange + (this.spells.Q.bonusRange || 70) : this.attackRange; 
       if (CLASSES[this.className].customMeleeAoE === 'ring') {
           spawnParticles(this.pos.x, this.pos.y, 2, '#f0f', { shape: 'ring', radius: meleeRange, life: 0.2, speed: 0, lineWidth: 2 });
-          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ if(dist(this.pos, m.pos) <= meleeRange){ applyDamage(m, Math.round(damage * 0.6), this.dmgType, this.id); if(this.onHitSlow){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = Math.min(m.slowMod||1, 1-this.onHitSlow); } spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } } }
+          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ if(dist(this.pos, m.pos) <= meleeRange){ applyDamage(m, Math.round(damage * 0.6), this.dmgType, this.id); if(this.onHitSlow){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = Math.min(m.slowMod||1, 1-this.onHitSlow); } spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } } }
           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ if(dist(this.pos, p.pos) <= meleeRange){ applyDamage(p, damage, this.dmgType, this.id); if(this.onHitSlow){ p.slowTimer = Math.max(p.slowTimer||0, 1.5); p.slowMod = Math.min(p.slowMod||1, 1-this.onHitSlow); } spawnParticles(p.pos.x, p.pos.y, 2, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } }
       } else {
           // hit minions in cone
@@ -1061,7 +1061,7 @@ export class Player{
           game.particles.push(new Particle(this.pos.x + Math.cos(ang)*20, this.pos.y + Math.sin(ang)*20, pColor, { angle: ang, speed: mSpeed, life: 0.15, glyph: mGlyph, size: startSize, grow: growRate, rotate: true, stretchX: 0.3 }));
           // Statická závorka na okraji dosahu (Místo původní kulaté čáry)
           game.particles.push(new Particle(this.pos.x + Math.cos(ang)*(meleeRange - 10), this.pos.y + Math.sin(ang)*(meleeRange - 10), pColor, { angle: ang, speed: 0, life: 0.2, glyph: mGlyph, size: finalSize, rotate: true, stretchX: 0.3 }));
-          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, Math.round(damage * 0.6), this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.0); m.slowMod = 0.6; } else if(this.onHitSlow){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = Math.min(m.slowMod||1, 1-this.onHitSlow); } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } } } }
+          for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(m, Math.round(damage * 0.6), this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.0); m.slowMod = 0.6; } else if(this.onHitSlow){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = Math.min(m.slowMod||1, 1-this.onHitSlow); } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } } } }
           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); if(isEmpowered){ p.slowTimer = Math.max(p.slowTimer||0, 1.0); p.slowMod = 0.6; } else if(this.onHitSlow){ p.slowTimer = Math.max(p.slowTimer||0, 1.5); p.slowMod = Math.min(p.slowMod||1, 1-this.onHitSlow); } spawnParticles(p.pos.x, p.pos.y, 2, pColor); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } } }
       }
     } }
@@ -1149,7 +1149,7 @@ export class Player{
             slowDur = Math.max(slowDur, 1.5);
             slowMod = Math.min(slowMod, 1 - this.onSpellHitSlow);
         }
-        for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); if (slowDur) { m.slowTimer = Math.max(m.slowTimer||0, slowDur); m.slowMod = slowMod; } if (sp.stunDuration) { m.stunTimer = Math.max(m.stunTimer||0, sp.stunDuration); } spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
+        for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); if (slowDur) { m.slowTimer = Math.max(m.slowTimer||0, slowDur); m.slowMod = slowMod; } if (sp.stunDuration) { m.stunTimer = Math.max(m.stunTimer||0, sp.stunDuration); } spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } }
         for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, damage, this.dmgType, this.id, false, true); if (slowDur) { p.slowTimer = Math.max(p.slowTimer||0, slowDur); p.slowMod = slowMod; } if (sp.stunDuration) { p.stunTimer = Math.max(p.stunTimer||0, sp.stunDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "STUNNED", '#ffcc00')); } if (sp.silenceDuration) { p.silenceTimer = Math.max(p.silenceTimer||0, sp.silenceDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "SILENCED", '#fff')); } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } }
         spawnParticles(this.pos.x, this.pos.y, 10, '#ccf');
     } else if (sp.type === 'heal_self') {
@@ -1182,7 +1182,7 @@ export class Player{
             applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); if (slowDur) { m.slowTimer = Math.max(m.slowTimer||0, slowDur); m.slowMod = slowMod; } spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
             let angle = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
             m.knockbackTimer = 0.2; m.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
-            if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); }
+            if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); }
         } }
         for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){
             applyDamage(p, damage, this.dmgType, this.id, false, true); if (slowDur) { p.slowTimer = Math.max(p.slowTimer||0, slowDur); p.slowMod = slowMod; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
@@ -1205,7 +1205,7 @@ export class Player{
                 applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); if (ckSlowDur) { m.slowTimer = Math.max(m.slowTimer||0, ckSlowDur); m.slowMod = ckSlowMod; } spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
                 let angle = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
                 m.knockbackTimer = 0.2; m.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
-                if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); }
+                if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); }
             }
         } }
         for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){
@@ -1232,7 +1232,7 @@ export class Player{
             if (da <= cone/2) {
                 applyDamage(m, damage * 0.75, this.dmgType, this.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff');
                 if (csSlowDur) { m.slowTimer = Math.max(m.slowTimer||0, csSlowDur); m.slowMod = csSlowMod; }
-                if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); }
+                if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); }
             }
         } }
         for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){
@@ -3363,7 +3363,7 @@ export class BotPlayer extends Player {
                       if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){
                           const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
                           const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle)));
-                          if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id, false, true); if (fd.onSpellHitSlow) { m.slowTimer = Math.max(m.slowTimer||0, 0.3); m.slowMod = Math.min(m.slowMod||1, 1-fd.onSpellHitSlow); } if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } }
+                          if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id, false, true); if (fd.onSpellHitSlow) { m.slowTimer = Math.max(m.slowTimer||0, 0.3); m.slowMod = Math.min(m.slowMod||1, 1-fd.onSpellHitSlow); } if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } }
                       }
                   }
                   for(let p of game.players){
@@ -3386,7 +3386,7 @@ export class BotPlayer extends Player {
                   if (Math.random() < 0.5) playSound('shoot', this.pos, { pitch: 1.5 });
                   game.particles.push(new Particle(this.pos.x, this.pos.y, '#ccc', { shape: 'ring', radius: sd.radius, life: 0.1, lineWidth: 2 }));
                   if (!socket || game.isHost) {
-                      for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= sd.radius) { applyDamage(m, sd.damage * 0.75, sd.dmgType, sd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
+                      for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= sd.radius) { applyDamage(m, sd.damage * 0.75, sd.dmgType, sd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } }
                       for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= sd.radius) { applyDamage(p, sd.damage, sd.dmgType, sd.id); } }
                   }
               }
@@ -3431,7 +3431,7 @@ export class BotPlayer extends Player {
                       applyDamage(t, this.omnislashData.damage, this.omnislashData.dmgType, this.id, false, true);
                       if (t.hp <= 0) {
                           if (t.className) handlePlayerKill(t, this.id);
-                          else { t.dead = true; grantRewards(this, 8, 11); }
+                          else { t.dead = true; grantMinionKillRewards(this, t.pos); }
                       }
                   }
               } else { this.omnislashCount = 0; }
@@ -3545,7 +3545,7 @@ export class BotPlayer extends Player {
           if (this.dashTimer <= 0 && this.dashEndExplosion) {
              const expl = this.dashEndExplosion; const range = expl.radius;
              game.particles.push(new Particle(this.pos.x, this.pos.y, '#f80', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
-                 for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage * 0.75, expl.dmgType, expl.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantRewards(this, 8, 11); } } }
+                 for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage * 0.75, expl.dmgType, expl.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } }
              for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id); if (expl.bonusCurrentHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.hp * expl.bonusCurrentHpDmg), 'magical', expl.id); } if (expl.silenceDuration) { p.silenceTimer = Math.max(p.silenceTimer || 0, expl.silenceDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "SILENCED", '#fff')); } if (expl.slowDuration) { p.slowTimer = Math.max(p.slowTimer || 0, expl.slowDuration); p.slowMod = expl.slowMod || 0.6; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, expl.id); } } }
              spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
              this.dashEndExplosion = null;
