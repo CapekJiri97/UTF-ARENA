@@ -6,7 +6,7 @@ import { world, spawnPoints, rawPolys, mapBoundary, MINION_SPAWN_POINTS } from '
 import { Particle, spawnParticles, DamageNumber, EffectText } from './Effects.js';
 import { Projectile, Tower, Minion, HealPickup, PowerUp } from './Entities.js';
 import { Player, BotPlayer } from './Player.js';
-import { buildMenu, populateShop, toggleShop, showEnd, draw, updateSpellLabels, updateInventory, updateShopGold } from './UI.js';
+import { buildMenu, populateShop, toggleShop, showEnd, draw, updateSpellLabels, updateInventory, updateShopGold, updateLobbyUI, updateRoomListUI } from './UI.js';
 import { initAudio, playSound } from './Audio.js';
 
   export const canvas = document.getElementById('gameCanvas');
@@ -34,8 +34,8 @@ import { initAudio, playSound } from './Audio.js';
       console.log(`[KLIENT] Připojeno k serveru! Moje ID: ${socket.id}`);
     });
     
-    socket.on('room_list', (data) => { if(typeof updateRoomListUI === 'function') updateRoomListUI(data); });
-    socket.on('lobby_update', (data) => { if(typeof updateLobbyUI === 'function') updateLobbyUI(data.players, data.roomName, data.settings); });
+    socket.on('room_list', (data) => { updateRoomListUI(data); });
+    socket.on('lobby_update', (data) => { updateLobbyUI(data.players, data.roomName, data.settings); });
     socket.on('game_start', (data) => {
       const m = document.getElementById('menu'); if(m) m.style.display = 'none';
       // Extrahujeme data správně a určíme, kdo je Host
