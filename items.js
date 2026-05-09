@@ -58,7 +58,7 @@ export const shopItems = [
     id: 'sorc_t3_burn', name: "Liandry's Torch", desc: '+~50 Power, +25 AH, +3% Max HP Spell Dmg', cost: 600,
     treeId: 'sorcery', treeBranch: 'ah_branch', requires: 'sorc_t2_ah', unique: true,
     stats: { power: 0.70, ahFlat: 25, spellDmg: 0.03 },
-    apply: (pl) => { addAdaptive(pl, 0.70); pl.abilityHaste = (pl.abilityHaste || 0) + 25; pl.titanSigilSpellDmg = Math.max(pl.titanSigilSpellDmg || 0, 0.03); pl.titanSigilCd = pl.titanSigilCd || 0; }
+    apply: (pl) => { addAdaptive(pl, 0.70); pl.abilityHaste = (pl.abilityHaste || 0) + 25; pl.titanSigilSpellDmg = Math.max(pl.titanSigilSpellDmg || 0, 0.03); pl.titanSigilCd = 4.0; }
   },
   {
     id: 'sorc_t3_slow', name: "Rylai's Crystal", desc: '+~55 Power, +15 AH, 30% Slow on Spells', cost: 500,

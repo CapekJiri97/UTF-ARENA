@@ -198,7 +198,7 @@ export class Player{
       m.speedBoostTimer = 0; m.lastTargetId = null;
     m.maxHp = Math.round(430 + this.AP * 1.6 + this.level * 45);
       m.hp = m.maxHp * hpPct;
-    m.attackDamage = Math.round(22 + this.AP * 0.42 + this.level * 5.5);
+    m.attackDamage = Math.round(16.5 + this.AP * 0.315 + this.level * 4.125);
       m.attackCooldown = 0;
       
       m.update = function(dt) {
@@ -209,7 +209,7 @@ export class Player{
 
           // Dynamické škálování podle majitele
           this.maxHp = Math.round(430 + owner.AP * 1.6 + owner.level * 45);
-          this.attackDamage = Math.round(22 + owner.AP * 0.42 + owner.level * 5.5);
+          this.attackDamage = Math.round(16.5 + owner.AP * 0.315 + owner.level * 4.125);
           let buffAsMult = 1.0 + (owner.adAsBuffTimer > 0 ? owner.adAsBuffAmount : 0);
           
           if(this.flashTimer > 0) this.flashTimer -= dt;
@@ -1310,7 +1310,7 @@ export class Player{
             for(let i=0; i<(sp.count||1); i++) {
                 const sx = this.pos.x + (Math.random()-0.5)*40; const sy = this.pos.y + (Math.random()-0.5)*40;
                 let m = new Minion(sx, sy, this.team, tIndex);
-                m.maxHp = Math.round(damage * 1.5); m.hp = m.maxHp; m.attackDamage = Math.round(damage * 0.4);
+                m.maxHp = Math.round(damage * 1.5); m.hp = m.maxHp; m.attackDamage = Math.round(damage * 0.35);
                 m.glyph = sp.mGlyph || 'g';
                 m.isSummon = true; m.ownerId = this.id; m.speed = 115;
                 game.minions.push(m);
@@ -3225,8 +3225,8 @@ export class BotPlayer extends Player {
               if (this.shieldExplodeData.timer <= 0 || this.shield <= 0) {
                   let expl = this.shieldExplodeData;
                   game.particles.push(new Particle(this.pos.x, this.pos.y, '#aaa', {shape: 'ring', radius: expl.radius, life: 0.4, speed: 0, lineWidth: 4}));
-                  for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= expl.radius){ applyDamage(m, expl.damage * 0.75, expl.dmgType, this.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); } }
-                  for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= expl.radius){ applyDamage(p, expl.damage, expl.dmgType, this.id); if (expl.bonusMaxHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.maxHp * expl.bonusMaxHpDmg), 'magical', this.id); } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); } }
+                  for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= expl.radius){ applyDamage(m, expl.damage * 0.75, expl.dmgType, this.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); } }
+                  for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= expl.radius){ applyDamage(p, expl.damage, expl.dmgType, this.id, false, true); if (expl.bonusMaxHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.maxHp * expl.bonusMaxHpDmg), 'magical', this.id, false, true); } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); } }
                   spawnParticles(this.pos.x, this.pos.y, 10, '#aaa');
                   this.shieldExplodeData = null;
                   this.shield = 0;
@@ -3257,14 +3257,14 @@ export class BotPlayer extends Player {
                           if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= fd.range){
                               const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x);
                               const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle)));
-                              if(da <= fd.cone/2){ applyDamage(m, fd.damage, fd.dmgType, fd.id); if (fd.onSpellHitSlow) { m.slowTimer = Math.max(m.slowTimer||0, 0.3); m.slowMod = Math.min(m.slowMod||1, 1-fd.onSpellHitSlow); } }
+                              if(da <= fd.cone/2){ applyDamage(m, fd.damage * 0.75, fd.dmgType, fd.id, false, true); if (fd.onSpellHitSlow) { m.slowTimer = Math.max(m.slowTimer||0, 0.3); m.slowMod = Math.min(m.slowMod||1, 1-fd.onSpellHitSlow); } }
                           }
                       }
                       for(let p of game.players){
                           if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= fd.range){
                               const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
                               const da = Math.abs(Math.atan2(Math.sin(a2-this.aimAngle), Math.cos(a2-this.aimAngle)));
-                              if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id); if (fd.onSpellHitSlow) { p.slowTimer = Math.max(p.slowTimer||0, 0.3); p.slowMod = Math.min(p.slowMod||1, 1-fd.onSpellHitSlow); } }
+                              if(da <= fd.cone/2){ applyDamage(p, fd.damage, fd.dmgType, fd.id, false, true); if (fd.onSpellHitSlow) { p.slowTimer = Math.max(p.slowTimer||0, 0.3); p.slowMod = Math.min(p.slowMod||1, 1-fd.onSpellHitSlow); } }
                           }
                       }
                   }
@@ -3309,8 +3309,8 @@ export class BotPlayer extends Player {
               if (this.dashTimer <= 0 && this.dashEndExplosion) {
                  const expl = this.dashEndExplosion; const range = expl.radius;
                  game.particles.push(new Particle(this.pos.x, this.pos.y, '#f80', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
-                 for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage, expl.dmgType, expl.id); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); } }
-                 for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id); if (expl.bonusCurrentHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.hp * expl.bonusCurrentHpDmg), 'magical', expl.id); } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); } }
+                 for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage * 0.75, expl.dmgType, expl.id, false, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); } }
+                 for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id, false, true); if (expl.bonusCurrentHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.hp * expl.bonusCurrentHpDmg), 'magical', expl.id, false, true); } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); } }
                  spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
                  this.dashEndExplosion = null;
               }
@@ -3394,8 +3394,8 @@ export class BotPlayer extends Player {
                   if (Math.random() < 0.5) playSound('shoot', this.pos, { pitch: 1.5 });
                   game.particles.push(new Particle(this.pos.x, this.pos.y, '#ccc', { shape: 'ring', radius: sd.radius, life: 0.1, lineWidth: 2 }));
                   if (!socket || game.isHost) {
-                      for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= sd.radius) { applyDamage(m, sd.damage * 0.75, sd.dmgType, sd.id); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } }
-                      for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= sd.radius) { applyDamage(p, sd.damage, sd.dmgType, sd.id); } }
+                          for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= sd.radius) { applyDamage(m, sd.damage * 0.75, sd.dmgType, sd.id, false, true); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } }
+                          for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= sd.radius) { applyDamage(p, sd.damage, sd.dmgType, sd.id, false, true); } }
                   }
               }
           }

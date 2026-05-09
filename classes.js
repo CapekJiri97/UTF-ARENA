@@ -69,8 +69,8 @@ export const CLASSES = {
     Q: {
       baseCooldown: 6.0, castTime: 0.1,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.55,
-      type: 'projectile', pGlyph: 'D', pSpeed: 600, life: 0.4,
-      desc: 'Hurls a heavy weapon that hits the first enemy in its path. Damage scales heavily with Attack Damage.'
+      type: 'projectile', pGlyph: 'D', pSpeed: 600, life: 0.4, slowDuration: 1.0, slowMod: 0.25,
+      desc: 'Hurls a heavy weapon that hits the first enemy in its path, briefly slowing them. Damage scales heavily with Attack Damage.'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.05,
@@ -91,7 +91,7 @@ export const CLASSES = {
     baseArmor: 48, baseMR: 43,
     Q: {
       baseCooldown: 9.5, castTime: 0.1,
-      baseDamage: 45, scaleAP: 0, scaleAD: 0.25, bonusMaxHpDmg: 0.03,
+      baseDamage: 45, scaleAP: 0, scaleAD: 0.25, bonusMaxHpDmg: 0.0675,
       type: 'shield_explode', amount: 125, duration: 4.0, radius: 144,
       desc: 'Creates a temporary shield. If the shield is broken or expires, it explodes and damages nearby enemies.'
     },
@@ -111,7 +111,7 @@ export const CLASSES = {
     Q: {
       baseCooldown: 12.0, castTime: 0.1,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
-      type: 'hana_q', duration: 5.0, bonusHpDmg: 0.018, bonusAsMult: 1.25,
+      type: 'hana_q', duration: 5.0, bonusHpDmg: 0.027, bonusAsMult: 1.25,
       desc: 'For 5 seconds, empowers her attacks to deal bonus damage based on her max HP. Also gains bonus attack speed and minor regeneration.'
     },
     E: {
@@ -131,7 +131,7 @@ export const CLASSES = {
       baseCooldown: 10.0, castTime: 0.3,
       baseDamage: 55, scaleAP: 0.5, scaleAD: 0,
       type: 'projectile', pGlyph: 'J', pSpeed: 820, life: 0.6,
-      pullToCaster: true, bonusMaxHpDmg: 0.04,
+      pullToCaster: true, bonusMaxHpDmg: 0.09,
       desc: 'Fires a hook that damages the first enemy hit and pulls them toward the caster.'
     },
     E: {
@@ -149,7 +149,7 @@ export const CLASSES = {
     baseArmor: 50, baseMR: 50,
     Q: {
       baseCooldown: 7.5, castTime: 0.15,
-      baseDamage: 25, scaleAP: 0, scaleAD: 0.35, bonusCurrentHpDmg: 0.025, dashTime: 0.2,
+      baseDamage: 25, scaleAP: 0, scaleAD: 0.35, bonusCurrentHpDmg: 0.0375, dashTime: 0.2,
       type: 'dash', distance: 225, radius: 120,
       desc: 'Performs an unstoppable charge forward, dealing damage to all enemies in the path.'
     },
@@ -207,7 +207,7 @@ export const CLASSES = {
   Reaper: {
     glyph: 'R', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.28,
     hp: 540, speed: 120, attackDelay: 0.82,
-    baseAtk: 35, baseAD: 0, baseAP: 52,
+    baseAtk: 35, baseAD: 0, baseAP: 58,
     baseArmor: 18, baseMR: 20,
     Q: {
       baseCooldown: 10.0, castTime: 0.15,
@@ -269,7 +269,7 @@ export const CLASSES = {
     baseAtk: 55, baseAD: 68, baseAP: 0,
     baseArmor: 15, baseMR: 15,
     Q: {
-      baseCooldown: 3.0, castTime: 0.4,
+      baseCooldown: 3.5, castTime: 0.4,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.7,
       type: 'projectile', pGlyph: '»', pSpeed: 1200,
       desc: 'Fires a long-range bolt that damages the first enemy hit. Damage scales heavily with Attack Damage.'
@@ -332,8 +332,8 @@ export const CLASSES = {
     Q: {
       baseCooldown: 4.0, castTime: 0.3,
       baseDamage: 85, scaleAP: 0.75, scaleAD: 0,
-      type: 'projectile', pGlyph: '~', pSpeed: 750,
-      desc: 'Fires a shadow projectile that damages the first enemy hit. Damage scales heavily with Ability Power.'
+      type: 'projectile', pGlyph: '~', pSpeed: 750, silenceDuration: 0.5,
+      desc: 'Fires a shadow projectile that damages the first enemy hit and briefly silences them. Damage scales heavily with Ability Power.'
     },
     E: {
       baseCooldown: 11.0, castTime: 0.6,
@@ -432,8 +432,8 @@ export const CLASSES = {
     Q: {
       baseCooldown: 8.0, castTime: 0.3,
       baseDamage: 30, scaleAP: 0.75, scaleAD: 0, amount: 5,
-      type: 'projectile_egg', pSpeed: 400, life: 0.625, healInterval: 1.0,
-      desc: 'Throws an egg (range 250) that damages the target. On impact, a large Hen hatches. It follows you, heals you, and damages nearby enemies every second.'
+      type: 'projectile_egg', pSpeed: 400, life: 0.625, healInterval: 1.0, slowDuration: 0.5, slowMod: 0.20,
+      desc: 'Throws an egg (range 250) that damages the target and briefly slows them. On impact, a large Hen hatches. It follows you, heals you, and damages nearby enemies every second.'
     },
     E: {
       baseCooldown: 18.0, castTime: 0.4,
