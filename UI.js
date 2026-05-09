@@ -3,7 +3,7 @@ import { shopItems, canBuyShopItem, getShopItem, getBuyBlockReason, calcTotalCos
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { world, spawnPoints, mapBoundary, MINION_SPAWN_POINTS } from './MapConfig.js';
-import { canvas, ctx, keys, player, socket, startGame, buyItem, drawHealthBar } from './main.js';
+import { canvas, ctx, keys, player, socket, startGame, buyItem, sellItem, drawHealthBar } from './main.js';
 
 const computeDominionPCS = (p) => {
     if (!p) return { total: 0, breakdown: {} };
@@ -532,11 +532,13 @@ style.innerHTML = `
   .shop-buy-btn { padding: 4px 8px; border: 1px solid #333; background: #000; color: #888; font-size: 11px; font-family: monospace; cursor: pointer; white-space: nowrap; font-weight: bold; }
   .shop-buy-btn:disabled { cursor: not-allowed; }
   /* Owned items bar */
-  .shop-owned-bar { background: #000; border: 1px solid #333; padding: 6px 8px; margin-bottom: 4px; }
-  .shop-owned-title { color: #ffcc00; font-size: 10px; font-family: monospace; letter-spacing: 1px; margin-bottom: 4px; }
-  .shop-owned-list { display: flex; flex-wrap: wrap; gap: 3px; }
-  .shop-owned-tag { font-size: 10px; font-family: monospace; color: #0f0; border: 1px solid #1a3a1a; padding: 1px 5px; background: #010f01; }
-  .shop-owned-empty { font-size: 10px; font-family: monospace; color: #444; font-style: italic; }
+  .shop-owned-bar { background: #000; border: 1px solid #333; padding: 8px 10px; margin-bottom: 4px; }
+  .shop-owned-title { color: #ffcc00; font-size: 11px; font-family: monospace; letter-spacing: 1px; margin-bottom: 6px; }
+  .shop-owned-list { display: flex; flex-wrap: wrap; gap: 5px; }
+  .shop-owned-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-family: monospace; color: #0f0; border: 1px solid #1a3a1a; padding: 3px 7px; background: #010f01; }
+  .shop-owned-tag .sell-btn { font-size: 10px; color: #f88; border: 1px solid #622; background: #1a0000; padding: 1px 4px; cursor: pointer; font-family: monospace; line-height: 1; }
+  .shop-owned-tag .sell-btn:hover { background: #3a0000; color: #faa; }
+  .shop-owned-empty { font-size: 11px; font-family: monospace; color: #444; font-style: italic; }
   .shop-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2px; }
   .shop-tree-stack { display: flex; flex-direction: column; gap: 3px; }
   .shop-tree-wrap { position: relative; padding: 8px; }
@@ -868,16 +870,22 @@ export function populateShop() {
       empty.textContent = 'No items purchased yet';
       list.appendChild(empty);
     } else {
-      // Count duplicates
-      const counts = {};
-      for (const id of ownedItems) counts[id] = (counts[id] || 0) + 1;
-      for (const [id, cnt] of Object.entries(counts)) {
+      for (const id of ownedItems) {
         const it = getShopItem(id);
         if (!it) continue;
+        const sellPrice = Math.floor(it.cost * 0.6);
         const tag = document.createElement('span');
         tag.className = 'shop-owned-tag';
-        tag.textContent = cnt > 1 ? `${it.name} ×${cnt}` : it.name;
         tag.title = it.desc;
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = it.name;
+        const sellBtn = document.createElement('button');
+        sellBtn.className = 'sell-btn';
+        sellBtn.textContent = `sell ${sellPrice}g`;
+        sellBtn.title = `Sell for ${sellPrice}g (60% of ${it.cost}g)`;
+        sellBtn.onclick = (e) => { e.stopPropagation(); sellItem(id); };
+        tag.appendChild(nameSpan);
+        tag.appendChild(sellBtn);
         list.appendChild(tag);
       }
     }
@@ -1647,15 +1655,15 @@ export function draw(){
 
         // ── INVENTORY (1×6 column) ─────────────────────────────────────────
         const ownedIds = player.items || [];
-        ctx.fillStyle = '#ffcc00'; ctx.font = `bold 15px monospace`;
-        ctx.fillText(`INVENTORY  (${ownedIds.length}/6)`, leftM, startY); startY += 10;
-        ctx.fillStyle = '#333'; ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 8;
+        ctx.fillStyle = '#ffcc00'; ctx.font = `bold 16px monospace`;
+        ctx.fillText(`INVENTORY  (${ownedIds.length}/6)`, leftM, startY); startY += 14;
+        ctx.fillStyle = '#333'; ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 10;
 
         {
-          const slotGap = 6;
+          const slotGap = 7;
           const totalW = panelW - leftM * 2;
           const slotW = totalW;
-          const slotH = 60;
+          const slotH = 68;
           const invStartY = startY;
 
           for (let i = 0; i < 6; i++) {
@@ -1671,16 +1679,17 @@ export function draw(){
             if (i < ownedIds.length) {
               const it = getShopItem(ownedIds[i]);
               if (it) {
-                ctx.fillStyle = '#fc0'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left';
-                ctx.fillText(it.name, sx + 8, sy + 20);
-                ctx.fillStyle = '#999'; ctx.font = '12px monospace';
+                const sellPrice = Math.floor(it.cost * 0.6);
+                ctx.fillStyle = '#fc0'; ctx.font = 'bold 16px monospace'; ctx.textAlign = 'left';
+                ctx.fillText(it.name, sx + 10, sy + 22);
+                ctx.fillStyle = '#f88'; ctx.font = '12px monospace';
+                ctx.fillText(`sell: ${sellPrice}g`, sx + 10, sy + 40);
+                ctx.fillStyle = '#888'; ctx.font = '12px monospace';
                 const stats = it.desc.split(',');
-                for (let si = 0; si < Math.min(stats.length, 2); si++) {
-                  ctx.fillText(stats[si].trim(), sx + 8, sy + 36 + si * 14);
-                }
+                ctx.fillText(stats[0].trim(), sx + 10, sy + 56);
               }
             } else {
-              ctx.fillStyle = '#333'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+              ctx.fillStyle = '#333'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
               ctx.fillText('[ empty ]', sx + slotW / 2, sy + slotH / 2 + 4);
             }
           }

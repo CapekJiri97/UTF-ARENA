@@ -1,4 +1,5 @@
 import { game } from './State.js';
+const _isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 export class Particle {
   constructor(x, y, color, opts={}) {
@@ -41,8 +42,11 @@ export class Particle {
   }
 }
 
+const PARTICLE_CAP = 1500;
 export function spawnParticles(x, y, count, color, opts={}) {
-  for(let i=0; i<count; i++) game.particles.push(new Particle(x, y, color, opts));
+  if (game.particles.length >= PARTICLE_CAP) return;
+  const allowed = Math.min(count, PARTICLE_CAP - game.particles.length);
+  for(let i=0; i<allowed; i++) game.particles.push(new Particle(x, y, color, opts));
 }
 
 export class DamageNumber { 
@@ -80,7 +84,8 @@ export class EffectText {
     ctx.save();
     const alpha = Math.sin(Math.max(0, this.life / this.maxLife) * Math.PI); // Fade in and out smoothly
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = this.color; ctx.font = `bold ${this.size}px monospace`; ctx.textAlign = 'center'; ctx.shadowColor = '#000'; ctx.shadowBlur = 5;
+    ctx.fillStyle = this.color; ctx.font = `bold ${this.size}px monospace`; ctx.textAlign = 'center';
+    if (!_isMobile) { ctx.shadowColor = '#000'; ctx.shadowBlur = 5; }
     ctx.fillText(this.text, this.pos.x, this.pos.y); ctx.restore();
   }
 }

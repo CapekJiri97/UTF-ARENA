@@ -269,6 +269,15 @@ import { initAudio, playSound } from './Audio.js';
                 netPlayer.isDirty = true;
             }
         }
+        else if (data.type === 'sell_item') {
+          const idx = netPlayer.items.indexOf(data.itemId);
+          if (idx !== -1) {
+            netPlayer.items.splice(idx, 1);
+            netPlayer.gold += data.refund;
+            recalcPlayerItemStats(netPlayer);
+            netPlayer.isDirty = true;
+          }
+        }
       }
     });
 
@@ -908,6 +917,26 @@ import { initAudio, playSound } from './Audio.js';
       socket.emit('player_action', { type: 'buy_item', id: player.id, itemId: it.id, cost: it.cost });
     }
   }
+  export function sellItem(id) {
+    if (!player) return;
+    const it = getShopItem(id);
+    if (!it) return;
+    const allyBaseDist = dist(player.pos, spawnPoints[player.team]);
+    if (allyBaseDist > 250 && player.alive) return flashMessage('Shop available only in your base!');
+    const idx = player.items.indexOf(id);
+    if (idx === -1) return flashMessage('Item not in inventory');
+    const sellPrice = Math.floor(it.cost * 0.6);
+    player.items.splice(idx, 1);
+    player.gold += sellPrice;
+    recalcPlayerItemStats(player);
+    player.isDirty = true;
+    flashMessage(`Sold ${it.name} for ${sellPrice}g`);
+    updateInventory();
+    populateShop();
+    if (socket && !game.isHost) {
+      socket.emit('player_action', { type: 'sell_item', id: player.id, itemId: id, refund: sellPrice });
+    }
+  }
   export function flashMessage(txt){ const el = document.createElement('div'); el.style.position='fixed'; el.style.left='50%'; el.style.top='18px'; el.style.transform='translateX(-50%)'; el.style.background='rgba(255,255,255,0.06)'; el.style.padding='6px 10px'; el.style.borderRadius='6px'; el.style.zIndex=100000; el.textContent = txt; document.body.appendChild(el); setTimeout(()=>el.remove(),1200); }
 
   function update(dt){ if(game.gameOver || !game.started) return;
@@ -970,6 +999,13 @@ import { initAudio, playSound } from './Audio.js';
     if (game.screenHealFlash > 0) game.screenHealFlash -= dt * 0.8;
     game.passiveTimer = (game.passiveTimer || 0) + dt;
     if (game.startDelay <= 0 && game.passiveTimer >= 1.0) { game.passiveTimer -= 1.0; if (!socket || game.isHost) { for(let p of game.players) { p.gold += 2; p.totalGold += 2; p.exp += 1; p.totalExp = (p.totalExp||0) + 1; } } }
+
+    game.cleanupTimer = (game.cleanupTimer || 0) + dt;
+    if (game.cleanupTimer >= 30.0) {
+      game.cleanupTimer = 0;
+      if (game.burstHits) { const now = performance.now(); game.burstHits.forEach((v, k) => { if (now - (v.time || 0) > 10000) game.burstHits.delete(k); }); }
+      if (game.deadMinionIds && game.deadMinionIds.size > 200) game.deadMinionIds.clear();
+    }
 
     if (game.killFeed) {
         game.killFeed.forEach(k => k.timer -= dt);

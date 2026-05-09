@@ -1,5 +1,6 @@
 import { dist, isPointInPoly, distToPoly } from './Utils.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
+const _isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 import { mapBoundary, spawnPoints, MINION_SPAWN_POINTS } from './MapConfig.js';
 import { spawnParticles, EffectText } from './Effects.js';
 import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, grantRewards, grantMinionKillRewards } from './main.js';
@@ -80,17 +81,18 @@ export class Projectile{
     if (!this.opts.burstId) return dmg;
     if (!game.burstHits) game.burstHits = new Map();
     const bk = this.opts.burstId + ':' + targetId;
-    const prev = game.burstHits.get(bk) || 0;
+    const entry = game.burstHits.get(bk);
+    const prev = entry ? entry.n : 0;
     const scaled = prev === 0 ? dmg : Math.round(dmg * 0.25);
     const next = prev + 1;
     if (next >= (this.opts.burstMax || 3)) game.burstHits.delete(bk);
-    else game.burstHits.set(bk, next);
+    else game.burstHits.set(bk, { n: next, time: performance.now() });
     return scaled;
   }
   draw(ctx){
     ctx.fillStyle = this.color; ctx.font=`bold ${Math.round(this.radius * 4.5)}px monospace`; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.shadowColor = this.color; ctx.shadowBlur = 8;
-    ctx.fillText(this.glyph, this.pos.x, this.pos.y); 
+    if (!_isMobile) { ctx.shadowColor = this.color; ctx.shadowBlur = 8; }
+    ctx.fillText(this.glyph, this.pos.x, this.pos.y);
     ctx.shadowBlur = 0; 
   }
 }

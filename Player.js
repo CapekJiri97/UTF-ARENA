@@ -591,6 +591,9 @@ export class Player{
 
         // AUTO BUY — uses the same path-based system as bots
         if (game.autoBuy && (!this.alive || allyBaseDist < 250) && this.gold >= 300) {
+        this._nextBuyCheck = (this._nextBuyCheck || 0) - dt;
+        if (game.autoBuy && (!this.alive || allyBaseDist < 250) && this.gold >= 300 && this._nextBuyCheck <= 0) {
+            this._nextBuyCheck = 1.0; // Kontrola nákupu max 1x za vteřinu
             const enemies = game.players.filter(p => p.team !== this.team);
             const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 ||
                 Object.values(e.spells || {}).some(sp => sp && sp.type &&
