@@ -3892,7 +3892,7 @@ export class BotPlayer extends Player {
       for (let proj of game.projectiles) {
           if (proj.ownerTeam !== this.team && !proj.dead) {
               let pdDist = dist(this.pos, proj.pos);
-              if (pdDist < 250 * this.microDodgeMod) { // Sníženo vidění hrozeb z 350 na 250
+              if (pdDist < 180 * this.microDodgeMod) { // Sníženo vidění hrozeb z 250 na 180
                   let pLen = Math.hypot(proj.vel.x, proj.vel.y);
                   if (pLen > 0) {
                       let pDirX = proj.vel.x / pLen, pDirY = proj.vel.y / pLen;
@@ -3907,17 +3907,17 @@ export class BotPlayer extends Player {
                               // HUMAN FACTOR ROZHODOVÁNÍ
                               if (this.dodgeFocusTimer <= 0) {
                                   // 35% základní šance, že si letící střely včas všimne (Sníženo z 70%)
-                                  if (Math.random() < 0.35 * this.microDodgeMod) {
-                                      this.dodgeFocusTimer = 1.0; // Úspěšný postřeh! Uhýbá perfektně další 1 vteřinu
+                                  if (Math.random() < 0.22 * this.microDodgeMod) {
+                                      this.dodgeFocusTimer = 0.6; // Úspěšný postřeh! Uhýbá perfektně další 0.6 vteřiny
                                   } else {
-                                      this.dodgeBlindTimer = 0.5 + Math.random() * 0.5; // Zazmatkoval, ztuhne na delší dobu
+                                      this.dodgeBlindTimer = 0.5 + Math.random() * 1.0; // Zazmatkoval, ztuhne na delší dobu
                                       break; // Neprovede se dodge
                                   }
                               }
 
                               let crossX = this.pos.x - projX, crossY = this.pos.y - projY;
                               let cLen = Math.hypot(crossX, crossY);
-                              let dodgeForce = 1200 * this.microDodgeMod;
+                              let dodgeForce = 900 * this.microDodgeMod;
                               if (cLen > 0) { dodgeDx += (crossX / cLen) * dodgeForce; dodgeDy += (crossY / cLen) * dodgeForce; } // Tvrdý úkrok do strany
                               else { dodgeDx += -pDirY * dodgeForce; dodgeDy += pDirX * dodgeForce; }
                           }

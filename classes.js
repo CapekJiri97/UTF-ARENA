@@ -244,8 +244,8 @@ export const CLASSES = {
 
   Kratoma: {
     glyph: 'K', role: 'SLAYER', range: true, attackRange: 160, dmgType: 'physical', aaScale: 0.5,
-    hp: 600, speed: 115, attackDelay: 1.1,
-    baseAtk: 35, baseAD: 65, baseAP: 0,
+    hp: 550, speed: 115, attackDelay: 1.1,
+    baseAtk: 30, baseAD: 65, baseAP: 0,
     baseArmor: 20, baseMR: 20,
     projCount: 3, projSpread: 0.3,
     Q: {
@@ -266,7 +266,7 @@ export const CLASSES = {
   Quiller: {
     glyph: 'Q', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.75,
     hp: 530, speed: 110, attackDelay: 0.9,
-    baseAtk: 60, baseAD: 75, baseAP: 0,
+    baseAtk: 30, baseAD: 75, baseAP: 0,
     baseArmor: 15, baseMR: 15,
     Q: {
       baseCooldown: 5.0, castTime: 0.4,
@@ -285,7 +285,7 @@ export const CLASSES = {
   Fusilier: {
     glyph: 'F', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.7,
     hp: 580, speed: 115, attackDelay: 0.85,
-    baseAtk: 45, baseAD: 72, baseAP: 0,
+    baseAtk: 30, baseAD: 72, baseAP: 0,
     baseArmor: 17, baseMR: 17,
     Q: {
       baseCooldown: 5.0, castTime: 0.25,
