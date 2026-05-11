@@ -1796,18 +1796,9 @@ export class BotPlayer extends Player {
             // Skip completed paths
             if (BotPlayer.isPathComplete(owner, path)) return false;
 
-            // Skip if a different terminal from the same tree is already owned (committed elsewhere)
+            // Skip if the exact same terminal T3 is already owned (no duplicates)
             const terminal = path[path.length - 1];
-            for (const other of BotPlayer.ITEM_PATHS) {
-                if (other[other.length - 1] === terminal) continue; // same terminal, same path family
-                const otherRoot = getShopItem(other[0]);
-                if (!otherRoot || otherRoot.treeId !== tid) continue;
-                // Paths share a common prefix but diverge — if other terminal is owned, skip this path
-                const minLen = Math.min(path.length, other.length);
-                let shared = 0;
-                for (let i = 0; i < minLen - 1; i++) { if (path[i] === other[i]) shared++; else break; }
-                if (shared > 0 && items.includes(other[other.length - 1])) return false;
-            }
+            if (items.includes(terminal)) return false;
 
             // Role/type filters
             if (isTank && (tid === 'offense' || tid === 'sorcery' || tid === 'combat')) return false;
