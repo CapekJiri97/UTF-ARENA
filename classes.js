@@ -23,33 +23,33 @@ export const CLASSES = {
   // ==========================================
 
   Vanguard: {
-    glyph: 'V', role: 'FIGHTER', range: false, dmgType: 'physical', aaScale: 0.50,
+    glyph: 'V', role: 'FIGHTER', range: false, dmgType: 'physical', aaScale: 0.55,
     respawnBase: 7, respawnPerLevel: 1, hpRegen: 2.0,
     hp: 1000, speed: 120, attackDelay: 1.4,
     baseAtk: 45, baseAD: 45, baseAP: 0,
     baseArmor: 35, baseMR: 30,
     Q: {
       baseCooldown: 6.0, castTime: 0.05,
-      baseDamage: 75, scaleAP: 0, scaleAD: 0.25, dashTime: 0.2,
+      baseDamage: 75, scaleAP: 0, scaleAD: 0.20, dashTime: 0.2,
       type: 'dash', distance: 198, radius: 104, slowDuration: 1.5, slowMod: 0.4,
       desc: 'Dashes forward, dealing damage and heavily slowing enemies in the path.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.25,
-      baseDamage: 90, scaleAP: 0, scaleAD: 0.35,
+      baseDamage: 90, scaleAP: 0, scaleAD: 0.25,
       type: 'aoe', radius: 136,
       desc: 'Performs a circular strike, dealing damage to all nearby enemies.'
     }
   },
 
   Jirina: {
-    glyph: '❋', role: 'FIGHTER', range: false, dmgType: 'magical', aaScale: 0.30,
+    glyph: '❋', role: 'FIGHTER', range: false, dmgType: 'magical', aaScale: 0.35,
     hp: 950, speed: 118, attackDelay: 1.2,
     baseAtk: 40, baseAD: 0, baseAP: 58,
     baseArmor: 38, baseMR: 38,
     Q: {
       baseCooldown: 5.5, castTime: 0.1,
-      baseDamage: 65, scaleAP: 0.45, scaleAD: 0,
+      baseDamage: 65, scaleAP: 0.50, scaleAD: 0,
       type: 'aoe_knockback', radius: 144,
       desc: 'Creates a pressure wave that damages and knocks back nearby enemies.'
     },
@@ -62,19 +62,19 @@ export const CLASSES = {
   },
 
   Bruiser: {
-    glyph: 'B', role: 'FIGHTER', range: false, dmgType: 'physical', aaScale: 0.50,
+    glyph: 'B', role: 'FIGHTER', range: false, dmgType: 'physical', aaScale: 0.60,
     hp: 880, speed: 120, attackDelay: 1.1,
     baseAtk: 50, baseAD: 48, baseAP: 0,
     baseArmor: 33, baseMR: 28,
     Q: {
       baseCooldown: 6.0, castTime: 0.1,
-      baseDamage: 60, scaleAP: 0, scaleAD: 0.55,
+      baseDamage: 60, scaleAP: 0, scaleAD: 0.40,
       type: 'projectile', pGlyph: 'D', pSpeed: 600, life: 0.4, slowDuration: 1.0, slowMod: 0.25,
       desc: 'Hurls a heavy weapon that hits the first enemy in its path, briefly slowing them. Damage scales heavily with Attack Damage.'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.05,
-      baseDamage: 45, scaleAP: 0, scaleAD: 0.5, dashTime: 0.2,
+      baseDamage: 45, scaleAP: 0, scaleAD: 0.35, dashTime: 0.2,
       type: 'dash', distance: 198, radius: 110,
       desc: 'Leaps to a target location, dealing damage to nearby enemies on landing. Damage scales heavily with Attack Damage.'
     }
@@ -85,29 +85,29 @@ export const CLASSES = {
   // ==========================================
 
   Ironclad: {
-    glyph: 'I', role: 'TANK', range: false, dmgType: 'physical', aaScale: 0.35,
-    hp: 1100, speed: 100, attackDelay: 1.4,
-    baseAtk: 50, baseAD: 35, baseAP: 0,
-    baseArmor: 48, baseMR: 43,
+    glyph: 'I', role: 'TANK', range: false, dmgType: 'physical', aaScale: 0.45,
+    hp: 1000, speed: 100, attackDelay: 1.4,
+    baseAtk: 55, baseAD: 40, baseAP: 0,
+    baseArmor: 42, baseMR: 38,
     Q: {
       baseCooldown: 9.5, castTime: 0.1,
-      baseDamage: 45, scaleAP: 0, scaleAD: 0.25, bonusMaxHpDmg: 0.0675,
+      baseDamage: 45, scaleAP: 0, scaleAD: 0.25, bonusMaxHpDmg: 0.08,
       type: 'shield_explode', amount: 125, duration: 4.0, radius: 144,
       desc: 'Creates a temporary shield. If the shield is broken or expires, it explodes and damages nearby enemies.'
     },
     E: {
       baseCooldown: 10.5, castTime: 0.25,
-      baseDamage: 74, scaleAP: 0, scaleAD: 0.15,
+      baseDamage: 85, scaleAP: 0, scaleAD: 0.15,
       type: 'aoe', radius: 144, stunDuration: 1.0,
       desc: 'Slams the ground, dealing damage to all nearby enemies and stunning them for 1 second.'
     }
   },
 
   Hana: {
-    glyph: '✿', role: 'TANK', range: false, dmgType: 'magical', aaScale: 0.35, customMeleeAoE: 'ring',
-    hp: 1050, speed: 120, attackDelay: 1.2,
+    glyph: '✿', role: 'TANK', range: false, dmgType: 'magical', aaScale: 0.40, customMeleeAoE: 'ring',
+    hp: 980, speed: 120, attackDelay: 1.2,
     baseAtk: 50, baseAD: 0, baseAP: 50,
-    baseArmor: 40, baseMR: 40,
+    baseArmor: 36, baseMR: 36,
     Q: {
       baseCooldown: 12.0, castTime: 0.1,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
@@ -123,10 +123,10 @@ export const CLASSES = {
   },
 
   Jailer: {
-    glyph: 'J', role: 'TANK', range: false, dmgType: 'magical', aaScale: 0.30,
-    hp: 1150, speed: 105, attackDelay: 1.5,
-    baseAtk: 45, baseAD: 0, baseAP: 52,
-    baseArmor: 45, baseMR: 45,
+    glyph: 'J', role: 'TANK', range: false, dmgType: 'magical', aaScale: 0.40,
+    hp: 1050, speed: 105, attackDelay: 1.5,
+    baseAtk: 50, baseAD: 0, baseAP: 55,
+    baseArmor: 40, baseMR: 40,
     Q: {
       baseCooldown: 10.0, castTime: 0.3,
       baseDamage: 55, scaleAP: 0.5, scaleAD: 0,
@@ -143,10 +143,10 @@ export const CLASSES = {
   },
 
   Goliath: {
-    glyph: 'G', role: 'TANK', range: false, dmgType: 'physical', aaScale: 0.40,
-    hp: 1200, speed: 96, attackDelay: 1.6,
-    baseAtk: 55, baseAD: 40, baseAP: 0,
-    baseArmor: 50, baseMR: 50,
+    glyph: 'G', role: 'TANK', range: false, dmgType: 'physical', aaScale: 0.50,
+    hp: 1100, speed: 96, attackDelay: 1.6,
+    baseAtk: 60, baseAD: 45, baseAP: 0,
+    baseArmor: 44, baseMR: 44,
     Q: {
       baseCooldown: 7.5, castTime: 0.15,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.35, bonusCurrentHpDmg: 0.0375, dashTime: 0.2,
@@ -166,7 +166,7 @@ export const CLASSES = {
   // ==========================================
 
   Lynx: {
-    glyph: 'L', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.50,
+    glyph: 'L', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.60,
     hp: 580, speed: 130, attackDelay: 0.8,
     baseAtk: 50, baseAD: 58, baseAP: 0,
     baseArmor: 20, baseMR: 20,
@@ -179,14 +179,14 @@ export const CLASSES = {
     },
     E: {
       baseCooldown: 8.0, castTime: 0.05,
-      baseDamage: 95, scaleAP: 0, scaleAD: 0.45,
+      baseDamage: 95, scaleAP: 0, scaleAD: 0.35,
       type: 'aoe', radius: 96,
       desc: 'Creates a blade explosion that damages all enemies in close proximity.'
     }
   },
 
   Zephyr: {
-    glyph: 'Z', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.20,
+    glyph: 'Z', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.35,
     hp: 650, speed: 135, attackDelay: 0.9,
     baseAtk: 40, baseAD: 0, baseAP: 55,
     baseArmor: 25, baseMR: 25,
@@ -198,20 +198,20 @@ export const CLASSES = {
     },
     E: {
       baseCooldown: 5.0, castTime: 0.25,
-      baseDamage: 75, scaleAP: 0.7, scaleAD: 0.2,
+      baseDamage: 70, scaleAP: 0.80, scaleAD: 0.2,
       type: 'aoe_knockback', radius: 90,
       desc: 'Creates a powerful air burst that damages and violently knocks back nearby enemies.'
     }
   },
 
   Reaper: {
-    glyph: 'R', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.28,
+    glyph: 'R', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.40,
     hp: 540, speed: 120, attackDelay: 0.82,
     baseAtk: 35, baseAD: 0, baseAP: 58,
     baseArmor: 18, baseMR: 20,
     Q: {
       baseCooldown: 10.0, castTime: 0.15,
-      baseDamage: 20, scaleAP: 0.40, scaleAD: 0,
+      baseDamage: 20, scaleAP: 0.50, scaleAD: 0,
       type: 'reaper_q', charges: 3, bonusRange: 70, scaleLevel: 6,
       desc: 'For 4 seconds, empowers the next 3 basic attacks. They gain extended range, bonus damage, and slow the target by 40% for 1s.'
     },
@@ -224,7 +224,7 @@ export const CLASSES = {
   },
 
   Wanderer: {
-    glyph: 'W', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.50,
+    glyph: 'W', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.55,
     hp: 600, speed: 125, attackDelay: 0.9,
     baseAtk: 45, baseAD: 60, baseAP: 0,
     baseArmor: 25, baseMR: 25,
@@ -236,15 +236,15 @@ export const CLASSES = {
     },
     E: {
       baseCooldown: 16.0, castTime: 0.35,
-      baseDamage: 46, scaleAP: 0, scaleAD: 0.45, scaleLevel: 8,
+      baseDamage: 46, scaleAP: 0, scaleAD: 0.35, scaleLevel: 8,
       type: 'omnislash', count: 4, tickRate: 0.2, distance: 150, dashTime: 0.12,
       desc: 'Omnislash: Dashes forward with lightning speed. If an enemy is hit, becomes invulnerable and blinks 5 times to random nearby enemies, striking each one hard.'
     }
   },
 
   Kratoma: {
-    glyph: 'K', role: 'SLAYER', range: true, attackRange: 160, dmgType: 'physical', aaScale: 0.40,
-    hp: 600, speed: 115, attackDelay: 1.0,
+    glyph: 'K', role: 'SLAYER', range: true, attackRange: 160, dmgType: 'physical', aaScale: 0.5,
+    hp: 600, speed: 115, attackDelay: 1.1,
     baseAtk: 35, baseAD: 65, baseAP: 0,
     baseArmor: 20, baseMR: 20,
     projCount: 3, projSpread: 0.3,
@@ -264,13 +264,13 @@ export const CLASSES = {
   },
 
   Quiller: {
-    glyph: 'Q', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.50,
-    hp: 550, speed: 110, attackDelay: 1.2,
-    baseAtk: 55, baseAD: 68, baseAP: 0,
+    glyph: 'Q', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.75,
+    hp: 530, speed: 110, attackDelay: 0.9,
+    baseAtk: 60, baseAD: 75, baseAP: 0,
     baseArmor: 15, baseMR: 15,
     Q: {
-      baseCooldown: 3.5, castTime: 0.4,
-      baseDamage: 60, scaleAP: 0, scaleAD: 0.7,
+      baseCooldown: 5.0, castTime: 0.4,
+      baseDamage: 40, scaleAP: 0, scaleAD: 0.40,
       type: 'projectile', pGlyph: '»', pSpeed: 1200,
       desc: 'Fires a long-range bolt that damages the first enemy hit. Damage scales heavily with Attack Damage.'
     },
@@ -283,19 +283,19 @@ export const CLASSES = {
   },
 
   Fusilier: {
-    glyph: 'F', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.40,
-    hp: 580, speed: 115, attackDelay: 0.9,
-    baseAtk: 40, baseAD: 70, baseAP: 0,
+    glyph: 'F', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.7,
+    hp: 580, speed: 115, attackDelay: 0.85,
+    baseAtk: 45, baseAD: 72, baseAP: 0,
     baseArmor: 17, baseMR: 17,
     Q: {
-      baseCooldown: 5.0, castTime: 0.15,
-      baseDamage: 40, scaleAP: 0, scaleAD: 0.3,
-      type: 'projectile', count: 5, spread: 0.25, pGlyph: ':', pSpeed: 1100, life: 0.25,
+      baseCooldown: 5.0, castTime: 0.25,
+      baseDamage: 30, scaleAP: 0, scaleAD: 0.20,
+      type: 'projectile', count: 5, spread: 0.25, pGlyph: 'x', pSpeed: 1100, life: 0.25,
       desc: 'Fires a volley of 5 projectiles in a wide cone. Great for area damage or a massive point-blank shotgun burst.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.1,
-      baseDamage: 68, scaleAP: 0, scaleAD: 0.55,
+      baseDamage: 68, scaleAP: 0, scaleAD: 0.35,
       type: 'cone_knockback', radius: 110, cone: 90 * Math.PI / 180,
       desc: 'Fires a sweeping arc forward, dealing damage and violently knocking back enemies.'
     }
@@ -312,13 +312,13 @@ export const CLASSES = {
     baseArmor: 15, baseMR: 30,
     Q: {
       baseCooldown: 3.5, castTime: 0.3,
-      baseDamage: 115, scaleAP: 0.55, scaleAD: 0,
+      baseDamage: 105, scaleAP: 0.65, scaleAD: 0,
       type: 'projectile', pGlyph: 'O', pSpeed: 750,
       desc: 'Fires a magic orb that damages the first enemy hit. High base damage.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.6,
-      baseDamage: 100, scaleAP: 0.60, scaleAD: 0,
+      baseDamage: 95, scaleAP: 0.70, scaleAD: 0,
       type: 'aoe', radius: 160,
       desc: 'Creates an area explosion of magic energy at a target location, dealing damage to all enemies in the area.'
     }
@@ -331,7 +331,7 @@ export const CLASSES = {
     baseArmor: 22, baseMR: 22,
     Q: {
       baseCooldown: 4.0, castTime: 0.3,
-      baseDamage: 85, scaleAP: 0.75, scaleAD: 0,
+      baseDamage: 85, scaleAP: 0.80, scaleAD: 0,
       type: 'projectile', pGlyph: '~', pSpeed: 750, silenceDuration: 0.5,
       desc: 'Fires a shadow projectile that damages the first enemy hit and briefly silences them. Damage scales heavily with Ability Power.'
     },
@@ -350,13 +350,13 @@ export const CLASSES = {
     baseArmor: 18, baseMR: 25,
     Q: {
       baseCooldown: 8.0, castTime: 0.0,
-      baseDamage: 250, scaleAP: 0.90, scaleAD: 0, scaleLevel: 20,
+      baseDamage: 250, scaleAP: 0.95, scaleAD: 0, scaleLevel: 20,
       type: 'flamethrower', duration: 3.0, range: 160, cone: 40 * Math.PI / 180, tickRate: 0.10,
       desc: 'Flamethrower: For 3.0 seconds, unleashes a continuous stream of fire in a cone. Massively damages enemies while allowing free movement!'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.2,
-      baseDamage: 80, scaleAP: 0.45, scaleAD: 0, scaleLevel: 10,
+      baseDamage: 80, scaleAP: 0.50, scaleAD: 0, scaleLevel: 10,
       type: 'aoe_knockback', radius: 140,
       desc: 'Scorching Wave: Instant fire explosion around you, massively damaging and knocking back all nearby enemies.'
     }
@@ -444,28 +444,28 @@ export const CLASSES = {
   },
 
   Oracle: {
-    glyph: 'O', role: 'SUPPORT', range: true, dmgType: 'physical', aaScale: 0.20,
-    hp: 610, speed: 106, attackDelay: 1.3,
-    baseAtk: 25, baseAD: 55, baseAP: 0,
+    glyph: 'O', role: 'SUPPORT', range: true, dmgType: 'physical', aaScale: 0.7,
+    hp: 610, speed: 106, attackDelay: 1.1,
+    baseAtk: 35, baseAD: 60, baseAP: 0,
     baseArmor: 20, baseMR: 25,
     Q: {
-      baseCooldown: 11.0, castTime: 0.25,
-      baseDamage: 70, scaleAP: 0, scaleAD: 0.6, scaleLevel: 10,
-      type: 'projectile_pull', pSpeed: 650, life: 0.5, radius: 100, pGlyph: 'O', stunDuration: 1.0,
+      baseCooldown: 13.0, castTime: 0.25,
+      baseDamage: 90, scaleAP: 0, scaleAD: 0.45, scaleLevel: 10,
+      type: 'projectile_pull', pSpeed: 650, life: 0.5, radius: 120, pGlyph: 'O', stunDuration: 1.2,
       desc: 'Fires a sphere. On impact or hitting a target, it explodes, dealing damage to enemies in the area, pulling them to the center, and briefly stunning them.'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.2,
-      baseDamage: 0, scaleAP: 0, scaleAD: 0.5, amount: 80, scaleLevel: 15, duration: 5.0,
+      baseDamage: 0, scaleAP: 0, scaleAD: 0.40, amount: 90, scaleLevel: 15, duration: 5.0,
       type: 'shield_aoe', radius: 250,
       desc: 'Creates a magic barrier around you. You and all nearby allies gain a strong shield for 5 seconds.'
     }
   },
 
   Doctor: {
-    glyph: 'D', role: 'SUPPORT', range: false, dmgType: 'physical', aaScale: 0.25,
-    hp: 600, speed: 115, attackDelay: 1.2,
-    baseAtk: 30, baseAD: 50, baseAP: 0,
+    glyph: 'D', role: 'SUPPORT', range: false, dmgType: 'physical', aaScale: 0.40,
+    hp: 600, speed: 115, attackDelay: 1.1,
+    baseAtk: 35, baseAD: 55, baseAP: 0,
     baseArmor: 20, baseMR: 20,
     Q: {
       baseCooldown: 6.2, castTime: 0.0,

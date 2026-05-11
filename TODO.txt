@@ -1,12 +1,975 @@
-tamer když da E a pak Q tak se ressne wolf hned
-wolf asi ignoruje miniony nebo nevím
-přidat AI logiku - více jako modu ktery mozek behem hry zkouší (4/1) 3/2  hold aggresive capture , ignore and capture , cpature and fight atd
-wolf se asi ressne tam kde umřel, ne na spawnu
-minimalne dat na začatek že dokud se neobsadí všechny veže alespon nějakym tymem tak boti drží strategii 4/1 nebo 3/2 a važne ty veže rushujou + lanujou + přidat že boti se mužou hejbat už hned na začatku
-wanderevo spell nějaky je schopen nechat hrače na mínus hp a nepropsat kill a smrt
-zlepsit botí logiku pokud hraje doctor - tak at s ním někdo chodi a využívají toho uberchargu
-nechat boty občas proste jit jen po lajne (po okraji mapy) a pushovat miniony, farmit a dotlačit miniony pod vež.
-dat botum aby si vždy hlidali ty svoje 2 veže blízko spawnu a potom vybrali postupne jednu z tech zbylych
-at boti lepe počítají když vypočítavaji fight of fligth s movementspeedem a skokama danych hrdinu
-počitají boti když si počítají win probabilitu fightu s aktualníma hp?
-předělat champion select screen - více jako lolko - blue tym na levo red team na pravo, v tom vypís hraču v roomce co jsou online - pod tím talčítko join team , Hrdinove na vyber jsou mezi těmtito dvouma sloupci , pod tím je řadek se sellection of summoner spell a ready + start talčítka. obtížnost botu (v %) je schovana v dropdown menu pod talčítkem join team v obou dvou těch tymovych sloupícjc. nechat scrollovací šipky co jsou naohře u jmena roomyk  ale přidat je i velde těch start a ready tlačítka
+hele ja zjistil několik problenu: Tank je mega OP, s 2+ tanky itemy nejde proste zabít. Ranged carries jsou kromě Kratomy poměrně slabí, je potřeba AD hrdiny udělat více Autoattack based (jako ranged proste musí byt autoattack mašiny, zvetis scaling na AA a zmensit na spellech)
+Tank ma moc HP a moc Deff statu s itemy, je schopen mit 2500 HP a 160 armoru a ranged hrdina to nema šanci zabit s autoattacky co davají za 110.
+tank ma moc vysoke DPS
+chbyjěící identita a charakteristika těch AD vs AP hrdinu. Chce udelat AP více spell scaling a spell oriented (proste "casteři") u AD více Autoattack based s tím že spell je jen doplněk. samozřejmě jsou tam vyjímky pro rozbití toho steretotypu, ale ted je to dost rozmělněne..
+Udělal bych tanka velmi meně tanky a trochu více dps, zvyšit DMG pro ranged hrdiny popč zkontorlovat kde je problem, kratoma feels ok a strong ale zbytek je nic moc.
+
+
+
+
+
+LLMGW Icon
+Balance Rework - Řešení problémů
+Diagnostika problémů:
+1. Tank příliš tanky s itemy
+Titan tree dává +40% base HP + 70% base Armor = z 1100 HP/48 Arm → 1540 HP/82 Arm
+S druhou cestou (Thornmail): 2080 HP, 116 Armor = 4493 EHP
+Ranged carry s 110 auto damage potřebuje 40+ sekund!
+2. Ranged carries slabé (kromě Kratomy)
+Quiller auto: (55+68×0.50)/1.2 = 89/1.2 = 74.2 DPS base (příliš nízké!)
+Kratoma funguje protože: 3 projektily + pet + buff E = vícevrstvý damage
+Quiller/Fusilier mají příliš závislost na spellech místo auto attacků
+3. Chybějící AD vs AP identita
+AD by měli být: Auto-attack machines, spelly = utility/doplněk
+AP by měli být: Spell casters, auto = jen doplněk
+Teď: obojí je napůl, není jasný rozdíl
+NAVRHOVANÉ ZMĚNY:
+A) AD RANGED CARRIES — zvýšit AA scaling, snížit spell scaling:
+Quiller (Late Carry):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.50                      aaScale: 0.70  (+0.20)
+attackDelay: 1.2                   attackDelay: 1.0  (-0.2, rychlejší)
+baseAtk: 55                        baseAtk: 60  (+5)
+baseAD: 68                         baseAD: 75  (+7)
+Q scaleAD: 0.7                     Q scaleAD: 0.45  (-0.25, méně spell)
+Q baseDamage: 60                   Q baseDamage: 40  (-20)
+Q cd: 3.5                          Q cd: 5.0  (+1.5, méně spam)
+hp: 550                            hp: 530  (-20)
+
+Nový auto DPS: (60+75×0.70)/1.0 = 112.5 DPS (z 74.2, +52%!)
+Nový Q DPS: (40+75×0.45)/5.0 = 14.8 (z 29.4, -50%)
+Total: 127.3 base — auto dominant!
+
+S Bloodthirster (+58 AD, +30% AS):
+Auto: (60+133×0.70)/(1.0/1.30) = 153.1/0.77 = 198.8 DPS
+Q: (40+133×0.45)/5.0 = 20.0
+Total: 218.8 — většina z auto!
+
+Fusilier (Mid Carry, Shotgun):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.40                      aaScale: 0.60  (+0.20)
+attackDelay: 0.9                   attackDelay: 0.85  (-0.05)
+baseAtk: 40                        baseAtk: 45  (+5)
+baseAD: 70                         baseAD: 72  (+2)
+Q scaleAD: 0.3                     Q scaleAD: 0.2  (-0.1)
+Q baseDamage: 40                   Q baseDamage: 30  (-10)
+E scaleAD: 0.55                    E scaleAD: 0.35  (-0.2)
+
+Nový auto DPS: (45+72×0.60)/0.85 = 88.2/0.85 = 103.8 DPS (z 75.6, +37%)
+Q (5 shot): (30+72×0.2)×~2hit/5s = 8.9 DPS (utility/burst)
+Total: ~115 — auto dominant s shotgun burst utility
+
+Kratoma (nechávám beze změny — funguje):
+Stávající design je OK: 3 projektily + pet + E buff = unikátní identita
+Lynx (Melee AD Assassin — ponechat burst oriented):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.50                      aaScale: 0.55  (+0.05, mírně)
+E scaleAD: 0.45                    E scaleAD: 0.40  (-0.05, mírný spell nerf)
+
+Lynx zůstává burst melee — OK, identita je "all-in kill"
+
+Wanderer (Melee AD — spell+auto hybrid):
+Ponechat beze změny — spin_to_win je jeho identita
+
+Bruiser (Late Fighter — lifesteal auto):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.50                      aaScale: 0.55  (+0.05)
+Q scaleAD: 0.55                    Q scaleAD: 0.45  (-0.10)
+E scaleAD: 0.5                     E scaleAD: 0.40  (-0.10)
+
+Bruiser: více z auto, méně ze spellů = lifesteal synergy
+
+B) AP CASTERS — zvýšit spell scaling, snížit AA scaling:
+Mage:
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.20                      aaScale: 0.12  (-0.08)
+Q scaleAP: 0.55                    Q scaleAP: 0.65  (+0.10)
+E scaleAP: 0.60                    E scaleAP: 0.70  (+0.10)
+Q baseDamage: 115                  Q baseDamage: 105  (-10)
+E baseDamage: 100                  E baseDamage: 95  (-5)
+
+Auto DPS: (35+70×0.12)/1.4 = 43.4/1.4 = 31.0 (z 35.0, irelevantní)
+Q: (105+70×0.65)/3.5 = 150.5/3.5 = 43.0 (z 38.5, +12%)
+E: (95+70×0.70)/8 = 144/8 = 18.0 (z 17.5)
+Identity: Spells ARE the damage
+
+Summoner:
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.20                      aaScale: 0.12  (-0.08)
+Q scaleAP: 0.75                    Q scaleAP: 0.80  (+0.05)
+
+Pyromancer:
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.20                      aaScale: 0.10  (-0.10)
+Q scaleAP: 0.90                    Q scaleAP: 0.95  (+0.05)
+
+Pyromancer je PURE spell caster — auto je skoro nic
+
+Tamer:
+Ponechat — pet-based, unikátní identita
+
+C) TANK NERF — méně tanky, více DPS:
+Titan Tree nerf:
+yaml
+
+Copy code
+BYLO:                              BUDE:
+Sunfire HP: +40% base              +30% base  (-10%)
+Sunfire Armor: +70% base           +50% base  (-20%)
+Spirit Visage HP: +40% base        +30% base  (-10%)
+Spirit Visage MR: +70% base        +50% base  (-20%)
+
+Titan T1 HP: +15% base             +12% base  (-3%)
+Titan T2 Armor HP: +20% base       +15% base  (-5%)
+Titan T2 Armor: +40% base          +30% base  (-10%)
+Titan T2 MR HP: +20% base          +15% base  (-5%)
+Titan T2 MR: +50% base             +35% base  (-15%)
+
+Nový Ironclad se Sunfire (po nerfu):
+
+yaml
+
+Copy code
+HP: 1100 + 210(lvl) + round(1100×0.30) = 1100+210+330 = 1640 (z 2080)
+Armor: 48 + round(48×0.50) = 48+24 = 72 (z 116)
+EHP phys: 1640×1.72 = 2821 (z 4493, -37%!)
+
+Base tank staty nerf + DPS buff:
+yaml
+
+Copy code
+IRONCLAD:
+BYLO:                              BUDE:
+hp: 1100                           hp: 1000  (-100)
+baseArmor: 48                      baseArmor: 42  (-6)
+baseMR: 43                         baseMR: 38  (-5)
+baseAtk: 50                        baseAtk: 55  (+5)
+baseAD: 35                         baseAD: 40  (+5)
+aaScale: 0.35                      aaScale: 0.40  (+0.05)
+E baseDamage: 74                   E baseDamage: 85  (+11)
+Q bonusMaxHpDmg: 0.0675            Q bonusMaxHpDmg: 0.08 (+0.0125)
+
+GOLIATH:
+hp: 1200                           hp: 1100  (-100)
+baseArmor: 50                      baseArmor: 44  (-6)
+baseMR: 50                         baseMR: 44  (-6)
+baseAtk: 55                        baseAtk: 60  (+5)
+aaScale: 0.40                      aaScale: 0.45  (+0.05)
+
+JAILER:
+hp: 1150                           hp: 1050  (-100)
+baseArmor: 45                      baseArmor: 40  (-5)
+baseMR: 45                         baseMR: 40  (-5)
+baseAtk: 45                        baseAtk: 50  (+5)
+aaScale: 0.30                      aaScale: 0.35  (+0.05)
+
+HANA:
+hp: 1050                           hp: 980  (-70)
+baseArmor: 40                      baseArmor: 36  (-4)
+baseMR: 40                         baseMR: 36  (-4)
+
+D) Benevolence/Combat tree nerf armor scaling:
+csharp
+
+Copy code
+BYLO:                              BUDE:
+Death's Dance armor: +90% base     +60% base  (-30%)
+Locket armor: +175% base           +120% base  (-55%)
+Warden's Charm armor: +100% base   +70% base  (-30%)
+Thornmail armor: +70% base         +50% base  (-20%)
+Bramble Vest armor: +30% base      +20% base  (-10%)
+
+PŘEPOČET PO ZMĚNÁCH:
+Nový Ironclad (Sunfire + Thornmail, Late):
+python
+Run Code
+
+Copy code
+HP: 1000 + 210 + round(1000×0.30) + round(1000×0.30×0.5... wait)
+
+
+Hmm — Thornmail je z Blight tree, ne Titan. Přepočítám:
+
+Ironclad + Sunfire (Titan T3) + Thornmail (Blight T3):
+
+yaml
+
+Copy code
+Sunfire: +30% base HP = +300, +50% base Armor = +21
+Thornmail: +30% base HP (z 1000) = +300, +50% base Armor = +21, 60% GW
+
+HP: 1000 + 210 + 300 + 300 = 1810
+Armor: 42 + 21 + 21 = 84
+MR: 38
+
+Auto: (55 + 54×0.40)/1.4 = 76.6/1.4 = 54.7 DPS
+Burn: 1810×0.02 = 36.2 DPS
+E + stun: ~10 DPS
+TOTAL: ~101 DPS + shield + stun + GW
+
+EHP phys: 1810×1.84 = 3330 (z 4493, -26%)
+EHP magic: 1810×1.38 = 2498
+
+Nový Quiller (Bloodthirster, Mid):
+makefile
+
+Copy code
+AD: 75 + 11 + round(75×0.85) = 75+11+64 = 150
+AS: 1.0 + 0.30 = 1.30
+
+Auto: (60 + 150×0.70)/(1.0/1.30) = 165/0.77 = 214.3 DPS !!!
+Q: (40+150×0.45)/5.0 = 107.5/5.0 = 21.5
+TOTAL: 235.8 DPS + 10% LS = 23.6 HPS
+
+Quiller vs nový Ironclad:
+yaml
+
+Copy code
+Quiller DPS: 235.8
+vs 84 armor: 100/184 = 54.3%
+Net: 235.8×0.543 = 128.0
+Ironclad HP: 1810 + shield 125 = 1935
+TTK: 1935/128.0 = 15.1s
+
+S Last Whisper (25% pen): eff armor = 84×0.75 = 63
+
+yaml
+
+Copy code
+Net: 235.8 × 100/163 = 235.8×0.613 = 144.6
+TTK: 1935/144.6 = 13.4s
+
+Ironclad vs nový Quiller:
+yaml
+
+Copy code
+Ironclad DPS: 101
+vs 15 armor: 100/115 = 87%
+Net: 101×0.87 = 87.9
+Quiller HP: 530 + 165(lvl) + round(530×... no titan)
+Quiller with Offense + Blight: no HP items → HP: 530+165 = 695
+TTK: 695/87.9 = 7.9s
+
+→ Ironclad zabije Quiller za 7.9s, Quiller zabije Ironclad za 13.4-15.1s
+
+Quiller musí kitovat! Speed 110 vs 100 = těsné...
+S boots: 150 vs 140 = stále těsné
+NOVÁ TTK MATICE (Mid game, po změnách):
+Matchup	TTK	Poznámka
+Quiller → squishy (vs 15-20 arm)	695/(235×0.85) = 3.5s	Rychlý kill
+Quiller → Ironclad (vs 84, no pen)	15.1s	Potřebuje pen/team
+Quiller → Ironclad (+25% pen)	13.4s	Rozumné s investicí
+Lynx → squishy	3.3-4s	Instant melee
+Lynx → Ironclad (+20% pen)	~12-14s	OK
+Ironclad → Quiller	7.9s	Tank je hrozba!
+Ironclad → Lynx	~10s	Lynx kituje hůř
+Mage → Ironclad (magic vs 38)	96.7×0.72=69.6,	
+
+
+
+
+
+
+
+avatar
+skonil jsi u TTK matice, prosím pokračuj
+
+
+
+
+
+LLMGW Icon
+NOVÁ TTK MATICE (pokračování):
+Mid game (Level 12, 1×T3 + extra T1s):
+Matchup	Net DPS	TTK	Poznámka
+Quiller → squishy (vs 15-20)	235.8×0.85 = 200.4	695/200.4 = 3.5s	Rychlý kill
+Quiller → Ironclad (vs 84, no pen)	235.8×0.543 = 128.0	1935/128.0 = 15.1s	Potřebuje pen
+Quiller → Ironclad (+25% pen, eff 63)	235.8×0.613 = 144.6	1935/144.6 = 13.4s	Rozumné
+Lynx → squishy (vs 15-20)	272×0.85 = 231.2	695/231.2 = 3.0s	Instant melee
+Lynx → Ironclad (vs 84, +20% pen, eff 67)	272×0.598 = 162.7	1935/162.7 = 11.9s	OK pro melee
+Fusilier → squishy (vs 15-20)	~175×0.85 = 148.8	695/148.8 = 4.7s	Solidní
+Fusilier → Ironclad (vs 84)	~175×0.543 = 95.0	1935/95.0 = 20.4s	Potřebuje pen!
+Mage → squishy (magic vs 20)	147.8×0.833 = 123.1	695/123.1 = 5.6s	Spell burst
+Mage → Ironclad (magic vs 38)	147.8×0.725 = 107.2	1935/107.2 = 18.1s	Pomalé
+Mage → Ironclad (+Liandry 3% burn)	107.2 + (1810×0.03/4)=13.6 = 120.8	1935/120.8 = 16.0s	Burn pomáhá
+Pyro (Q active) → Ironclad (magic vs 38)	~140×0.725 = 101.5	1935/101.5 = 19.1s	Pomalé bez pen
+Summoner + ghúly → Ironclad (magic vs 38)	~130×0.725 = 94.3	1935/94.3 = 20.5s	Pet pomáhá
+Ironclad → Quiller (phys vs 15)	101×0.870 = 87.9	695/87.9 = 7.9s	Tank je hrozba
+Ironclad → Lynx (phys vs 20)	101×0.833 = 84.1	1051/84.1 = 12.5s	Lynx kituje
+Ironclad → Mage (phys vs 15)	101×0.870 = 87.9	878/87.9 = 10.0s	
+Ironclad → Bruiser (phys vs 63)	101×0.613 = 61.9	1485/61.9 = 24.0s	Tank mirror
+Bruiser → Quiller (phys vs 15)	138.1×0.870 = 120.1	695/120.1 = 5.8s	
+Bruiser → Ironclad (vs 84, +20% pen, eff 67)	138.1×0.598 = 82.6	1935/82.6 = 23.4s	Bruiser struggle vs tank
+Bruiser → Lynx (phys vs 20)	138.1×0.833 = 115.1	1051/115.1 = 9.1s	
+Hana (Q active) → Quiller (magic vs 15)	~110×0.870 = 95.7	695/95.7 = 7.3s	Hana scary
+Hana (Q active) → Lynx (magic vs 20)	~110×0.833 = 91.6	1051/91.6 = 11.5s	
+Jailer → Quiller (magic vs 15)	~65×0.870 = 56.6	695/56.6 = 12.3s	Low DPS, CC god
+Wanderer (burst) → squishy	~160 burst DPS	695/136 = 5.1s	Spin+omni
+Wanderer (burst) → Ironclad	~160×0.543 = 86.9	1935/86.9 = 22.3s	Melee vs tank = bad
+Kratoma + pet → squishy (vs 20)	~130×0.833 = 108.3	695/108.3 = 6.4s	Pet carry
+Kratoma + pet → Ironclad (vs 84)	~130×0.543 = 70.6	1935/70.6 = 27.4s	Needs pen badly
+SUPPORT MATCHUPY:
+Healer s Redemption (43 HPS):
+Matchup (s Healerem u cíle)	Bez healera	S healerem	S GW (60%)
+Quiller → Ironclad	15.1s	128-43=85, 1935/85=22.8s	128-17.2=110.8, 17.5s
+Lynx → Ironclad	11.9s	162.7-43=119.7, 1935/119.7=16.2s	162.7-17.2=145.5, 13.3s
+Ironclad → Quiller	7.9s	87.9-43=44.9, 695/44.9=15.5s	87.9-17.2=70.7, 9.8s
+Ironclad → Lynx	12.5s	84.1-43=41.1, 1051/41.1=25.6s	84.1-17.2=66.9, 15.7s
+Doctor heal beam (přepočet s nerfem):
+yaml
+
+Copy code
+Doctor Q: amount=2.6, scaleAD=0.065, tickRate=0.1
+Base AD: 50, mid AD: ~80
+Per tick: 2.6 + 80×0.065 = 7.8
+Per second: 7.8/0.1 = 78 HPS ← STÁLE VYSOKÉ!
+
+Hmm — Doctor beam je stále 78 HPS! To je problém. Ale nový design říká range: 200 a Doctor je MELEE (speed 115) — musí stát u spojence. Plus po 5s auto-triggeruje uber. Takže:
+
+5s heal = 390 HP healed + 3s invuln
+Pak 6.2s CD
+Effective over full cycle (5+3+6.2=14.2s): 390 heal + invuln / 14.2s = 27.4 HPS average + invuln value
+OK, Doctor je silný ale má clear counterplay (kill Doctor first, silence/stun interrupts beam, melee = vulnerable).
+
+SROVNÁNÍ S CÍLI:
+Cíl	Výsledek	Status
+DPS → DPS: 4-7s	3.0-5.6s	✅ Rychlé, akční
+DPS → Tank: ~12-16s	11.9-20.4s	⚠️ Bez pen 15-20s, s pen 11-13s
+Tank → DPS: ~8-13s	7.9-12.5s	✅ Perfektní
+Fighter → DPS: ~6-10s	5.8-9.1s	✅
+DPS → Fighter: ~8-12s	9.1s	✅
+Healer neguje damage: ~20-30%	25-35% bez GW	✅ GW counter existuje
+Tank+Healer nezabitelné bez GW	Ano (22.8s+)	✅ Záměr, GW fixuje
+AD vs AP IDENTITA PO ZMĚNÁCH:
+AD hrdinové — Auto-Attack dominant:
+Hrdina	Auto DPS %	Spell DPS %	Identita
+Quiller	214/236 = 91%	9%	Pure auto carry ✅
+Fusilier	104/130 = 80%	20%	Shotgun auto + burst ✅
+Kratoma	61/100 = 61% (+pet)	9% (+pet 30%)	Pet-based hybrid ✅
+Lynx	189/233 = 81%	19%	Burst assassin (auto+E) ✅
+Bruiser	103/138 = 75%	25%	Sustained fighter ✅
+Wanderer	86/~150 = 57%	43% (spin)	Spell-auto hybrid (exception) ✅
+AP hrdinové — Spell dominant:
+Hrdina	Auto DPS %	Spell DPS %	Identita
+Mage	31/92 = 34%	66%	Spell caster ✅
+Pyromancer	28/88 = 32%	68%	Spell burster ✅
+Summoner	33/80 = 41%	59% (+pets)	Summoner ✅
+Tamer	30/80 = 38%	16% (+wolf 46%)	Pet mage ✅
+Zephyr	51/74 = 69%	31%	Exception: speed splitpush ⚠️
+Jirina	47/63 = 75%	25% (+heal)	Exception: melee AP fighter ⚠️
+Hana	56/68 = 82% (Q buff)	18%	Exception: tank AA buff ⚠️
+Zephyr/Jirina/Hana jsou záměrné výjimky — melee AP hrdinové potřebují auto DPS aby mohli fungovat v boji.
+
+🎯 FINÁLNÍ VERDIKT:
+✅ Co teď funguje:
+AD carries jsou auto-attack machines (80-91% DPS z auto)
+AP casters jsou spell-oriented (60-68% DPS ze spellů)
+Tank je zabitelný (EHP 3330 z 4493, -26%) ale stále tanky
+Tank má reálný DPS (101 s burn = zabije squishies za 8s)
+Pen items fungují (zkrátí TTK na tank o 15-20%)
+GW counter heal (60% redukce = nezbytný proti heal comp)
+Clear identita — víš co od hrdiny čekat
+⚠️ K dalšímu sledování:
+Quiller 3.5s TTK na squishies — extrémně rychlé ale ranged carry pomalý (110 speed)
+Fusilier bez pen nemá šanci vs tank (20.4s) — potřebuje Blight/Last Whisper
+Mage vs tank (16-18s) — pomalé, ale Mage je AoE teamfighter ne tank killer
+Zephyr identity — 69% auto pro AP hrdinu je divné, ale je to splitpusher
+Chceš finální kód se všemi změnami?
+
+
+
+
+
+
+
+avatar
+sepiš tedy prosím všechny nove změny. nejdrive vypiš nove zmeny u všech hrdinu a pak item změny.
+prosím at je AA scaling mezi 20-80% (v zavislotsi na hrdinech) at nikdo nema ani víc ani min, u magu se mi těch 20+-% libí, at ten AA pořad něco děla.
+koukni jeste prosím na Oracle, je to AD support mage , ktery ma štít a vyznamny AOE stun s dlouhym CD, tady si myslim že je potřeba si pohrat s dmg toho stunu a s jeho AA dmg aby byl taky více AA oriented.
+
+
+
+
+
+LLMGW Icon
+Kompletní seznam změn
+HERO CHANGES:
+DPS / SLAYER — AD Ranged (Auto-Attack focused):
+Quiller (Late Carry):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.50                      aaScale: 0.75
+attackDelay: 1.2                   attackDelay: 1.0
+baseAtk: 55                        baseAtk: 60
+baseAD: 68                         baseAD: 75
+Q baseDamage: 60                   Q baseDamage: 40
+Q scaleAD: 0.7                     Q scaleAD: 0.40
+Q cd: 3.5                          Q cd: 5.0
+hp: 550                            hp: 530
+
+Fusilier (Mid Carry, Shotgun):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.40                      aaScale: 0.65
+attackDelay: 0.9                   attackDelay: 0.85
+baseAtk: 40                        baseAtk: 45
+baseAD: 70                         baseAD: 72
+Q baseDamage: 40                   Q baseDamage: 30
+Q scaleAD: 0.3                     Q scaleAD: 0.20
+E scaleAD: 0.55                    E scaleAD: 0.35
+
+Kratoma (Pet Carry — beze změny):
+Ponechat stávající hodnoty. Funguje dobře.
+
+DPS / SLAYER — AD Melee:
+Lynx (Early Assassin):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.50                      aaScale: 0.60
+E scaleAD: 0.45                    E scaleAD: 0.35
+
+Wanderer (Spin/Omnislash):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.50                      aaScale: 0.55
+E scaleAD: 0.45                    E scaleAD: 0.35
+E count: 4                         E count: 4 (beze změny)
+
+Bruiser (Late Fighter):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.50                      aaScale: 0.60
+Q scaleAD: 0.55                    Q scaleAD: 0.40
+E scaleAD: 0.5                     E scaleAD: 0.35
+
+Vanguard (Early Fighter):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.50                      aaScale: 0.55
+Q scaleAD: 0.25                    Q scaleAD: 0.20
+E scaleAD: 0.35                    E scaleAD: 0.25
+
+DPS / SLAYER — AP Melee (výjimky — potřebují AA):
+Zephyr (Splitpusher):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.20                      aaScale: 0.35
+E scaleAP: 0.7                     E scaleAP: 0.80
+E baseDamage: 75                   E baseDamage: 70
+
+Zephyr je melee splitpusher — potřebuje AA na miniony, ale hlavní damage je E knockback.
+
+Reaper (Splitpusher):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.28                      aaScale: 0.40
+Q scaleAP: 0.40                    Q scaleAP: 0.50
+
+Reaper je o empowered auto attackech (Q buff) — vyšší AA scale dává smysl.
+
+MAGE — AP Ranged (Spell focused):
+Mage (Early Caster):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.20                      aaScale: 0.20 (beze změny)
+Q baseDamage: 115                  Q baseDamage: 105
+Q scaleAP: 0.55                    Q scaleAP: 0.65
+E baseDamage: 100                  E baseDamage: 95
+E scaleAP: 0.60                    E scaleAP: 0.70
+
+Summoner (Late Caster):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.20                      aaScale: 0.20 (beze změny)
+Q scaleAP: 0.75                    Q scaleAP: 0.80
+
+Pyromancer (Burst Caster):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.20                      aaScale: 0.20 (beze změny)
+Q scaleAP: 0.90                    Q scaleAP: 0.95
+E scaleAP: 0.45                    E scaleAP: 0.50
+
+Tamer (Pet Mage):
+text
+
+Copy code
+Beze změny — funguje dobře.
+
+TANK — Méně tanky, více DPS:
+Ironclad (ex-Tank):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+hp: 1100                           hp: 1000
+baseArmor: 48                      baseArmor: 42
+baseMR: 43                         baseMR: 38
+baseAtk: 50                        baseAtk: 55
+baseAD: 35                         baseAD: 40
+aaScale: 0.35                      aaScale: 0.45
+E baseDamage: 74                   E baseDamage: 85
+Q bonusMaxHpDmg: 0.0675            Q bonusMaxHpDmg: 0.08
+
+Goliath:
+yaml
+
+Copy code
+BYLO:                              BUDE:
+hp: 1200                           hp: 1100
+baseArmor: 50                      baseArmor: 44
+baseMR: 50                         baseMR: 44
+baseAtk: 55                        baseAtk: 60
+baseAD: 40                         baseAD: 45
+aaScale: 0.40                      aaScale: 0.50
+
+Jailer:
+yaml
+
+Copy code
+BYLO:                              BUDE:
+hp: 1150                           hp: 1050
+baseArmor: 45                      baseArmor: 40
+baseMR: 45                         baseMR: 40
+baseAtk: 45                        baseAtk: 50
+baseAP: 52                         baseAP: 55
+aaScale: 0.30                      aaScale: 0.40
+
+Hana:
+makefile
+
+Copy code
+BYLO:                              BUDE:
+hp: 1050                           hp: 980
+baseArmor: 40                      baseArmor: 36
+baseMR: 40                         baseMR: 36
+aaScale: 0.35                      aaScale: 0.40
+
+FIGHTER — AP (výjimky):
+Jirina:
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.30                      aaScale: 0.35
+Q scaleAP: 0.45                    Q scaleAP: 0.50
+
+Jirina je melee AP fighter — potřebuje trochu auto, ale hlavní value je Q knockback + E heal.
+
+SUPPORT:
+Healer:
+makefile
+
+Copy code
+Beze změny — funguje dobře.
+aaScale: 0.13 (zůstává)
+
+Cleric (ex-Acolyte):
+makefile
+
+Copy code
+Beze změny — funguje dobře.
+aaScale: 0.20 (zůstává)
+
+Eggchanter (ex-Keeper):
+makefile
+
+Copy code
+Beze změny — pet-based.
+aaScale: 0.20 (zůstává)
+
+Oracle (AD Support — REWORK AA focus):
+yaml
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.20                      aaScale: 0.55
+baseAtk: 25                        baseAtk: 35
+baseAD: 55                         baseAD: 60
+attackDelay: 1.3                   attackDelay: 1.1
+Q baseDamage: 70                   Q baseDamage: 90
+Q scaleAD: 0.6                     Q scaleAD: 0.45
+Q cd: 11.0                         Q cd: 13.0
+Q stunDuration: 1.0                Q stunDuration: 1.2
+Q radius: 100                      Q radius: 120
+E scaleAD: 0.5                     E scaleAD: 0.40
+E amount: 80                       E amount: 90
+
+Oracle nová identita:
+
+Auto DPS: (35+60×0.55)/1.1 = 68/1.1 = 61.8 DPS (z 30.0, +106%!)
+Q: AoE stun (1.2s!) s pull — méně scaling ale vyšší base + radius
+E: Silnější shield pro tým
+Role: AD support bruiser — bije solidně, ale hlavní value je stun/shield
+Doctor (ex-Medic):
+makefile
+
+Copy code
+BYLO:                              BUDE:
+aaScale: 0.25                      aaScale: 0.40
+baseAtk: 30                        baseAtk: 35
+baseAD: 50                         baseAD: 55
+attackDelay: 1.2                   attackDelay: 1.1
+
+Doctor je melee AD support — potřebuje AA aby přežil a přispíval v boji.
+
+SOUHRNNÁ AA SCALE TABULKA (finální):
+Hrdina	aaScale	Typ	Role	Identita
+Quiller	0.75	AD ranged	Late Carry	Pure auto machine
+Fusilier	0.65	AD ranged	Mid Carry	Shotgun auto
+Lynx	0.60	AD melee	Early Assassin	Burst + auto
+Bruiser	0.60	AD melee	Late Fighter	Sustained auto
+Vanguard	0.55	AD melee	Early Fighter	Engage tank-ish
+Wanderer	0.55	AD melee	Mid Slayer	Spin + auto
+Oracle	0.55	AD ranged	AD Support	Stun bot + auto
+Goliath	0.50	AD melee	Late Tank	Tanky auto
+Ironclad	0.45	AD melee	Early Tank	Shield + stun
+Kratoma	0.40	AD ranged	Pet Carry	Pet + auto
+Jailer	0.40	AP melee	CC Tank	Hook + slow
+Hana	0.40	AP melee	Mid Tank	HP% buff auto
+Doctor	0.40	AD melee	Heal Support	Beam + auto
+Reaper	0.40	AP melee	Splitpusher	Empowered auto
+Zephyr	0.35	AP melee	Splitpusher	Speed + knockback
+Jirina	0.35	AP melee	Mid Fighter	Knockback + heal
+Cleric	0.20	AP ranged	Late Support	Heal + silence
+Mage	0.20	AP ranged	Early Caster	Pure spells
+Summoner	0.20	AP ranged	Late Caster	Spells + pets
+Pyromancer	0.20	AP ranged	Burst Caster	Flamethrower
+Eggchanter	0.20	AP ranged	Pet Support	Eggs + chickens
+Tamer	0.20	AP ranged	Pet Mage	Wolf + spells
+Healer	0.20	AP ranged	Mid Support	Heal + slow
+Rozsah: 0.20 — 0.75 ✅
+
+ITEM CHANGES:
+Titan Tree (Tank nerf):
+javascript
+Run Code
+
+Copy code
+// T1
+{ id: 'titan_t1', ..., stats: { hpPct: 0.12 },  // BYLO: 0.15
+  apply: (pl) => { const b = Math.round((pl.baseMaxHp||pl.maxHp)*0.12); ... } }
+
+// T2 Armor
+{ id: 'titan_t2_ar', ..., stats: { hpPct: 0.15, armorPct: 0.30 },  // BYLO: 0.20, 0.40
+  apply: (pl) => { const h = Math.round((pl.baseMaxHp||pl.maxHp)*0.15); ... 
+                   pl.armor += Math.round((pl.baseArmor_stat||pl.armor)*0.30); } }
+
+// T2 MR
+{ id: 'titan_t2_mr', ..., stats: { hpPct: 0.15, mrPct: 0.35 },  // BYLO: 0.20, 0.50
+  apply: (pl) => { const h = Math.round((pl.baseMaxHp||pl.maxHp)*0.15); ...
+                   pl.mr += Math.round((pl.baseMR_stat||pl.mr)*0.35); } }
+
+// T3 Sunfire Aegis
+{ id: 'titan_t3_sun', ..., stats: { hpPct: 0.30, armorPct: 0.50 },  // BYLO: 0.40, 0.70
+  apply: (pl) => { const h = Math.round((pl.baseMaxHp||pl.maxHp)*0.30); ...
+                   pl.armor += Math.round((pl.baseArmor_stat||pl.armor)*0.50); ... } }
+
+// T3 Spirit Visage
+{ id: 'titan_t3_spirit', ..., stats: { hpPct: 0.30, mrPct: 0.50 },  // BYLO: 0.40, 0.70
+  apply: (pl) => { const h = Math.round((pl.baseMaxHp||pl.maxHp)*0.30); ...
+                   pl.mr += Math.round((pl.baseMR_stat||pl.mr)*0.50); ... } }
+
+
+Combat Tree (Armor nerf):
+javascript
+Run Code
+
+Copy code
+// T3 Death's Dance
+{ id: 'comb_t3_dance', ..., stats: { ..., armorPct: 0.60 },  // BYLO: 0.90
+  apply: (pl) => { ... pl.armor += Math.round((pl.baseArmor_stat||pl.armor)*0.60); ... } }
+
+
+Benevolence Tree (Armor nerf):
+javascript
+Run Code
+
+Copy code
+// T2b Warden's Charm
+{ id: 'ben_t2b', ..., stats: { ..., armorPct: 0.70 },  // BYLO: 1.00
+  apply: (pl) => { ... pl.armor += Math.round((pl.baseArmor_stat||pl.armor)*0.70); ... } }
+
+// T3 Locket of Solari
+{ id: 'ben_t3_locket', ..., stats: { ..., armorPct: 1.20 },  // BYLO: 1.75
+  
+
+
+
+
+
+
+
+
+
+avatar
+pokračuj, ksonči jsi u benevolence tree. pak až prosím vypišeš všechny změny spočítej jeste jednou TTK matici, DPS a HealPerSec + Early vs mid vs late game charakteristiky hrdinu (jake dps maji v jakych fazích hry)
+
+Dokončení item změn — Benevolence tree
+javascript// T3 Locket of Solari — BYLO: armorPct 1.75, BUDE: 1.20
+{ id: 'ben_t3_locket',
+  stats: { power: 0.15, hpPct: 0.85, armorPct: 1.20, healPower: 0.20 },
+  apply: (pl) => {
+    addAdaptive(pl, 0.15);
+    const h = Math.round((pl.baseMaxHp||pl.maxHp) * 0.85);
+    pl.maxHp += h; pl.hp += h;
+    pl.armor += Math.round((pl.baseArmor_stat||pl.armor) * 1.20);
+    pl.healPower = (pl.healPower||0) + 0.20;
+  }
+},
+
+// T2b Warden's Charm — BYLO: armorPct 1.00, BUDE: 0.70
+{ id: 'ben_t2b',
+  stats: { power: 0.10, hpPct: 0.50, armorPct: 0.70, healPower: 0.10 },
+  apply: (pl) => {
+    addAdaptive(pl, 0.10);
+    const h = Math.round((pl.baseMaxHp||pl.maxHp) * 0.50);
+    pl.maxHp += h; pl.hp += h;
+    pl.armor += Math.round((pl.baseArmor_stat||pl.armor) * 0.70);
+    pl.healPower = (pl.healPower||0) + 0.10;
+  }
+},
+
+Kompletní přehled všech item změn (souhrn)
+Item                 Stat          BYLO      BUDE    Dopad
+──────────────────────────────────────────────────────────────
+titan_t1             hpPct         0.15      0.12    -3% HP
+titan_t2_ar          hpPct         0.20      0.15    -5% HP
+titan_t2_ar          armorPct      0.40      0.30    -10% armor
+titan_t2_mr          hpPct         0.20      0.15    -5% HP
+titan_t2_mr          mrPct         0.50      0.35    -15% MR
+titan_t3_sun         hpPct         0.40      0.30    -10% HP
+titan_t3_sun         armorPct      0.70      0.50    -20% armor
+titan_t3_spirit      hpPct         0.40      0.30    -10% HP
+titan_t3_spirit      mrPct         0.70      0.50    -20% MR
+comb_t3_dance        armorPct      0.90      0.60    -30% armor
+ben_t2b              armorPct      1.00      0.70    -30% armor
+ben_t3_locket        armorPct      1.75      1.20    -55% armor
+blight_t2_tank       armorPct      0.30      0.20    -10% armor
+blight_t3_tank       armorPct      0.70      0.50    -20% armor
+
+Finální EHP po všech změnách — klíčové příklady
+Ironclad s full Titan (Sunfire + T2 MR, L15):
+Base (po nerfu):  HP 1000, armor 42, MR 38
+Level bonus:      +210 HP
+Sunfire path:     +12%(126) + 15%(126) + 30%(300) HP = +552 HP
+                  armor: +42×0.30=13 + 42×0.50=21 = +34 armor
+Spirit path:      +15%(150) + 30%(300) HP = +450 HP
+                  MR: +38×0.35=13 + 38×0.50=19 = +32 MR
+
+Celkem: HP 2212, Armor 76, MR 70
+Phys EHP: 2212 × 1.76 = 3893
+Mag EHP:  2212 × 1.70 = 3760
+Avg EHP:  3827   (vs původních ~4800+ = -20%)
+Goliath s full Titan (L15):
+Base: HP 1100, armor 44, MR 44
+Level: +210 HP
+Items: +12%+15%+30% HP = +630 HP, armor +13+22=+35, MR +15+22=+37
+Celkem: HP 1940, Armor 79, MR 81
+Avg EHP: 1940×1.80 = 3492 (jen jeden Titan path)
+Quiller s Last Whisper (L15, off tree):
+AD: 75 + 14(lvl) + 75×(0.15+0.45+0.95)=75×1.55=116 = 205 AD
+AS: 1.0 + 0.05 + 0.20 + 0.20 = 1.45
+Auto DPS: (60 + 205×0.75) / (1.0/1.45) = 213.75 / 0.69 = 309.8 DPS
+Q DPS:    (40 + 205×0.40) / 5.0 = 122/5 = 24.4 DPS
+Total:    334.2 DPS + 25% pen vs armor
+
+TTK matice — Late game (L15, 1× T3 item + extras)
+Tři scénáře tankování: Bare = bez def itemů, Sunfire = full Titan armor path, Full = Sunfire + Spirit Visage.
+Efektivní armor tanků po nerfech:
+Ironclad Sunfire:  armor 76 → 100/176 = 56.8% průchod
+Goliath Sunfire:   armor 79 → 100/179 = 55.9% průchod
+Ironclad Full:     armor 76, MR 70 (pro magic damage)
+AD Ranged vs Tanky
+Quiller (309 DPS, 25% pen) vs:
+  Squishy (arm 17):       EHP ~770/0.854 = 901  → 901/309  = 2.9s  🔴 velmi rychlé
+  Skirmisher (arm 28):    EHP ~1060/0.781= 1357 → 1357/309 = 4.4s
+  Ironclad bare (arm 42): EHP ~1780/0.704= 2528 → 2528/309 = 8.2s
+  Ironclad Sunfire (76):  
+    eff armor = 76×0.75 = 57 (po pen)
+    EHP ~2212/0.638= 3467 → 3467/309  = 11.2s  ✓ rozumné
+  Ironclad Full Titan:    ~11.2–12.5s             ✓ tank přežije, potřebuje team
+
+Fusilier (230 DPS, 25% pen) vs:
+  Squishy:                2.9/0.854 ÷ 230 = ~3.9s
+  Ironclad Sunfire:       3467/230 = 15.1s  (bez pen: ~19s)
+  → Fusilier MUSÍ buildít pen aby byl relevantní vs tanky ✓
+
+Kratoma (180 DPS bez peťa, 260 s petem, pen nemá) vs:
+  Ironclad Sunfire:       3467×0.568/260 = 7.6s  ← pet pomáhá
+  Pet nepotřebuje pen protože pet dělá flat AD poškození
+AD Melee vs Tanky
+Lynx (245 DPS, combat tree +20% pen) vs:
+  Squishy:                2.5s  ← assassin timing ✓
+  Ironclad bare:          EHP 2528 × (1-0.20 pen eff armor) 
+    eff armor = 42×0.80 = 33.6 → EHP 2212/0.752 = 2942
+    2942/245 = 12.0s  ✓
+  Ironclad Sunfire:
+    eff armor = 76×0.80 = 60.8 → EHP 2212/0.622 = 3556
+    3556/245 = 14.5s  ← melee bez ranged kiting výhody, potřebuje team
+
+Bruiser (195 DPS, lifesteal build) vs:
+  Ironclad Sunfire:       3556/195 = 18.2s
+  Ale: 15% LS = 195×0.15 = 29 HPS → sustain v prolonged fightu ✓
+
+Wanderer (burst 220 DPS sustained) vs:
+  Ironclad Sunfire:       3467/220 = 15.8s
+  V teamfightu spin AoE na 3 tanky: efektivní 3× 220 = 660 DPS total ✓
+AP Casters vs Tanky (magic damage)
+Mage (165 DPS spells, no magic pen) vs:
+  Ironclad Full (MR 70): EHP 2212/0.588 = 3762 → 3762/165 = 22.8s  🔴 příliš pomalé
+  Ironclad Full + Liandry: +2212×0.03/4 = 16.6 DPS burn → 3762/181.6 = 20.7s
+  → NUTNÝ Void Staff (magic pen) nebo zůstane slabý vs tanky
+
+  S navrženým Void Staff (25% magic pen):
+    eff MR = 70×0.75 = 52.5 → EHP 2212/0.655 = 3377 → 3377/165 = 20.5s
+    + Liandry burn: 3377/181.6 = 18.6s  ← stále pomalé ale smysluplné
+
+Summoner (155 DPS + 85 ghoul DPS = 240) vs:
+  Ironclad Full:          3762/240 = 15.7s  — ghouli jsou anti-tank řešení ✓
+
+Pyromancer (Q kanál = 3s burst 160 avg DPS) vs:
+  Ironclad Full:          pokud stojí v kuželu 3s → 480 damage za kanál
+                          pak 9s wait → avg 53 DPS ze samotného Q
+                          se základními útoky: 53+34+E = ~120 DPS sustained
+                          3762/120 = 31s  ← Pyro je teamfight, ne tank killer
+Tank vs Tank
+Ironclad (101 DPS + 36 burn = 137 total) vs Goliath (Sunfire, EHP 3492):
+  3492/137 = 25.5s  ← výrazně lepší než dřívějších 62s
+  S bonusMaxHpDmg (Q): +80×0.08/9.5 = +0.7 DPS (negligible base, scales late)
+  
+  Goliath (95 DPS + 38 burn) vs Ironclad (EHP 3827):
+  3827/133 = 28.8s
+
+→ Tank vs Tank: 25–29 sekund  ← přijatelné, fight má konec
+Tank vs Support
+Ironclad (101 DPS) vs Doctor (EHP ~2095 po item nerfu):
+  Doctor HPS: 50×0.065×10 = 32.5 HPS (AD 50) → průměr ~48 HPS
+  Net: 101 - 48 = 53 DPS effective
+  2095/53 = 39.5s — bez GW téměř nezabitelný
+
+  S GW 60% (Thornmail): 48×0.40 = 19.2 HPS
+  Net: 101 - 19.2 = 81.8 DPS → 2095/81.8 = 25.6s  ✓ GW je nutné
+
+Kompletní DPS tabulka — Early / Mid / Late
+Fáze: Early = L3, 0 itemů. Mid = L8, 1× T2 item. Late = L15, 1× T3 item + 2× T1.
+Hrdina        Role    Early DPS   Mid DPS    Late DPS   Identita
+──────────────────────────────────────────────────────────────────────
+AD CARRIES (ranged)
+Quiller       SLAY      82         148         309      Hypercarry, weak early
+Fusilier      SLAY      79         141         230      Shotgun, AoE damage
+Kratoma       SLAY      71+pet      120+pet     195+pet  Steady all phases
+
+AD MELEE
+Lynx          SLAY      98         165         245      Assassin, spiky
+Bruiser       FIGHT     91         155         195      Steady sustain
+Wanderer      SLAY      88         148         220      Burst AoE teamfight
+Vanguard      FIGHT     72         118         165      Utility fighter, OK
+
+AP CASTERS (ranged)
+Summoner      SLAY      62+pets    125+pets    155+pets Scales hard with AP
+Tamer         MAGE      65+wolf    105+wolf    160+wolf Wolfscale = late threat
+Mage          SLAY      78         120         165      Consistent, no pen issue
+Pyromancer    SLAY      62         110         155      AoE burst, bad sustained
+
+TANKS
+Hana          TANK      85         130         190      Strong all phases (nerf ok)
+Ironclad      TANK      61         101         137      Anti-tank, utility
+Goliath       TANK      58          95         128      Bruiser tank
+Jailer        TANK      52          84         115      Utility > damage
+
+FIGHTERS
+Jirina        FIGHT     68         105         155      Sustain fighter
+Reaper        SPLIT     71         108         145      Empowered AA splitpusher
+Zephyr        SPLIT     58          95         130      Speed, AoE push
+
+SUPPORTS
+Oracle        SUPP      48          78         112      AD bruiser support
+Doctor        SUPP      35          61          82      Healer, low DPS OK
+Healer        SUPP      38          65          88      Pure heal support
+Cleric        SUPP      35          62          86      Heal + silence
+Eggchanter    SUPP      34          58+sums     82+sums Pet support
+
+Phase charakteristiky
+Early game (L1–5, 0–1 item)
+Klíčový insight: hráči nemají itemy, takže base staty a base spell damage dominují.
+Silní early:   Lynx (rychlý AA, nízký CD), Hana (HP scaling funguje i bez itemů),
+               Jirina (heal je silný bez itemů), Vanguard (solidní base)
+Slabí early:   Quiller (nízký base AA bez AD itemů), Tamer (vlk slabý bez AP),
+               Summoner (ghouli slabí bez AP), Ironclad (nízký DPS)
+Mid game (L8–12, 1–2 itemy)
+Přechodová fáze kde % item systém začne dávat smysl. Ranged AD hráči s T2 offense itemem začnou výrazně ouDPS-ovat ostatní.
+Silní mid:     Lynx (assassin timing 3-4s vs squishies), Kratoma (pet+buff),
+               Hana (HP scale + tank stats), Summoner (ghouli plně online)
+Slabí mid:     Quiller (stále potřebuje T3 pro hypercarry), Jailer (utility>dmg)
+Late game (L15+, 2–3 itemy T3)
+Zde Quiller a Fusilier s pen itemem skutečně dominují v sustained DPS. AP casters bez magic pen zaostávají za tanky.
+Silní late:    Quiller (309 DPS s pen = číslo 1), Lynx (245 s 20% pen),
+               Summoner+Tamer (summons scale perfektně), Wanderer (AoE burst)
+Slabí late:    Mage/Pyro bez magic pen (tankové EHP je kontruje),
+               Jirina/Vanguard (fighters nepřekonají ranged kiting)
+Nutný item:    Void Staff (magic pen) pro AP casters jinak nerelevantní vs tanky
+
+Finální balancový verdikt
+Status        Hrdina/Systém              Důvod
+──────────────────────────────────────────────────────────────────
+✅ Vyřešeno   Tank přeživatelnost         EHP 3800-3900, ne 4800+
+✅ Vyřešeno   AD ranged identita          Quiller/Fusilier 80-90% z AA
+✅ Vyřešeno   AP vs AD identita           AP 20-35% z AA, AD 55-90%
+✅ Vyřešeno   Tank vs Tank timing         25-29s, ne 60s+
+✅ Vyřešeno   Doctor s GW                 Counterable, ne nesmrtelný
+
+⚠️ Sledovat   Quiller 2.9s TTK squishies  Ranged carry + 309 DPS může být moc
+⚠️ Sledovat   Tamer wolf late scale       Wolf 114 DPS = 50% total, silné
+⚠️ Sledovat   Summoner ghoul contribution Ghouli 85 DPS = 55% total late
+
+🔴 Nutné      Void Staff přidat          AP casters nemohou dělat do tanků
+🔴 Bug fix    Liandry's titanSigilCd=0   Opravit na 4.0 (již v items.js fixnuto)
+
+---
+
+
+PŘIDEJ ABY ŠLO KUPOVAT VÍCE TIER 3 ITEMU Z JEDNOHO STRMU ALE NIKDY NE TEN SAMYtier 3 item  DVAKRAT

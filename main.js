@@ -86,7 +86,7 @@ import { initAudio, playSound } from './Audio.js';
     // PŘIDÁNO: Přijímání dat od Hosta (pohyb botů, minionů a věží)
     socket.on('network_host_state', (data) => {
       if (game && game.isHost) return; // Host ignoruje tyto zprávy, má svou vlastní pravdu
-      data.bots.forEach(bData => {
+      (data.bots || []).forEach(bData => {
         let bot = game.players.find(p => p.id === bData.id);
         if (bot) {
           // PŘIDÁNO: Synchronizace třídy bota, pokud se při startovní randomizaci u Klienta a Hosta lišila
@@ -100,15 +100,15 @@ import { initAudio, playSound } from './Audio.js';
               };
           }
           bot.targetPos = { x: bData.x, y: bData.y }; bot.hp = bData.hp; bot.alive = bData.alive; bot.aimAngle = bData.aimAngle;
-          bot.slowTimer = bData.slowT || 0;
-          bot.boostTimer = bData.boostT || 0;
-          bot.silenceTimer = bData.silenceT || 0;
+          if (bData.slowT !== undefined) bot.slowTimer = bData.slowT;
+          if (bData.boostT !== undefined) bot.boostTimer = bData.boostT;
+          if (bData.silenceT !== undefined) bot.silenceTimer = bData.silenceT;
           bot.stunTimer = bData.stunT || 0;
           bot.shield = bData.shield || 0;
-          bot.hanaBuffTimer = bData.hanaT || 0;
-          bot.beamTimer = bData.beamT || 0;
-          bot.beamTargetId = bData.beamId;
-          bot.uberChargeTimer = bData.uberT || 0;
+          if (bData.hanaT !== undefined) bot.hanaBuffTimer = bData.hanaT;
+          if (bData.beamT !== undefined) bot.beamTimer = bData.beamT;
+          if (bData.beamId !== undefined) bot.beamTargetId = bData.beamId;
+          if (bData.uberT !== undefined) bot.uberChargeTimer = bData.uberT;
 
           if (bData.isFullUpdate) {
             if (bData.level && bData.level > bot.level) { bot.levelUpTimer = 2.0; spawnParticles(bot.pos.x, bot.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
@@ -131,28 +131,39 @@ import { initAudio, playSound } from './Audio.js';
       });
       
       // OPRAVA: Odstranění mrtvých minionů ("duchů"), které už Host nesleduje
-      const hostMinionIds = new Set(data.minions.map(m => m.id));
-      game.minions.forEach(m => { if (!hostMinionIds.has(m.id)) m.dead = true; });
-
+      // Pouze pokud paket obsahuje miniony (rychlý tick) — pomalý tick posílá prázdné pole
       if (!game.deadMinionIds) game.deadMinionIds = new Set();
+      if (data.minions && data.minions.length > 0) {
+        const hostMinionIds = new Set(data.minions.map(m => m.id));
+        game.minions.forEach(m => { if (!hostMinionIds.has(m.id)) m.dead = true; });
+      }
 
-      data.minions.forEach(mData => {
+      (data.minions || []).forEach(mData => {
         let minion = game.minions.find(m => m.id === mData.id);
         if (!minion && !mData.dead && !game.deadMinionIds.has(mData.id)) { // Pokud u klienta chybí a nebyl lokálně zabit, vytvoříme ho
-           minion = new Minion(mData.x, mData.y, mData.team, mData.targetIndex);
+           minion = new Minion(mData.x, mData.y, mData.team ?? 0, mData.targetIndex ?? 0);
            minion.id = mData.id;
-           minion.isSummon = mData.isSummon;
+           minion.isSummon = mData.isSummon ?? false;
            minion.glyph = mData.glyph || 'm';
            minion.maxHp = mData.maxHp || 250;
            minion.targetPos = { x: mData.x, y: mData.y };
            minion.targetHeroId = mData.tHeroId;
-           minion.isSmallChicken = mData.isSc;
-           minion.isBigChicken = mData.isBc;
+           minion.isSmallChicken = mData.isSc ?? false;
+           minion.isBigChicken = mData.isBc ?? false;
            game.minions.push(minion);
         }
-        if (minion) { minion.targetPos = { x: mData.x, y: mData.y }; minion.hp = mData.hp; minion.dead = mData.dead; minion.maxHp = mData.maxHp || minion.maxHp; minion.glyph = mData.glyph || minion.glyph; minion.targetHeroId = mData.tHeroId !== undefined ? mData.tHeroId : minion.targetHeroId; minion.isSmallChicken = mData.isSc !== undefined ? mData.isSc : minion.isSmallChicken; minion.isBigChicken = mData.isBc !== undefined ? mData.isBc : minion.isBigChicken; }
+        if (minion) {
+          minion.targetPos = { x: mData.x, y: mData.y }; minion.hp = mData.hp; minion.dead = mData.dead;
+          if (mData.maxHp !== undefined) minion.maxHp = mData.maxHp;
+          if (mData.glyph !== undefined) minion.glyph = mData.glyph;
+          if (mData.tHeroId !== undefined) minion.targetHeroId = mData.tHeroId;
+          if (mData.isSc !== undefined) minion.isSmallChicken = mData.isSc;
+          if (mData.isBc !== undefined) minion.isBigChicken = mData.isBc;
+          if (mData.team !== undefined) minion.team = mData.team;
+          if (mData.targetIndex !== undefined) minion.targetIndex = mData.targetIndex;
+        }
       });
-      data.towers.forEach(tData => {
+      (data.towers || []).forEach(tData => {
         let tower = game.towers.find(t => t.index === tData.i);
         if (tower) { 
             if (tower.owner !== tData.o && tData.o !== -1) game.shake = 0.3; // Zemětřesení pro klienty při zabrání
@@ -979,17 +990,19 @@ import { initAudio, playSound } from './Audio.js';
       }
     }
 
-    // Minion collision resolution (anti-stacking)
-    for(let i=0; i<game.minions.length; i++){
-      for(let j=i+1; j<game.minions.length; j++){
-        let m1 = game.minions[i], m2 = game.minions[j];
-        if(m1.dead || m2.dead) continue;
-        let dx = m2.pos.x - m1.pos.x, dy = m2.pos.y - m1.pos.y, d = Math.hypot(dx,dy);
-        let minDist = m1.radius + m2.radius;
-        if(d < minDist) {
-          if (d === 0) { dx = Math.random()-0.5; dy = Math.random()-0.5; d = Math.hypot(dx, dy); }
-          let push = (minDist - d) / 2; let px = (dx/d)*push, py = (dy/d)*push;
-          m1.pos.x -= px; m1.pos.y -= py; m2.pos.x += px; m2.pos.y += py;
+    // Minion collision resolution (anti-stacking) — pouze na Hostu, Klient interpoluje
+    if (!socket || game.isHost) {
+      for(let i=0; i<game.minions.length; i++){
+        for(let j=i+1; j<game.minions.length; j++){
+          let m1 = game.minions[i], m2 = game.minions[j];
+          if(m1.dead || m2.dead) continue;
+          let dx = m2.pos.x - m1.pos.x, dy = m2.pos.y - m1.pos.y, d = Math.hypot(dx,dy);
+          let minDist = m1.radius + m2.radius;
+          if(d < minDist) {
+            if (d === 0) { dx = Math.random()-0.5; dy = Math.random()-0.5; d = Math.hypot(dx, dy); }
+            let push = (minDist - d) / 2; let px = (dx/d)*push, py = (dy/d)*push;
+            m1.pos.x -= px; m1.pos.y -= py; m2.pos.x += px; m2.pos.y += py;
+          }
         }
       }
     }
@@ -1060,7 +1073,7 @@ import { initAudio, playSound } from './Audio.js';
     }
 
     // SÍŤOVÁ SYNCHRONIZACE POZICE
-    if (socket) {
+    if (socket && !game.gameOver) {
         if (player) {
             game.syncTimer = (game.syncTimer || 0) + dt;
             if (game.syncTimer >= 0.05) {
@@ -1085,35 +1098,48 @@ import { initAudio, playSound } from './Audio.js';
             }
         }
         
-        // HOST SYNCHRONIZUJE STAV BOTŮ A MINIONŮ (cca 10x za sekundu)
+        // HOST SYNCHRONIZUJE STAV BOTŮ A MINIONŮ
         if (game.isHost) {
+            // Rychlý tick: pozice botů + minionů 10x/s
             game.hostSyncTimer = (game.hostSyncTimer || 0) + dt;
             if (game.hostSyncTimer >= 0.1) {
                 game.hostSyncTimer = 0;
                 socket.emit('host_state', {
                     bots: game.players.filter(p => p instanceof BotPlayer).map(b => {
-                    const minimalState = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, stunT: b.stunTimer, shield: b.shield, hanaT: b.hanaBuffTimer, beamT: b.beamTimer, beamId: b.beamTargetId, uberT: b.uberChargeTimer, towerCaptures: b.towerCaptures || 0, towerDefends: b.towerDefends || 0, towerAssaultTime: b.towerAssaultTime || 0, objectivePresenceTime: b.objectivePresenceTime || 0, powerupsCollected: b.powerupsCollected || 0, powerupUptime: b.powerupUptime || 0, pcs: b.pcs || 0 };
+                        const base = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, stunT: b.stunTimer, shield: b.shield };
                         if (b.isDirty) {
                             b.isDirty = false;
-                            return { ...minimalState, isFullUpdate: true, className: b.className,
-                                level: b.level, maxHp: b.effectiveMaxHp, kills: b.kills, deaths: b.deaths, assists: b.assists, gold: b.totalGold,
-                        items: b.items.length,
+                            return { ...base, isFullUpdate: true, className: b.className,
+                                slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, hanaT: b.hanaBuffTimer, beamT: b.beamTimer, beamId: b.beamTargetId, uberT: b.uberChargeTimer,
+                                level: b.level, maxHp: b.effectiveMaxHp, kills: b.kills, deaths: b.deaths, assists: b.assists, gold: b.totalGold, items: b.items.length,
                                 AD: b.AD, AP: b.AP, armor: b.armor, mr: b.mr, speed: b.speed, attackSpeed: b.attackSpeed, abilityHaste: b.abilityHaste,
-                        invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer, qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
-                        stats: b.stats, sumSpell: b.summonerSpell,
-                        towerCaptures: b.towerCaptures || 0, towerDefends: b.towerDefends || 0, towerAssaultTime: b.towerAssaultTime || 0, objectivePresenceTime: b.objectivePresenceTime || 0,
-                        powerupsCollected: b.powerupsCollected || 0, powerupUptime: b.powerupUptime || 0, pcs: b.pcs || 0, pcsBreakdown: b.pcsBreakdown || null };
-                        } else { return minimalState; }
+                                invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer, qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
+                                stats: b.stats, sumSpell: b.summonerSpell,
+                                towerCaptures: b.towerCaptures || 0, towerDefends: b.towerDefends || 0, towerAssaultTime: b.towerAssaultTime || 0,
+                                objectivePresenceTime: b.objectivePresenceTime || 0, powerupsCollected: b.powerupsCollected || 0, powerupUptime: b.powerupUptime || 0,
+                                pcs: b.pcs || 0, pcsBreakdown: b.pcsBreakdown || null };
+                        }
+                        return base;
                     }),
+                    minions: game.minions.map(m => {
+                        const base = { id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: m.dead };
+                        if (m._syncDirty) { m._syncDirty = false; return { ...base, maxHp: m.maxHp, team: m.team, targetIndex: m.targetIndex, isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId, isSc: m.isSmallChicken, isBc: m.isBigChicken }; }
+                        return base;
+                    }),
+                });
+            }
+            // Pomalý tick: stav mapy + humans stats 3x/s (věci co se nemění rychle)
+            game.hostSlowSyncTimer = (game.hostSlowSyncTimer || 0) + dt;
+            if (game.hostSlowSyncTimer >= 0.33) {
+                game.hostSlowSyncTimer = 0;
+                socket.emit('host_state', {
+                    bots: [],
+                    minions: [],
                     humans: game.players.filter(p => !(p instanceof BotPlayer)).map(p => ({
                         id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, stunT: p.stunTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
-                    kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null, beamT: p.beamTimer, beamId: p.beamTargetId, uberT: p.uberChargeTimer,
-                    towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0,
-                    powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null
-                    })),
-                    minions: game.minions.map(m => ({
-                        id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, maxHp: m.maxHp, dead: m.dead, team: m.team, 
-                        targetIndex: m.targetIndex, isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId, isSc: m.isSmallChicken, isBc: m.isBigChicken
+                        kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null, beamT: p.beamTimer, beamId: p.beamTargetId, uberT: p.uberChargeTimer,
+                        towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0,
+                        powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null
                     })),
                     towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner})),
                     heals: game.heals.map(h => h.active),
@@ -1134,7 +1160,10 @@ import { initAudio, playSound } from './Audio.js';
       draw(); 
       requestAnimationFrame(loop); 
     } catch(err) {
-      console.error('[FATAL ERROR] Game loop crashed!', err); console.table({ players: game.players.length, minions: game.minions.length, projectiles: game.projectiles.length }); alert('Game crashed due to an error! Press F12 to open the console and send me the log.');
+      console.error('[FATAL ERROR] Game loop crashed!', err);
+      try { console.table({ players: game.players.length, minions: game.minions.length, projectiles: game.projectiles.length }); } catch(_) {}
+      alert('Game crashed! Press F12 and send the log (Console tab).');
+      return; // nezaplanovat další frame — hra se zastavila
     }
   }
   requestAnimationFrame(loop);

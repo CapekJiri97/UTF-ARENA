@@ -2128,9 +2128,9 @@ export class BotPlayer extends Player {
 
         const getPhaseDuration = (phase, ctx) => {
             if (phase === 'EARLY') return 60;
-            if (phase === 'EXPLORE') return (ctx.homeThreat > 0 || ctx.towerLead < 0) ? 60 : 45;
-            if (phase === 'EXPLOIT') return ctx.homeThreat > 0 ? 120 : 150;
-            return 45;
+            if (phase === 'EXPLORE') return (ctx.homeThreat > 0 || ctx.towerLead < 0) ? 35 : 25;
+            if (phase === 'EXPLOIT') return ctx.homeThreat > 0 ? 240 : 300;
+            return 25;
         };
 
         const scoreMacroSnapshot = (startSnap, endSnap) => {
@@ -2281,7 +2281,7 @@ export class BotPlayer extends Player {
                 mState.panicStreak = Math.max(0, (mState.panicStreak || 0) - 1);
             }
 
-            if ((mState.strategyUptime || 0) >= 24 && (mState.panicStreak || 0) >= 4) {
+            if ((mState.strategyUptime || 0) >= 60 && (mState.panicStreak || 0) >= 6) {
                 const fallback = pickRecoveryStrategy(macroSnapshot);
                 const ordered = [fallback, ...buildStrategyOrder(macroSnapshot).filter(s => s !== fallback)];
                 console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] PANIC! Strategy [${mState.currentStrat}] is failing. Resetting to EXPLORE -> [${fallback}] | ${formatMacroSnapshot(macroSnapshot)}`);
@@ -3680,7 +3680,17 @@ export class BotPlayer extends Player {
       let isKiting = false; // Vlajka pro střelbu za běhu
 
       if (this.state === 'ATTACK') {
-          if (this.target && (this.target.hp > 0 && (this.target.alive !== false && !this.target.dead))) {
+          // Hard stop: bot nesmí vstoupit do nepřátelské fontány ani pronásledovat cíl dovnitř
+          if (dist(this.pos, spawnPoints[1 - this.team]) < 260) {
+              const fx = spawnPoints[1 - this.team].x, fy = spawnPoints[1 - this.team].y;
+              dx = this.pos.x - fx; dy = this.pos.y - fy;
+              this.target = null; this.huntTarget = null; this.terrified = false;
+              this.state = 'SEARCHING';
+          } else if (this.target && dist(this.target.pos, spawnPoints[1 - this.team]) < 230) {
+              this.target = null; this.huntTarget = null;
+              this.state = 'SEARCHING';
+          }
+          if (this.state === 'ATTACK' && this.target && (this.target.hp > 0 && (this.target.alive !== false && !this.target.dead))) {
               let tx = this.target.pos.x;
               let ty = this.target.pos.y;
               let d = dist(this.pos, this.target.pos);

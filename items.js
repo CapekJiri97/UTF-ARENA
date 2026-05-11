@@ -71,34 +71,34 @@ export const shopItems = [
   // 3. TITAN TREE (Tank / Frontline)
   // ==========================================
   {
-    id: 'titan_t1', name: 'Ruby Shard', desc: '+15% Base HP', cost: 300,
+    id: 'titan_t1', name: 'Ruby Shard', desc: '+12% Base HP', cost: 300,
     treeId: 'titan', treeBranch: 'core',
-    stats: { hpPct: 0.15 },
-    apply: (pl) => { const b = Math.round((pl.baseMaxHp || pl.maxHp) * 0.15); pl.maxHp += b; pl.hp += b; }
+    stats: { hpPct: 0.12 },
+    apply: (pl) => { const b = Math.round((pl.baseMaxHp || pl.maxHp) * 0.12); pl.maxHp += b; pl.hp += b; }
   },
   {
-    id: 'titan_t2_ar', name: 'Chain Vest', desc: '+20% Base HP, +40% Base Armor', cost: 400,
+    id: 'titan_t2_ar', name: 'Chain Vest', desc: '+15% Base HP, +30% Base Armor', cost: 400,
     treeId: 'titan', treeBranch: 'armor_branch', requires: 'titan_t1',
-    stats: { hpPct: 0.20, armorPct: 0.40 },
-    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.20); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.40); }
+    stats: { hpPct: 0.15, armorPct: 0.30 },
+    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.15); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.30); }
   },
   {
-    id: 'titan_t3_sun', name: 'Sunfire Aegis', desc: '+40% Base HP, +70% Base Armor, Proximity Burn Aura (2%/s)', cost: 600,
+    id: 'titan_t3_sun', name: 'Sunfire Aegis', desc: '+30% Base HP, +50% Base Armor, Proximity Burn Aura (2%/s)', cost: 600,
     treeId: 'titan', treeBranch: 'armor_branch', requires: 'titan_t2_ar', unique: true,
-    stats: { hpPct: 0.40, armorPct: 0.70, burnAura: true },
-    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.40); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.70); pl.hasAoeBurn = true; }
+    stats: { hpPct: 0.30, armorPct: 0.50, burnAura: true },
+    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.30); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.50); pl.hasAoeBurn = true; }
   },
   {
-    id: 'titan_t2_mr', name: 'Negatron Cloak', desc: '+20% Base HP, +50% Base MR', cost: 400,
+    id: 'titan_t2_mr', name: 'Negatron Cloak', desc: '+15% Base HP, +35% Base MR', cost: 400,
     treeId: 'titan', treeBranch: 'mr_branch', requires: 'titan_t1',
-    stats: { hpPct: 0.20, mrPct: 0.50 },
-    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.20); pl.maxHp += h; pl.hp += h; pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.50); }
+    stats: { hpPct: 0.15, mrPct: 0.35 },
+    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.15); pl.maxHp += h; pl.hp += h; pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.35); }
   },
   {
-    id: 'titan_t3_spirit', name: 'Spirit Visage', desc: '+40% Base HP, +70% Base MR, +20% Heal Power', cost: 600,
+    id: 'titan_t3_spirit', name: 'Spirit Visage', desc: '+30% Base HP, +50% Base MR, +20% Heal Power', cost: 600,
     treeId: 'titan', treeBranch: 'mr_branch', requires: 'titan_t2_mr', unique: true,
-    stats: { hpPct: 0.40, mrPct: 0.70, healPower: 0.20 },
-    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.40); pl.maxHp += h; pl.hp += h; pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.70); pl.healPower = (pl.healPower || 0) + 0.20; }
+    stats: { hpPct: 0.30, mrPct: 0.50, healPower: 0.20 },
+    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.30); pl.maxHp += h; pl.hp += h; pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.50); pl.healPower = (pl.healPower || 0) + 0.20; }
   },
 
   // ==========================================
@@ -123,10 +123,10 @@ export const shopItems = [
     apply: (pl) => { addAdaptive(pl, 0.95); const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.45); pl.maxHp += h; pl.hp += h; pl.adaptivePen = (pl.adaptivePen || 0) + 0.20; }
   },
   {
-    id: 'comb_t3_dance', name: "Death's Dance", desc: '+~50 Power, +35% Base HP, +90% Base Armor, +15% Lifesteal', cost: 600,
+    id: 'comb_t3_dance', name: "Death's Dance", desc: '+~50 Power, +35% Base HP, +60% Base Armor, +15% Lifesteal', cost: 600,
     treeId: 'combat', treeBranch: 'bruiser_branch', requires: 'comb_t2', unique: true,
-    stats: { power: 1.05, hpPct: 0.35, armorPct: 0.90, lifestealPct: 0.15 },
-    apply: (pl) => { addAdaptive(pl, 1.05); const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.35); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.90); pl.lifesteal = (pl.lifesteal || 0) + 0.15; }
+    stats: { power: 1.05, hpPct: 0.35, armorPct: 0.60, lifestealPct: 0.15 },
+    apply: (pl) => { addAdaptive(pl, 1.05); const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.35); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.60); pl.lifesteal = (pl.lifesteal || 0) + 0.15; }
   },
 
   // ==========================================
@@ -151,16 +151,16 @@ export const shopItems = [
     apply: (pl) => { addAdaptive(pl, 0.25); const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.60); pl.maxHp += h; pl.hp += h; pl.abilityHaste = (pl.abilityHaste || 0) + 25; pl.healPower = (pl.healPower || 0) + 0.20; }
   },
   {
-    id: 'ben_t2b', name: "Warden's Charm", desc: '+~5 Power, +50% Base HP, +100% Base Armor, +10% Heal Power', cost: 400,
+    id: 'ben_t2b', name: "Warden's Charm", desc: '+~5 Power, +50% Base HP, +70% Base Armor, +10% Heal Power', cost: 400,
     treeId: 'benevolence', treeBranch: 'warden_branch', requires: 'ben_t1',
-    stats: { power: 0.10, hpPct: 0.50, armorPct: 1.00, healPower: 0.10 },
-    apply: (pl) => { addAdaptive(pl, 0.10); const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.50); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 1.00); pl.healPower = (pl.healPower || 0) + 0.10; }
+    stats: { power: 0.10, hpPct: 0.50, armorPct: 0.70, healPower: 0.10 },
+    apply: (pl) => { addAdaptive(pl, 0.10); const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.50); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.70); pl.healPower = (pl.healPower || 0) + 0.10; }
   },
   {
-    id: 'ben_t3_locket', name: 'Locket of Solari', desc: '+~10 Power, +85% Base HP, +175% Base Armor, +20% Heal Power', cost: 600,
+    id: 'ben_t3_locket', name: 'Locket of Solari', desc: '+~10 Power, +85% Base HP, +120% Base Armor, +20% Heal Power', cost: 600,
     treeId: 'benevolence', treeBranch: 'warden_branch', requires: 'ben_t2b', unique: true,
-    stats: { power: 0.15, hpPct: 0.85, armorPct: 1.75, healPower: 0.20 },
-    apply: (pl) => { addAdaptive(pl, 0.15); const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.85); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 1.75); pl.healPower = (pl.healPower || 0) + 0.20; }
+    stats: { power: 0.15, hpPct: 0.85, armorPct: 1.20, healPower: 0.20 },
+    apply: (pl) => { addAdaptive(pl, 0.15); const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.85); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 1.20); pl.healPower = (pl.healPower || 0) + 0.20; }
   },
 
   // ==========================================
@@ -185,16 +185,16 @@ export const shopItems = [
     apply: (pl) => { addAdaptive(pl, 0.80); pl.adaptivePen = (pl.adaptivePen || 0) + 0.10; pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); }
   },
   {
-    id: 'blight_t2_tank', name: 'Bramble Vest', desc: '+15% Base HP, +30% Base Armor, 40% Grievous Wounds', cost: 450,
+    id: 'blight_t2_tank', name: 'Bramble Vest', desc: '+15% Base HP, +20% Base Armor, 40% Grievous Wounds', cost: 450,
     treeId: 'blight', treeBranch: 'tank', requires: 'blight_t1',
-    stats: { hpPct: 0.15, armorPct: 0.30, antiHeal: 0.40 },
-    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.15); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.30); pl.antiHeal = Math.max(pl.antiHeal || 0, 0.40); }
+    stats: { hpPct: 0.15, armorPct: 0.20, antiHeal: 0.40 },
+    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.15); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.20); pl.antiHeal = Math.max(pl.antiHeal || 0, 0.40); }
   },
   {
-    id: 'blight_t3_tank', name: 'Thornmail Carapace', desc: '+30% Base HP, +70% Base Armor, 60% Grievous Wounds', cost: 600,
+    id: 'blight_t3_tank', name: 'Thornmail Carapace', desc: '+30% Base HP, +50% Base Armor, 60% Grievous Wounds', cost: 600,
     treeId: 'blight', treeBranch: 'tank', requires: 'blight_t2_tank', unique: true,
-    stats: { hpPct: 0.30, armorPct: 0.70, antiHeal: 0.60 },
-    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.30); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.70); pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); }
+    stats: { hpPct: 0.30, armorPct: 0.50, antiHeal: 0.60 },
+    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.30); pl.maxHp += h; pl.hp += h; pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.50); pl.antiHeal = Math.max(pl.antiHeal || 0, 0.60); }
   }
 ];
 
@@ -242,11 +242,19 @@ export function canBuyShopItem(player, item) {
     }
   }
 
-  // Tree branch conflict: once you buy a non-core branch item in a tree, you're locked into that branch
+  // Tree branch conflict: prevent buying T2 items from two different branches within the same tree,
+  // UNLESS the player already owns a T3 (unique) item from this tree — in that case they may
+  // start a second branch to unlock a second T3 from the same tree.
   if (item.treeBranch && item.treeBranch !== 'core' && item.treeId) {
     const ownedBranch = getOwnedTreeBranch(player, item.treeId);
     if (ownedBranch && ownedBranch !== item.treeBranch) {
-      return { ok: false, reason: `Already on a different ${item.treeId} path` };
+      const hasT3InTree = (player.items || []).some(id => {
+        const it = getShopItem(id);
+        return it && it.treeId === item.treeId && it.unique;
+      });
+      if (!hasT3InTree) {
+        return { ok: false, reason: `Already on a different ${item.treeId} path` };
+      }
     }
   }
 

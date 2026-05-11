@@ -213,7 +213,7 @@ export class Minion{
     this.attackDamage = this.isRanged ? Math.round(meleeDmg * 1.3) : meleeDmg;
     this.attackRange  = this.isRanged ? 180 : 55;
 
-    this.dead = false; this.targetIndex = targetIndex; this.atTarget = false; this.linger = 3.5;
+    this.dead = false; this.targetIndex = targetIndex; this.atTarget = false; this.linger = 3.5; this._syncDirty = true;
     this.attackCooldown = 0; this.flashTimer = 0;
     this.thinkTimer = Math.random() * 0.5; this.state = 'PUSH'; this.currentTarget = null;
     this.knockbackTimer = 0; this.knockbackVel = {x: 0, y: 0};
