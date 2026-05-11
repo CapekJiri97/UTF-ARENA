@@ -218,7 +218,7 @@ function countFreeItems(player, itemId) {
   const owned = (player.items || []).filter(id => id === itemId).length;
   const consumed = (player.items || []).reduce((sum, id) => {
     const it = getShopItem(id);
-    if (!it) return sum;
+    if (!it || it.unique) return sum; // unique items physically removed their prereqs on purchase
     const reqs = Array.isArray(it.requires) ? it.requires : (it.requires ? [it.requires] : []);
     return sum + reqs.filter(r => r === itemId).length;
   }, 0);
@@ -243,8 +243,8 @@ export function canBuyShopItem(player, item) {
   }
 
   // Tree branch conflict: prevent buying T2 items from two different branches within the same tree,
-  // UNLESS the player already owns a T3 (unique) item from this tree — in that case they may
-  // start a second branch to unlock a second T3 from the same tree.
+  // UNLESS the player already completed a full path (owns a T3 unique) in this tree — then they
+  // may start any branch again from scratch to get a second T3.
   if (item.treeBranch && item.treeBranch !== 'core' && item.treeId) {
     const ownedBranch = getOwnedTreeBranch(player, item.treeId);
     if (ownedBranch && ownedBranch !== item.treeBranch) {

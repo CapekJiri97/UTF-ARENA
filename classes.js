@@ -49,15 +49,15 @@ export const CLASSES = {
     baseArmor: 38, baseMR: 38,
     Q: {
       baseCooldown: 5.5, castTime: 0.1,
-      baseDamage: 65, scaleAP: 0.50, scaleAD: 0,
+      baseDamage: 65, scaleAP: 0.60, scaleAD: 0,
       type: 'aoe_knockback', radius: 144,
       desc: 'Creates a pressure wave that damages and knocks back nearby enemies.'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.2,
-      baseDamage: 0, amount: 85, scaleAP: 0.55, scaleAD: 0,
+      baseDamage: 0, amount: 85, scaleAP: 0.35, scaleAD: 0,
       type: 'heal_aoe', radius: 200,
-      desc: 'Heals herself and all allies in range.'
+      desc: 'Heals himself and all allies in range.'
     }
   },
 
@@ -363,12 +363,12 @@ export const CLASSES = {
   },
 
   Tamer: {
-    glyph: 'T', role: 'MAGE', range: true, attackRange: 205, dmgType: 'magical', aaScale: 0.15,
+    glyph: 'T', role: 'MAGE', range: true, attackRange: 205, dmgType: 'magical', aaScale: 0.2,
     hp: 540, speed: 110, attackDelay: 1.1,
     baseAtk: 25, baseAD: 0, baseAP: 65,
     baseArmor: 15, baseMR: 20,
     Q: {
-      baseCooldown: 6.0, castTime: 0.2,
+      baseCooldown: 7.0, castTime: 0.2,
       baseDamage: 76, scaleAP: 0.45, scaleAD: 0,
       type: 'tamer_q', pGlyph: '°', pSpeed: 850, life: 0.4, noHitParticles: true,
       desc: 'Fires a magic sphere that damages an enemy and marks them. Your Wolf (pet) will aggressively prioritize the marked target.'
@@ -386,7 +386,7 @@ export const CLASSES = {
   // ==========================================
 
   Healer: {
-    glyph: 'H', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.13,
+    glyph: 'H', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.2,
     hp: 650, speed: 104, attackDelay: 1.1,
     baseAtk: 25, baseAD: 0, baseAP: 65,
     baseArmor: 25, baseMR: 30,
@@ -444,13 +444,13 @@ export const CLASSES = {
   },
 
   Oracle: {
-    glyph: 'O', role: 'SUPPORT', range: true, dmgType: 'physical', aaScale: 0.7,
-    hp: 610, speed: 106, attackDelay: 1.1,
+    glyph: 'O', role: 'SUPPORT', range: true, dmgType: 'physical', aaScale: 0.65,
+    hp: 610, speed: 106, attackDelay: 1.3,
     baseAtk: 35, baseAD: 60, baseAP: 0,
     baseArmor: 20, baseMR: 25,
     Q: {
       baseCooldown: 13.0, castTime: 0.25,
-      baseDamage: 90, scaleAP: 0, scaleAD: 0.45, scaleLevel: 10,
+      baseDamage: 90, scaleAP: 0, scaleAD: 0.40, scaleLevel: 10,
       type: 'projectile_pull', pSpeed: 650, life: 0.5, radius: 120, pGlyph: 'O', stunDuration: 1.2,
       desc: 'Fires a sphere. On impact or hitting a target, it explodes, dealing damage to enemies in the area, pulling them to the center, and briefly stunning them.'
     },
