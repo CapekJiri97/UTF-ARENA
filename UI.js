@@ -2636,6 +2636,55 @@ function initPcUI() {
     bar.appendChild(createAutoBtn('i', 'AIM', 'pcBtnAim'));
     bar.appendChild(createAutoBtn('l', 'LVL', 'pcBtnLvl'));
     document.body.appendChild(bar);
+
+    // Ping + server status display above the button bar
+    const pingEl = document.createElement('div');
+    pingEl.id = 'pingDisplay';
+    pingEl.style.cssText = 'position:fixed;left:10px;bottom:52px;font-size:10px;font-family:monospace;color:#555;z-index:4000;pointer-events:none;line-height:1.4;';
+    pingEl.textContent = 'PING: --';
+    document.body.appendChild(pingEl);
+
+    let lastHostState = 0;
+    const origNetHostState = window.__onNetHostState;
+
+    function updatePingDisplay(ms) {
+        const pingEl = document.getElementById('pingDisplay');
+        if (!pingEl) return;
+        const now = Date.now();
+        const serverOk = socket && socket.connected;
+        const gameRunning = game && game.players && game.players.length > 0 && (now - lastHostState < 3000 || (game.isHost));
+        const pingColor = ms === null ? '#555' : ms < 60 ? '#4a4' : ms < 120 ? '#aa4' : '#a44';
+        const pingStr = ms === null ? '--' : ms + 'ms';
+        const serverStr = serverOk ? '<span style="color:#4a4">●</span> online' : '<span style="color:#a44">●</span> offline';
+        const gameStr = gameRunning ? '<span style="color:#4a4">● game OK</span>' : '<span style="color:#555">● no game</span>';
+        pingEl.innerHTML = `PING: <span style="color:${pingColor}">${pingStr}</span>  ${serverStr}  ${gameStr}`;
+    }
+
+    // Track last host state packet for game-running check
+    if (socket) {
+        const origOn = socket.on.bind(socket);
+        socket.on('network_host_state', () => { lastHostState = Date.now(); });
+
+        // Ping loop every 2s
+        setInterval(() => {
+            if (!socket || !socket.connected) { updatePingDisplay(null); return; }
+            const t = Date.now();
+            socket.emit('ping_check', t, () => { updatePingDisplay(Date.now() - t); });
+        }, 2000);
+
+        socket.on('connect', () => updatePingDisplay(null));
+        socket.on('disconnect', () => updatePingDisplay(null));
+    } else {
+        // No socket = local/singleplayer
+        updatePingDisplay(null);
+        setInterval(() => {
+            const pingEl = document.getElementById('pingDisplay');
+            if (!pingEl) return;
+            const gameRunning = game && game.players && game.players.length > 0;
+            const gameStr = gameRunning ? '<span style="color:#4a4">● game OK</span>' : '<span style="color:#555">● no game</span>';
+            pingEl.innerHTML = `LOCAL  ${gameStr}`;
+        }, 2000);
+    }
 }
 initPcUI();
 initMobileUI();

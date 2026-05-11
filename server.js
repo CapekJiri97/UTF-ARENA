@@ -153,6 +153,7 @@ io.on('connection', (socket) => {
   socket.on('host_state', (data) => { if (currentRoom) socket.broadcast.to(currentRoom).emit('network_host_state', data); });
   socket.on('host_event', (data) => { if (currentRoom) socket.broadcast.to(currentRoom).emit('network_host_event', data); });
   socket.on('broadcast_kill', (data) => { if (currentRoom) socket.broadcast.to(currentRoom).emit('network_kill_feed', data); });
+  socket.on('ping_check', (_, ack) => { if (typeof ack === 'function') ack(); });
 
   socket.on('disconnect', () => {
     console.log(`[SERVER] Hráč odpojen: ${socket.id}`);
