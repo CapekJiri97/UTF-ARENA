@@ -629,7 +629,7 @@ export class Player{
                 for (const target of game.players) {
                     if (target.team === this.team || !target.alive || target.hp <= 0) continue;
                     if (dist(this.pos, target.pos) > 180) continue;
-                    const burnDmg = target.maxHp * 0.01; // 1% per tick = 2%/s
+                    const burnDmg = target.maxHp * 0.0075; // 0.75% per tick = 1.5%/s
                     applyDamage(target, burnDmg, 'true', this);
                     if (target.hp <= 0) handlePlayerKill(target, this);
                     spawnParticles(target.pos.x, target.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
@@ -1723,6 +1723,7 @@ export class BotPlayer extends Player {
             // Offense tree (physical carries / attack speed)
             ['off_t1', 'off_t2_as', 'off_t3_ls'],
             ['off_t1', 'off_t2_as', 'off_t3_pen'],
+            ['off_t1', 'off_t2_as', 'off_t3_dance'],   // Warborn Mantle — FIGHTER preferred
             // Sorcery tree (mages / ability casters)
             ['sorc_t1', 'sorc_t2_ah', 'sorc_t3_vamp'],
             ['sorc_t1', 'sorc_t2_ah', 'sorc_t3_burn'],
@@ -1732,13 +1733,17 @@ export class BotPlayer extends Player {
             ['titan_t1', 'titan_t2_mr', 'titan_t3_spirit'],
             // Combat tree (bruisers / fighters)
             ['comb_t1', 'comb_t2', 'comb_t3_cleave'],
-            ['comb_t1', 'comb_t2', 'comb_t3_dance'],
+            ['comb_t1', 'comb_t2', 'comb_t3_iron'],    // Ironheart Mantle — MR + HP fighter
             // Benevolence tree (supports / healers)
             ['ben_t1', 'ben_t2', 'ben_t3_red'],
             ['ben_t1', 'ben_t2b', 'ben_t3_locket'],
-            // Blight tree (anti-heal)
+            // Blight tree (anti-heal, situational)
             ['blight_t1', 'blight_t2_off', 'blight_t3_off'],
             ['blight_t1', 'blight_t2_tank', 'blight_t3_tank'],
+            // Penetration tree (anti-tank, situational — jen pokud enemyAvgRes > 55)
+            ['pen_t1', 'pen_t2', 'pen_t3_as'],         // fyzický carry — max AS
+            ['pen_t1', 'pen_t2', 'pen_t3_ah'],         // mage / caster — max AH
+            ['pen_t1', 'pen_t2_def', 'pen_t3_def'],    // fighter tank-buster
         ];
     }
 
@@ -1788,6 +1793,10 @@ export class BotPlayer extends Player {
         const isMagical = owner.dmgType === 'magical';
         const items = owner.items || [];
 
+        const enemyAvgRes = enemies.length
+            ? enemies.reduce((s, e) => s + (e.armor || 0) + (e.mr || 0), 0) / enemies.length
+            : 0;
+
         const pathFilter = (path) => {
             const rootItem = getShopItem(path[0]);
             if (!rootItem) return false;
@@ -1808,6 +1817,12 @@ export class BotPlayer extends Player {
             if (tid === 'blight' && !enemyHasHealing) return false;
             // Mages don't need sorcery_slow unless they have AP
             if (isMagical && path.includes('sorc_t3_slow') && (owner.AP || 0) < 50) return false;
+            // Penetration tree: only when enemies are tanky, not for tanks/supports themselves
+            if (tid === 'penetration' && enemyAvgRes < 55) return false;
+            if (tid === 'penetration' && (isTank || isSupport)) return false;
+            if (tid === 'penetration' && isMagical && path.includes('pen_t3_as')) return false;
+            if (tid === 'penetration' && !isMagical && path.includes('pen_t3_ah')) return false;
+            if (tid === 'penetration' && path.includes('pen_t3_def') && owner.role !== 'FIGHTER') return false;
             return true;
         };
 

@@ -355,7 +355,7 @@ export const CLASSES = {
       desc: 'Flamethrower: For 3.0 seconds, unleashes a continuous stream of fire in a cone. Massively damages enemies while allowing free movement!'
     },
     E: {
-      baseCooldown: 9.0, castTime: 0.2,
+      baseCooldown: 10.0, castTime: 0.2,
       baseDamage: 80, scaleAP: 0.50, scaleAD: 0, scaleLevel: 10,
       type: 'aoe_knockback', radius: 140,
       desc: 'Scorching Wave: Instant fire explosion around you, massively damaging and knocking back all nearby enemies.'

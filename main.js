@@ -468,7 +468,7 @@ import { initAudio, playSound } from './Audio.js';
         if (finalDamage > 0 && isSpell && (sourceEntity?.titanSigilSpellDmg || 0) > 0 && (sourceEntity.titanSigilCd || 0) <= 0 && target.maxHp && type !== 'true') {
             const sigilBonus = Math.round(target.maxHp * sourceEntity.titanSigilSpellDmg);
             target.hp -= sigilBonus;
-            sourceEntity.titanSigilCd = 4.0;
+            sourceEntity.titanSigilCd = 2.0;
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y + 14, sigilBonus, '#e0e0ff'));
         }
     }

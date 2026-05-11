@@ -100,19 +100,19 @@ const SHOP_TREE_CONFIGS = {
         ]
     },
     combat: {
-        title: 'COMBAT TREE  [Power · HP · AH · Pen · Lifesteal]',
+        title: 'COMBAT TREE  [Power · HP · AH · Pen · Lifesteal · MR]',
         note: 'Green links show the next item in the branch is currently buyable.',
         columns: 3,
         nodes: [
             { id: 'comb_t1',        col: 2, row: 1 },
             { id: 'comb_t2',        col: 2, row: 2 },
             { id: 'comb_t3_cleave', col: 1, row: 3 },
-            { id: 'comb_t3_dance',  col: 3, row: 3 }
+            { id: 'comb_t3_iron',   col: 3, row: 3 }
         ],
         links: [
             ['comb_t1', 'comb_t2'],
             ['comb_t2', 'comb_t3_cleave'],
-            ['comb_t2', 'comb_t3_dance']
+            ['comb_t2', 'comb_t3_iron']
         ]
     },
     benevolence: {
@@ -151,9 +151,29 @@ const SHOP_TREE_CONFIGS = {
             ['blight_t2_tank', 'blight_t3_tank']
         ]
     },
+    penetration: {
+        title: 'PENETRATION TREE  [Pen · AS · AH · HP · Armor]',
+        note: 'Situational — best when enemies have high Armor/MR.',
+        columns: 3,
+        nodes: [
+            { id: 'pen_t1',      col: 2, row: 1 },
+            { id: 'pen_t2',      col: 2, row: 2 },
+            { id: 'pen_t2_def',  col: 3, row: 2 },
+            { id: 'pen_t3_as',   col: 1, row: 3 },
+            { id: 'pen_t3_ah',   col: 2, row: 3 },
+            { id: 'pen_t3_def',  col: 3, row: 3 }
+        ],
+        links: [
+            ['pen_t1', 'pen_t2'],
+            ['pen_t1', 'pen_t2_def'],
+            ['pen_t2', 'pen_t3_as'],
+            ['pen_t2', 'pen_t3_ah'],
+            ['pen_t2_def', 'pen_t3_def']
+        ]
+    },
 };
 
-const SHOP_TREE_ORDER = ['offense', 'sorcery', 'titan', 'combat', 'benevolence', 'blight'];
+const SHOP_TREE_ORDER = ['offense', 'sorcery', 'titan', 'combat', 'benevolence', 'blight', 'penetration'];
 
 const formatShopStats = (desc = '') => desc.split(',').map((part) => part.trim()).filter(Boolean);
 
@@ -213,7 +233,7 @@ const computeItemPreview = (item, player) => {
     if (s.healPower)    parts.push(`+${Math.round(s.healPower * 100)}% Heal Power`);
     if (s.spellDmg)     parts.push(`+${Math.round(s.spellDmg * 100)}% Max HP Spell Dmg`);
     if (s.slowOnSpell)  parts.push(`${Math.round(s.slowOnSpell * 100)}% Slow on Spell`);
-    if (s.burnAura)     parts.push('Proximity Burn (2%/s)');
+    if (s.burnAura)     parts.push('Proximity Burn (1.5%/s)');
 
     return parts;
 };
