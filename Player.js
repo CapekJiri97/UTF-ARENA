@@ -2,10 +2,12 @@ import { dist, distToPoly, expForLevel } from './Utils.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { shopItems, canBuyShopItem, getShopItem } from './items.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
-import { world, spawnPoints, mapBoundary } from './MapConfig.js';
+// world, spawnPoints, mapBoundary jsou čteny z activeGameMode.mapConfig za běhu
+const spawnPoints = new Proxy([], { get: (_, i) => activeGameMode.mapConfig.spawnPoints[i] });
+const mapBoundary = new Proxy([], { get: (_, k) => activeGameMode.mapConfig.mapBoundary[k] });
 import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
-import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards, grantMinionKillRewards, recalcPlayerItemStats } from './main.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards, grantMinionKillRewards, recalcPlayerItemStats, activeGameMode } from './main.js';
 import { updateSpellLabels } from './UI.js';
 import { playSound } from './Audio.js';
 
@@ -145,7 +147,7 @@ export class Player{
           const enemyPressure = game.players.some(p => p.alive && p.team !== this.team && dist(p.pos, tower.pos) <= tower.captureRadius + 250);
           const alliedWavePressure = game.minions.some(m => !m.dead && m.team === this.team && dist(m.pos, tower.pos) <= tower.captureRadius + 250);
           const isBotCaptureStance = this instanceof BotPlayer && this.state === 'CAPTURE' && this.objective === tower;
-          const isHomeTower = (this.team === 0 && (tower.index === 0 || tower.index === 4)) || (this.team === 1 && (tower.index === 2 || tower.index === 3));
+          const isHomeTower = activeGameMode.homeTowerIndexes[this.team].includes(tower.index);
 
           if (tower.owner === this.team) {
               if (enemyPressure || isBotCaptureStance) {
@@ -2008,7 +2010,7 @@ export class BotPlayer extends Player {
         let mState = game.macroState[team];
         let pointDiff = game.nexus[team] - game.nexus[1-team]; // KPI: Náš Nexus mínus Nepřátelský Nexus
 
-        const homeTowerIndexes = team === 0 ? [0, 4] : [2, 3];
+        const homeTowerIndexes = activeGameMode.homeTowerIndexes[team];
         const isHomeTower = (tower) => homeTowerIndexes.includes(tower.index);
 
         const buildMacroSnapshot = () => {
@@ -2496,13 +2498,13 @@ export class BotPlayer extends Player {
             let holdTowers = ownedTowers.filter(t => {
                 let nearbyEnemies = enemies.filter(e => dist(e.pos, t.pos) < t.captureRadius + 900).length;
                 let nearbyAllies = teamBots.filter(b => b.alive && dist(b.pos, t.pos) < t.captureRadius + 650).length;
-                let isHomeTower = false;
-                if (team === 0 && (t.index === 0 || t.index === 4)) isHomeTower = true;
-                if (team === 1 && (t.index === 2 || t.index === 3)) isHomeTower = true;
+                const homeIdxs = activeGameMode.homeTowerIndexes[team];
+                let isHomeTower = homeIdxs.includes(t.index);
                 return isHomeTower || nearbyEnemies > 0 || Math.abs(t.control) < 100 || nearbyAllies < 2;
             }).sort((a, b) => {
-                let aHome = (team === 0 && (a.index === 0 || a.index === 4)) || (team === 1 && (a.index === 2 || a.index === 3));
-                let bHome = (team === 0 && (b.index === 0 || b.index === 4)) || (team === 1 && (b.index === 2 || b.index === 3));
+                const homeIdxs = activeGameMode.homeTowerIndexes[team];
+                let aHome = homeIdxs.includes(a.index);
+                let bHome = homeIdxs.includes(b.index);
                 if (aHome !== bHome) return aHome ? -1 : 1;
                 let aEnemy = enemies.filter(e => dist(e.pos, a.pos) < a.captureRadius + 900).length;
                 let bEnemy = enemies.filter(e => dist(e.pos, b.pos) < b.captureRadius + 900).length;
@@ -2717,9 +2719,7 @@ export class BotPlayer extends Player {
           }
 
           // Statická obrana meta rozestavení
-          let isHomeTower = false;
-          if (this.team === 0 && (t.index === 0 || t.index === 4)) isHomeTower = true;
-          if (this.team === 1 && (t.index === 2 || t.index === 3)) isHomeTower = true;
+          const isHomeTower = activeGameMode.homeTowerIndexes[this.team].includes(t.index);
           
           let score = this.personalWeights.towerBaseScore - dist(this.pos, t.pos);
           
@@ -3619,7 +3619,7 @@ export class BotPlayer extends Player {
                   }
                   
                   if (nearWall) {
-                      let tgtPos = (this.objective && this.objective.pos) ? this.objective.pos : (this.target ? this.target.pos : {x: world.width/2, y: world.height/2});
+                      let tgtPos = (this.objective && this.objective.pos) ? this.objective.pos : (this.target ? this.target.pos : {x: activeGameMode.mapConfig.world.width/2, y: activeGameMode.mapConfig.world.height/2});
                       let objAng = Math.atan2(tgtPos.y - this.pos.y, tgtPos.x - this.pos.x);
                       let dir = Math.random() > 0.5 ? 1 : -1;
                       let ang = objAng + dir * Math.PI / 2;

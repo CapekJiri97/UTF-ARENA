@@ -229,14 +229,14 @@ export const CLASSES = {
     baseAtk: 45, baseAD: 60, baseAP: 0,
     baseArmor: 25, baseMR: 25,
     Q: {
-      baseCooldown: 9.0, castTime: 0.0,
-      baseDamage: 18, scaleAP: 0, scaleAD: 0.2, scaleLevel: 2,
+      baseCooldown: 7.0, castTime: 0.0,
+      baseDamage: 18, scaleAP: 0, scaleAD: 0.3, scaleLevel: 3,
       type: 'spin_to_win', duration: 2.0, tickRate: 0.25, radius: 80,
       desc: 'Spin 2s — repeatedly damage nearby enemies. Move while spinning.'
     },
     E: {
       baseCooldown: 16.0, castTime: 0.35,
-      baseDamage: 46, scaleAP: 0, scaleAD: 0.35, scaleLevel: 8,
+      baseDamage: 40, scaleAP: 0, scaleAD: 0.4, scaleLevel: 8,
       type: 'omnislash', count: 4, tickRate: 0.2, distance: 150, dashTime: 0.12,
       desc: 'Dash — on hit: blink 4× to nearby enemies, strike each.'
     }

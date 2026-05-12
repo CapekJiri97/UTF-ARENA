@@ -2,8 +2,11 @@ import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
 import { shopItems, canBuyShopItem, getShopItem, getBuyBlockReason, calcTotalCost } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
-import { world, spawnPoints, mapBoundary, MINION_SPAWN_POINTS } from './MapConfig.js';
-import { canvas, ctx, keys, player, socket, startGame, buyItem, sellItem, drawHealthBar } from './main.js';
+// world, spawnPoints, mapBoundary, mapCenter, visionRings jsou čteny z activeGameMode.mapConfig za běhu
+const spawnPoints  = new Proxy([], { get: (_, i) => activeGameMode.mapConfig.spawnPoints[i] });
+const mapBoundary  = new Proxy([], { get: (_, k) => activeGameMode.mapConfig.mapBoundary[k] });
+const getMapConfig = () => activeGameMode.mapConfig;
+import { canvas, ctx, keys, player, socket, startGame, buyItem, sellItem, drawHealthBar, activeGameMode, setActiveMode } from './main.js';
 
 const computeDominionPCS = (p) => {
     if (!p) return { total: 0, breakdown: {} };
@@ -957,12 +960,14 @@ export function updateInventory() {
   }
 }
 
-export function drawBackground(ctx){ 
-  if (!game.bgCanvas) {
+export function drawBackground(ctx){
+  const mapWorld = activeGameMode.mapConfig.world;
+  if (!game.bgCanvas || game.bgCanvas._forMode !== activeGameMode.name) {
       game.bgCanvas = document.createElement('canvas');
-      game.bgCanvas.width = world.width; game.bgCanvas.height = world.height;
+      game.bgCanvas._forMode = activeGameMode.name;
+      game.bgCanvas.width = mapWorld.width; game.bgCanvas.height = mapWorld.height;
       let bgCtx = game.bgCanvas.getContext('2d');
-      bgCtx.fillStyle = '#070707'; bgCtx.fillRect(0,0,world.width, world.height);
+      bgCtx.fillStyle = '#070707'; bgCtx.fillRect(0,0,mapWorld.width, mapWorld.height);
 
       let sb = smoothPolygon(mapBoundary, 3);
       let accumDist = 0; const spacing = 45; let boundVis = [];
@@ -1129,19 +1134,8 @@ export function draw(){
         }
     }
 
-    // --- TOP CENTER SCORE ---
-    let tBlue = game.towers.filter(t=>t.owner===0).length; let tRed = game.towers.filter(t=>t.owner===1).length;
-    let cxTop = cw / 2;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top'; 
-    ctx.font = isMobile ? 'bold 18px monospace' : 'bold 28px monospace';
-    ctx.fillStyle = '#fff'; ctx.fillText(' : ', cxTop, 20);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#486FED'; ctx.fillText(Math.floor(game.nexus[0]), cxTop - 15, 20);
-    ctx.textAlign = 'left'; ctx.fillStyle = '#FF4E4E'; ctx.fillText(Math.floor(game.nexus[1]), cxTop + 15, 20);
-    
-    ctx.font = isMobile ? 'bold 12px monospace' : 'bold 18px monospace'; 
-    ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(' X ', cxTop, isMobile ? 40 : 55);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#486FED'; ctx.fillText(`(${tBlue})`, cxTop - 15, isMobile ? 40 : 55);
-    ctx.textAlign = 'left'; ctx.fillStyle = '#FF4E4E'; ctx.fillText(`(${tRed})`, cxTop + 15, isMobile ? 40 : 55);
+    // --- TOP CENTER SCORE --- delegováno na aktivní game mode
+    activeGameMode.drawHUD(ctx, cw, isMobile);
 
     if (game.isSpectator) {
         ctx.textAlign = 'center'; ctx.fillStyle = '#ffcc00'; ctx.font = isMobile ? 'bold 14px monospace' : 'bold 20px monospace';
@@ -1954,24 +1948,24 @@ export function draw(){
 
 // Returns world-space static vision zones: powerup center + tower ring path
 function getStaticVisionPoints() {
-  const MAP_CX = 1993, MAP_CY = 1567;
-  const RING_PUSH = 100; // shift each tower-ring vision point this many units outward from map center
+  const MAP_CX = activeGameMode.mapConfig.mapCenter.x, MAP_CY = activeGameMode.mapConfig.mapCenter.y;
+  const { ringPush, powerupRadius, towerRadius, interpolatedRadius, interpolationStep } = activeGameMode.mapConfig.visionRings;
   function pushOut(px, py) {
     const d = Math.hypot(px - MAP_CX, py - MAP_CY) || 1;
-    return { x: px + (px - MAP_CX) / d * RING_PUSH, y: py + (py - MAP_CY) / d * RING_PUSH };
+    return { x: px + (px - MAP_CX) / d * ringPush, y: py + (py - MAP_CY) / d * ringPush };
   }
-  const pts = [{ x: MAP_CX, y: MAP_CY, r: 380 }]; // powerup center stays fixed
+  const pts = [{ x: MAP_CX, y: MAP_CY, r: powerupRadius }];
   if (game.towers && game.towers.length > 0) {
     for (let i = 0; i < game.towers.length; i++) {
       const t1 = game.towers[i], t2 = game.towers[(i + 1) % game.towers.length];
       const p1 = pushOut(t1.pos.x, t1.pos.y);
-      pts.push({ x: p1.x, y: p1.y, r: 420 });
+      pts.push({ x: p1.x, y: p1.y, r: towerRadius });
       const dx = t2.pos.x - t1.pos.x, dy = t2.pos.y - t1.pos.y;
-      const steps = Math.max(1, Math.floor(Math.hypot(dx, dy) / 260));
+      const steps = Math.max(1, Math.floor(Math.hypot(dx, dy) / interpolationStep));
       for (let s = 1; s < steps; s++) {
         const t = s / steps;
         const ip = pushOut(t1.pos.x + dx * t, t1.pos.y + dy * t);
-        pts.push({ x: ip.x, y: ip.y, r: 340 });
+        pts.push({ x: ip.x, y: ip.y, r: interpolatedRadius });
       }
     }
   }
@@ -2052,7 +2046,7 @@ export function drawMinimap(){
   }
   const ctxm = mm._ctx;
   ctxm.clearRect(0,0,w,h);
-  const scaleX = w / world.width; const scaleY = h / world.height; 
+  const scaleX = w / activeGameMode.mapConfig.world.width; const scaleY = h / activeGameMode.mapConfig.world.height;
   ctxm.save(); ctxm.beginPath(); ctxm.arc(w/2, h/2, w/2, 0, Math.PI*2); ctxm.clip();
   ctxm.fillStyle='#111'; ctxm.fillRect(0,0,w,h);
   
@@ -2287,7 +2281,9 @@ export function buildMenu() {
       <!-- Header -->
       <div style="display:flex; flex-shrink: 0; justify-content:space-between; align-items:center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px;">
           <h1 id="lobbyTitle" style="margin:0; font-size: 20px; color: #ffcc00; font-family:monospace; letter-spacing:3px;">[ OFFLINE MODE ]</h1>
-          <div style="display:flex; gap:10px;">
+          <div style="display:flex; gap:8px; align-items:center;">
+              <button id="modeClassicBtn" style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#ffcc00; border:2px solid #ffcc00; letter-spacing:1px;">DOMINION</button>
+              <button id="modeAramBtn"    style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#444;   border:2px solid #444;   letter-spacing:1px;">ARAM</button>
               <button id="btnSpec" style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#aaa; border:1px solid #555;">[ SPECTATE ]</button>
               <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:6px 12px; cursor:pointer; font-family:monospace; background:#000; color:#ff4444; border:1px solid #ff4444; font-weight:bold;">[ LEAVE ]</button>
           </div>
@@ -2362,6 +2358,23 @@ export function buildMenu() {
           document.getElementById('roomBrowser').style.display = 'block';
       }
   };
+
+  // Game mode selector
+  const modeClassicBtn = document.getElementById('modeClassicBtn');
+  const modeAramBtn    = document.getElementById('modeAramBtn');
+  const modeBtns = [modeClassicBtn, modeAramBtn];
+
+  function selectMode(modeName) {
+    setActiveMode(modeName);
+    modeBtns.forEach(b => { b.style.borderColor = '#444'; b.style.color = '#444'; });
+    const active = modeName === 'aram' ? modeAramBtn : modeClassicBtn;
+    active.style.borderColor = '#ffcc00';
+    active.style.color = '#ffcc00';
+    if (socket) socket.emit('update_settings', { gameMode: modeName });
+  }
+
+  if (modeClassicBtn) modeClassicBtn.onclick = () => selectMode('classic');
+  if (modeAramBtn)    modeAramBtn.onclick    = () => selectMode('aram');
 
   const readyBtn = document.getElementById('readyBtn');
   let myReady = false;

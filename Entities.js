@@ -1,9 +1,9 @@
 import { dist, isPointInPoly, distToPoly } from './Utils.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 const _isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-import { mapBoundary, spawnPoints, MINION_SPAWN_POINTS } from './MapConfig.js';
+// mapBoundary, spawnPoints, MINION_SPAWN_POINTS jsou čteny z activeGameMode.mapConfig za běhu
 import { spawnParticles, EffectText } from './Effects.js';
-import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, grantRewards, grantMinionKillRewards } from './main.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, grantRewards, grantMinionKillRewards, activeGameMode } from './main.js';
 import { playSound } from './Audio.js';
 
 export class Projectile{
@@ -12,7 +12,7 @@ export class Projectile{
     this.color = ownerTeam === 0 ? '#486FED' : (ownerTeam === 1 ? '#FF4E4E' : '#fff'); 
     this.opts = opts; }
   update(dt){ if(this.dead) return; this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; if(this.life<=0) this.dead = true;
-    if(!isPointInPoly(this.pos.x, this.pos.y, mapBoundary)) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; }
+    if(!isPointInPoly(this.pos.x, this.pos.y, activeGameMode.mapConfig.mapBoundary)) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; }
     for(let w of game.walls) { 
       let info = distToPoly(this.pos.x, this.pos.y, w.pts);
       if(info.inside || info.minDist < w.r) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; }
@@ -253,7 +253,7 @@ export class Minion{
     if(this.dead || game.gameOver) return; 
     const towerTarget = game.towers[this.targetIndex]; if(!towerTarget) return;
     if(this.hp <= 0 && !this.dead) { this.dead = true; return; }
-    if(dist(this.pos, spawnPoints[1-this.team]) < 200 && (!socket || game.isHost)) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) { this.dead=true; return; } }
+    if(dist(this.pos, activeGameMode.mapConfig.spawnPoints[1-this.team]) < 200 && (!socket || game.isHost)) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) { this.dead=true; return; } }
     if(this.flashTimer > 0) this.flashTimer -= dt;
     if(this.stunTimer > 0) this.stunTimer -= dt;
     if(this.attackCooldown>0) this.attackCooldown -= dt;
@@ -311,11 +311,18 @@ export class Minion{
         if (this.currentTarget && d > stopRange) { dx = this.currentTarget.pos.x - this.pos.x; dy = this.currentTarget.pos.y - this.pos.y; }
     } else {
         if (!this.atTarget) {
-            const cx = 2000, cy = 1575, Rx = 1250, Ry = 1150;
-            const destPos = MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos;
+            const destPos = activeGameMode.mapConfig.MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos;
             let distToTarget = dist(this.pos, destPos);
-            if (distToTarget > 350) { let myA = Math.atan2((this.pos.y - cy)/Ry, (this.pos.x - cx)/Rx); let tA = Math.atan2((destPos.y - cy)/Ry, (destPos.x - cx)/Rx); let diff = tA - myA; while(diff <= -Math.PI) diff += 2*Math.PI; while(diff > Math.PI) diff -= 2*Math.PI; let lookAhead = myA + Math.sign(diff) * 0.15; dx = (cx + Rx * Math.cos(lookAhead)) - this.pos.x; dy = (cy + Ry * Math.sin(lookAhead)) - this.pos.y;
-            } else { dx = destPos.x - this.pos.x; dy = destPos.y - this.pos.y; }
+            if (activeGameMode && activeGameMode.minionPathMode === 'linear') {
+                // ARAM: přímá linka k cíli
+                dx = destPos.x - this.pos.x;
+                dy = destPos.y - this.pos.y;
+            } else {
+                // Classic: eliptická cesta kolem středu mapy
+                const cx = 2000, cy = 1575, Rx = 1250, Ry = 1150;
+                if (distToTarget > 350) { let myA = Math.atan2((this.pos.y - cy)/Ry, (this.pos.x - cx)/Rx); let tA = Math.atan2((destPos.y - cy)/Ry, (destPos.x - cx)/Rx); let diff = tA - myA; while(diff <= -Math.PI) diff += 2*Math.PI; while(diff > Math.PI) diff -= 2*Math.PI; let lookAhead = myA + Math.sign(diff) * 0.15; dx = (cx + Rx * Math.cos(lookAhead)) - this.pos.x; dy = (cy + Ry * Math.sin(lookAhead)) - this.pos.y;
+                } else { dx = destPos.x - this.pos.x; dy = destPos.y - this.pos.y; }
+            }
             if (distToTarget <= 70) { this.atTarget = true; this.linger = 3.5; dx = 0; dy = 0; }
         }
     }

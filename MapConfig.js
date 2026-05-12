@@ -53,3 +53,42 @@ export const rawMapBoundary = [
   {x: 330, y: 2457}, {x: 163, y: 2392}
 ];
 export const mapBoundary = smoothPolygon(rawMapBoundary, 5);
+
+export const towerPositions = [
+  { x: 827,  y: 1224 }, // Věž 1
+  { x: 1973, y: 394  }, // Věž 2
+  { x: 3155, y: 1242 }, // Věž 3
+  { x: 2658, y: 2606 }, // Věž 4
+  { x: 1266, y: 2603 }, // Věž 5
+];
+
+export const healPickupPositions = [
+  { x: 1079, y: 2870 }, // Heal 0 — u Věže 5
+  { x: 2811, y: 2860 }, // Heal 1 — u Věže 4
+  { x: 3438, y: 1144 }, // Heal 2 — u Věže 3
+  { x: 1994, y: 152  }, // Heal 3 — u Věže 2
+  { x: 481,  y: 1110 }, // Heal 4 — u Věže 1
+  { x: 1272, y: 1816 }, // Heal 5 — střed západ
+  { x: 2061, y: 2204 }, // Heal 6 — střed jih
+  { x: 2713, y: 1785 }, // Heal 7 — střed východ
+  { x: 2014, y: 1151 }, // Heal 8 — střed sever
+];
+
+export const powerupPosition = { x: 1993, y: 1567 };
+
+export const nexusHexWalls = [
+  { x: 1047, y: 2709, r: 40 },
+  { x: 1287, y: 2870, r: 40 },
+  { x: 2617, y: 2840, r: 40 },
+  { x: 2868, y: 2712, r: 40 },
+];
+
+export const mapCenter = { x: 1993, y: 1567 };
+
+export const visionRings = {
+  ringPush: 100,        // posun vision bodu od středu mapy
+  powerupRadius: 380,   // poloměr viditelnosti u powerupu
+  towerRadius: 420,     // poloměr viditelnosti u věže
+  interpolatedRadius: 340, // poloměr viditelnosti mezi věžemi
+  interpolationStep: 260,  // vzdálenost mezi interpolovanými body
+};

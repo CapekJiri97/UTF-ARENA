@@ -2,11 +2,24 @@ import { clamp, dist, isPointInPoly, distToPoly, smoothPolygon, expForLevel } fr
 import { shopItems, canBuyShopItem, getShopItem } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
-import { world, spawnPoints, rawPolys, mapBoundary, MINION_SPAWN_POINTS } from './MapConfig.js';
+// MapConfig data jsou čtena za běhu z activeGameMode.mapConfig
 import { Particle, spawnParticles, DamageNumber, EffectText } from './Effects.js';
 import { Projectile, Tower, Minion, HealPickup, PowerUp } from './Entities.js';
 import { Player, BotPlayer } from './Player.js';
 import { buildMenu, populateShop, toggleShop, showEnd, draw, updateSpellLabels, updateInventory, updateShopGold, updateLobbyUI, updateRoomListUI } from './UI.js';
+import { GameMode_Classic } from './GameMode_Classic.js';
+import { GameMode_ARAM } from './GameMode_ARAM.js';
+
+export const GAME_MODES = {
+  classic: GameMode_Classic,
+  aram:    GameMode_ARAM,
+};
+
+export let activeGameMode = GameMode_Classic;
+
+export function setActiveMode(modeName) {
+  activeGameMode = GAME_MODES[modeName] ?? GameMode_Classic;
+}
 import { initAudio, playSound } from './Audio.js';
 
   export const canvas = document.getElementById('gameCanvas');
@@ -604,10 +617,10 @@ import { initAudio, playSound } from './Audio.js';
   }
 
   export function moveEntityWithCollision(ent, vx, vy, dt) {
-    const cx = world.width/2, cy = world.height/2, maxR = 1900;
+    const cx = activeGameMode.mapConfig.world.width/2, cy = activeGameMode.mapConfig.world.height/2, maxR = 1900;
     ent.pos.x += vx * dt; ent.pos.y += vy * dt;
-    ent.pos.x = clamp(ent.pos.x, ent.radius, world.width - ent.radius);
-    ent.pos.y = clamp(ent.pos.y, ent.radius, world.height - ent.radius);
+    ent.pos.x = clamp(ent.pos.x, ent.radius, activeGameMode.mapConfig.world.width - ent.radius);
+    ent.pos.y = clamp(ent.pos.y, ent.radius, activeGameMode.mapConfig.world.height - ent.radius);
     
     for(let w of game.walls) {
       let info = distToPoly(ent.pos.x, ent.pos.y, w.pts);
@@ -697,6 +710,7 @@ import { initAudio, playSound } from './Audio.js';
     game.isSpectator = isSpectator;
     game.isHost = true; // Důležité: Aby boti a hra nečekali na síťové příkazy!
 
+    const spawnPoints = activeGameMode.mapConfig.spawnPoints;
     let bluePicked = [];
     let redPicked = [];
     const spellsArray = Object.keys(SUMMONER_SPELLS);
@@ -710,11 +724,11 @@ import { initAudio, playSound } from './Audio.js';
         game.players.push(player);
     } else {
         player = null;
-        camera.x = world.width / 2;
-        camera.y = world.height / 2;
+        camera.x = activeGameMode.mapConfig.world.width / 2;
+        camera.y = activeGameMode.mapConfig.world.height / 2;
     }
 
-    const getBotLane = (idx) => { if(idx <= 3) return 'top'; if(idx === 4) return 'bottom'; return Math.random() > 0.5 ? 'top' : 'bottom'; };
+    const getBotLane = (idx) => activeGameMode.getBotLane(idx);
 
     let blueBotCount = (!isSpectator && playerTeam === 0) ? 4 : 5;
     let redBotCount = (!isSpectator && playerTeam === 1) ? 4 : 5;
@@ -740,12 +754,8 @@ import { initAudio, playSound } from './Audio.js';
     updateSpellLabels();
 
     const mc = document.getElementById('mobileControls'); if (mc) mc.style.display = 'block';
-    game.heals = [
-        new HealPickup(1079, 2870), new HealPickup(2811, 2860), new HealPickup(3438, 1144),
-        new HealPickup(1994, 152), new HealPickup(481, 1110), new HealPickup(1272, 1816),
-        new HealPickup(2061, 2204), new HealPickup(2713, 1785), new HealPickup(2014, 1151)
-    ];
-    game.powerup = new PowerUp(1993, 1567);
+    game.heals = activeGameMode.mapConfig.healPickupPositions.map(p => new HealPickup(p.x, p.y));
+    game.powerup = new PowerUp(activeGameMode.mapConfig.powerupPosition.x, activeGameMode.mapConfig.powerupPosition.y);
 
     console.log(`[DEBUG] Game started! Player selected class: ${playerClass}`);
   }
@@ -753,6 +763,7 @@ import { initAudio, playSound } from './Audio.js';
   function startGameNetworked(playersData) {
     game.players = []; game.minions = []; game.projectiles = [];
 
+    const spawnPoints = activeGameMode.mapConfig.spawnPoints;
     let isSpectator = true;
     if (socket) {
         const myData = playersData[socket.id];
@@ -778,11 +789,11 @@ import { initAudio, playSound } from './Audio.js';
 
     if (isSpectator) {
         player = null;
-        camera.x = world.width / 2;
-        camera.y = world.height / 2;
+        camera.x = activeGameMode.mapConfig.world.width / 2;
+        camera.y = activeGameMode.mapConfig.world.height / 2;
     }
 
-    const getBotLane = (idx) => { if(idx <= 3) return 'top'; if(idx === 4) return 'bottom'; return Math.random() > 0.5 ? 'top' : 'bottom'; };
+    const getBotLane = (idx) => activeGameMode.getBotLane(idx);
 
     let blueBotCount = Math.max(0, 5 - humansBlue);
     let redBotCount = Math.max(0, 5 - humansRed);
@@ -805,21 +816,20 @@ import { initAudio, playSound } from './Audio.js';
 
     game.started = true; updateSpellLabels();
     const mc = document.getElementById('mobileControls'); if (mc) mc.style.display = 'block';
-    game.heals = [ new HealPickup(1079, 2870), new HealPickup(2811, 2860), new HealPickup(3438, 1144), new HealPickup(1994, 152), new HealPickup(481, 1110), new HealPickup(1272, 1816), new HealPickup(2061, 2204), new HealPickup(2713, 1785), new HealPickup(2014, 1151) ];
-    game.powerup = new PowerUp(1993, 1567);
+    game.heals = activeGameMode.mapConfig.healPickupPositions.map(p => new HealPickup(p.x, p.y));
+    game.powerup = new PowerUp(activeGameMode.mapConfig.powerupPosition.x, activeGameMode.mapConfig.powerupPosition.y);
   }
 
-  function initWalls() { 
+  function initWalls() {
+    const mc = activeGameMode.mapConfig;
     game.walls = [];
     const processPoly = (pts) => {
       let cx=0, cy=0; pts.forEach(p=>{cx+=p.x; cy+=p.y;}); cx/=pts.length; cy/=pts.length;
-      
-      let scale = 0.95; // Plošné zmenšení objemu zdí o 5%
-      if (dist({x:cx, y:cy}, spawnPoints[0]) < 600 || dist({x:cx, y:cy}, spawnPoints[1]) < 600) {
-        scale = 0.85; // Zmenšení "Nexus" zdí o 15% (okolo základen)
+      let scale = 0.95;
+      if (dist({x:cx, y:cy}, mc.spawnPoints[0]) < 600 || dist({x:cx, y:cy}, mc.spawnPoints[1]) < 600) {
+        scale = 0.85;
       }
       let scaledPts = pts.map(p => ({ x: cx + (p.x - cx) * scale, y: cy + (p.y - cy) * scale }));
-
       let sorted = scaledPts.slice().sort((a,b)=>Math.atan2(a.y-cy, a.x-cx) - Math.atan2(b.y-cy, b.x-cx));
       let minE = Infinity;
       for(let i=0; i<sorted.length; i++) minE = Math.min(minE, dist(sorted[i], sorted[(i+1)%sorted.length]));
@@ -828,35 +838,26 @@ import { initAudio, playSound } from './Audio.js';
       sorted.forEach(p=>{ minX=Math.min(minX, p.x); maxX=Math.max(maxX, p.x); minY=Math.min(minY, p.y); maxY=Math.max(maxY, p.y); });
       game.walls.push({ pts: sorted, r, bbox: {minX, maxX, minY, maxY} });
     };
-    rawPolys.forEach(pts => {
-      let smoothed = smoothPolygon(pts, 3); // Vyhlazení rohů všech vnitřních zdí v aréně
+    mc.rawPolys.forEach(pts => {
+      let smoothed = smoothPolygon(pts, 3);
       processPoly(smoothed);
-      let mirrored = smoothed.map(p => ({ x: world.width - p.x, y: p.y }));
+      let mirrored = smoothed.map(p => ({ x: mc.world.width - p.x, y: p.y }));
       processPoly(mirrored);
     });
-    
     const makeHex = (cx, cy, r) => {
-        let pts = []; for(let i=0; i<6; i++) pts.push({x: Math.round(cx + r*Math.cos(i*Math.PI/3)), y: Math.round(cy + r*Math.sin(i*Math.PI/3))}); return pts;
+      let pts = []; for(let i=0; i<6; i++) pts.push({x: Math.round(cx + r*Math.cos(i*Math.PI/3)), y: Math.round(cy + r*Math.sin(i*Math.PI/3))}); return pts;
     };
-    const extraPolys = [
-        makeHex(1047, 2709, 40), makeHex(1287, 2870, 40),
-        makeHex(2617, 2840, 40), makeHex(2868, 2712, 40)
-    ];
-    extraPolys.forEach(pts => processPoly(pts));
+    mc.nexusHexWalls.forEach(h => processPoly(makeHex(h.x, h.y, h.r)));
   }
   initWalls();
 
-  function initTowers() { 
-    const towerPoints = [
-      {x: 827, y: 1224},  // Vez 1
-      {x: 1973, y: 394},  // Vez 2
-      {x: 3155, y: 1242}, // Vez 3
-      {x: 2658, y: 2606}, // Vez 4
-      {x: 1266, y: 2603}  // Vez 5
-    ];
-    game.towers = towerPoints.map((tp, i) => new Tower(tp.x, tp.y, i)); 
+  function initTowers() {
+    game.towers = activeGameMode.mapConfig.towerPositions.map((tp, i) => new Tower(tp.x, tp.y, i));
   }
   initTowers();
+
+  // Inicializace game modu (nastaví nexus HP nebo jiné per-mode state)
+  activeGameMode.init();
 
   let spawnTimer = 0; const spawnInterval = 16.0; const nexusDrainRate = 0.75; // Sníženo odečítání skóre (cca 30%)
 
@@ -902,7 +903,7 @@ import { initAudio, playSound } from './Audio.js';
     if (!player) return;
     const it = getShopItem(id);
     if (!it) return;
-    const allyBaseDist = dist(player.pos, spawnPoints[player.team]);
+    const allyBaseDist = dist(player.pos, activeGameMode.mapConfig.spawnPoints[player.team]);
     if (allyBaseDist > 250 && player.alive) return flashMessage('Shop available only in your base!');
     const buyCheck = canBuyShopItem(player, it);
     if (!buyCheck.ok) return flashMessage(buyCheck.reason);
@@ -932,7 +933,7 @@ import { initAudio, playSound } from './Audio.js';
     if (!player) return;
     const it = getShopItem(id);
     if (!it) return;
-    const allyBaseDist = dist(player.pos, spawnPoints[player.team]);
+    const allyBaseDist = dist(player.pos, activeGameMode.mapConfig.spawnPoints[player.team]);
     if (allyBaseDist > 250 && player.alive) return flashMessage('Shop available only in your base!');
     const idx = player.items.indexOf(id);
     if (idx === -1) return flashMessage('Item not in inventory');
@@ -1031,27 +1032,12 @@ import { initAudio, playSound } from './Audio.js';
     game.particles = game.particles.filter(p=>p.life>0);
     game.effectTexts = game.effectTexts.filter(et=>et.life>0);
 
-    // spawning: owned towers spawn minions toward neighboring enemy-owned towers
-    if(game.startDelay <= 0 && (!socket || game.isHost)) { spawnTimer += dt;
-      if(spawnTimer > spawnInterval){ spawnTimer = 0; const N = game.towers.length; for(let i=0;i<N;i++){ const t = game.towers[i]; if(t.owner < 0) continue; const next = game.towers[(i+1)%N]; const prev = game.towers[(i-1+N)%N];
-          const sp = MINION_SPAWN_POINTS[i] || t.pos;
-          if(next.owner !== t.owner){
-            for(let k=0;k<2;k++){ const sx=sp.x+(Math.random()-0.5)*40; const sy=sp.y+(Math.random()-0.5)*40; game.minions.push(new Minion(sx,sy,t.owner,(i+1)%N)); }
-            for(let k=0;k<2;k++){ const sx=sp.x+(Math.random()-0.5)*40; const sy=sp.y+(Math.random()-0.5)*40; game.minions.push(new Minion(sx,sy,t.owner,(i+1)%N,{isRanged:true})); }
-          }
-          if(prev.owner !== t.owner){
-            for(let k=0;k<2;k++){ const sx=sp.x+(Math.random()-0.5)*40; const sy=sp.y+(Math.random()-0.5)*40; game.minions.push(new Minion(sx,sy,t.owner,(i-1+N)%N)); }
-            for(let k=0;k<2;k++){ const sx=sp.x+(Math.random()-0.5)*40; const sy=sp.y+(Math.random()-0.5)*40; game.minions.push(new Minion(sx,sy,t.owner,(i-1+N)%N,{isRanged:true})); }
-          }
-        } }
-    }
-
-    // nexus draining logic (Pouze Host odečítá skóre a ukončuje hru)
+    // spawning + nexus drain + win condition — delegováno na aktivní game mode
     if (!socket || game.isHost) {
-      const owned0 = game.towers.filter(t=>t.owner===0).length; const owned1 = game.towers.filter(t=>t.owner===1).length; const diff = owned0 - owned1; if(game.startDelay <= 0 && diff>0){ game.nexus[1] -= nexusDrainRate * diff * dt; } else if(game.startDelay <= 0 && diff<0){ game.nexus[0] -= nexusDrainRate * (-diff) * dt; }
-      game.nexus[0] = Math.max(0, game.nexus[0]); game.nexus[1] = Math.max(0, game.nexus[1]);
-      if(game.nexus[0] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 1; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 1, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold, towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0, powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null}))}); }
-      if(game.nexus[1] <= 0 && !game.gameOver){ game.gameOver = true; game.winner = 0; showEnd(game.winner); if(socket) socket.emit('host_event', {type:'game_over', winner: 0, finalStats: game.players.map(p=>({id:p.id, stats:p.stats, kills:p.kills, deaths:p.deaths, assists:p.assists, totalGold: p.totalGold, towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0, powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null}))}); }
+      if (game.startDelay <= 0) {
+        spawnTimer = activeGameMode.tickSpawn(dt, spawnTimer, spawnInterval);
+      }
+      activeGameMode.tickObjective(dt, nexusDrainRate, socket);
     }
 
     // update camera to follow player or spectate
@@ -1063,13 +1049,13 @@ import { initAudio, playSound } from './Audio.js';
         if (keys['d']) camera.x += camSpeed;
         const viewW = canvas.clientWidth / camera.scale; 
         const viewH = canvas.clientHeight / camera.scale;
-        camera.x = clamp(camera.x, 0, Math.max(0, world.width - viewW));
-        camera.y = clamp(camera.y, 0, Math.max(0, world.height - viewH));
+        camera.x = clamp(camera.x, 0, Math.max(0, activeGameMode.mapConfig.world.width - viewW));
+        camera.y = clamp(camera.y, 0, Math.max(0, activeGameMode.mapConfig.world.height - viewH));
     } else if (player) {
         const viewW = canvas.clientWidth / camera.scale; 
         const viewH = canvas.clientHeight / camera.scale;
-        camera.x = clamp(player.pos.x - viewW/2, 0, Math.max(0, world.width - viewW));
-        camera.y = clamp(player.pos.y - viewH/2, 0, Math.max(0, world.height - viewH));
+        camera.x = clamp(player.pos.x - viewW/2, 0, Math.max(0, activeGameMode.mapConfig.world.width - viewW));
+        camera.y = clamp(player.pos.y - viewH/2, 0, Math.max(0, activeGameMode.mapConfig.world.height - viewH));
     }
 
     // SÍŤOVÁ SYNCHRONIZACE POZICE
