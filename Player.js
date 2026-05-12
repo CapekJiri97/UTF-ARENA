@@ -2,12 +2,12 @@ import { dist, distToPoly, expForLevel } from './Utils.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { shopItems, canBuyShopItem, getShopItem } from './items.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
-// world, spawnPoints, mapBoundary jsou čteny z activeGameMode.mapConfig za běhu
-const spawnPoints = new Proxy([], { get: (_, i) => activeGameMode.mapConfig.spawnPoints[i] });
-const mapBoundary = new Proxy([], { get: (_, k) => activeGameMode.mapConfig.mapBoundary[k] });
 import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
 import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards, grantMinionKillRewards, recalcPlayerItemStats, activeGameMode } from './main.js';
+// spawnPoints a mapBoundary jsou lazy proxy — activeGameMode je již importován výše
+const spawnPoints = new Proxy([], { get: (_, i) => activeGameMode.mapConfig.spawnPoints[i] });
+const mapBoundary = new Proxy([], { get: (_, k) => activeGameMode.mapConfig.mapBoundary[k] });
 import { updateSpellLabels } from './UI.js';
 import { playSound } from './Audio.js';
 

@@ -636,10 +636,11 @@ import { initAudio, playSound } from './Audio.js';
     }
     
     // Custom polygon boundary collision
-    let isInside = isPointInPoly(ent.pos.x, ent.pos.y, mapBoundary);
+    const _mb = activeGameMode.mapConfig.mapBoundary;
+    let isInside = isPointInPoly(ent.pos.x, ent.pos.y, _mb);
     let minDistB = Infinity; let closestB = null;
-    for(let i=0; i<mapBoundary.length; i++) {
-      let p1 = mapBoundary[i], p2 = mapBoundary[(i+1)%mapBoundary.length];
+    for(let i=0; i<_mb.length; i++) {
+      let p1 = _mb[i], p2 = _mb[(i+1)%_mb.length];
       let l2 = (p2.x-p1.x)**2 + (p2.y-p1.y)**2;
       let t = l2===0 ? 0 : ((ent.pos.x-p1.x)*(p2.x-p1.x) + (ent.pos.y-p1.y)*(p2.y-p1.y))/l2;
       t = Math.max(0, Math.min(1, t)); 

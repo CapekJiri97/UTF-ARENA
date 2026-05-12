@@ -2,11 +2,10 @@ import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
 import { shopItems, canBuyShopItem, getShopItem, getBuyBlockReason, calcTotalCost } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
-// world, spawnPoints, mapBoundary, mapCenter, visionRings jsou čteny z activeGameMode.mapConfig za běhu
+import { canvas, ctx, keys, player, socket, startGame, buyItem, sellItem, drawHealthBar, activeGameMode, setActiveMode } from './main.js';
+// spawnPoints a mapBoundary jsou lazy proxy — activeGameMode je již importován výše
 const spawnPoints  = new Proxy([], { get: (_, i) => activeGameMode.mapConfig.spawnPoints[i] });
 const mapBoundary  = new Proxy([], { get: (_, k) => activeGameMode.mapConfig.mapBoundary[k] });
-const getMapConfig = () => activeGameMode.mapConfig;
-import { canvas, ctx, keys, player, socket, startGame, buyItem, sellItem, drawHealthBar, activeGameMode, setActiveMode } from './main.js';
 
 const computeDominionPCS = (p) => {
     if (!p) return { total: 0, breakdown: {} };
