@@ -1104,7 +1104,7 @@ import { initAudio, playSound } from './Audio.js';
             game.hostSyncTimer = (game.hostSyncTimer || 0) + dt;
             if (game.hostSyncTimer >= 0.1) {
                 game.hostSyncTimer = 0;
-                socket.emit('host_state', {
+                try { socket.emit('host_state', {
                     bots: game.players.filter(p => p instanceof BotPlayer).map(b => {
                         const base = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, stunT: b.stunTimer, shield: b.shield };
                         if (b.isDirty) {
@@ -1114,10 +1114,11 @@ import { initAudio, playSound } from './Audio.js';
                                 level: b.level, maxHp: b.effectiveMaxHp, kills: b.kills, deaths: b.deaths, assists: b.assists, gold: b.totalGold, items: b.items.length,
                                 AD: b.AD, AP: b.AP, armor: b.armor, mr: b.mr, speed: b.speed, attackSpeed: b.attackSpeed, abilityHaste: b.abilityHaste,
                                 invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer, qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
-                                stats: b.stats, sumSpell: b.summonerSpell,
+                                stats: b.stats ? { dmgDealt: b.stats.dmgDealt, dmgTaken: b.stats.dmgTaken, hpHealed: b.stats.hpHealed, dmgDealtToHeroes: b.stats.dmgDealtToHeroes || 0, dmgDealtToMinions: b.stats.dmgDealtToMinions || 0 } : null,
+                                sumSpell: b.summonerSpell,
                                 towerCaptures: b.towerCaptures || 0, towerDefends: b.towerDefends || 0, towerAssaultTime: b.towerAssaultTime || 0,
                                 objectivePresenceTime: b.objectivePresenceTime || 0, powerupsCollected: b.powerupsCollected || 0, powerupUptime: b.powerupUptime || 0,
-                                pcs: b.pcs || 0, pcsBreakdown: b.pcsBreakdown || null };
+                                pcs: b.pcs || 0, pcsBreakdown: b.pcsBreakdown ? { ...b.pcsBreakdown } : null };
                         }
                         return base;
                     }),
@@ -1126,26 +1127,28 @@ import { initAudio, playSound } from './Audio.js';
                         if (m._syncDirty) { m._syncDirty = false; return { ...base, maxHp: m.maxHp, team: m.team, targetIndex: m.targetIndex, isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId, isSc: m.isSmallChicken, isBc: m.isBigChicken }; }
                         return base;
                     }),
-                });
+                }); } catch(netErr) { console.warn('[NET] host_state (fast) serialize error:', netErr.message); }
             }
             // Pomalý tick: stav mapy + humans stats 3x/s (věci co se nemění rychle)
             game.hostSlowSyncTimer = (game.hostSlowSyncTimer || 0) + dt;
             if (game.hostSlowSyncTimer >= 0.33) {
                 game.hostSlowSyncTimer = 0;
-                socket.emit('host_state', {
+                try { socket.emit('host_state', {
                     bots: [],
                     minions: [],
                     humans: game.players.filter(p => !(p instanceof BotPlayer)).map(p => ({
                         id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, stunT: p.stunTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
-                        kills: p.kills, deaths: p.deaths, assists: p.assists, stats: p.stats, alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null, beamT: p.beamTimer, beamId: p.beamTargetId, uberT: p.uberChargeTimer,
+                        kills: p.kills, deaths: p.deaths, assists: p.assists,
+                        stats: p.stats ? { dmgDealt: p.stats.dmgDealt, dmgTaken: p.stats.dmgTaken, hpHealed: p.stats.hpHealed, dmgDealtToHeroes: p.stats.dmgDealtToHeroes || 0, dmgDealtToMinions: p.stats.dmgDealtToMinions || 0 } : null,
+                        alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null, beamT: p.beamTimer, beamId: p.beamTargetId, uberT: p.uberChargeTimer,
                         towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0,
-                        powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null
+                        powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown ? { ...p.pcsBreakdown } : null
                     })),
                     towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner})),
                     heals: game.heals.map(h => h.active),
                     powerup: game.powerup ? { a: game.powerup.active, c: game.powerup.captureTimer } : null,
-                    nexus: game.nexus
-                });
+                    nexus: [game.nexus[0], game.nexus[1]]
+                }); } catch(netErr) { console.warn('[NET] host_state (slow) serialize error:', netErr.message); }
             }
         }
     }
@@ -1161,8 +1164,9 @@ import { initAudio, playSound } from './Audio.js';
       requestAnimationFrame(loop); 
     } catch(err) {
       console.error('[FATAL ERROR] Game loop crashed!', err);
-      try { console.table({ players: game.players.length, minions: game.minions.length, projectiles: game.projectiles.length }); } catch(_) {}
-      alert('Game crashed! Press F12 and send the log (Console tab).');
+      try { console.table({ players: game.players.length, minions: game.minions.length, projectiles: game.projectiles.length, particles: game.particles.length, isHost: game.isHost }); } catch(_) {}
+      console.error('[FATAL STACK]', err.stack);
+      alert('Game crashed! Press F12 and send the log (Console tab).\n\nError: ' + err.message);
       return; // nezaplanovat další frame — hra se zastavila
     }
   }
