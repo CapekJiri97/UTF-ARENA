@@ -769,7 +769,8 @@ import { initAudio, playSound } from './Audio.js';
 
     const mc = document.getElementById('mobileControls'); if (mc) mc.style.display = 'block';
     game.heals = activeGameMode.mapConfig.healPickupPositions.map(p => new HealPickup(p.x, p.y));
-    game.powerup = new PowerUp(activeGameMode.mapConfig.powerupPosition.x, activeGameMode.mapConfig.powerupPosition.y);
+    const _pp1 = activeGameMode.mapConfig.powerupPosition;
+    game.powerup = _pp1 ? new PowerUp(_pp1.x, _pp1.y) : null;
 
     console.log(`[DEBUG] Game started! Player selected class: ${playerClass}`);
   }
@@ -831,7 +832,8 @@ import { initAudio, playSound } from './Audio.js';
     game.started = true; updateSpellLabels();
     const mc = document.getElementById('mobileControls'); if (mc) mc.style.display = 'block';
     game.heals = activeGameMode.mapConfig.healPickupPositions.map(p => new HealPickup(p.x, p.y));
-    game.powerup = new PowerUp(activeGameMode.mapConfig.powerupPosition.x, activeGameMode.mapConfig.powerupPosition.y);
+    const _pp2 = activeGameMode.mapConfig.powerupPosition;
+    game.powerup = _pp2 ? new PowerUp(_pp2.x, _pp2.y) : null;
   }
 
   function initWalls() {

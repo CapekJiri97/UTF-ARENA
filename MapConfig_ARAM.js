@@ -3,49 +3,41 @@ import { smoothPolygon } from './Utils.js';
 // ── ARAM mapa — jedna horizontální linka ──────────────────────────────────────
 //
 // Layout (leva→pravá):
-//   [Blue spawn] [T0] [T1] [T2/nexus] ── střed ── [T3/nexus] [T4] [T5] [Red spawn]
+//   [Blue spawn] [T0 blue] ─────── střed ─────── [T1 red] [Red spawn]
 //
-// Věže jsou silné (2000 HP), střílí primárně na miniony, pak na hrdiny.
-// T2 a T3 jsou nexus věže — jejich dobytí = výhra.
-// Žádné zdi, žádné heal pickupy — čistá linka jako v LoL ARAM.
+// T0 = blue "nexus" věž — zničení červenými = výhra červených
+// T1 = red  "nexus" věž — zničení modrými  = výhra modrých
+// Věže mají HP, nejdou capture, pouze střílí jako v LoL.
+// Žádné zdi, žádné healy, žádné powerupy.
 
 export const world = { width: 3200, height: 1000 };
 
-// Spawn hráčů — za nejzazšími věžemi
+// Spawn hráčů — za věžemi
 export const spawnPoints = [
   { x: 160, y: 500 },   // modrý tým — vlevo
   { x: 3040, y: 500 },  // červený tým — vpravo
 ];
 
-// 6 věží v linii — indexy 0-2 modré, 3-5 červené
-// T2 = blue nexus věž, T3 = red nexus věž
+// 2 věže — T0 blue (vlevo), T1 red (vpravo)
 export const towerPositions = [
-  { x: 500,  y: 500 }, // T0 — blue outer
-  { x: 950,  y: 500 }, // T1 — blue inner
-  { x: 1350, y: 500 }, // T2 — blue nexus věž
-  { x: 1850, y: 500 }, // T3 — red nexus věž
-  { x: 2250, y: 500 }, // T4 — red inner
-  { x: 2700, y: 500 }, // T5 — red outer
+  { x: 600,  y: 500 }, // T0 — blue nexus věž
+  { x: 2600, y: 500 }, // T1 — red nexus věž
 ];
 
-// Nexus věže — dobytí = výhra protivníka
-export const nexusTowerIndex = { 0: 2, 1: 3 };
+// Nexus věže — obě věže jsou nexusy
+export const nexusTowerIndex = { 0: 0, 1: 1 };
 
-// Minion spawn pointy — těsně za každou věží (směrem ke středu)
+// Minion spawn pointy — těsně za věžemi (směrem ke středu)
 export const MINION_SPAWN_POINTS = [
-  { x: 340,  y: 500 }, // u T0
-  { x: 725,  y: 500 }, // u T1
-  { x: 1150, y: 500 }, // u T2
-  { x: 2050, y: 500 }, // u T3
-  { x: 2475, y: 500 }, // u T4
-  { x: 2860, y: 500 }, // u T5
+  { x: 820,  y: 500 }, // modrý tým spawní za T0
+  { x: 2380, y: 500 }, // červený tým spawní za T1
 ];
 
 // Žádné heal pickupy — ARAM styl
 export const healPickupPositions = [];
 
-// Powerup uprostřed linky
-export const powerupPosition = { x: 1600, y: 500 };
+// Žádný powerup
+export const powerupPosition = null;
 
 // Žádné vnitřní zdi
 export const rawPolys = [];

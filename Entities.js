@@ -32,7 +32,7 @@ export class Projectile{
     if (this.ownerId !== 'tower' && (!socket || game.isHost)) {
       for (let t of game.towers) {
         if (!t.dead && t.maxHp !== null && t.owner !== this.ownerTeam && dist(this.pos, t.pos) < this.radius + t.radius + 12) {
-          t.takeDamage(this.damage);
+          t.takeDamage(this.damage, this.ownerId);
           spawnParticles(this.pos.x, this.pos.y, 4, '#ff8800');
           this.dead = true; return;
         }
@@ -122,8 +122,11 @@ export class Tower{
     // LoL agro: tracks which enemy hero last attacked an ally in range
     this._aggroTarget = null;
   }
-  update(dt){ if(game.gameOver) return; 
+  update(dt){ if(game.gameOver) return;
+    if (this.dead) return;
     if (!socket || game.isHost) {
+      // Capture logika — jen v Classic (ARAM věže mají HP a ničí se)
+      if (this.maxHp === null) {
       const counts = [0,0]; let rallyBonus = [0,0];
       for(let p of game.players){ if(p.alive && dist(p.pos, this.pos) <= this.captureRadius) { counts[p.team]++; if(p.rallyTimer > 0) rallyBonus[p.team] += 2; } } 
       const presenceDelta = (counts[0] + rallyBonus[0]) - (counts[1] + rallyBonus[1]);
@@ -180,8 +183,8 @@ export class Tower{
               if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
           }
       }
+      } // end if (this.maxHp === null) — capture blok
     }
-    if (this.dead) return;
 
     if (this.owner >= 0) {
       if (this.attackCooldown > 0) this.attackCooldown -= dt;
@@ -229,13 +232,33 @@ export class Tower{
   }
 
   // Voláno z applyDamage když věž dostane dmg (jen ARAM)
-  takeDamage(amount) {
+  takeDamage(amount, killerId) {
     if (this.maxHp === null || this.dead) return;
     this.hp = Math.max(0, this.hp - amount);
     if (this.hp <= 0) {
       this.dead = true;
       this.owner = -1;
       this.control = 0;
+      game.shake = 0.5;
+      playSound('capture', this.pos);
+      // Odměna za zničení věže — všichni živí útočníci v širokém okolí
+      if (!socket || game.isHost) {
+        const attackerTeam = killerId ? (game.players.find(p => p.id === killerId)?.team ?? -1) : -1;
+        const attackers = attackerTeam >= 0
+          ? game.players.filter(p => p.alive && p.team === attackerTeam && dist(p.pos, this.pos) < 900)
+          : [];
+        let totalLvl = 0, pCount = 0;
+        for (let p of game.players) { if (p.team >= 0) { totalLvl += p.level; pCount++; } }
+        const avgLevel = pCount > 0 ? totalLvl / pCount : 1;
+        const scale = Math.min(avgLevel, 8) / 7.0;
+        const gShare = Math.round((200 * scale) / Math.max(1, attackers.length));
+        const eShare = Math.round((250 * scale) / Math.max(1, attackers.length));
+        for (const p of attackers) grantRewards(p, gShare, eShare);
+        const kName = attackers.length > 0 ? attackers[0].className : (attackerTeam === 0 ? 'Blue Team' : 'Red Team');
+        const ev = { killer: kName, victim: 'Tower ' + (this.index + 1), killerTeam: attackerTeam, victimTeam: -1, isCapture: false };
+        if (socket) socket.emit('broadcast_kill', ev);
+        if (game.killFeed) game.killFeed.push({ ...ev, timer: 5.0 });
+      }
     }
   }
   draw(ctx){

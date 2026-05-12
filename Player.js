@@ -620,8 +620,11 @@ export class Player{
     // Fountain Logic + AoE Burn Aura - Host-only
     if (!socket || game.isHost) {
         if (allyBaseDist < 200) this.hp = Math.min(this.effectiveMaxHp, this.hp + (this.effectiveMaxHp * 0.15 * dt));
-        const enemyBaseDist = dist(this.pos, spawnPoints[1-this.team]);
-        if (enemyBaseDist < 200) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) handlePlayerKill(this, 'laser'); }
+        // Fountain laser — jen v Classic módu (v ARAM je spawn na kraji mapy, laser by zabil respawnující hráče)
+        if (activeGameMode.name !== 'aram') {
+          const enemyBaseDist = dist(this.pos, spawnPoints[1-this.team]);
+          if (enemyBaseDist < 200) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) handlePlayerKill(this, 'laser'); }
+        }
 
         // Sunfire Aegis: proximity burn aura — 2% enemy maxHP/s (ticks twice per second)
         if (this.hasAoeBurn && this.alive) {
@@ -2733,12 +2736,10 @@ export class BotPlayer extends Player {
           
           if (dist(t.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Penalizace
           if (activeGameMode.name === 'aram') {
-            // ARAM: prioritizuj první nepřátelskou věž na lince (nejblíže ke středu)
-            // Blue tlačí doprava (vyšší index = lepší), Red doleva (nižší index = lepší)
-            const frontlineBonus = this.team === 0
-              ? t.index * 1800   // blue chce co nejvyšší index věže
-              : (5 - t.index) * 1800; // red chce co nejnižší index věže
-            if (t.owner !== this.team) score += frontlineBonus;
+            // ARAM: 2 věže (T0 blue, T1 red) — cílem je vždy nepřátelská věž
+            // Blue útočí na T1 (index 1), Red útočí na T0 (index 0)
+            if (t.owner !== this.team) score += 5000; // vždy prioritizuj nepřátelskou věž
+            if (t.owner === this.team && t.hp < t.maxHp * 0.5) score += 3000; // bráň domácí věž když má < 50% HP
           } else {
             let isTopTower = (t.index === 0 || t.index === 1 || t.index === 2);
             let isBotTower = (t.index === 3 || t.index === 4);

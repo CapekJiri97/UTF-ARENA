@@ -1,4 +1,4 @@
-import { game } from './State.js';
+import { game, camera } from './State.js';
 import * as ClassicMap from './MapConfig.js';
 import { Minion } from './Entities.js';
 import { showEnd } from './UI.js';
@@ -15,6 +15,7 @@ export const GameMode_Classic = {
   // Voláno jednou při startu hry — inicializace stavu specifického pro mód
   init() {
     game.nexus = { 0: 500, 1: 500 };
+    camera.scale = 1.52;
   },
 
   // Voláno každý tick hostitelem — spawn minionů

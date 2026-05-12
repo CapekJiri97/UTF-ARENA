@@ -1,4 +1,4 @@
-import { game } from './State.js';
+import { game, camera } from './State.js';
 import * as AramMap from './MapConfig_ARAM.js';
 import { Minion } from './Entities.js';
 import { showEnd } from './UI.js';
@@ -6,11 +6,10 @@ import { showEnd } from './UI.js';
 const { MINION_SPAWN_POINTS, nexusTowerIndex } = AramMap;
 
 // ── ARAM game mode ────────────────────────────────────────────────────────────
-// Jedna linka, 6 věží (T0-T2 modré, T3-T5 červené).
-// T2 = blue nexus věž, T3 = red nexus věž.
-// Minionové se spawní u nejzazší vlastní věže a tlačí přímo dopředu.
-// Vyhraješ zničením nepřátelské nexus věže (owner = tvůj tým).
-// Boti: vždy tlačí dopředu, drží linku, pomáhají minionům.
+// Jedna linka, 2 věže (T0 blue, T1 red) s HP — žádná capture logika.
+// Minionové spawní za věží svého týmu a tlačí přímo dopředu.
+// Vyhraješ zničením nepřátelské věže.
+// Boti: vždy tlačí dopředu mid linkou.
 
 export const GameMode_ARAM = {
   name: 'aram',
@@ -22,82 +21,58 @@ export const GameMode_ARAM = {
   init() {
     game.nexus = { 0: 1, 1: 1 }; // placeholder, neodčerpává se
 
-    // Věže se přidělí týmům hned na začátku (T0-T2 modré, T3-T5 červené)
-    // Musíme počkat jeden tick až jsou towers inicializovány — použijeme setTimeout
+    // Kamera — ARAM mapa je 3200×1000
+    camera.scale = 1.0;
+
+    // Přiřaď věže týmům hned na začátku (T0 blue, T1 red)
     setTimeout(() => {
       for (const t of game.towers) {
-        if (t.index <= 2) { t.owner = 0; t.control = 100; }
-        else              { t.owner = 1; t.control = -100; }
+        if (t.index === 0) { t.owner = 0; t.control = 100; }
+        else               { t.owner = 1; t.control = -100; }
       }
     }, 0);
   },
 
-  // Spawn minionů: pouze nejzazší vlastní věž spawní vlnu směrem k nepříteli
+  // Spawn minionů: každý tým spawní za svou věží směrem k nepříteli
   tickSpawn(dt, spawnTimer, spawnInterval) {
     let newTimer = spawnTimer + dt;
     if (newTimer > spawnInterval) {
       newTimer = 0;
-      const N = game.towers.length; // 6
-
-      // Blue tým spawní od nejzazší živé blue věže směrem doprava
-      this._spawnWaveForTeam(0, N);
-      // Red tým spawní od nejzazší živé red věže směrem doleva
-      this._spawnWaveForTeam(1, N);
+      // Blue tým: spawní za T0 (index 0), cíl T1 (index 1)
+      if (!game.towers[0] || !game.towers[0].dead) {
+        this._spawnWave(0, 0, 1);
+      }
+      // Red tým: spawní za T1 (index 1), cíl T0 (index 0)
+      if (!game.towers[1] || !game.towers[1].dead) {
+        this._spawnWave(1, 1, 0);
+      }
     }
     return newTimer;
   },
 
-  _spawnWaveForTeam(team, N) {
-    // Najdi nejzazší věž vlastněnou tímto týmem
-    // Blue: věže 0,1,2 — nejzazší = nejnižší index který vlastní
-    // Red:  věže 3,4,5 — nejzazší = nejvyšší index který vlastní
-    let spawnTowerIdx = -1;
-    if (team === 0) {
-      for (let i = 0; i <= 2; i++) {
-        if (game.towers[i] && game.towers[i].owner === 0) { spawnTowerIdx = i; break; }
-      }
-    } else {
-      for (let i = N - 1; i >= 3; i--) {
-        if (game.towers[i] && game.towers[i].owner === 1) { spawnTowerIdx = i; break; }
-      }
-    }
-    if (spawnTowerIdx < 0) return; // tým nemá žádnou vlastní věž
-
-    // Cíl minionů = první nepřátelská věž před nimi
-    let targetIdx = -1;
-    if (team === 0) {
-      for (let i = spawnTowerIdx + 1; i < N; i++) {
-        if (game.towers[i] && game.towers[i].owner !== 0) { targetIdx = i; break; }
-      }
-    } else {
-      for (let i = spawnTowerIdx - 1; i >= 0; i--) {
-        if (game.towers[i] && game.towers[i].owner !== 1) { targetIdx = i; break; }
-      }
-    }
-    if (targetIdx < 0) return; // žádný nepřátelský cíl — zvítězili jsme
-
-    const sp = MINION_SPAWN_POINTS[spawnTowerIdx] || game.towers[spawnTowerIdx].pos;
-    // 3 melee + 3 ranged na vlnu (ARAM má silnější vlny)
+  _spawnWave(team, spawnTowerIdx, targetTowerIdx) {
+    const sp = MINION_SPAWN_POINTS[team];
+    if (!sp) return;
+    // 3 melee + 3 ranged na vlnu
     for (let k = 0; k < 3; k++) {
       const sx = sp.x + (Math.random() - 0.5) * 40;
       const sy = sp.y + (Math.random() - 0.5) * 60;
-      game.minions.push(new Minion(sx, sy, team, targetIdx));
+      game.minions.push(new Minion(sx, sy, team, targetTowerIdx));
     }
     for (let k = 0; k < 3; k++) {
       const sx = sp.x + (Math.random() - 0.5) * 40;
       const sy = sp.y + (Math.random() - 0.5) * 60;
-      game.minions.push(new Minion(sx, sy, team, targetIdx, { isRanged: true }));
+      game.minions.push(new Minion(sx, sy, team, targetTowerIdx, { isRanged: true }));
     }
   },
 
-  // Win condition: blue nexus věž (T2) dobytá červenými = red wins, a naopak
+  // Win condition: zničení nepřátelské věže
   tickObjective(dt, _nexusDrainRate, socket) {
     if (game.startDelay > 0 || game.gameOver) return;
 
-    const blueNexusTower = game.towers[nexusTowerIndex[0]]; // T2
-    const redNexusTower  = game.towers[nexusTowerIndex[1]]; // T3
+    const blueNexusTower = game.towers[nexusTowerIndex[0]]; // T0
+    const redNexusTower  = game.towers[nexusTowerIndex[1]]; // T1
 
-    // Výhra = nexus věž protivníka je zničena (hp == 0)
     if (blueNexusTower && blueNexusTower.dead) {
       this._triggerGameOver(1, socket);
     } else if (redNexusTower && redNexusTower.dead) {
@@ -163,6 +138,6 @@ export const GameMode_ARAM = {
     return 'mid';
   },
 
-  // Home tower indexy: blue chrání T2, red chrání T3
-  homeTowerIndexes: { 0: [0, 1, 2], 1: [3, 4, 5] },
+  // Home tower indexy: blue chrání T0, red chrání T1
+  homeTowerIndexes: { 0: [0], 1: [1] },
 };
