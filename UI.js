@@ -1142,6 +1142,7 @@ export function draw(){
     }
 
     // Kill Feed & Objectives
+    const cxTop = cw / 2;
     if (game.killFeed && game.killFeed.length > 0) {
         let kfY = isMobile ? 65 : 85;
         ctx.font = isMobile ? 'bold 10px monospace' : 'bold 13px monospace';

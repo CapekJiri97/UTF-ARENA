@@ -27,13 +27,24 @@ export class Projectile{
       } 
     }
     if (hitTarget) { this.processOnHit(hitTarget); this.dead = true; return; }
-    
-    for(let p of game.players){ 
-      if(p.id !== this.ownerId && p.team !== this.ownerTeam && p.alive && dist(this.pos, p.pos) < this.radius + p.radius){ 
+
+    // Věže s HP (ARAM) — lze je zasáhnout projektily hráčů a minionů (ne jinými věžemi)
+    if (this.ownerId !== 'tower' && (!socket || game.isHost)) {
+      for (let t of game.towers) {
+        if (!t.dead && t.maxHp !== null && t.owner !== this.ownerTeam && dist(this.pos, t.pos) < this.radius + t.radius + 12) {
+          t.takeDamage(this.damage);
+          spawnParticles(this.pos.x, this.pos.y, 4, '#ff8800');
+          this.dead = true; return;
+        }
+      }
+    }
+
+    for(let p of game.players){
+      if(p.id !== this.ownerId && p.team !== this.ownerTeam && p.alive && dist(this.pos, p.pos) < this.radius + p.radius){
         hitTarget = p; applyDamage(p, this._scaleBurstDamage(p.id, this.damage), this.dmgType, this.ownerId, false, this.opts.isSpell || false);
         if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
-        if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.ownerId); } break; 
-      } 
+        if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.ownerId); } break;
+      }
     }
     if (hitTarget) { this.processOnHit(hitTarget); this.dead = true; }
   }
@@ -99,7 +110,18 @@ export class Projectile{
 
 // Věže - Host je autorita pro obsazování a útoky
 export class Tower{
-  constructor(x,y,index){ this.pos={x,y}; this.index = index; this.radius=20; this.captureRadius = 80; this.owner = -1; this.control = 0; this.attackCooldown = 0; this.attackRange = 320; this.attackDamage = 45; }
+  constructor(x,y,index){
+    this.pos={x,y}; this.index = index; this.radius=20; this.captureRadius = 80;
+    this.owner = -1; this.control = 0; this.attackCooldown = 0;
+    const isAram = activeGameMode && activeGameMode.name === 'aram';
+    this.attackRange  = isAram ? 420 : 320;
+    this.attackDamage = isAram ? 120 : 45;
+    this.maxHp = isAram ? 2000 : null; // null = indestructible (classic)
+    this.hp    = this.maxHp;
+    this.dead  = false;
+    // LoL agro: tracks which enemy hero last attacked an ally in range
+    this._aggroTarget = null;
+  }
   update(dt){ if(game.gameOver) return; 
     if (!socket || game.isHost) {
       const counts = [0,0]; let rallyBonus = [0,0];
@@ -159,17 +181,45 @@ export class Tower{
           }
       }
     }
+    if (this.dead) return;
+
     if (this.owner >= 0) {
       if (this.attackCooldown > 0) this.attackCooldown -= dt;
       if (this.attackCooldown <= 0 && (!socket || game.isHost)) {
         let isBeingCaptured = false;
         for (let p of game.players) { if (p.alive && p.team !== this.owner && dist(p.pos, this.pos) <= this.captureRadius) { isBeingCaptured = true; break; } }
         if (!isBeingCaptured) {
-          let target = null; let bestDist = this.attackRange;
-          for (let m of game.minions) { if (m.team !== this.owner && !m.dead) { const d = dist(m.pos, this.pos); if (d < bestDist) { target = m; bestDist = d; } } }
-          if (!target) { for (let p of game.players) { if (p.team !== this.owner && p.alive) { const d = dist(p.pos, this.pos); if (d < bestDist) { target = p; bestDist = d; } } } }
+          // LoL agro: pokud enemy hero napadl spojeneckou jednotku v range, přepni na něj
+          if (this._aggroTarget && (!this._aggroTarget.alive || this._aggroTarget.dead || dist(this._aggroTarget.pos, this.pos) > this.attackRange)) {
+            this._aggroTarget = null;
+          }
+
+          let target = this._aggroTarget || null;
+
+          if (!target) {
+            // Priorita 1: nepřátelský minion v range (nejbližší)
+            let bestDist = this.attackRange;
+            for (let m of game.minions) {
+              if (m.team !== this.owner && !m.dead) {
+                const d = dist(m.pos, this.pos);
+                if (d < bestDist) { target = m; bestDist = d; }
+              }
+            }
+            // Priorita 2: nepřátelský hrdina v range (jen pokud žádný minion)
+            if (!target) {
+              for (let p of game.players) {
+                if (p.team !== this.owner && p.alive) {
+                  const d = dist(p.pos, this.pos);
+                  if (d < bestDist) { target = p; bestDist = d; }
+                }
+              }
+            }
+          }
+
           if (target) {
-            this.attackCooldown = 1.5; const angle = Math.atan2(target.pos.y - this.pos.y, target.pos.x - this.pos.x); const speed = 500;
+            this.attackCooldown = 1.2;
+            const angle = Math.atan2(target.pos.y - this.pos.y, target.pos.x - this.pos.x);
+            const speed = 550;
             game.projectiles.push(new Projectile(this.pos.x, this.pos.y, Math.cos(angle)*speed, Math.sin(angle)*speed, 'tower', this.owner, {damage: this.attackDamage, dmgType: 'physical', glyph: '♦', life: this.attackRange/speed}));
             if (socket) socket.emit('host_event', { type: 'tower_shoot', x: this.pos.x, y: this.pos.y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, owner: this.owner, damage: this.attackDamage, life: this.attackRange/speed });
           }
@@ -177,15 +227,47 @@ export class Tower{
       }
     }
   }
-  draw(ctx){ ctx.font='20px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; const color = this.owner>=0 ? TEAM_COLOR[this.owner] : NEUTRAL_COLOR; ctx.fillStyle = color; ctx.fillText('T', this.pos.x, this.pos.y);
-    let pct = Math.max(0, Math.min(1, Math.abs(this.control) / 100));
-    let progressAngle = -Math.PI/2 + pct * Math.PI*2;
-    ctx.font='10px monospace';
-    for(let a = -Math.PI/2; a < Math.PI*1.5; a += 0.2) {
-        let isCaptured = pct > 0 && a <= progressAngle;
-        let char = isCaptured ? '#' : '.';
-        ctx.fillStyle = isCaptured ? ((this.control > 0 || this.owner === 0) ? TEAM_COLOR[0] : TEAM_COLOR[1]) : 'rgba(255,255,255,0.2)';
-        ctx.fillText(char, this.pos.x + Math.cos(a)*this.captureRadius, this.pos.y + Math.sin(a)*this.captureRadius);
+
+  // Voláno z applyDamage když věž dostane dmg (jen ARAM)
+  takeDamage(amount) {
+    if (this.maxHp === null || this.dead) return;
+    this.hp = Math.max(0, this.hp - amount);
+    if (this.hp <= 0) {
+      this.dead = true;
+      this.owner = -1;
+      this.control = 0;
+    }
+  }
+  draw(ctx){
+    if (this.dead) return;
+    ctx.font='20px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const color = this.owner>=0 ? TEAM_COLOR[this.owner] : NEUTRAL_COLOR;
+    ctx.fillStyle = color; ctx.fillText('T', this.pos.x, this.pos.y);
+
+    // HP bar pro ARAM věže
+    if (this.maxHp !== null) {
+      const bw = 60, bh = 7;
+      const bx = this.pos.x - bw/2, by = this.pos.y - 38;
+      const hpPct = Math.max(0, this.hp / this.maxHp);
+      ctx.fillStyle = '#111'; ctx.fillRect(bx, by, bw, bh);
+      ctx.fillStyle = hpPct > 0.5 ? '#0f0' : hpPct > 0.25 ? '#ff0' : '#f00';
+      ctx.fillRect(bx, by, bw * hpPct, bh);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.5; ctx.strokeRect(bx, by, bw, bh);
+      ctx.font = '9px monospace'; ctx.fillStyle = '#fff';
+      ctx.fillText(Math.ceil(this.hp) + '/' + this.maxHp, this.pos.x, by - 3);
+    }
+
+    // Capture ring (jen classic)
+    if (this.maxHp === null) {
+      let pct = Math.max(0, Math.min(1, Math.abs(this.control) / 100));
+      let progressAngle = -Math.PI/2 + pct * Math.PI*2;
+      ctx.font='10px monospace';
+      for(let a = -Math.PI/2; a < Math.PI*1.5; a += 0.2) {
+          let isCaptured = pct > 0 && a <= progressAngle;
+          let char = isCaptured ? '#' : '.';
+          ctx.fillStyle = isCaptured ? ((this.control > 0 || this.owner === 0) ? TEAM_COLOR[0] : TEAM_COLOR[1]) : 'rgba(255,255,255,0.2)';
+          ctx.fillText(char, this.pos.x + Math.cos(a)*this.captureRadius, this.pos.y + Math.sin(a)*this.captureRadius);
+      }
     }
   }
 }

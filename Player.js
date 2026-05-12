@@ -2008,7 +2008,10 @@ export class BotPlayer extends Player {
         }
 
         let mState = game.macroState[team];
-        let pointDiff = game.nexus[team] - game.nexus[1-team]; // KPI: Náš Nexus mínus Nepřátelský Nexus
+        // V ARAM pointDiff = počet vlastněných věží mínus nepřátelských (nexus HP se nepoužívá)
+        let pointDiff = activeGameMode.name === 'aram'
+            ? game.towers.filter(t => t.owner === team).length - game.towers.filter(t => t.owner === 1 - team).length
+            : game.nexus[team] - game.nexus[1-team];
 
         const homeTowerIndexes = activeGameMode.homeTowerIndexes[team];
         const isHomeTower = (tower) => homeTowerIndexes.includes(tower.index);
@@ -2729,16 +2732,22 @@ export class BotPlayer extends Player {
           }
           
           if (dist(t.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Penalizace
-          let isTopTower = (t.index === 0 || t.index === 1 || t.index === 2);
-          let isBotTower = (t.index === 3 || t.index === 4);
-          
-          // DYNAMICKÁ LANING FÁZE: V průběhu hry se vazba na původní linku vytrácí
-          let laneMultiplier = 1.0;
-          if (this.level >= 3) laneMultiplier = 0.5; // Od levelu 3 (Mid-game) slábne vliv linek na polovinu
-          if (this.level >= 5) laneMultiplier = 0.0; // Od levelu 5 (Late-game) linky úplně mizí a boti rotují volně
-          
-          if (this.lane === 'top' && isTopTower) score += this.personalWeights.laneMatchScore * laneMultiplier;
-          if (this.lane === 'bottom' && isBotTower) score += this.personalWeights.laneMatchScore * laneMultiplier;
+          if (activeGameMode.name === 'aram') {
+            // ARAM: prioritizuj první nepřátelskou věž na lince (nejblíže ke středu)
+            // Blue tlačí doprava (vyšší index = lepší), Red doleva (nižší index = lepší)
+            const frontlineBonus = this.team === 0
+              ? t.index * 1800   // blue chce co nejvyšší index věže
+              : (5 - t.index) * 1800; // red chce co nejnižší index věže
+            if (t.owner !== this.team) score += frontlineBonus;
+          } else {
+            let isTopTower = (t.index === 0 || t.index === 1 || t.index === 2);
+            let isBotTower = (t.index === 3 || t.index === 4);
+            let laneMultiplier = 1.0;
+            if (this.level >= 3) laneMultiplier = 0.5;
+            if (this.level >= 5) laneMultiplier = 0.0;
+            if (this.lane === 'top' && isTopTower) score += this.personalWeights.laneMatchScore * laneMultiplier;
+            if (this.lane === 'bottom' && isBotTower) score += this.personalWeights.laneMatchScore * laneMultiplier;
+          }
           
           if ((this.role === 'ROAMER' || this.role === 'SPLITPUSHER') && t.owner === 1 - this.team) score += 4600; // Zvýšeno o 15%
           

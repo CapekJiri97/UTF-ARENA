@@ -444,6 +444,19 @@ import { initAudio, playSound } from './Audio.js';
         return 0;
     }
     const sourceEntity = game.players.find(p => p.id === sourceId) || game.minions.find(m => m.id === sourceId);
+
+    // LoL agro: pokud hrdina zaútočí na spojeneckou jednotku v range nepřátelské věže, věž přepne agro na tohoto hrdinu
+    if (sourceEntity && sourceEntity.className && (!socket || game.isHost)) {
+      for (const tower of game.towers) {
+        if (!tower.dead && tower.owner >= 0 && tower.owner !== sourceEntity.team) {
+          const towerInRange = dist(sourceEntity.pos, tower.pos) <= tower.attackRange;
+          if (towerInRange && target && target.team === tower.owner) {
+            tower._aggroTarget = sourceEntity;
+          }
+        }
+      }
+    }
+
     let multiplier = 1;
     let arm = target.armor || 0; let mr = target.mr || 0;
     if(target.hasPowerup) { arm *= 1.2; mr *= 1.2; }

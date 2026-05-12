@@ -20,8 +20,16 @@ export const GameMode_ARAM = {
   minionPathMode: 'linear',
 
   init() {
-    // Nexus HP se nepoužívá — win condition je dobytí nexus věže
     game.nexus = { 0: 1, 1: 1 }; // placeholder, neodčerpává se
+
+    // Věže se přidělí týmům hned na začátku (T0-T2 modré, T3-T5 červené)
+    // Musíme počkat jeden tick až jsou towers inicializovány — použijeme setTimeout
+    setTimeout(() => {
+      for (const t of game.towers) {
+        if (t.index <= 2) { t.owner = 0; t.control = 100; }
+        else              { t.owner = 1; t.control = -100; }
+      }
+    }, 0);
   },
 
   // Spawn minionů: pouze nejzazší vlastní věž spawní vlnu směrem k nepříteli
@@ -89,9 +97,10 @@ export const GameMode_ARAM = {
     const blueNexusTower = game.towers[nexusTowerIndex[0]]; // T2
     const redNexusTower  = game.towers[nexusTowerIndex[1]]; // T3
 
-    if (blueNexusTower && blueNexusTower.owner === 1) {
+    // Výhra = nexus věž protivníka je zničena (hp == 0)
+    if (blueNexusTower && blueNexusTower.dead) {
       this._triggerGameOver(1, socket);
-    } else if (redNexusTower && redNexusTower.owner === 0) {
+    } else if (redNexusTower && redNexusTower.dead) {
       this._triggerGameOver(0, socket);
     }
   },
@@ -116,52 +125,37 @@ export const GameMode_ARAM = {
     }
   },
 
-  // HUD: zobrazení stavu nexus věží místo nexus HP
   drawHUD(ctx, cw, isMobile) {
     const blueNexus = game.towers[nexusTowerIndex[0]];
     const redNexus  = game.towers[nexusTowerIndex[1]];
     const cxTop = cw / 2;
 
-    // Velký nápis ARAM
     ctx.textBaseline = 'top';
     ctx.textAlign = 'center';
-    ctx.font = isMobile ? 'bold 10px monospace' : 'bold 14px monospace';
+    ctx.font = isMobile ? 'bold 10px monospace' : 'bold 13px monospace';
     ctx.fillStyle = '#ffcc44';
-    ctx.fillText('ARAM', cxTop, isMobile ? 5 : 4);
+    ctx.fillText('ARAM', cxTop, 2);
 
-    // Stav nexus věže jako health bar — control jde -100 až +100
-    ctx.font = isMobile ? 'bold 16px monospace' : 'bold 24px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#fff';
-    ctx.fillText('NEXUS', cxTop, isMobile ? 18 : 22);
+    const barW = isMobile ? 90 : 140;
+    const barH = isMobile ? 12 : 16;
+    const barY = isMobile ? 15 : 20;
 
-    const barW = isMobile ? 80 : 130;
-    const barH = isMobile ? 10 : 14;
-    const barY = isMobile ? 36 : 50;
+    const drawNexusBar = (tower, bx, label) => {
+      if (!tower) return;
+      const pct = tower.dead ? 0 : Math.max(0, tower.hp / tower.maxHp);
+      const hpColor = pct > 0.5 ? '#0f0' : pct > 0.25 ? '#ff0' : '#f00';
+      ctx.fillStyle = '#111'; ctx.fillRect(bx, barY, barW, barH);
+      ctx.fillStyle = hpColor; ctx.fillRect(bx, barY, barW * pct, barH);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(bx, barY, barW, barH);
+      ctx.font = isMobile ? 'bold 9px monospace' : 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff';
+      const hpText = tower.dead ? 'DESTROYED' : Math.ceil(tower.hp) + ' / ' + tower.maxHp;
+      ctx.fillText(label + ' ' + hpText, bx + barW / 2, barY + barH + 2);
+    };
 
-    // Blue nexus health bar
-    if (blueNexus) {
-      const pct = Math.max(0, Math.min(1, (blueNexus.control + 100) / 200));
-      ctx.fillStyle = '#1a1a2e';
-      ctx.fillRect(cxTop - barW - 8, barY, barW, barH);
-      ctx.fillStyle = blueNexus.owner === 1 ? '#ff4444' : '#486FED';
-      ctx.fillRect(cxTop - barW - 8, barY, barW * pct, barH);
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(cxTop - barW - 8, barY, barW, barH);
-    }
-
-    // Red nexus health bar
-    if (redNexus) {
-      const pct = Math.max(0, Math.min(1, (redNexus.control + 100) / 200));
-      ctx.fillStyle = '#1a1a2e';
-      ctx.fillRect(cxTop + 8, barY, barW, barH);
-      ctx.fillStyle = redNexus.owner === 0 ? '#486FED' : '#FF4E4E';
-      ctx.fillRect(cxTop + 8, barY, barW * pct, barH);
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(cxTop + 8, barY, barW, barH);
-    }
+    drawNexusBar(blueNexus, cxTop - barW - 10, '🔵');
+    drawNexusBar(redNexus,  cxTop + 10,        '🔴');
   },
 
   // Všichni boti v ARAM jdou "mid" — není top/bottom
