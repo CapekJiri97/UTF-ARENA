@@ -1,10 +1,10 @@
 export const SUMMONER_SPELLS = {
-  Heal: { name: 'Heal', desc: 'Restores 150 HP + 20 per level.', cd: 60 },
-  Ghost: { name: 'Ghost', desc: 'Increases movement speed by +40% for 5s.', cd: 45 },
-  Boost: { name: 'Boost', desc: 'Increases all stats (+10%) for 5s.', cd: 30 },
-  Rally: { name: 'Rally', desc: 'Speeds up capture, heals and empowers nearby minions.', cd: 45 },
-  Revive: { name: 'Revive', desc: 'Instantly revive upon death.', cd: 90 },
-  Exhaust: { name: 'Exhaust', desc: 'Slows nearby enemies (300 units) by 40% for 2s.', cd: 45 }
+  Heal: { name: 'Heal', desc: 'Restore 150 HP (+20/level).', cd: 60 },
+  Ghost: { name: 'Ghost', desc: '+40% movement speed for 5s.', cd: 45 },
+  Boost: { name: 'Boost', desc: '+10% all stats for 5s.', cd: 30 },
+  Rally: { name: 'Rally', desc: 'Speed up capture, heal + empower nearby minions.', cd: 45 },
+  Revive: { name: 'Revive', desc: 'Instantly revive on next death.', cd: 90 },
+  Exhaust: { name: 'Exhaust', desc: 'Slow nearby enemies 40% for 2s (range 300).', cd: 60 }
 };
 
 // ==========================================
@@ -31,14 +31,14 @@ export const CLASSES = {
     Q: {
       baseCooldown: 6.0, castTime: 0.05,
       baseDamage: 75, scaleAP: 0, scaleAD: 0.20, dashTime: 0.2,
-      type: 'dash', distance: 198, radius: 104, slowDuration: 1.5, slowMod: 0.4,
-      desc: 'Dashes forward, dealing damage and heavily slowing enemies in the path.'
+      type: 'dash', distance: 170, radius: 104, slowDuration: 1.5, slowMod: 0.4,
+      desc: 'Dash forward — damage + slow enemies in path (60%, 1.5s).'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.25,
       baseDamage: 90, scaleAP: 0, scaleAD: 0.25,
-      type: 'aoe', radius: 136,
-      desc: 'Performs a circular strike, dealing damage to all nearby enemies.'
+      type: 'aoe', radius: 140,
+      desc: 'Circular AoE strike around self.'
     }
   },
 
@@ -50,14 +50,14 @@ export const CLASSES = {
     Q: {
       baseCooldown: 5.5, castTime: 0.1,
       baseDamage: 65, scaleAP: 0.60, scaleAD: 0,
-      type: 'aoe_knockback', radius: 144,
-      desc: 'Creates a pressure wave that damages and knocks back nearby enemies.'
+      type: 'aoe_knockback', radius: 145,
+      desc: 'Pressure wave — damage + knock back nearby enemies.'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.2,
-      baseDamage: 0, amount: 85, scaleAP: 0.35, scaleAD: 0,
+      baseDamage: 0, amount: 60, scaleAP: 0.45, scaleAD: 0,
       type: 'heal_aoe', radius: 200,
-      desc: 'Heals himself and all allies in range.'
+      desc: 'Heal self + all nearby allies.'
     }
   },
 
@@ -70,13 +70,13 @@ export const CLASSES = {
       baseCooldown: 6.0, castTime: 0.1,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.40,
       type: 'projectile', pGlyph: 'D', pSpeed: 600, life: 0.4, slowDuration: 1.0, slowMod: 0.25,
-      desc: 'Hurls a heavy weapon that hits the first enemy in its path, briefly slowing them. Damage scales heavily with Attack Damage.'
+      desc: 'Throw weapon — damage + slow first enemy hit (25%, 1s).'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.05,
       baseDamage: 45, scaleAP: 0, scaleAD: 0.35, dashTime: 0.2,
-      type: 'dash', distance: 198, radius: 110,
-      desc: 'Leaps to a target location, dealing damage to nearby enemies on landing. Damage scales heavily with Attack Damage.'
+      type: 'dash', distance: 150, radius: 110,
+      desc: 'Leap — damage nearby enemies on landing.'
     }
   },
 
@@ -91,34 +91,34 @@ export const CLASSES = {
     baseArmor: 42, baseMR: 38,
     Q: {
       baseCooldown: 9.5, castTime: 0.1,
-      baseDamage: 45, scaleAP: 0, scaleAD: 0.25, bonusMaxHpDmg: 0.08,
+      baseDamage: 25, scaleAP: 0, scaleAD: 0.25, bonusMaxHpDmg: 0.08,
       type: 'shield_explode', amount: 125, duration: 4.0, radius: 144,
-      desc: 'Creates a temporary shield. If the shield is broken or expires, it explodes and damages nearby enemies.'
+      desc: 'Shield (4s). When it breaks or expires: AoE explosion around self.'
     },
     E: {
       baseCooldown: 10.5, castTime: 0.25,
-      baseDamage: 85, scaleAP: 0, scaleAD: 0.15,
-      type: 'aoe', radius: 144, stunDuration: 1.0,
-      desc: 'Slams the ground, dealing damage to all nearby enemies and stunning them for 1 second.'
+      baseDamage: 70, scaleAP: 0, scaleAD: 0.25,
+      type: 'aoe', radius: 135, stunDuration: 1.0,
+      desc: 'Ground slam — damage + stun nearby enemies (1s).'
     }
   },
 
   Hana: {
     glyph: '✿', role: 'TANK', range: false, dmgType: 'magical', aaScale: 0.40, customMeleeAoE: 'ring',
-    hp: 980, speed: 120, attackDelay: 1.2,
-    baseAtk: 50, baseAD: 0, baseAP: 50,
-    baseArmor: 36, baseMR: 36,
+    hp: 900, speed: 120, attackDelay: 1.2,
+    baseAtk: 45, baseAD: 0, baseAP: 50,
+    baseArmor: 35, baseMR: 35,
     Q: {
-      baseCooldown: 12.0, castTime: 0.1,
+      baseCooldown: 12.0, castTime: 0.15,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
       type: 'hana_q', duration: 5.0, bonusHpDmg: 0.027, bonusAsMult: 1.25,
-      desc: 'For 5 seconds, empowers her attacks to deal bonus damage based on her max HP. Also gains bonus attack speed and minor regeneration.'
+      desc: '5s: attacks deal bonus max HP damage + gain attack speed.'
     },
     E: {
       baseCooldown: 7.5, castTime: 0.05,
       baseDamage: 65, scaleAP: 0.5, scaleAD: 0, dashTime: 0.2,
-      type: 'dash_def', distance: 225, radius: 128, slowDuration: 1.5, slowMod: 0.3,
-      desc: 'Performs a quick dash and temporarily increases her defense. On landing, damages and heavily slows nearby enemies.'
+      type: 'dash_def', distance: 180, radius: 130, slowDuration: 1.5, slowMod: 0.3,
+      desc: 'Dash + defense boost. On landing: damage + slow nearby enemies (70%, 1.5s).'
     }
   },
 
@@ -130,15 +130,15 @@ export const CLASSES = {
     Q: {
       baseCooldown: 10.0, castTime: 0.3,
       baseDamage: 55, scaleAP: 0.5, scaleAD: 0,
-      type: 'projectile', pGlyph: 'J', pSpeed: 820, life: 0.6,
+      type: 'projectile', pGlyph: ';J;', pSpeed: 850, life: 0.6,
       pullToCaster: true, bonusMaxHpDmg: 0.09,
-      desc: 'Fires a hook that damages the first enemy hit and pulls them toward the caster.'
+      desc: 'Hook — damage first enemy hit + pull them to you.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.2,
       baseDamage: 70, scaleAP: 0.4, scaleAD: 0,
       type: 'aoe', radius: 120, slowDuration: 2.0, slowMod: 0.45,
-      desc: 'Slams the ground, dealing damage to nearby enemies and slowing them by 55% for 2 seconds.'
+      desc: 'Ground slam — damage + slow nearby enemies (55%, 2s).'
     }
   },
 
@@ -150,14 +150,14 @@ export const CLASSES = {
     Q: {
       baseCooldown: 7.5, castTime: 0.15,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.35, bonusCurrentHpDmg: 0.0375, dashTime: 0.2,
-      type: 'dash', distance: 225, radius: 120,
-      desc: 'Performs an unstoppable charge forward, dealing damage to all enemies in the path.'
+      type: 'dash', distance: 180, radius: 120,
+      desc: 'Unstoppable charge — damage all enemies in path.'
     },
     E: {
       baseCooldown: 11.0, castTime: 0.1,
       baseDamage: 50, scaleAP: 0, scaleAD: 0, dashTime: 0.15,
-      type: 'dash_heal_silence', amount: 80, distance: 80, radius: 120, silenceDuration: 1.5,
-      desc: 'Performs a short dash, heals a portion of HP, and silences all nearby enemies for 1.5 seconds on landing.'
+      type: 'dash_heal_silence', amount: 80, distance: 50, radius: 120, silenceDuration: 1.5,
+      desc: 'Short dash, heal self, silence nearby enemies on landing (1.5s).'
     }
   },
 
@@ -175,13 +175,13 @@ export const CLASSES = {
       baseDamage: 65, scaleAP: 0, scaleAD: 0.2,
       type: 'projectile', count: 3, spread: 0.45,
       pGlyph: 'd', pSpeed: 960, life: 0.21,
-      desc: 'Throws three daggers in a cone, dealing damage to enemies hit. High base damage.'
+      desc: '3 daggers in a cone — each hits first enemy in path.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.05,
       baseDamage: 95, scaleAP: 0, scaleAD: 0.35,
-      type: 'aoe', radius: 96,
-      desc: 'Creates a blade explosion that damages all enemies in close proximity.'
+      type: 'aoe', radius: 100,
+      desc: 'Blade burst around self — damage all nearby enemies.'
     }
   },
 
@@ -194,13 +194,13 @@ export const CLASSES = {
       baseCooldown: 10.0, castTime: 0.0,
       baseDamage: 0, scaleAP: 0.001, scaleAD: 0,
       type: 'buff_ms', amount: 0.2, duration: 3.0,
-      desc: 'Briefly increases movement speed. Bonus scales with Ability Power.'
+      desc: '+20% movement speed for 3s.'
     },
     E: {
       baseCooldown: 5.0, castTime: 0.25,
       baseDamage: 70, scaleAP: 0.80, scaleAD: 0.2,
       type: 'aoe_knockback', radius: 90,
-      desc: 'Creates a powerful air burst that damages and violently knocks back nearby enemies.'
+      desc: 'Air burst — damage + knock back nearby enemies.'
     }
   },
 
@@ -213,13 +213,13 @@ export const CLASSES = {
       baseCooldown: 10.0, castTime: 0.15,
       baseDamage: 20, scaleAP: 0.50, scaleAD: 0,
       type: 'reaper_q', charges: 3, bonusRange: 70, scaleLevel: 6,
-      desc: 'For 4 seconds, empowers the next 3 basic attacks. They gain extended range, bonus damage, and slow the target by 40% for 1s.'
+      desc: '4s: next 3 attacks gain range, bonus damage + slow target (40%, 1s).'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.05,
       baseDamage: 0, scaleAP: 0.7, scaleAD: 0, amount: 60, dashTime: 0.15,
-      type: 'reaper_e', distance: 80, duration: 1.5,
-      desc: 'Short dash (100). Grants a shield and 40% movement speed for 1.5s. Instantly resets the Q cooldown!'
+      type: 'reaper_e', distance: 75, duration: 1.5,
+      desc: 'Short dash. Shield + 40% MS for 1.5s. Resets Q cooldown!'
     }
   },
 
@@ -232,13 +232,13 @@ export const CLASSES = {
       baseCooldown: 9.0, castTime: 0.0,
       baseDamage: 18, scaleAP: 0, scaleAD: 0.2, scaleLevel: 2,
       type: 'spin_to_win', duration: 2.0, tickRate: 0.25, radius: 80,
-      desc: 'Blade Whirl: Spins in place for 2.5 seconds, dealing damage to nearby enemies with slightly increased speed. You can move while spinning!'
+      desc: 'Spin 2s — repeatedly damage nearby enemies. Move while spinning.'
     },
     E: {
       baseCooldown: 16.0, castTime: 0.35,
       baseDamage: 46, scaleAP: 0, scaleAD: 0.35, scaleLevel: 8,
       type: 'omnislash', count: 4, tickRate: 0.2, distance: 150, dashTime: 0.12,
-      desc: 'Omnislash: Dashes forward with lightning speed. If an enemy is hit, becomes invulnerable and blinks 5 times to random nearby enemies, striking each one hard.'
+      desc: 'Dash — on hit: blink 4× to nearby enemies, strike each.'
     }
   },
 
@@ -250,16 +250,16 @@ export const CLASSES = {
     projCount: 3, projSpread: 0.3,
     Q: {
       baseCooldown: 12.0, castTime: 0.7,
-      baseDamage: 46, scaleAP: 0, scaleAD: 0.55,
+      baseDamage: 40, scaleAP: 0, scaleAD: 0.55,
       type: 'projectile_summon', pGlyph: 'b', pSpeed: 800,
-      summonGlyph: 'b', summonHp: 80, summonAd: 50, slowDuration: 2,
-      desc: 'Fires a projectile that damages and slows the first enemy hit. On impact, summons a Pheasant to fight at her side.'
+      summonGlyph: 'b', summonHp: 60, summonAd: 40, slowDuration: 2,
+      desc: 'Projectile — damage + slow first enemy hit. Summons Pheasant pet on impact.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.1,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
       type: 'buff_ad_as', duration: 4.0, amount: 0.25, shieldAmount: 70,
-      desc: 'For 4 seconds, increases Attack Damage and Attack Speed. Also gains a small protective shield.'
+      desc: '4s: bonus AD + AS. Gain a small shield.'
     }
   },
 
@@ -272,13 +272,13 @@ export const CLASSES = {
       baseCooldown: 5.0, castTime: 0.4,
       baseDamage: 40, scaleAP: 0, scaleAD: 0.40,
       type: 'projectile', pGlyph: '»', pSpeed: 1200,
-      desc: 'Fires a long-range bolt that damages the first enemy hit. Damage scales heavily with Attack Damage.'
+      desc: 'Long-range bolt — damages first enemy hit.'
     },
     E: {
       baseCooldown: 13.0, castTime: 0.05,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
-      type: 'dash', distance: 297, dashTime: 0.2,
-      desc: 'Performs a long dash, allowing rapid repositioning.'
+      type: 'dash', distance: 250, dashTime: 0.2,
+      desc: 'Long dash — repositioning (range 297).'
     }
   },
 
@@ -291,13 +291,13 @@ export const CLASSES = {
       baseCooldown: 5.0, castTime: 0.25,
       baseDamage: 30, scaleAP: 0, scaleAD: 0.20,
       type: 'projectile', count: 5, spread: 0.25, pGlyph: 'x', pSpeed: 1100, life: 0.25,
-      desc: 'Fires a volley of 5 projectiles in a wide cone. Great for area damage or a massive point-blank shotgun burst.'
+      desc: '5-shot cone volley. Lethal at point-blank range.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.1,
       baseDamage: 68, scaleAP: 0, scaleAD: 0.35,
-      type: 'cone_knockback', radius: 110, cone: 90 * Math.PI / 180,
-      desc: 'Fires a sweeping arc forward, dealing damage and violently knocking back enemies.'
+      type: 'cone_knockback', radius: 80, cone: 90 * Math.PI / 180,
+      desc: 'Sweeping arc forward — damage + knock back enemies.'
     }
   },
 
@@ -312,15 +312,15 @@ export const CLASSES = {
     baseArmor: 15, baseMR: 30,
     Q: {
       baseCooldown: 3.5, castTime: 0.3,
-      baseDamage: 105, scaleAP: 0.65, scaleAD: 0,
+      baseDamage: 95, scaleAP: 0.65, scaleAD: 0,
       type: 'projectile', pGlyph: 'O', pSpeed: 750,
-      desc: 'Fires a magic orb that damages the first enemy hit. High base damage.'
+      desc: 'Magic orb — damages first enemy hit. Short CD.'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.6,
       baseDamage: 95, scaleAP: 0.70, scaleAD: 0,
-      type: 'aoe', radius: 160,
-      desc: 'Creates an area explosion of magic energy at a target location, dealing damage to all enemies in the area.'
+      type: 'aoe', radius: 140,
+      desc: 'AoE explosion at target location.'
     }
   },
 
@@ -332,14 +332,14 @@ export const CLASSES = {
     Q: {
       baseCooldown: 4.0, castTime: 0.3,
       baseDamage: 85, scaleAP: 0.80, scaleAD: 0,
-      type: 'projectile', pGlyph: '~', pSpeed: 750, silenceDuration: 0.5,
-      desc: 'Fires a shadow projectile that damages the first enemy hit and briefly silences them. Damage scales heavily with Ability Power.'
+      type: 'projectile', pGlyph: 's', pSpeed: 750, silenceDuration: 0.5,
+      desc: 'Shadow bolt — damage + silence first enemy hit (0.5s).'
     },
     E: {
-      baseCooldown: 11.0, castTime: 0.6,
+      baseCooldown: 12.0, castTime: 0.6,
       baseDamage: 45, scaleAP: 0.65, scaleAD: 0,
       type: 'summon', count: 2, mGlyph: 'g',
-      desc: 'Summons two ghouls that fight at his side, attacking nearby enemies.'
+      desc: 'Summon 2 ghouls that attack nearby enemies.'
     }
   },
 
@@ -352,13 +352,13 @@ export const CLASSES = {
       baseCooldown: 8.0, castTime: 0.0,
       baseDamage: 250, scaleAP: 0.95, scaleAD: 0, scaleLevel: 20,
       type: 'flamethrower', duration: 3.0, range: 160, cone: 40 * Math.PI / 180, tickRate: 0.10,
-      desc: 'Flamethrower: For 3.0 seconds, unleashes a continuous stream of fire in a cone. Massively damages enemies while allowing free movement!'
+      desc: '3s cone flamethrower. Move freely while channeling.'
     },
     E: {
       baseCooldown: 10.0, castTime: 0.2,
-      baseDamage: 80, scaleAP: 0.50, scaleAD: 0, scaleLevel: 10,
+      baseDamage: 60, scaleAP: 0.55, scaleAD: 0, scaleLevel: 10,
       type: 'aoe_knockback', radius: 140,
-      desc: 'Scorching Wave: Instant fire explosion around you, massively damaging and knocking back all nearby enemies.'
+      desc: 'Instant fire explosion — damage + knock back nearby enemies.'
     }
   },
 
@@ -368,16 +368,16 @@ export const CLASSES = {
     baseAtk: 25, baseAD: 0, baseAP: 65,
     baseArmor: 15, baseMR: 20,
     Q: {
-      baseCooldown: 7.0, castTime: 0.2,
+      baseCooldown: 7.0, castTime: 0.15,
       baseDamage: 76, scaleAP: 0.45, scaleAD: 0,
-      type: 'tamer_q', pGlyph: '°', pSpeed: 850, life: 0.4, noHitParticles: true,
-      desc: 'Fires a magic sphere that damages an enemy and marks them. Your Wolf (pet) will aggressively prioritize the marked target.'
+      type: 'tamer_q', pGlyph: 't', pSpeed: 850, life: 0.4, noHitParticles: true,
+      desc: 'Magic sphere — damage + mark enemy. Wolf prioritizes marked target.'
     },
     E: {
-      baseCooldown: 12.0, castTime: 0.2,
+      baseCooldown: 12.0, castTime: 0.3,
       baseDamage: 0, scaleAP: 0.6, scaleAD: 0, amount: 195, scaleLevel: 22,
       type: 'tamer_e',
-      desc: 'If your Wolf is alive, immediately heals it for a large amount. If it died, begins a 3-second ritual to revive it with 50% HP (interrupted by stun, which triggers the cooldown).'
+      desc: 'Heal Wolf if alive. If dead: 3s revive ritual (50% HP). Interrupted by stun.'
     }
   },
 
@@ -394,13 +394,13 @@ export const CLASSES = {
       baseCooldown: 4.5, castTime: 0.3,
       baseDamage: 65, scaleAP: 0.6, scaleAD: 0,
       type: 'projectile', pGlyph: '+', pSpeed: 660, slowDuration: 1.5, slowMod: 0.5,
-      desc: 'Fires a beam of light that damages and slows the first enemy hit.'
+      desc: 'Light beam — damage + slow first enemy hit (50%, 1.5s).'
     },
     E: {
       baseCooldown: 8.0, castTime: 0.3,
       baseDamage: 0, amount: 150, scaleAP: 0.80, scaleAD: 0,
       type: 'heal_aoe', radius: 200,
-      desc: 'Creates an energy wave that heals all allies in a wide area.'
+      desc: 'Healing wave — heals all nearby allies.'
     }
   },
 
@@ -413,14 +413,14 @@ export const CLASSES = {
       baseCooldown: 6.0, castTime: 0.3,
       baseDamage: 0, amount: 80, scaleAP: 0.65, scaleAD: 0,
       type: 'heal_aoe', radius: 120, selfHealPenalty: 0.7,
-      desc: 'Creates a healing wave that heals nearby allies. Healing strength scales with Ability Power.'
+      desc: 'Healing pulse — heals nearby allies.'
     },
     E: {
       baseCooldown: 6.5, castTime: 0.4,
       baseDamage: 45, scaleAP: 0.65, scaleAD: 0,
       type: 'projectile', count: 3, spread: 0.25, silenceDuration: 1.0,
       pGlyph: '*', pSpeed: 850,
-      desc: 'Fires three magic bolts in a cone. Damages enemies hit and silences them for 1 second.'
+      desc: '3 bolts in a cone — damage + silence enemies hit (1s).'
     }
   },
 
@@ -433,13 +433,13 @@ export const CLASSES = {
       baseCooldown: 8.0, castTime: 0.3,
       baseDamage: 30, scaleAP: 0.75, scaleAD: 0, amount: 5,
       type: 'projectile_egg', pSpeed: 400, life: 0.625, healInterval: 1.0, slowDuration: 0.5, slowMod: 0.20,
-      desc: 'Throws an egg (range 250) that damages the target and briefly slows them. On impact, a large Hen hatches. It follows you, heals you, and damages nearby enemies every second.'
+      desc: 'Throw egg — damage + slow target. On impact: Hen hatches, heals + damages nearby enemies.'
     },
     E: {
       baseCooldown: 18.0, castTime: 0.4,
       baseDamage: 0, amount: 5, scaleAP: 0.35, scaleAD: 0,
       type: 'summon_healers', healInterval: 2,
-      desc: 'Summons 3 small support Chicks. They find the nearest ally (max 1 for Keeper, max 2 for others). They follow, heal, and damage nearby enemies every second.'
+      desc: 'Summon 3 Chicks — follow allies, heal them + damage nearby enemies.'
     }
   },
 
@@ -450,15 +450,15 @@ export const CLASSES = {
     baseArmor: 20, baseMR: 25,
     Q: {
       baseCooldown: 13.0, castTime: 0.25,
-      baseDamage: 90, scaleAP: 0, scaleAD: 0.40, scaleLevel: 10,
+      baseDamage: 110, scaleAP: 0, scaleAD: 0.30, scaleLevel: 10,
       type: 'projectile_pull', pSpeed: 650, life: 0.5, radius: 120, pGlyph: 'O', stunDuration: 1.2,
-      desc: 'Fires a sphere. On impact or hitting a target, it explodes, dealing damage to enemies in the area, pulling them to the center, and briefly stunning them.'
+      desc: 'Orb — AoE explosion on impact: damage + pull + stun nearby enemies (1.2s).'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.2,
-      baseDamage: 0, scaleAP: 0, scaleAD: 0.40, amount: 90, scaleLevel: 15, duration: 5.0,
+      baseDamage: 0, scaleAP: 0, scaleAD: 0.50, amount: 80, scaleLevel: 15, duration: 5.0,
       type: 'shield_aoe', radius: 250,
-      desc: 'Creates a magic barrier around you. You and all nearby allies gain a strong shield for 5 seconds.'
+      desc: 'Shield self + all nearby allies (5s).'
     }
   },
 
@@ -471,13 +471,13 @@ export const CLASSES = {
       baseCooldown: 6.2, castTime: 0.0,
       baseDamage: 0, scaleAP: 0, scaleAD: 0.065, amount: 2.6, scaleLevel: 0.65, range: 200, tickRate: 0.1,
       type: 'heal_beam',
-      desc: 'Heal Beam: Toggle ability. Connects to the nearest ally (200 range) and continuously heals both of you. After 5s, automatically triggers a brief Uber effect.'
+      desc: 'Toggle: continuous heal beam to nearest ally (range 200). Auto Uber after 5s.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.15,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.2, scaleLevel: 8,
       type: 'cone_slow_shield', radius: 120, cone: 90 * Math.PI / 180, slowDuration: 1.5, slowMod: 0.6, shieldAmount: 90, duration: 2.5,
-      desc: 'Support Slash: Slash forward, damaging and slowing enemies. The Medic gains a shield.'
+      desc: 'Slash forward — damage + slow enemies. Gain a shield.'
     }
   }
 };

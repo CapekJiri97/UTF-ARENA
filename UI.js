@@ -903,7 +903,7 @@ export function populateShop() {
         const sellPrice = Math.floor(it.cost * 0.6);
         const tag = document.createElement('span');
         tag.className = 'shop-owned-tag';
-        tag.title = it.desc;
+        tag.title = computeItemPreview(it, player).join(', ');
         const nameSpan = document.createElement('span');
         const tierLabel = getItemTierLabel(id);
         nameSpan.textContent = tierLabel ? `${it.name} (${tierLabel})` : it.name;
@@ -948,7 +948,7 @@ export function updateInventory() {
     if (i < player.items.length) {
       const it = getShopItem(player.items[i]);
       slot.textContent = it ? it.name : player.items[i];
-      slot.title = it ? it.desc : '';
+      slot.title = it ? computeItemPreview(it, player).join(', ') : '';
     } else {
       slot.textContent = '—';
       slot.style.color = '#333';
@@ -1293,7 +1293,38 @@ export function draw(){
 
       // SPELLS
       const qKey = (game.autoTarget && !game.mouseTarget) ? 'J' : 'Q'; const eKey = (game.autoTarget && !game.mouseTarget) ? 'K' : 'E'; const sumKey = (game.autoTarget && !game.mouseTarget) ? 'L' : 'F';
-      const getTypeLabel = (type) => { if(!type) return 'Spell'; if(type.includes('heal')) return 'Heal'; if(type.includes('dash')) return 'Dash'; if(type.includes('buff')) return 'Buff'; if(type.includes('summon')) return 'Summon'; if(type.includes('knockback')) return 'Knock'; return 'Dmg'; };
+      const getTypeLabel = (type) => {
+        if (!type) return 'Spell';
+        const t = type;
+        if (t === 'hana_q')              return 'Empower';
+        if (t === 'spin_to_win')         return 'Channel';
+        if (t === 'omnislash')           return 'Blink';
+        if (t === 'flamethrower')        return 'Channel';
+        if (t === 'reaper_q')            return 'Empower';
+        if (t === 'reaper_e')            return 'Dash';
+        if (t === 'tamer_q')             return 'Mark';
+        if (t === 'tamer_e')             return 'Revive';
+        if (t === 'heal_beam')           return 'Toggle';
+        if (t === 'shield_explode')      return 'Shield';
+        if (t === 'shield_aoe')          return 'Shield';
+        if (t === 'dash_heal_silence')   return 'Dash';
+        if (t === 'dash_def')            return 'Dash';
+        if (t === 'projectile_summon')   return 'Summon';
+        if (t === 'projectile_egg')      return 'Summon';
+        if (t === 'projectile_pull')     return 'Pull';
+        if (t === 'cone_knockback')      return 'Knock';
+        if (t === 'cone_slow_shield')    return 'Shield';
+        if (t === 'buff_ad_as')          return 'Buff';
+        if (t === 'buff_ms')             return 'Buff';
+        if (t.includes('summon'))        return 'Summon';
+        if (t.includes('heal'))          return 'Heal';
+        if (t.includes('knockback'))     return 'Knock';
+        if (t.includes('dash'))          return 'Dash';
+        if (t.includes('buff'))          return 'Buff';
+        if (t.includes('projectile'))    return 'Shot';
+        if (t.includes('aoe'))           return 'AoE';
+        return 'Dmg';
+      };
       const drawSpell = (x, y, key, lvl, cd, maxCd, isSum, typeLabel) => {
           ctx.fillStyle = '#aaa'; ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillText(typeLabel, x+20, y - 8);
           ctx.fillStyle = '#111'; ctx.fillRect(x, y, 40, 40); ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(x, y, 40, 40);
@@ -1599,6 +1630,16 @@ export function draw(){
             lines.push(...buildBreakdown('Total Damage', bDmg, scLvl, scAD, scAP));
             lines.push({ t: `    Duration: ${sp.duration}s | Range: ${sp.range} | Cone: ${Math.round((sp.cone||0) * 180 / Math.PI)}°`, c: '#fff' });
             lines.push({ t: `    Fires continuously in a cone. Castable while moving!`, c: '#aaa' });
+            } else if (sp.type === 'reaper_q') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 6;
+                lines.push(...buildBreakdown('Bonus Dmg/attack', bDmg, scLvl, scAD, scAP));
+                lines.push({ t: `    Charges: ${sp.charges || 3}x | Bonus Range: +${sp.bonusRange || 70} | Duration: 4s`, c: '#fff' });
+                lines.push({ t: `    Each charge slows target 40% for 1s.`, c: '#ffcc00' });
+            } else if (sp.type === 'reaper_e') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 10;
+                lines.push(...buildBreakdown('Shield', amt, scLvl, scAD, scAP));
+                lines.push({ t: `    +40% Movement Speed for ${sp.duration || 1.5}s.`, c: '#0f0' });
+                lines.push({ t: `    Resets Q cooldown instantly!`, c: '#ffcc00' });
             } else {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
                 lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
@@ -1712,7 +1753,7 @@ export function draw(){
             if (i < ownedIds.length) {
               const it = getShopItem(ownedIds[i]);
               if (it) {
-                const statLines = it.desc.split(',').map(s => s.trim()).filter(Boolean);
+                const statLines = computeItemPreview(it, player);
                 const lineH = 16;
                 const totalContentH = 22 + statLines.length * lineH;
                 const paddingTop = Math.max(10, (slotH - totalContentH) / 2);
