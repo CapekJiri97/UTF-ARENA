@@ -989,7 +989,7 @@ export function drawBackground(ctx){
 
       // Minion spawn/expire zone markers (static — drawn once into cache)
       bgCtx.fillStyle = 'rgba(160,160,160,0.55)'; bgCtx.font = 'bold 20px monospace'; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
-      for (const sp of MINION_SPAWN_POINTS) bgCtx.fillText('M', sp.x, sp.y);
+      for (const sp of activeGameMode.mapConfig.MINION_SPAWN_POINTS) bgCtx.fillText('M', sp.x, sp.y);
 
       bgCtx.font = '16px monospace'; const natureColors = ['#334d1e', '#426b27', '#528530', '#4d3d26', '#614f33', '#2a3b18'];
       for (let w of game.walls) {
