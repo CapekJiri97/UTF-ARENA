@@ -1982,7 +1982,19 @@ export function draw(){
 }
 
 // Returns world-space static vision zones: powerup center + tower ring path
+const FOG_UPDATE_MS = 33;
+const MINIMAP_UPDATE_MS = 50;
+let _staticVisionCache = { mode: null, towerCount: 0, points: null };
+
 function getStaticVisionPoints() {
+    const towerCount = game.towers ? game.towers.length : 0;
+    if (
+        _staticVisionCache.mode === activeGameMode.name &&
+        _staticVisionCache.towerCount === towerCount &&
+        _staticVisionCache.points
+    ) {
+        return _staticVisionCache.points;
+    }
   const MAP_CX = activeGameMode.mapConfig.mapCenter.x, MAP_CY = activeGameMode.mapConfig.mapCenter.y;
   const { ringPush, powerupRadius, towerRadius, interpolatedRadius, interpolationStep } = activeGameMode.mapConfig.visionRings;
   function pushOut(px, py) {
@@ -2004,7 +2016,8 @@ function getStaticVisionPoints() {
       }
     }
   }
-  return pts;
+    _staticVisionCache = { mode: activeGameMode.name, towerCount, points: pts };
+    return pts;
 }
 
 // Computes game._fogCanvas (1/16-scale mask): opaque where fogged, transparent where visible.
@@ -2015,11 +2028,17 @@ function buildFogCanvas(cw, ch, dpr) {
   const enemyTeam = player.team === 0 ? 1 : 0;
   const pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
   const fw = Math.ceil(pw / PIXEL), fh = Math.ceil(ph / PIXEL);
+    const now = performance.now();
+    const sizeChanged = !game._fogCanvas || game._fogCanvas.width !== fw || game._fogCanvas.height !== fh;
+    if (!sizeChanged && game._fogLastTime && (now - game._fogLastTime) < FOG_UPDATE_MS) {
+        return;
+    }
   if (!game._fogCanvas || game._fogCanvas.width !== fw || game._fogCanvas.height !== fh) {
     game._fogCanvas = document.createElement('canvas');
     game._fogCanvas.width = fw; game._fogCanvas.height = fh;
     game._fogCtx = game._fogCanvas.getContext('2d');
   }
+    game._fogLastTime = now;
   const fc = game._fogCtx;
   fc.setTransform(1, 0, 0, 1, 0, 0);
   fc.globalCompositeOperation = 'source-over';
@@ -2082,6 +2101,16 @@ export function drawMinimap(){
   mm.style.visibility = 'visible';
   const w = mm.clientWidth, h = mm.clientHeight;
   const dpr = window.devicePixelRatio || 1;
+    const sizeKey = `${w}x${h}@${dpr}`;
+    const now = performance.now();
+    const sizeChanged = game._minimapSizeKey !== sizeKey;
+    const modeChanged = game._minimapMode !== activeGameMode.name;
+    if (sizeChanged) game._minimapSizeKey = sizeKey;
+    if (!sizeChanged && !modeChanged && game._minimapLastTime && (now - game._minimapLastTime) < MINIMAP_UPDATE_MS) {
+        return;
+    }
+    game._minimapLastTime = now;
+    game._minimapMode = activeGameMode.name;
   let c = mm.querySelector('canvas');
   if (!c) { c = document.createElement('canvas'); mm.appendChild(c); }
   if (c.width !== Math.floor(w * dpr) || c.height !== Math.floor(h * dpr)) {
