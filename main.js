@@ -361,12 +361,21 @@ import { initAudio, playSound } from './Audio.js';
     if(k === 'i' && keys['shift']) { game.autoTarget = !game.autoTarget; if (game.autoTarget) game.mouseTarget = false; flashMessage('Auto-Focus: ' + (game.autoTarget ? 'ON' : 'OFF')); }
     if(k === 'o' && keys['shift']) { game.mouseTarget = !game.mouseTarget; if (game.mouseTarget) game.autoTarget = false; flashMessage('Mouse-Focus: ' + (game.mouseTarget ? 'ON' : 'OFF')); }
     if(k === 'l' && keys['shift']) { game.autoLevelUp = !game.autoLevelUp; flashMessage('Auto-LevelUp: ' + (game.autoLevelUp ? 'ON' : 'OFF')); }
+    if((k === '.' || k === '>') && keys['shift']) { game.debugMapTools = !game.debugMapTools; flashMessage('Map Debug: ' + (game.debugMapTools ? 'ON' : 'OFF')); }
+    if(k === 'm' && keys['shift']) { game.showMapOverlay = !game.showMapOverlay; flashMessage('Map Overlay: ' + (game.showMapOverlay ? 'ON' : 'OFF')); }
   });
 
   export const mouse = { sx:0, sy:0, down:false, wx:0, wy:0 };
   canvas.addEventListener('mousemove', e=>{ const r = canvas.getBoundingClientRect(); mouse.sx = e.clientX - r.left; mouse.sy = e.clientY - r.top; });
   window.addEventListener('mousedown', ()=> mouse.down = true);
   window.addEventListener('mouseup', ()=> mouse.down = false);
+  window.addEventListener('contextmenu', e=>{ 
+    if (game.debugMapTools) {
+      e.preventDefault();
+      console.log(`{x: ${Math.round(mouse.wx)}, y: ${Math.round(mouse.wy)}}`);
+      flashMessage(`Logged: ${Math.round(mouse.wx)}, ${Math.round(mouse.wy)}`);
+    }
+  });
 
   export function screenToWorld(sx, sy){ return { x: camera.x + sx / camera.scale, y: camera.y + sy / camera.scale }; }
 

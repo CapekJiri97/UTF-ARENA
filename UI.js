@@ -1017,6 +1017,19 @@ export function drawBackground(ctx){
   }
   ctx.drawImage(game.bgCanvas, 0, 0);
 
+  if (game.showMapOverlay && (activeGameMode.name === 'classic' || activeGameMode.name === 'speed')) {
+      if (!game._mapOverlayImg) {
+          game._mapOverlayImg = new Image();
+          game._mapOverlayImg.src = 'cyrstla scar 4000x3150.png';
+      }
+      if (game._mapOverlayImg.complete) {
+          ctx.save();
+          ctx.globalAlpha = 0.2;
+          ctx.drawImage(game._mapOverlayImg, 0, 0, mapWorld.width, mapWorld.height);
+          ctx.restore();
+      }
+  }
+
   ctx.strokeStyle = 'rgba(255,255,255,0.02)'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.font = '14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
   if (game.towers && game.towers.length > 0) {
       for(let i=0; i<game.towers.length; i++){ let t1 = game.towers[i], t2 = game.towers[(i+1)%game.towers.length]; let d = dist(t1.pos, t2.pos);
@@ -1830,7 +1843,7 @@ export function draw(){
         ctx.restore();
     }
 
-    if (keys['m']) {
+    if (keys['m'] && !keys['shift']) {
         ctx.save();
         let isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         let uiScale = isMobile ? Math.min(1, ch / 500) : 1;

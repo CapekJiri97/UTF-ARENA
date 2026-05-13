@@ -2225,7 +2225,7 @@ export class BotPlayer extends Player {
             mState.strategyUptime = 0;
             mState.panicStreak = 0;
             mState.panicGuard = 0;
-            console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] EARLY start | ${formatMacroSnapshot(macroSnapshot)}`);
+            // console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] EARLY start | ${formatMacroSnapshot(macroSnapshot)}`);
         }
 
         // PANIC CHECK: Pokud ve vybrané strategii dostáváme na frak
@@ -2262,7 +2262,7 @@ export class BotPlayer extends Player {
             if ((mState.strategyUptime || 0) >= 60 && (mState.panicStreak || 0) >= 6) {
                 const fallback = pickRecoveryStrategy(macroSnapshot);
                 const ordered = [fallback, ...buildStrategyOrder(macroSnapshot).filter(s => s !== fallback)];
-                console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] PANIC! Strategy [${mState.currentStrat}] is failing. Resetting to EXPLORE -> [${fallback}] | ${formatMacroSnapshot(macroSnapshot)}`);
+                // console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] PANIC! Strategy [${mState.currentStrat}] is failing. Resetting to EXPLORE -> [${fallback}] | ${formatMacroSnapshot(macroSnapshot)}`);
                 mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {};
                 mState.strats = ordered;
                 mState.timer = getPhaseDuration('EXPLORE', macroSnapshot);
@@ -2278,7 +2278,7 @@ export class BotPlayer extends Player {
             mState.timer -= 1.5;
             if (mState.timer <= 0) {
                 mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {}; mState.strats = buildStrategyOrder(macroSnapshot); mState.timer = getPhaseDuration('EXPLORE', macroSnapshot); mState.currentStrat = mState.strats[0] || 'TOWER_FIRST'; mState.snapshotDiff = pointDiff; mState.snapshotMacro = macroSnapshot;
-                console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] EARLY ended -> EXPLORE start | ${formatMacroSnapshot(macroSnapshot)}`);
+                // console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] EARLY ended -> EXPLORE start | ${formatMacroSnapshot(macroSnapshot)}`);
             }
         } else if (mState.phase === 'EXPLORE') {
             mState.timer -= 1.5;
@@ -2290,7 +2290,7 @@ export class BotPlayer extends Player {
                     .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
                     .map(item => `${item.label}:${item.score >= 0 ? '+' : ''}${Math.round(item.score)}`)
                     .join(', ');
-                console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] Evaluated [${mState.currentStrat}] | score=${Math.round(scoreResult.total)} | ${formatMacroSnapshot(mState.snapshotMacro)} -> ${formatMacroSnapshot(macroSnapshot)}${breakdownText ? ` | breakdown: ${breakdownText}` : ''}`);
+                // console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] Evaluated [${mState.currentStrat}] | score=${Math.round(scoreResult.total)} | ${formatMacroSnapshot(mState.snapshotMacro)} -> ${formatMacroSnapshot(macroSnapshot)}${breakdownText ? ` | breakdown: ${breakdownText}` : ''}`);
                 mState.testIndex++;
                 if (mState.testIndex < mState.strats.length) { mState.currentStrat = mState.strats[mState.testIndex]; mState.timer = getPhaseDuration('EXPLORE', macroSnapshot); mState.snapshotDiff = pointDiff; mState.snapshotMacro = macroSnapshot; } 
                 else {
@@ -2302,13 +2302,13 @@ export class BotPlayer extends Player {
                         if (stratScore + tieBreak > bestScore) { bestScore = stratScore + tieBreak; best = s; }
                     }
                     mState.phase = 'EXPLOIT'; mState.currentStrat = best; mState.timer = getPhaseDuration('EXPLOIT', macroSnapshot); mState.panicTimer = 0; mState.panicStreak = 0; mState.strategyUptime = 0; mState.panicGuard = 18; mState.snapshotMacro = macroSnapshot;
-                    console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] >>> LOCKED BEST STRATEGY: [${best}] (Score: ${Math.round(bestScore)}) for ${mState.timer}s <<< | ${formatMacroSnapshot(macroSnapshot)}`);
+                    // console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] >>> LOCKED BEST STRATEGY: [${best}] (Score: ${Math.round(bestScore)}) for ${mState.timer}s <<< | ${formatMacroSnapshot(macroSnapshot)}`);
                 }
             }
         } else if (mState.phase === 'EXPLOIT') {
             mState.timer -= 1.5;
             if (mState.timer <= 0) {
-                console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] EXPLOIT ended -> EXPLORE restart | ${formatMacroSnapshot(macroSnapshot)}`);
+                // console.log(`[MACRO - TEAM ${team === 0 ? 'BLUE' : 'RED'}] EXPLOIT ended -> EXPLORE restart | ${formatMacroSnapshot(macroSnapshot)}`);
                 mState.phase = 'EXPLORE'; mState.testIndex = 0; mState.scores = {}; mState.strats = buildStrategyOrder(macroSnapshot); mState.timer = getPhaseDuration('EXPLORE', macroSnapshot); mState.currentStrat = mState.strats[0] || 'TOWER_FIRST'; mState.strategyUptime = 0; mState.panicStreak = 0; mState.panicGuard = 0; mState.snapshotDiff = pointDiff; mState.snapshotMacro = macroSnapshot; 
             }
         }
@@ -2374,7 +2374,7 @@ export class BotPlayer extends Player {
                         bot.mr += Math.round((bot.mr - cData.baseMR) * extraMod);
                     }
                     bot.isDirty = true;
-                    console.log(`[BOT ${bot.className}] bought ${item.name} (path: ${bot.targetPath ? bot.targetPath.join('→') : 'none'})`);
+                    // console.log(`[BOT ${bot.className}] bought ${item.name} (path: ${bot.targetPath ? bot.targetPath.join('→') : 'none'})`);
                 }
             }
             while(bot.spellPoints > 0) {
