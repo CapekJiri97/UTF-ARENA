@@ -1020,9 +1020,9 @@ export function drawBackground(ctx){
   if (game.showMapOverlay && (activeGameMode.name === 'classic' || activeGameMode.name === 'speed')) {
       if (!game._mapOverlayImg) {
           game._mapOverlayImg = new Image();
-          game._mapOverlayImg.src = 'cyrstla scar 4000x3150.png';
+          game._mapOverlayImg.src = 'crystal scar 4000x3150.png';
       }
-      if (game._mapOverlayImg.complete) {
+      if (game._mapOverlayImg.complete && game._mapOverlayImg.naturalWidth > 0) {
           ctx.save();
           ctx.globalAlpha = 0.2;
           ctx.drawImage(game._mapOverlayImg, 0, 0, mapWorld.width, mapWorld.height);
