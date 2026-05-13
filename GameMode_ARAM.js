@@ -1,6 +1,7 @@
 import { game, camera } from './State.js';
 import * as AramMap from './MapConfig_ARAM.js';
 import { showEnd } from './UI.js';
+import { AramBrain } from './BotBrain.js';
 
 // ── ARAM game mode — čistá aréna 5v5 ─────────────────────────────────────────
 // Žádné věže, žádní minioni. Čistý teamfight 5v5.
@@ -67,5 +68,8 @@ export const GameMode_ARAM = {
     return 'mid';
   },
 
-  homeTowerIndexes: { 0: [], 1: [] },
+  homeTowerIndexes: { 0: [0], 1: [1] },
+
+  // Strategická AI pro boty — ARAM: push linka, bráň svou věž
+  botBrain: AramBrain,
 };

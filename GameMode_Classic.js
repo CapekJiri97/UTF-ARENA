@@ -3,6 +3,7 @@ import * as ClassicMap from './MapConfig.js';
 import { Minion } from './Entities.js';
 import { showEnd } from './UI.js';
 import { speakNexusWarning, resetNexusWarnings } from './Audio.js';
+import { DominionBrain } from './BotBrain.js';
 
 // ── Classic / Dominion mode ───────────────────────────────────────────────────
 // Věže se capture-ují, minionové se spawní podél kruhu věží,
@@ -139,4 +140,7 @@ export const GameMode_Classic = {
 
   // Home tower indexy pro každý tým (používá se v bot AI)
   homeTowerIndexes: { 0: [0, 4], 1: [2, 3] },
+
+  // Strategická AI pro boty — Dominion: věže, nexus, split-push
+  botBrain: DominionBrain,
 };

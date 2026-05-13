@@ -5,6 +5,7 @@ import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANG
 import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
 import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards, grantMinionKillRewards, recalcPlayerItemStats, activeGameMode } from './main.js';
+import { DominionBrain } from './BotBrain.js';
 // spawnPoints a mapBoundary jsou lazy proxy — activeGameMode je již importován výše
 const spawnPoints = new Proxy([], { get: (_, i) => activeGameMode.mapConfig.spawnPoints[i] });
 const mapBoundary = new Proxy([], { get: (_, k) => activeGameMode.mapConfig.mapBoundary[k] });
@@ -2117,56 +2118,17 @@ export class BotPlayer extends Player {
             return `nexus=${Math.round(snap.pointDiff)} towers=${snap.towerLead} home=${snap.homeHeld}/${snap.homeTowerCount} threat=${snap.homeThreat} pressure=${snap.towerPressure} obj=${Math.round(snap.objectivePresenceLead || 0)} power=${Math.round(snap.powerLead)} pu=${snap.activePowerupLead || 0} lvl=${snap.teamAvgLevel.toFixed(1)}/${snap.enemyAvgLevel.toFixed(1)} gold=${Math.round(snap.teamAvgGold)}/${Math.round(snap.enemyAvgGold)} dead=${snap.enemyDeadCount} soon=${snap.enemyRespawnSoonCount}`;
         };
 
-        const pickRecoveryStrategy = (ctx) => {
-            if (ctx.homeThreat > 1 || ctx.towerLead < -1) return 'TURTLE';
-            if (ctx.homeThreat > 0 || ctx.towerLead < 0) return 'TOWER_FIRST';
-            if (ctx.powerLead < -250) return 'AGGRO_DEF';
-            if (ctx.activePowerupLead > 0 && ctx.pointDiff >= 0) return 'KILL_FIRST';
-            return 'TOWER_FIRST';
-        };
+        // Delegace na game-mode-specifický brain (fallback na Dominion)
+        const brain = activeGameMode.botBrain || DominionBrain;
 
-        const buildStrategyOrder = (ctx) => {
-            const objectiveBias = ctx.objectivePresenceLead >= 18 ? 6 : (ctx.objectivePresenceLead <= -18 ? -4 : 0);
-            const powerupBias = ctx.activePowerupLead > 0 ? 8 : 0;
-            const ranked = [
-                { id: 'TOWER_FIRST', score: 125 + (ctx.homeThreat * 62) + (Math.max(0, -ctx.towerLead) * 38) + (ctx.neutralCount * 8) + (Math.max(0, -ctx.powerLead) * 6) + (ctx.pointDiff < 0 ? 12 : 0) + objectiveBias },
-                { id: 'TURTLE', score: 110 + (ctx.homeThreat * 68) + (Math.max(0, -ctx.towerLead) * 30) + (Math.max(0, -ctx.powerLead) * 5) + (ctx.pointDiff < 0 ? 20 : 0) + (ctx.objectivePresenceLead < 0 ? 6 : 0) },
-                { id: 'AGGRO_DEF', score: 90 + (Math.max(0, -ctx.towerLead) * 24) + (ctx.homeThreat * 18) + (Math.max(0, ctx.enemyHeroCount - ctx.teamHeroCount) * 6) + (ctx.objectivePresenceLead < 0 ? 4 : 0) },
-                { id: 'META_4_1', score: 96 + (ctx.allyRoles.SPLITPUSHER * 22) + (ctx.allyRoles.FIGHTER * 4) + (ctx.towerLead >= 0 ? 10 : 0) + (ctx.pointDiff >= 0 ? 6 : 0) + (ctx.enemyDeadCount > 0 ? 8 : 0) + objectiveBias + powerupBias },
-                { id: 'META_3_2', score: 82 + (Math.min(ctx.allyRoles.FIGHTER, 3) * 12) + (ctx.teamHeroCount >= 3 ? 6 : 0) + (ctx.enemyRespawnSoonCount > 0 ? 6 : 0) + objectiveBias },
-                { id: 'KILL_FIRST', score: 88 + (ctx.allyRoles.SLAYER * 22) + (ctx.allyRoles.SUPPORT * 8) + (Math.max(0, ctx.teamHeroCount - ctx.enemyHeroCount) * 6) + (ctx.powerLead > 0 ? 8 : 0) + (ctx.enemyDeadCount > 0 ? 18 : 0) + (ctx.activePowerupLead > 0 ? 10 : 0) + (ctx.homeThreat === 0 ? 14 : -12) },
-                { id: 'AGGRO_ALL', score: 60 + (Math.max(0, ctx.towerLead) * 18) + (Math.max(0, ctx.teamHeroCount - ctx.enemyHeroCount) * 5) + (ctx.powerLead > 0 ? 4 : 0) - (ctx.homeThreat * 18) + (ctx.objectivePresenceLead < 0 ? -2 : 0) },
-                { id: 'SPLIT_ROAM', score: 70 + (ctx.allyRoles.SPLITPUSHER * 24) + (ctx.neutralCount * 10) + (Math.max(0, ctx.towerLead) * 4) - (ctx.homeThreat * 12) + (ctx.objectivePresenceLead > 15 ? 4 : 0) }
-            ];
-
-            return ranked.sort((a, b) => b.score - a.score).slice(0, 5).map(item => item.id);
-        };
+        const pickRecoveryStrategy = (ctx) => brain.pickRecoveryStrategy(ctx);
+        const buildStrategyOrder   = (ctx) => brain.buildStrategyOrder(ctx);
 
         const getPhaseDuration = (phase, ctx) => {
-            if (phase === 'EARLY') return 60;
-            if (phase === 'EXPLORE') return (ctx.homeThreat > 0 || ctx.towerLead < 0) ? 35 : 25;
-            if (phase === 'EXPLOIT') return ctx.homeThreat > 0 ? 240 : 300;
-            return 25;
+            return brain.getPhaseDuration(phase, ctx);
         };
 
-        const scoreMacroSnapshot = (startSnap, endSnap) => {
-            if (!startSnap || !endSnap) return 0;
-            const breakdown = [
-                { key: 'pointDiff', label: 'nexus', delta: endSnap.pointDiff - startSnap.pointDiff, weight: 90 },
-                { key: 'towerLead', label: 'towers', delta: endSnap.towerLead - startSnap.towerLead, weight: 7200 },
-                { key: 'homeHeld', label: 'homeHeld', delta: endSnap.homeHeld - startSnap.homeHeld, weight: 5200 },
-                { key: 'homeControlLead', label: 'homeCtrl', delta: endSnap.homeControlLead - startSnap.homeControlLead, weight: 40 },
-                { key: 'objectivePresenceLead', label: 'obj', delta: endSnap.objectivePresenceLead - startSnap.objectivePresenceLead, weight: 15 },
-                { key: 'teamKillLead', label: 'kills', delta: endSnap.teamKillLead - startSnap.teamKillLead, weight: 360 },
-                { key: 'enemyDeadCount', label: 'deadEnemies', delta: endSnap.enemyDeadCount - startSnap.enemyDeadCount, weight: 350 },
-                { key: 'activePowerupLead', label: 'powerup', delta: endSnap.activePowerupLead - startSnap.activePowerupLead, weight: 1200 },
-                { key: 'powerLead', label: 'power', delta: endSnap.powerLead - startSnap.powerLead, weight: 25 },
-                { key: 'homeThreat', label: 'homeThreat', delta: endSnap.homeThreat - startSnap.homeThreat, weight: -2400 },
-                { key: 'towerPressure', label: 'pressure', delta: endSnap.towerPressure - startSnap.towerPressure, weight: -950 }
-            ].map(item => ({ ...item, score: item.delta * item.weight }));
-            const total = breakdown.reduce((sum, item) => sum + item.score, 0);
-            return { total, breakdown };
-        };
+        const scoreMacroSnapshot = (startSnap, endSnap) => brain.scoreMacroSnapshot(startSnap, endSnap);
 
         const getCombatProfile = (bot) => {
             const maxHp = bot.effectiveMaxHp || bot.maxHp || 1;
@@ -2447,229 +2409,23 @@ export class BotPlayer extends Player {
         });
 
         const assign = (bot, type, target) => {
-            if (!bot) return; // Pojistka
+            if (!bot) return;
             bot.macroOrder = { type, target };
-            unassigned = unassigned.filter(b => b.id !== bot.id);
         };
 
-        // 1. ZÁCHRANA SPOLUBOJOVNÍKA (REINFORCE)
-        for (let ally of teamBots.filter(b => b.alive)) {
-            if (ally.hp / ally.effectiveMaxHp < 0.4 && ally.target && ally.target.alive) {
-                let winProb = ally.predictFightOutcome ? ally.predictFightOutcome(ally.target) : 0.5;
-                if (winProb < 0.4) {
-                    let helpers = unassigned.filter(b => dist(b.pos, ally.pos) < 2000);
-                    if (helpers.length > 0) {
-                        // Preferujeme Slayery (Assassiny) a Fightery pro záchranu parťáka
-                        let bestHelper = helpers.sort((a,b) => {
-                            let scoreA = dist(a.pos, ally.pos) - (['SLAYER', 'FIGHTER'].includes(a.role) ? 1500 : 0);
-                            let scoreB = dist(b.pos, ally.pos) - (['SLAYER', 'FIGHTER'].includes(b.role) ? 1500 : 0);
-                            return scoreA - scoreB;
-                        })[0];
-                        assign(bestHelper, 'HUNT', ally.target);
-                    }
-                }
-            }
-        }
-
-        // 2. POWERUP (Pošle prioritně Slayera nebo Splitpushera)
-        if (game.powerup && game.powerup.active && unassigned.length > 0) {
-            let candidates = unassigned.filter(b => ['SLAYER', 'SPLITPUSHER'].includes(b.role));
-            if (candidates.length === 0) candidates = unassigned;
-            if (candidates.length > 0) {
-                let best = candidates.sort((a,b) => dist(a.pos, game.powerup.pos) - dist(b.pos, game.powerup.pos))[0];
-                assign(best, 'POWERUP', game.powerup);
-            }
-        }
-
-        // 3. DEFEND (Obrana věží pod palbou)
-        let ownedTowers = game.towers.filter(t => t.owner === team);
-        if (mState.currentStrat !== 'AGGRO_ALL') { // V módu čisté agrese se na obranu ignoruje
-            for (let t of ownedTowers) {
-                let attackers = enemies.filter(e => dist(e.pos, t.pos) < t.captureRadius + 400);
-                if (attackers.length > 0 && Math.abs(t.control) < 100) {
-                    let needed = (mState.currentStrat === 'AGGRO_DEF') ? 1 : Math.min(unassigned.length, attackers.length);
-                    for (let i = 0; i < needed; i++) {
-                        let best = unassigned.sort((a,b) => {
-                            let scoreA = (a.role === 'TANK' ? -2000 : 0) + dist(a.pos, t.pos);
-                            let scoreB = (b.role === 'TANK' ? -2000 : 0) + dist(b.pos, t.pos);
-                            return scoreA - scoreB;
-                        })[0];
-                        if (best) assign(best, 'DEFEND', t);
-                    }
-                }
-            }
-        }
-
-        // 3b. HOLD OWN TOWERS (držet čerstvě obsazené i domácí věže v dosahu)
-        if (mState.currentStrat !== 'AGGRO_ALL') {
-            let holdBudget = this.isDesperate ? 3 : (this.isGlobalLosing ? 2 : 2);
-            let holdTowers = ownedTowers.filter(t => {
-                let nearbyEnemies = enemies.filter(e => dist(e.pos, t.pos) < t.captureRadius + 900).length;
-                let nearbyAllies = teamBots.filter(b => b.alive && dist(b.pos, t.pos) < t.captureRadius + 650).length;
-                const homeIdxs = activeGameMode.homeTowerIndexes[team];
-                let isHomeTower = homeIdxs.includes(t.index);
-                return isHomeTower || nearbyEnemies > 0 || Math.abs(t.control) < 100 || nearbyAllies < 2;
-            }).sort((a, b) => {
-                const homeIdxs = activeGameMode.homeTowerIndexes[team];
-                let aHome = homeIdxs.includes(a.index);
-                let bHome = homeIdxs.includes(b.index);
-                if (aHome !== bHome) return aHome ? -1 : 1;
-                let aEnemy = enemies.filter(e => dist(e.pos, a.pos) < a.captureRadius + 900).length;
-                let bEnemy = enemies.filter(e => dist(e.pos, b.pos) < b.captureRadius + 900).length;
-                return bEnemy - aEnemy;
-            });
-
-            for (let t of holdTowers) {
-                if (holdBudget <= 0 || unassigned.length === 0) break;
-                let nearbyEnemies = enemies.filter(e => dist(e.pos, t.pos) < t.captureRadius + 900).length;
-                let need = nearbyEnemies > 1 ? 2 : 1;
-                if (Math.abs(t.control) < 100) need = Math.max(need, 1);
-                need = Math.min(need, holdBudget);
-                for (let i = 0; i < need && holdBudget > 0 && unassigned.length > 0; i++) {
-                    let best = unassigned.sort((a, b) => {
-                        let scoreA = (a.role === 'TANK' ? -2500 : 0) + (a.role === 'FIGHTER' ? -1200 : 0) + dist(a.pos, t.pos);
-                        let scoreB = (b.role === 'TANK' ? -2500 : 0) + (b.role === 'FIGHTER' ? -1200 : 0) + dist(b.pos, t.pos);
-                        return scoreA - scoreB;
-                    })[0];
-                    if (best) {
-                        assign(best, 'DEFEND', t);
-                        holdBudget--;
-                    }
-                }
-            }
-        }
-
-        // 4. SNEAK CAPTURE (Kradení prázdných věží v META režimech)
-        let unownedTowers = game.towers.filter(t => t.owner !== team);
-        if (['META_4_1', 'META_3_2'].includes(mState.currentStrat)) {
-            for (let t of unownedTowers) {
-                let enemiesNear = enemies.filter(e => dist(e.pos, t.pos) < 1200); // 1200 radius safe zone
-                if (enemiesNear.length === 0 && unassigned.length > 0) {
-                    let best = unassigned.sort((a,b) => {
-                        let scoreA = (a.role === 'SPLITPUSHER' ? -3000 : 0) + (a.hp / a.effectiveMaxHp)*1000 + dist(a.pos, t.pos);
-                        let scoreB = (b.role === 'SPLITPUSHER' ? -3000 : 0) + (b.hp / b.effectiveMaxHp)*1000 + dist(b.pos, t.pos);
-                        return scoreA - scoreB;
-                    })[0];
-                    if (best) assign(best, 'SNEAK_CAPTURE', t);
-                }
-            }
-        }
-
-        // 5. DISTRIBUCE ÚKOLŮ DLE STRATEGIE (CÍLE)
-        let borderTowers = ownedTowers.sort((a,b) => dist(a.pos, spawnPoints[1-team]) - dist(b.pos, spawnPoints[1-team]));
-        let cx = spawnPoints[team].x, cy = spawnPoints[team].y;
-        if (unassigned.length > 0) { cx = 0; cy = 0; for (let b of unassigned) { cx += b.pos.x; cy += b.pos.y; } cx /= unassigned.length; cy /= unassigned.length; }
-        let remainingTowers = unownedTowers.sort((a,b) => dist(a.pos, {x: cx, y: cy}) - dist(b.pos, {x: cx, y: cy}));
-        let targetTower = remainingTowers.length > 0 ? remainingTowers[0] : null;
-
-        let topMidTower = game.towers.find(t => t.index === 1);
-        let enemyBotTower = game.towers.find(t => t.index === (team === 0 ? 3 : 4));
-        let mainTarget = (topMidTower && topMidTower.owner !== team) ? topMidTower : enemyBotTower;
-        if (!mainTarget || mainTarget.owner === team) mainTarget = targetTower;
-
-        if (mState.currentStrat === 'TOWER_FIRST') {
-            let towerPlan = [...ownedTowers].sort((a, b) => {
-                let pressureA = enemies.filter(e => dist(e.pos, a.pos) < a.captureRadius + 900).length;
-                let pressureB = enemies.filter(e => dist(e.pos, b.pos) < b.captureRadius + 900).length;
-                let scoreA = (pressureA * 5000) + (isHomeTower(a) ? 8000 : 0) + (Math.abs(a.control) < 100 ? 6000 : 0) - dist(a.pos, spawnPoints[team]);
-                let scoreB = (pressureB * 5000) + (isHomeTower(b) ? 8000 : 0) + (Math.abs(b.control) < 100 ? 6000 : 0) - dist(b.pos, spawnPoints[team]);
-                return scoreB - scoreA;
-            });
-
-            for (let t of towerPlan) {
-                if (unassigned.length === 0) break;
-                let nearbyEnemies = enemies.filter(e => dist(e.pos, t.pos) < t.captureRadius + 900).length;
-                let defendersNeeded = isHomeTower(t) ? 2 : (nearbyEnemies > 1 ? 2 : 1);
-                for (let i = 0; i < defendersNeeded && unassigned.length > 0; i++) {
-                    let best = unassigned.sort((a, b) => scoreBotForTower(a, t) - scoreBotForTower(b, t))[0];
-                    if (best) assign(best, 'DEFEND', t);
-                }
-            }
-
-            if (unassigned.length > 0) {
-                let escortTarget = targetTower || mainTarget;
-                let escort = unassigned.sort((a, b) => scoreBotForAttack(a, escortTarget) - scoreBotForAttack(b, escortTarget))[0];
-                if (escort) assign(escort, 'ASSAULT', escortTarget);
-            }
-        }
-        else if (mState.currentStrat === 'KILL_FIRST') {
-            let killCandidates = enemies.filter(e => e.className && (
-                ownedTowers.some(t => dist(e.pos, t.pos) < t.captureRadius + 700) ||
-                (game.powerup && game.powerup.active && dist(e.pos, game.powerup.pos) < 700) ||
-                dist(e.pos, spawnPoints[team]) < 2200
-            ));
-            if (killCandidates.length === 0) killCandidates = enemies.filter(e => e.className);
-
-            let focusTarget = killCandidates.sort((a, b) => {
-                let scoreA = (a.hp / (a.effectiveMaxHp || a.maxHp)) * 1000 + dist(a.pos, spawnPoints[team]) * 0.35;
-                let scoreB = (b.hp / (b.effectiveMaxHp || b.maxHp)) * 1000 + dist(b.pos, spawnPoints[team]) * 0.35;
-                return scoreA - scoreB;
-            })[0] || null;
-
-            let toAssign = [...unassigned].sort((a, b) => scoreBotForAttack(a, focusTarget || mainTarget) - scoreBotForAttack(b, focusTarget || mainTarget));
-
-            for (let b of toAssign) {
-                if (focusTarget && (['SLAYER', 'FIGHTER', 'SUPPORT'].includes(b.role) || dist(b.pos, focusTarget.pos) < 1800)) {
-                    assign(b, 'HUNT', focusTarget);
-                } else {
-                    assign(b, 'ASSAULT', targetTower || mainTarget);
-                }
-            }
-        }
-        else if (mState.currentStrat === 'TURTLE') {
-            let toAssign = [...unassigned];
-            for (let i = 0; i < toAssign.length; i++) assign(toAssign[i], 'DEFEND', borderTowers[i % Math.max(1, borderTowers.length)]);
-        } 
-        else if (mState.currentStrat === 'AGGRO_ALL') {
-            let toAssign = [...unassigned];
-            for (let b of toAssign) assign(b, 'ASSAULT', targetTower);
-        }
-        else if (mState.currentStrat === 'AGGRO_DEF') {
-            if (unassigned.length > 0 && borderTowers.length > 0) {
-                let defender = unassigned.sort((a,b) => scoreBotForTower(a, borderTowers[0]) - scoreBotForTower(b, borderTowers[0]))[0];
-                assign(defender, 'DEFEND', borderTowers[0]);
-            }
-            let toAssign = [...unassigned];
-            for (let b of toAssign) assign(b, 'ASSAULT', targetTower);
-        }
-        else if (mState.currentStrat === 'SPLIT_ROAM') {
-            if (unassigned.length > 0) {
-                let roamer = unassigned.sort((a,b) => (a.role === 'SPLITPUSHER' ? -1000 : 0) - a.speed - ((b.role === 'SPLITPUSHER' ? -1000 : 0) - b.speed))[0];
-                if (unownedTowers.length > 0) {
-                    let sneakTarget = unownedTowers.sort((a,b) => dist(b.pos, mainTarget ? mainTarget.pos : spawnPoints[1-team]) - dist(a.pos, mainTarget ? mainTarget.pos : spawnPoints[1-team]))[0];
-                    assign(roamer, 'SNEAK_CAPTURE', sneakTarget);
-                }
-            }
-            let toAssign = [...unassigned];
-            for (let b of toAssign) assign(b, 'ASSAULT', targetTower);
-        }
-        else if (mState.currentStrat === 'META_3_2') {
-            let t1 = mainTarget;
-            let t2 = unownedTowers.find(t => t !== t1) || borderTowers[0];
-            let toAssign = [...unassigned];
-            for (let i = 0; i < toAssign.length; i++) {
-                if (i < 3) assign(toAssign[i], 'ASSAULT', t1);
-                else assign(toAssign[i], 'ASSAULT', t2);
-            }
-        }
-        else { // META_4_1
-            let splitPusher = unassigned.find(b => b.role === 'SPLITPUSHER') || unassigned[unassigned.length - 1];
-            if (splitPusher && unassigned.length > 1) {
-                let splitTarget = (mainTarget === topMidTower) ? enemyBotTower : topMidTower;
-                if (!splitTarget || splitTarget.owner === team) splitTarget = unownedTowers.find(t => t !== mainTarget);
-                if (splitTarget) assign(splitPusher, 'PUSH_LANE', splitTarget);
-            }
-            let assaultTeam = [...unassigned].sort((a,b) => {
-                let scoreA = (['TANK', 'FIGHTER'].includes(a.role) ? -1000 : 0) + (a.role === 'SUPPORT' ? 2000 : 0);
-                let scoreB = (['TANK', 'FIGHTER'].includes(b.role) ? -1000 : 0) + (b.role === 'SUPPORT' ? 2000 : 0);
-                return scoreA - scoreB;
-            });
-            for (let b of assaultTeam) assign(b, 'ASSAULT', mainTarget);
-        }
-
-        // 6. ZÁLOHA (Zbytek jde farmit)
-        let leftovers = [...unassigned];
-        for (let b of leftovers) assign(b, 'FARM', null);
+        // Sestavení kontextu pro brain a delegace assignment logiky (1–6)
+        const ownedTowers   = game.towers.filter(t => t.owner === team);
+        const unownedTowers = game.towers.filter(t => t.owner !== team);
+        brain.assignMacroOrders({
+            team, mState, macroSnapshot, enemies, teamBots, teamPlayers,
+            unassigned: [...unassigned],
+            ownedTowers, unownedTowers,
+            spawnPoints,
+            assign,
+            isHomeTower,
+            scoreBotForTower,
+            scoreBotForAttack,
+        });
     }
 
     // ==========================================

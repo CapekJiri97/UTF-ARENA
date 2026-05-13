@@ -2,6 +2,7 @@ import { game, camera } from './State.js';
 import * as ArenaMap from './MapConfig_Arena.js';
 import { showEnd } from './UI.js';
 import { speakNexusWarning } from './Audio.js';
+import { ArenaBrain } from './BotBrain.js';
 
 // ── Arena game mode ───────────────────────────────────────────────────────────
 // 4v4, elipsová mapa, jedna neutrální věž uprostřed.
@@ -172,4 +173,7 @@ export const GameMode_Arena = {
 
   // Jediná věž uprostřed — oba týmy ji chtějí, žádná "home" věž
   homeTowerIndexes: { 0: [], 1: [] },
+
+  // Strategická AI pro boty — Arena: drž věž pro body, huntuj pro body
+  botBrain: ArenaBrain,
 };
