@@ -42,16 +42,28 @@ export const rawPolys = [
   [{x:2306,y:1519}, {x:2395,y:1576}, {x:2303,y:1752}, {x:2198,y:1704}]
 ];
 
-export const rawMapBoundary = [
-  {x: 93, y: 2232}, {x: 262, y: 1784}, {x: 678, y: 1594}, {x: 344, y: 1352},
-  {x: 492, y: 856}, {x: 877, y: 876}, {x: 1340, y: 512}, {x: 1649, y: 360},
-  {x: 1829, y: 80}, {x: 2294, y: 130}, {x: 2330, y: 337}, {x: 2983, y: 740},
-  {x: 3069, y: 874}, {x: 3360, y: 810}, {x: 3692, y: 1377}, {x: 3294, y: 1596},
-  {x: 3801, y: 1938}, {x: 3576, y: 2502}, {x: 2964, y: 2468}, {x: 3109, y: 2843},
-  {x: 2631, y: 2996}, {x: 2408, y: 2889}, {x: 2001, y: 3010}, {x: 1596, y: 2922},
-  {x: 1211, y: 3048}, {x: 867, y: 2796}, {x: 970, y: 2512}, {x: 680, y: 2521},
-  {x: 330, y: 2457}, {x: 163, y: 2392}
+// Zrcadlově symetrická, matematicky generovaná hranice mapy
+export const rawMapBoundary = [];
+const CX = 2000;
+const CY = 1575;
+const rightHalf = [
+    { x: CX, y: 80 },             // Sever
+    { x: 2500, y: 130 },          // Severovýchod
+    { x: 3000, y: 400 },
+    { x: 3450, y: 900 },          // Východní roh (horní)
+    { x: 3300, y: 1600 },         // Vnitřní prohlubeň mapy
+    { x: 3850, y: 2000 },         // Výběžek pro červený spawn
+    { x: 3850, y: 2400 },
+    { x: 3400, y: 2700 },
+    { x: 2900, y: 2900 },
+    { x: 2500, y: 3010 },
+    { x: CX, y: 3050 }            // Jih
 ];
+for (let pt of rightHalf) rawMapBoundary.push(pt);
+for (let i = rightHalf.length - 2; i >= 1; i--) {
+    rawMapBoundary.push({ x: CX - (rightHalf[i].x - CX), y: rightHalf[i].y });
+}
+
 export const mapBoundary = smoothPolygon(rawMapBoundary, 5);
 
 export const towerPositions = [

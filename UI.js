@@ -2085,7 +2085,6 @@ export function drawMinimap(){
       let bgCtx = game.minimapBg.getContext('2d');
       bgCtx.scale(dpr, dpr);
       bgCtx.fillStyle='#111'; bgCtx.fillRect(0,0,w,h);
-      bgCtx.beginPath(); bgCtx.moveTo(mapBoundary[0].x * scaleX + offX, mapBoundary[0].y * scaleY + offY); for(let i=1; i<mapBoundary.length; i++) bgCtx.lineTo(mapBoundary[i].x * scaleX + offX, mapBoundary[i].y * scaleY + offY); bgCtx.closePath(); bgCtx.strokeStyle = '#555'; bgCtx.stroke();
       const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       const mmSpacing = isMobile ? 140 : 66;
       bgCtx.fillStyle = '#555'; bgCtx.font = (isMobile ? '6px' : '10px') + ' monospace'; bgCtx.textAlign='center'; bgCtx.textBaseline='middle';
@@ -2204,10 +2203,6 @@ export function drawMinimap(){
     game.minimapOverlay.width = Math.floor(w * ovDpr); game.minimapOverlay.height = Math.floor(h * ovDpr);
     const ovCtx = game.minimapOverlay.getContext('2d');
     ovCtx.scale(ovDpr, ovDpr);
-    ovCtx.strokeStyle = '#666'; ovCtx.lineWidth = 1;
-    ovCtx.beginPath(); ovCtx.moveTo(mapBoundary[0].x * scaleX + offX, mapBoundary[0].y * scaleY + offY);
-    for (let i = 1; i < mapBoundary.length; i++) ovCtx.lineTo(mapBoundary[i].x * scaleX + offX, mapBoundary[i].y * scaleY + offY);
-    ovCtx.closePath(); ovCtx.stroke();
     const isMobileOv = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const mmSpacingOv = isMobileOv ? 140 : 66;
     ovCtx.fillStyle = '#666'; ovCtx.font = (isMobileOv ? '6px' : '10px') + ' monospace'; ovCtx.textAlign = 'center'; ovCtx.textBaseline = 'middle';
