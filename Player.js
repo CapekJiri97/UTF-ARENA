@@ -305,7 +305,7 @@ export class Player{
               }
           }
 
-          if (dx !== 0 || dy !== 0) { let l = Math.hypot(dx, dy); for(let w of game.walls) { let info = distToPoly(this.pos.x, this.pos.y, w.pts); if (info.minDist < w.r + 20 && !info.inside) { dx += info.closestNorm.x * 3.0; dy += info.closestNorm.y * 3.0; let tx = -info.closestNorm.y; let ty = info.closestNorm.x; if (dx * tx + dy * ty < 0) { tx = -tx; ty = -ty; } dx += tx * 1.5; dy += ty * 1.5; } } l = Math.hypot(dx, dy); if (l > 0) moveEntityWithCollision(this, (dx/l)*moveSpeed, (dy/l)*moveSpeed, dt); }
+      if (dx !== 0 || dy !== 0) { let l = Math.hypot(dx, dy); let cx = Math.floor(this.pos.x / 200); let cy = Math.floor(this.pos.y / 200); let nearbyWalls = game.wallGrid ? (game.wallGrid.get(`${cx},${cy}`) || []) : game.walls; for(let w of nearbyWalls) { let info = distToPoly(this.pos.x, this.pos.y, w.pts); if (info.minDist < w.r + 20 && !info.inside) { dx += info.closestNorm.x * 3.0; dy += info.closestNorm.y * 3.0; let tx = -info.closestNorm.y; let ty = info.closestNorm.x; if (dx * tx + dy * ty < 0) { tx = -tx; ty = -ty; } dx += tx * 1.5; dy += ty * 1.5; } } l = Math.hypot(dx, dy); if (l > 0) moveEntityWithCollision(this, (dx/l)*moveSpeed, (dy/l)*moveSpeed, dt); }
       };
       game.minions.push(m);
   }
@@ -416,7 +416,11 @@ export class Player{
   }
 
   update(dt){ if(game.gameOver) return;
-        this.trackDominionPCS(dt);
+    this._pcsTimer = (this._pcsTimer || 0) + dt;
+    if (this._pcsTimer >= 0.5) {
+        this.trackDominionPCS(this._pcsTimer);
+        this._pcsTimer = 0;
+    }
     if (this.className === 'Tamer' && !this.petInitialized && (!socket || game.isHost)) {
         this.petInitialized = true;
         this.spawnTamerPet(1.0);
@@ -3113,7 +3117,11 @@ export class BotPlayer extends Player {
           return;
       }
       if(game.gameOver) return;
-      this.trackDominionPCS(dt);
+      this._pcsTimer = (this._pcsTimer || 0) + dt;
+      if (this._pcsTimer >= 0.5) {
+          this.trackDominionPCS(this._pcsTimer);
+          this._pcsTimer = 0;
+      }
       // if(game.startDelay > 0) return; // REMOVED: Boti se mohou rozmístit už během odpočtu
       if(!this.alive){
           if (!socket || game.isHost) { // Respawn logika pouze na Hostovi
@@ -3385,7 +3393,9 @@ export class BotPlayer extends Player {
           this.posCheckTimer = 0;
           if (this.lastPosCheck && dist(this.pos, this.lastPosCheck) < 5) {
                   let nearWall = false;
-                  for (let w of game.walls) {
+                      let cx = Math.floor(this.pos.x / 200), cy = Math.floor(this.pos.y / 200);
+                      let nearbyWalls = game.wallGrid ? (game.wallGrid.get(`${cx},${cy}`) || []) : game.walls;
+                      for (let w of nearbyWalls) {
                       let info = distToPoly(this.pos.x, this.pos.y, w.pts);
                       if (info.minDist <= w.r + 50 || info.inside) {
                           nearWall = true; break;

@@ -662,7 +662,9 @@ import { initAudio, playSound } from './Audio.js';
     ent.pos.x = clamp(ent.pos.x, ent.radius, activeGameMode.mapConfig.world.width - ent.radius);
     ent.pos.y = clamp(ent.pos.y, ent.radius, activeGameMode.mapConfig.world.height - ent.radius);
     
-    for(let w of game.walls) {
+    let cx = Math.floor(ent.pos.x / 200), cy = Math.floor(ent.pos.y / 200);
+    let nearbyWalls = game.wallGrid ? (game.wallGrid.get(`${cx},${cy}`) || []) : game.walls;
+    for(let w of nearbyWalls) {
       let info = distToPoly(ent.pos.x, ent.pos.y, w.pts);
       if (info.inside) {
         let pushDist = info.minDist + w.r + ent.radius;
@@ -892,6 +894,8 @@ import { initAudio, playSound } from './Audio.js';
   export function initWalls() {
     const mc = activeGameMode.mapConfig;
     game.walls = [];
+    game.wallGrid = new Map();
+    game.wallGridSize = 200;
     const processPoly = (pts) => {
       let cx=0, cy=0; pts.forEach(p=>{cx+=p.x; cy+=p.y;}); cx/=pts.length; cy/=pts.length;
       let scale = 0.95;
@@ -905,7 +909,21 @@ import { initAudio, playSound } from './Audio.js';
       let r = minE * 0.18;
       let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
       sorted.forEach(p=>{ minX=Math.min(minX, p.x); maxX=Math.max(maxX, p.x); minY=Math.min(minY, p.y); maxY=Math.max(maxY, p.y); });
-      game.walls.push({ pts: sorted, r, bbox: {minX, maxX, minY, maxY} });
+      
+      let wallObj = { pts: sorted, r, bbox: {minX, maxX, minY, maxY} };
+      game.walls.push(wallObj);
+      
+      let startX = Math.floor((minX - r - 50) / game.wallGridSize);
+      let endX = Math.floor((maxX + r + 50) / game.wallGridSize);
+      let startY = Math.floor((minY - r - 50) / game.wallGridSize);
+      let endY = Math.floor((maxY + r + 50) / game.wallGridSize);
+      for(let x=startX; x<=endX; x++) {
+          for(let y=startY; y<=endY; y++) {
+              let key = `${x},${y}`;
+              if(!game.wallGrid.has(key)) game.wallGrid.set(key, []);
+              game.wallGrid.get(key).push(wallObj);
+          }
+      }
     };
     mc.rawPolys.forEach(pts => {
       let smoothed = smoothPolygon(pts, 3);
@@ -1063,16 +1081,35 @@ import { initAudio, playSound } from './Audio.js';
 
     // Minion collision resolution (anti-stacking) — pouze na Hostu, Klient interpoluje
     if (!socket || game.isHost) {
+      const CELL_SIZE = 50;
+      const grid = new Map();
       for(let i=0; i<game.minions.length; i++){
-        for(let j=i+1; j<game.minions.length; j++){
-          let m1 = game.minions[i], m2 = game.minions[j];
-          if(m1.dead || m2.dead) continue;
-          let dx = m2.pos.x - m1.pos.x, dy = m2.pos.y - m1.pos.y, d = Math.hypot(dx,dy);
-          let minDist = m1.radius + m2.radius;
-          if(d < minDist) {
-            if (d === 0) { dx = Math.random()-0.5; dy = Math.random()-0.5; d = Math.hypot(dx, dy); }
-            let push = (minDist - d) / 2; let px = (dx/d)*push, py = (dy/d)*push;
-            m1.pos.x -= px; m1.pos.y -= py; m2.pos.x += px; m2.pos.y += py;
+        let m = game.minions[i];
+        if(m.dead) continue;
+        let key = `${Math.floor(m.pos.x / CELL_SIZE)},${Math.floor(m.pos.y / CELL_SIZE)}`;
+        if(!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(m);
+      }
+      for(let i=0; i<game.minions.length; i++){
+        let m1 = game.minions[i];
+        if(m1.dead) continue;
+        let cx = Math.floor(m1.pos.x / CELL_SIZE);
+        let cy = Math.floor(m1.pos.y / CELL_SIZE);
+        for(let nx = cx - 1; nx <= cx + 1; nx++) {
+          for(let ny = cy - 1; ny <= cy + 1; ny++) {
+            let cell = grid.get(`${nx},${ny}`);
+            if(cell) {
+              for(let m2 of cell) {
+                if(m1.id >= m2.id || m2.dead) continue; // Pár řešíme jen jednou
+                let dx = m2.pos.x - m1.pos.x, dy = m2.pos.y - m1.pos.y, d = Math.hypot(dx,dy);
+                let minDist = m1.radius + m2.radius;
+                if(d < minDist) {
+                  if (d === 0) { dx = Math.random()-0.5; dy = Math.random()-0.5; d = Math.hypot(dx, dy); }
+                  let push = (minDist - d) / 2; let px = (dx/d)*push, py = (dy/d)*push;
+                  m1.pos.x -= px; m1.pos.y -= py; m2.pos.x += px; m2.pos.y += py;
+                }
+              }
+            }
           }
         }
       }
