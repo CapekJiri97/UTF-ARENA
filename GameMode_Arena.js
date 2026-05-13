@@ -60,13 +60,13 @@ export const GameMode_Arena = {
 
   tickSpawn(_dt, spawnTimer, _interval) {
     let newTimer = spawnTimer + _dt;
-    if (newTimer >= 15.0) {
+    if (newTimer >= 20.0) {
       newTimer = 0;
       
       const spBlue = ArenaMap.arenaMinionSpawns[0];
       if (spBlue) {
         spBlue.forEach(sp => {
-          for (let k = 0; k < 2; k++) game.minions.push(new Minion(sp.x + (Math.random() - 0.5) * 40, sp.y + (Math.random() - 0.5) * 40, 0, 0));
+          for (let k = 0; k < 1; k++) game.minions.push(new Minion(sp.x + (Math.random() - 0.5) * 40, sp.y + (Math.random() - 0.5) * 40, 0, 0));
           for (let k = 0; k < 1; k++) game.minions.push(new Minion(sp.x + (Math.random() - 0.5) * 40, sp.y + (Math.random() - 0.5) * 40, 0, 0, { isRanged: true }));
         });
       }
@@ -74,7 +74,7 @@ export const GameMode_Arena = {
       const spRed = ArenaMap.arenaMinionSpawns[1];
       if (spRed) {
         spRed.forEach(sp => {
-          for (let k = 0; k < 2; k++) game.minions.push(new Minion(sp.x + (Math.random() - 0.5) * 40, sp.y + (Math.random() - 0.5) * 40, 1, 0));
+          for (let k = 0; k < 1; k++) game.minions.push(new Minion(sp.x + (Math.random() - 0.5) * 40, sp.y + (Math.random() - 0.5) * 40, 1, 0));
           for (let k = 0; k < 1; k++) game.minions.push(new Minion(sp.x + (Math.random() - 0.5) * 40, sp.y + (Math.random() - 0.5) * 40, 1, 0, { isRanged: true }));
         });
       }
@@ -82,8 +82,8 @@ export const GameMode_Arena = {
       const centerTower = game.towers[0];
       if (centerTower && centerTower.owner >= 0) {
         const owner = centerTower.owner;
-        for (let k = 0; k < 2; k++) game.minions.push(new Minion(centerTower.pos.x + (Math.random() - 0.5) * 40, centerTower.pos.y + (Math.random() - 0.5) * 40, owner, 0));
-        for (let k = 0; k < 2; k++) game.minions.push(new Minion(centerTower.pos.x + (Math.random() - 0.5) * 40, centerTower.pos.y + (Math.random() - 0.5) * 40, owner, 0, { isRanged: true }));
+        for (let k = 0; k < 1; k++) game.minions.push(new Minion(centerTower.pos.x + (Math.random() - 0.5) * 40, centerTower.pos.y + (Math.random() - 0.5) * 40, owner, 0));
+        for (let k = 0; k < 1; k++) game.minions.push(new Minion(centerTower.pos.x + (Math.random() - 0.5) * 40, centerTower.pos.y + (Math.random() - 0.5) * 40, owner, 0, { isRanged: true }));
       }
     }
     return newTimer;

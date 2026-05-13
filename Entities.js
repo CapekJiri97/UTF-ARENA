@@ -337,12 +337,14 @@ export class Minion{
     this.stunTimer = 0; this.silenceTimer = 0;
   }
   think() {
-    const giveUpRange = this.isSummon ? 800 : (this.isRanged ? 280 : 200);
+    let giveUpRange = this.isSummon ? 800 : (this.isRanged ? 280 : 200);
+    if (activeGameMode && activeGameMode.name === 'arena' && !this.isSummon) giveUpRange = 120; // Rychleji ztratí zájem a vrátí se k postupu
     if (this.currentTarget && (this.currentTarget.dead || this.currentTarget.hp <= 0 || dist(this.pos, this.currentTarget.pos) > giveUpRange)) {
         this.currentTarget = null; this.state = 'PUSH';
     }
     if (this.state === 'PUSH') {
         let nearestEnemy = null, minDist = this.isSummon ? 600 : (this.isRanged ? 200 : 150);
+        if (activeGameMode && activeGameMode.name === 'arena' && !this.isSummon) minDist = 100; // Mají klapky na očích a hledí si své cesty
         const enemyPlayers = game.players.filter(p => p.alive && p.team !== this.team);
         const enemyMinions = game.minions.filter(m => !m.dead && m.team !== this.team && m !== this);
         
@@ -351,7 +353,11 @@ export class Minion{
         }
         if (!nearestEnemy) {
             const potentialTargets = [...enemyPlayers, ...enemyMinions];
-            for (const t of potentialTargets) { const d = dist(this.pos, t.pos); if (d < minDist) { nearestEnemy = t; minDist = d; } }
+            for (const t of potentialTargets) { 
+                let d = dist(this.pos, t.pos); 
+                if (activeGameMode && activeGameMode.name === 'arena' && !this.isSummon && t.className) d += 200; // Silně ignorují hrdiny
+                if (d < minDist) { nearestEnemy = t; minDist = d; } 
+            }
         }
         if (nearestEnemy) { this.state = 'ATTACK'; this.currentTarget = nearestEnemy; }
     }
