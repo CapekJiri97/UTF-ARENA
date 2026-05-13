@@ -40,6 +40,13 @@ import { initAudio, playSound } from './Audio.js';
       canvas.height = window.innerHeight * dpr; 
       canvas.style.width = window.innerWidth + 'px';
       canvas.style.height = window.innerHeight + 'px';
+
+      const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      if (isMobile && typeof camera !== 'undefined') {
+          const cw = Math.max(window.innerWidth, window.innerHeight);
+          const ch = Math.min(window.innerWidth, window.innerHeight);
+          camera.scale = Math.min(cw / 1200, ch / 600);
+      }
   }
   window.addEventListener('resize', resize); resize();
 
@@ -748,6 +755,13 @@ import { initAudio, playSound } from './Audio.js';
     initWalls(); initTowers();
     activeGameMode.init();
 
+    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+        const cw = Math.max(window.innerWidth, window.innerHeight);
+        const ch = Math.min(window.innerWidth, window.innerHeight);
+        camera.scale = Math.min(cw / 1200, ch / 600);
+    }
+
     const spawnPoints = activeGameMode.mapConfig.spawnPoints;
     let bluePicked = [];
     let redPicked = [];
@@ -806,6 +820,13 @@ import { initAudio, playSound } from './Audio.js';
     // Reinicializace mapy pro aktuální game mode (setActiveMode bylo zavoláno těsně před tímto)
     initWalls(); initTowers();
     activeGameMode.init();
+
+    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+        const cw = Math.max(window.innerWidth, window.innerHeight);
+        const ch = Math.min(window.innerWidth, window.innerHeight);
+        camera.scale = Math.min(cw / 1200, ch / 600);
+    }
 
     const spawnPoints = activeGameMode.mapConfig.spawnPoints;
     let isSpectator = true;

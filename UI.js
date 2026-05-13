@@ -2519,8 +2519,10 @@ export function initMobileUI() {
     const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (!isMobile) return;
     
-    // Oddálení kamery na mobilu o 20% (z původních 1.0 na 0.8)
-    camera.scale = 0.8;
+    // Dynamické oddálení kamery na mobilu pro zachování výhledu +- 1200x600 units
+    const cw = Math.max(window.innerWidth, window.innerHeight);
+    const ch = Math.min(window.innerWidth, window.innerHeight);
+    camera.scale = Math.min(cw / 1200, ch / 600);
 
     // Natvrdo zarovnáme minimapu pomocí JS pro případ, že CSS Media Queries na mobilech selžou
     const mm = document.getElementById('minimap');
