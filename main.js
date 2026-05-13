@@ -662,8 +662,8 @@ import { initAudio, playSound } from './Audio.js';
     ent.pos.x = clamp(ent.pos.x, ent.radius, activeGameMode.mapConfig.world.width - ent.radius);
     ent.pos.y = clamp(ent.pos.y, ent.radius, activeGameMode.mapConfig.world.height - ent.radius);
     
-    let cx = Math.floor(ent.pos.x / 200), cy = Math.floor(ent.pos.y / 200);
-    let nearbyWalls = game.wallGrid ? (game.wallGrid.get(`${cx},${cy}`) || []) : game.walls;
+    let gridX = Math.floor(ent.pos.x / 200), gridY = Math.floor(ent.pos.y / 200);
+    let nearbyWalls = game.wallGrid ? (game.wallGrid.get(`${gridX},${gridY}`) || []) : game.walls;
     for(let w of nearbyWalls) {
       let info = distToPoly(ent.pos.x, ent.pos.y, w.pts);
       if (info.inside) {
