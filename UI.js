@@ -1000,6 +1000,18 @@ export function drawBackground(ctx){
       bgCtx.fillStyle = 'rgba(160,160,160,0.55)'; bgCtx.font = 'bold 20px monospace'; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
       for (const sp of activeGameMode.mapConfig.MINION_SPAWN_POINTS) bgCtx.fillText('M', sp.x, sp.y);
 
+      if (activeGameMode.name === 'arena') {
+          if (activeGameMode.mapConfig.arenaMinionSpawns) {
+              activeGameMode.mapConfig.arenaMinionSpawns.forEach(teamSpawns => {
+                  teamSpawns.forEach(sp => {
+                      bgCtx.fillText('S', sp.x, sp.y);
+                  });
+              });
+          }
+          bgCtx.fillText('X', 483, 682);
+          bgCtx.fillText('X', 2917, 682);
+      }
+
       bgCtx.font = '16px monospace'; const natureColors = ['#334d1e', '#426b27', '#528530', '#4d3d26', '#614f33', '#2a3b18'];
       for (let w of game.walls) {
         let startX = Math.floor((w.bbox.minX - w.r)/20)*20, endX = Math.ceil((w.bbox.maxX + w.r)/20)*20;

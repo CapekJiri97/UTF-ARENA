@@ -442,7 +442,7 @@ export class Minion{
             let destPos = activeGameMode.mapConfig.MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos;
             if (activeGameMode && activeGameMode.name === 'arena') {
                 if (towerTarget && towerTarget.owner === this.team) {
-                    destPos = this.team === 0 ? {x: 2796, y: 677} : {x: 604, y: 677};
+                    destPos = this.team === 0 ? {x: 2917, y: 682} : {x: 483, y: 682};
                 } else {
                     destPos = towerTarget.pos;
                 }

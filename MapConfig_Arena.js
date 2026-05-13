@@ -32,8 +32,8 @@ export const nexusTowerIndex = {};
 export const MINION_SPAWN_POINTS = [];
 
 export const arenaMinionSpawns = [
-  [{x: 451, y: 512}, {x: 454, y: 807}],
-  [{x: 2949, y: 512}, {x: 2946, y: 807}]
+  [{x: 482, y: 492}, {x: 459, y: 850}],
+  [{x: 2918, y: 492}, {x: 2941, y: 850}]
 ];
 
 // Healy rozmístěny symetricky na horní a spodní stranu mapy
