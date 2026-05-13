@@ -319,7 +319,7 @@ export const AramBrain = {
 
   assignMacroOrders(ctx) {
     const { team, mState, enemies, teamBots, unassigned: _unassigned,
-            ownedTowers, unownedTowers, assign } = ctx;
+            ownedTowers, unownedTowers, spawnPoints, assign } = ctx;
 
     let unassigned = [..._unassigned];
     const reassign = (bot, type, target) => { assign(bot, type, target); unassigned = unassigned.filter(b => b.id !== bot.id); };
@@ -349,14 +349,17 @@ export const AramBrain = {
       }
     }
 
-    // 3. Všichni ostatní tlačí na nepřátelskou věž
+    // 3. Cílový bod: věž nebo (pokud žádné věže) nepřátelský spawn
     const enemyTower = unownedTowers.find(t => t.owner !== team && !t.dead) || game.towers.find(t => t.owner !== team);
+    const enemySpawnPos = spawnPoints[1 - team];
+    // Pseudo-cíl pro pohyb bez věží — botové míří na střed mapy nebo k nepřátelskému spawnu
+    const pushTarget = enemyTower || { pos: enemySpawnPos };
     const strat = mState.currentStrat;
 
     if (strat === 'HOLD') {
-      // Všichni drží svou věž
       const myTower = ownedTowers[0];
-      for (let b of [...unassigned]) reassign(b, 'DEFEND', myTower || enemyTower);
+      const holdPos = myTower || { pos: spawnPoints[team] };
+      for (let b of [...unassigned]) reassign(b, 'DEFEND', myTower ? myTower : holdPos);
     } else if (strat === 'DIVE') {
       // Agresivní — nejdřív hunt, pak push
       const target = enemies.filter(e => e.className).sort((a, b) =>
@@ -364,10 +367,10 @@ export const AramBrain = {
       )[0];
       for (let b of [...unassigned]) {
         if (target && dist(b.pos, target.pos) < 1800) reassign(b, 'HUNT', target);
-        else reassign(b, 'ASSAULT', enemyTower);
+        else reassign(b, 'ASSAULT', pushTarget);
       }
     } else { // PUSH
-      for (let b of [...unassigned]) reassign(b, 'ASSAULT', enemyTower);
+      for (let b of [...unassigned]) reassign(b, 'ASSAULT', pushTarget);
     }
   },
 };

@@ -2952,6 +2952,12 @@ export class BotPlayer extends Player {
           this.objective = bestObjective;
           this.target = null;
           this.currentScore = bestObjScore;
+      } else if (this.macroOrder && this.macroOrder.target && this.macroOrder.target.pos) {
+          // Fallback pro módy bez věží (ARAM): macroOrder má pseudo-cíl s .pos — pohybujeme se k němu
+          this.state = 'CAPTURE';
+          this.objective = { pos: this.macroOrder.target.pos, captureRadius: 200 };
+          this.target = null;
+          this.currentScore = 1;
       } else {
           this.state = 'SEARCHING';
           this.objective = null;

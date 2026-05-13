@@ -2,7 +2,7 @@ import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
 import { shopItems, canBuyShopItem, getShopItem, getBuyBlockReason, calcTotalCost } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
-import { canvas, ctx, keys, player, socket, startGame, buyItem, sellItem, drawHealthBar, activeGameMode, setActiveMode } from './main.js';
+import { canvas, ctx, keys, player, socket, startGame, buyItem, sellItem, drawHealthBar, activeGameMode, setActiveMode, initWalls, initTowers } from './main.js';
 // spawnPoints a mapBoundary jsou lazy proxy — activeGameMode je již importován výše
 const spawnPoints  = new Proxy([], { get: (_, i) => activeGameMode.mapConfig.spawnPoints[i] });
 const mapBoundary  = new Proxy([], { get: (_, k) => activeGameMode.mapConfig.mapBoundary[k] });
@@ -2060,9 +2060,9 @@ export function drawMinimap(){
   ctxm.save(); ctxm.beginPath(); ctxm.arc(w/2, h/2, w/2, 0, Math.PI*2); ctxm.clip();
   ctxm.fillStyle='#111'; ctxm.fillRect(0,0,w,h);
   
-  if (!game.minimapBg || game.minimapBg.width !== Math.floor(w * dpr)) {
-      game.minimapBg = null;
+  if (!game.minimapBg || game.minimapBg.width !== Math.floor(w * dpr) || game.minimapBg._forMode !== activeGameMode.name) {
       game.minimapBg = document.createElement('canvas');
+      game.minimapBg._forMode = activeGameMode.name;
       game.minimapBg.width = Math.floor(w * dpr); game.minimapBg.height = Math.floor(h * dpr);
       let bgCtx = game.minimapBg.getContext('2d');
       bgCtx.scale(dpr, dpr);
@@ -2179,9 +2179,10 @@ export function drawMinimap(){
   }
 
   // Redraw map boundary + walls on top of fog so they're always visible
-  if (!game.minimapOverlay || game.minimapOverlay.width !== Math.floor(w * (window.devicePixelRatio||1))) {
+  if (!game.minimapOverlay || game.minimapOverlay.width !== Math.floor(w * (window.devicePixelRatio||1)) || game.minimapOverlay._forMode !== activeGameMode.name) {
     const ovDpr = window.devicePixelRatio || 1;
     game.minimapOverlay = document.createElement('canvas');
+    game.minimapOverlay._forMode = activeGameMode.name;
     game.minimapOverlay.width = Math.floor(w * ovDpr); game.minimapOverlay.height = Math.floor(h * ovDpr);
     const ovCtx = game.minimapOverlay.getContext('2d');
     ovCtx.scale(ovDpr, ovDpr);
@@ -2373,6 +2374,10 @@ export function buildMenu() {
   // Game mode selector — generický, funguje pro libovolný počet .mode-btn tlačítek
   function selectMode(modeName) {
     setActiveMode(modeName);
+    initWalls(); initTowers();
+    game.bgCanvas = null;
+    game.minimapBg = null;
+    game.minimapOverlay = null;
     document.querySelectorAll('.mode-btn').forEach(b => {
       const isActive = b.dataset.mode === modeName;
       b.style.borderColor = isActive ? '#ffcc00' : '#444';

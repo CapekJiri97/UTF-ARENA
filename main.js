@@ -854,7 +854,7 @@ import { initAudio, playSound } from './Audio.js';
     game.powerup = _pp2 ? new PowerUp(_pp2.x, _pp2.y) : null;
   }
 
-  function initWalls() {
+  export function initWalls() {
     const mc = activeGameMode.mapConfig;
     game.walls = [];
     const processPoly = (pts) => {
@@ -885,7 +885,7 @@ import { initAudio, playSound } from './Audio.js';
   }
   initWalls();
 
-  function initTowers() {
+  export function initTowers() {
     game.towers = activeGameMode.mapConfig.towerPositions.map((tp, i) => new Tower(tp.x, tp.y, i));
   }
   initTowers();
