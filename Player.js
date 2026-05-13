@@ -3741,9 +3741,13 @@ export class BotPlayer extends Player {
                   if (spDist > 30 && spDist < 400) { // Skenuje plošiny před sebou
                       let spAng = Math.atan2(sp.pos.y - this.pos.y, sp.pos.x - this.pos.x);
                       let angDiff = Math.abs(Math.atan2(Math.sin(spAng - botDirAng), Math.cos(spAng - botDirAng)));
-                      if (angDiff < 0.6) { // Pokud je plošina zhruba ve směru cesty (do 35 stupňů)
-                          dx += Math.cos(spAng) * l * 0.8; // Zmagnetizujeme botův krok
-                          dy += Math.sin(spAng) * l * 0.8;
+                      
+                      let maxAngDiff = 0.4 + Math.random() * 0.5; // Záchytný úhel cca 22 až 51 stupňů (více random)
+                      if (angDiff < maxAngDiff) {
+                          let pullStr = 1.5 + Math.random() * 2.0; // Znatelně silnější přitažení (1.5x až 3.5x)
+                          let pullAng = spAng + (Math.random() - 0.5) * 0.4; // Menší odchylka úhlu (bot nejde přesně rovně do středu)
+                          dx += Math.cos(pullAng) * l * pullStr;
+                          dy += Math.sin(pullAng) * l * pullStr;
                       }
                   }
               }

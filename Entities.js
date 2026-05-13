@@ -541,8 +541,23 @@ export class SpeedPad {
   }
   draw(ctx) {
     ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI*2);
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)'; ctx.lineWidth = 3; ctx.stroke();
-    ctx.fillStyle = 'rgba(0, 255, 255, 0.1)'; ctx.fill();
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.08)'; ctx.fill();
+    
+    ctx.font = 'bold 14px monospace'; 
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    
+    const numChars = 12; // Počet ASCII dílků na okraji
+    const rotPhase = performance.now() / 2000; // Pomalá rotace celého okraje
+    for (let i = 0; i < numChars; i++) {
+        let angle = (i / numChars) * Math.PI * 2 + rotPhase;
+        ctx.save();
+        ctx.translate(this.pos.x + Math.cos(angle) * this.radius, this.pos.y + Math.sin(angle) * this.radius);
+        ctx.rotate(angle + Math.PI/2); // Rotace znaků po tečně k obvodu
+        ctx.fillText('><', 0, 0);
+        ctx.restore();
+    }
+    
     ctx.font = 'bold 20px monospace'; ctx.fillStyle = '#0ff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('>>', this.pos.x, this.pos.y);
   }
 }
