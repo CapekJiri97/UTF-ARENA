@@ -1050,7 +1050,7 @@ export function draw(){
   ctx.setTransform(camera.scale*dpr,0,0,camera.scale*dpr, -camera.x*camera.scale*dpr, -camera.y*camera.scale*dpr);
   if (game.shake > 0) { const mag = game.shake * 20; ctx.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag); }
   drawBackground(ctx);
-  for(let h of game.heals) h.draw(ctx); if(game.powerup) game.powerup.draw(ctx);
+  for(let h of game.heals) h.draw(ctx); if(game.powerup) game.powerup.draw(ctx); for(let sp of game.speedPads) sp.draw(ctx);
 
   // Build fog mask (1/16-scale canvas)
   buildFogCanvas(cw, ch, dpr);

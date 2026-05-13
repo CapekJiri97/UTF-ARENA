@@ -3,7 +3,7 @@ export const game = {
   autoTarget: true, autoAttack: false, autoBuy: false, autoLevelUp: false, showDebug: false, debugMapTools: false, showMapOverlay: false, started: false,
   players: [], projectiles: [], minions: [], towers: [], damageNumbers: [], particles: [], effectTexts: [], walls: [],
   shake: 0, screenDamageFlash: 0, screenHealFlash: 0, nexus: {0:500, 1:500}, gameOver: false, winner: null, startDelay: 10.0,
-  heals: [], powerup: null, isHost: false, isSpectator: false,
+  heals: [], powerup: null, speedPads: [], isHost: false, isSpectator: false,
   killFeed: [],
   blueBotDifficulty: 1.0, redBotDifficulty: 1.0
 };

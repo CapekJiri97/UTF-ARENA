@@ -3733,7 +3733,24 @@ export class BotPlayer extends Player {
        let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? (this.slowMod || 0.6) : 1.0);
       if (this.attackPenaltyTimer > 0) moveSpeed *= (this.range ? 0.6 : 0.85);
       if (l > 0) { 
-          dx /= l; dy /= l; 
+          // --- PŘITAHOVÁNÍ K SPEED PADŮM ---
+          let botDirAng = Math.atan2(dy, dx);
+          if (game.speedPads) {
+              for (let sp of game.speedPads) {
+                  let spDist = dist(this.pos, sp.pos);
+                  if (spDist > 30 && spDist < 400) { // Skenuje plošiny před sebou
+                      let spAng = Math.atan2(sp.pos.y - this.pos.y, sp.pos.x - this.pos.x);
+                      let angDiff = Math.abs(Math.atan2(Math.sin(spAng - botDirAng), Math.cos(spAng - botDirAng)));
+                      if (angDiff < 0.6) { // Pokud je plošina zhruba ve směru cesty (do 35 stupňů)
+                          dx += Math.cos(spAng) * l * 0.8; // Zmagnetizujeme botův krok
+                          dy += Math.sin(spAng) * l * 0.8;
+                      }
+                  }
+              }
+          }
+
+          let normL = Math.hypot(dx, dy);
+          dx /= normL; dy /= normL;
           
           // --- JEMNÉ VYHÝBÁNÍ ZDEM (Wall avoidance) ---
           for (let w of game.walls) {

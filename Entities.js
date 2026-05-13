@@ -479,8 +479,8 @@ export class HealPickup {
     if(!this.active) { this.respawnTimer -= dt; if(this.respawnTimer <= 0) this.active = true; return; }
     for(let p of game.players) {
       if(p.alive && this.active && dist(p.pos, this.pos) < this.radius + p.radius) {
-        applyHeal(p, p.effectiveMaxHp * 0.5); this.active = false; this.respawnTimer = 45.0;
-        spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); if (p === player) flashMessage("+50% HP!");
+        applyHeal(p, p.effectiveMaxHp * 0.33); this.active = false; this.respawnTimer = 45.0;
+        spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); if (p === player) flashMessage("+33% HP!");
         playSound('heal_pickup', this.pos);
         if (socket && game.isHost) socket.emit('host_event', { type: 'heal_pickup', playerId: p.id, hp: p.hp, healIndex: game.heals.indexOf(this) });
       }
@@ -524,5 +524,25 @@ export class PowerUp {
         ctx.font = '16px monospace'; ctx.fillStyle = '#ffcc00'; 
         ctx.fillText((10 - this.captureTimer).toFixed(1) + 's', this.pos.x, this.pos.y + 35); 
     }
+  }
+}
+
+export class SpeedPad {
+  constructor(x, y) { this.pos = {x, y}; this.radius = 60; }
+  update(dt) {
+    if(socket && !game.isHost) return; 
+    for (let p of game.players) {
+      if (p.alive && dist(p.pos, this.pos) < this.radius + p.radius) {
+        p.msBuffTimer = Math.max(p.msBuffTimer || 0, 3.0);
+        p.msBuffAmount = Math.max(p.msBuffAmount || 0, 0.25);
+        if (Math.random() < 0.2) spawnParticles(p.pos.x, p.pos.y, 1, '#0ff', {life: 0.3, speed: 50});
+      }
+    }
+  }
+  draw(ctx) {
+    ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.1)'; ctx.fill();
+    ctx.font = 'bold 20px monospace'; ctx.fillStyle = '#0ff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('>>', this.pos.x, this.pos.y);
   }
 }

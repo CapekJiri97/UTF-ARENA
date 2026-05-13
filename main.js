@@ -4,7 +4,7 @@ import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 // MapConfig data jsou čtena za běhu z activeGameMode.mapConfig
 import { Particle, spawnParticles, DamageNumber, EffectText } from './Effects.js';
-import { Projectile, Tower, Minion, HealPickup, PowerUp } from './Entities.js';
+import { Projectile, Tower, Minion, HealPickup, PowerUp, SpeedPad } from './Entities.js';
 import { Player, BotPlayer } from './Player.js';
 import { buildMenu, populateShop, toggleShop, showEnd, draw, updateSpellLabels, updateInventory, updateShopGold, updateLobbyUI, updateRoomListUI } from './UI.js';
 import { GameMode_Classic } from './GameMode_Classic.js';
@@ -253,7 +253,7 @@ import { initAudio, playSound } from './Audio.js';
         game.projectiles.push(new Projectile(data.x, data.y, data.vx, data.vy, 'tower', data.owner, {damage: data.damage, dmgType: 'physical', glyph: '♦', life: data.life}));
       } else if (data.type === 'heal_pickup') {
         let p = game.players.find(x => x.id === data.playerId);
-        if (p) { p.hp = data.hp; spawnParticles(game.heals[data.healIndex].pos.x, game.heals[data.healIndex].pos.y, 25, '#0f0', {speed: 150}); if(p === player) { flashMessage("+50% HP!"); game.screenHealFlash = 0.5; } }
+        if (p) { p.hp = data.hp; spawnParticles(game.heals[data.healIndex].pos.x, game.heals[data.healIndex].pos.y, 25, '#0f0', {speed: 150}); if(p === player) { flashMessage("+33% HP!"); game.screenHealFlash = 0.5; } }
       } else if (data.type === 'powerup_pickup') {
         let p = game.players.find(x => x.id === data.playerId);
         if (p) { p.hasPowerup = true; p.powerupTimer = 120.0; if (p.powerupsCollected !== undefined) p.powerupsCollected += 1; if (typeof p.refreshDominionPCS === 'function') p.refreshDominionPCS(); spawnParticles(data.x, data.y, 40, '#ff0', {speed: 250}); if(p === player) flashMessage("POWER UP OBTAINED! (+20% STATS)"); }
@@ -810,6 +810,7 @@ import { initAudio, playSound } from './Audio.js';
     game.heals = activeGameMode.mapConfig.healPickupPositions.map(p => new HealPickup(p.x, p.y));
     const _pp1 = activeGameMode.mapConfig.powerupPosition;
     game.powerup = _pp1 ? new PowerUp(_pp1.x, _pp1.y) : null;
+    game.speedPads = (activeGameMode.mapConfig.speedPadPositions || []).map(p => new SpeedPad(p.x, p.y));
 
     console.log(`[DEBUG] Game started! Player selected class: ${playerClass}`);
   }
@@ -885,6 +886,7 @@ import { initAudio, playSound } from './Audio.js';
     game.heals = activeGameMode.mapConfig.healPickupPositions.map(p => new HealPickup(p.x, p.y));
     const _pp2 = activeGameMode.mapConfig.powerupPosition;
     game.powerup = _pp2 ? new PowerUp(_pp2.x, _pp2.y) : null;
+    game.speedPads = (activeGameMode.mapConfig.speedPadPositions || []).map(p => new SpeedPad(p.x, p.y));
   }
 
   export function initWalls() {
@@ -1042,6 +1044,7 @@ import { initAudio, playSound } from './Audio.js';
     
     for(let h of game.heals) h.update(dt);
     if(game.powerup) game.powerup.update(dt);
+    for(let sp of game.speedPads) sp.update(dt);
 
     // Player/Bot collision resolution (anti-stacking)
     for(let i=0; i<game.players.length; i++){
