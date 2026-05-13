@@ -2069,7 +2069,12 @@ export function drawMinimap(){
   }
   const ctxm = mm._ctx;
   ctxm.clearRect(0,0,w,h);
-  const scaleX = w / activeGameMode.mapConfig.world.width; const scaleY = h / activeGameMode.mapConfig.world.height;
+  const mapW = activeGameMode.mapConfig.world.width;
+  const mapH = activeGameMode.mapConfig.world.height;
+  const scale = Math.min(w / mapW, h / mapH) * 0.95;
+  const offX = (w - mapW * scale) / 2;
+  const offY = (h - mapH * scale) / 2;
+  const scaleX = scale; const scaleY = scale;
   ctxm.save(); ctxm.beginPath(); ctxm.arc(w/2, h/2, w/2, 0, Math.PI*2); ctxm.clip();
   ctxm.fillStyle='#111'; ctxm.fillRect(0,0,w,h);
   
@@ -2080,7 +2085,7 @@ export function drawMinimap(){
       let bgCtx = game.minimapBg.getContext('2d');
       bgCtx.scale(dpr, dpr);
       bgCtx.fillStyle='#111'; bgCtx.fillRect(0,0,w,h);
-      bgCtx.beginPath(); bgCtx.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY); for(let i=1; i<mapBoundary.length; i++) bgCtx.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY); bgCtx.closePath(); bgCtx.strokeStyle = '#555'; bgCtx.stroke();
+      bgCtx.beginPath(); bgCtx.moveTo(mapBoundary[0].x * scaleX + offX, mapBoundary[0].y * scaleY + offY); for(let i=1; i<mapBoundary.length; i++) bgCtx.lineTo(mapBoundary[i].x * scaleX + offX, mapBoundary[i].y * scaleY + offY); bgCtx.closePath(); bgCtx.strokeStyle = '#555'; bgCtx.stroke();
       const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       const mmSpacing = isMobile ? 140 : 66;
       bgCtx.fillStyle = '#555'; bgCtx.font = (isMobile ? '6px' : '10px') + ' monospace'; bgCtx.textAlign='center'; bgCtx.textBaseline='middle';
@@ -2091,7 +2096,7 @@ export function drawMinimap(){
           for (let wx = startX; wx <= endX; wx += mmSpacing) {
               for (let wy = startY; wy <= endY; wy += mmSpacing) {
                   let info = distToPoly(wx, wy, wObj.pts);
-                  if (info.inside || info.minDist <= wObj.r) { bgCtx.fillText('#', wx * scaleX, wy * scaleY); }
+                  if (info.inside || info.minDist <= wObj.r) { bgCtx.fillText('#', wx * scaleX + offX, wy * scaleY + offY); }
               }
           }
       }
@@ -2122,15 +2127,15 @@ export function drawMinimap(){
     return false;
   }
 
-  for(let t of game.towers){ const x = t.pos.x * scaleX; const y = t.pos.y * scaleY; ctxm.fillStyle = t.owner===0? '#486FED' : t.owner===1? '#FF4E4E' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
+  for(let t of game.towers){ const x = t.pos.x * scaleX + offX; const y = t.pos.y * scaleY + offY; ctxm.fillStyle = t.owner===0? '#486FED' : t.owner===1? '#FF4E4E' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
   for(let m of game.minions){
     if (player && !game.isSpectator && m.team !== player.team && !mmVisible(m.pos.x, m.pos.y)) continue;
-    const x = m.pos.x * scaleX; const y = m.pos.y * scaleY; ctxm.fillStyle = m.team===0? '#aaddff':'#ffb3b3'; ctxm.fillRect(x-1,y-1,2,2);
+    const x = m.pos.x * scaleX + offX; const y = m.pos.y * scaleY + offY; ctxm.fillStyle = m.team===0? '#aaddff':'#ffb3b3'; ctxm.fillRect(x-1,y-1,2,2);
   }
   for(let p of game.players){
     if (!p.alive) continue;
     if (player && !game.isSpectator && p.team !== player.team && !mmVisible(p.pos.x, p.pos.y)) continue;
-    const x = p.pos.x * scaleX; const y = p.pos.y * scaleY;
+    const x = p.pos.x * scaleX + offX; const y = p.pos.y * scaleY + offY;
     ctxm.fillStyle = p.team === 0 ? '#486FED' : '#FF4E4E';
     const _isMobMM = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     ctxm.font = (p === player ? (_isMobMM ? 'bold 9px' : 'bold 16px') : (_isMobMM ? 'bold 7px' : 'bold 12px')) + ' monospace';
@@ -2158,7 +2163,7 @@ export function drawMinimap(){
     fmCtx.globalCompositeOperation = 'destination-out';
     const vRMM = visionRWorldMM * scaleX * mmDpr / PIXEL_MM;
     function mmCutCircle(wx, wy, rMM) {
-      const mx = wx * scaleX * mmDpr / PIXEL_MM, my = wy * scaleY * mmDpr / PIXEL_MM;
+      const mx = (wx * scaleX + offX) * mmDpr / PIXEL_MM, my = (wy * scaleY + offY) * mmDpr / PIXEL_MM;
       const grad = fmCtx.createRadialGradient(mx, my, rMM * 0.65, mx, my, rMM);
       grad.addColorStop(0, 'rgba(0,0,0,1)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
       fmCtx.fillStyle = grad;
@@ -2175,7 +2180,7 @@ export function drawMinimap(){
     }
     // Re-fill enemy spawn (permanent)
     fmCtx.globalCompositeOperation = 'source-over';
-    const emx = _enemySpawnMM.x * scaleX * mmDpr / PIXEL_MM, emy = _enemySpawnMM.y * scaleY * mmDpr / PIXEL_MM;
+    const emx = (_enemySpawnMM.x * scaleX + offX) * mmDpr / PIXEL_MM, emy = (_enemySpawnMM.y * scaleY + offY) * mmDpr / PIXEL_MM;
     const emr = SPAWN_FOG_R_MM * scaleX * mmDpr / PIXEL_MM;
     fmCtx.fillStyle = 'rgba(30,30,38,1)';
     fmCtx.beginPath(); fmCtx.arc(emx, emy, emr * 0.65, 0, Math.PI * 2); fmCtx.fill();
@@ -2200,8 +2205,8 @@ export function drawMinimap(){
     const ovCtx = game.minimapOverlay.getContext('2d');
     ovCtx.scale(ovDpr, ovDpr);
     ovCtx.strokeStyle = '#666'; ovCtx.lineWidth = 1;
-    ovCtx.beginPath(); ovCtx.moveTo(mapBoundary[0].x * scaleX, mapBoundary[0].y * scaleY);
-    for (let i = 1; i < mapBoundary.length; i++) ovCtx.lineTo(mapBoundary[i].x * scaleX, mapBoundary[i].y * scaleY);
+    ovCtx.beginPath(); ovCtx.moveTo(mapBoundary[0].x * scaleX + offX, mapBoundary[0].y * scaleY + offY);
+    for (let i = 1; i < mapBoundary.length; i++) ovCtx.lineTo(mapBoundary[i].x * scaleX + offX, mapBoundary[i].y * scaleY + offY);
     ovCtx.closePath(); ovCtx.stroke();
     const isMobileOv = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const mmSpacingOv = isMobileOv ? 140 : 66;
@@ -2214,7 +2219,7 @@ export function drawMinimap(){
       for (let wx = sx0; wx <= ex0; wx += mmSpacingOv) {
         for (let wy = sy0; wy <= ey0; wy += mmSpacingOv) {
           const info = distToPoly(wx, wy, wObj.pts);
-          if (info.inside || info.minDist <= wObj.r) ovCtx.fillText('#', wx * scaleX, wy * scaleY);
+          if (info.inside || info.minDist <= wObj.r) ovCtx.fillText('#', wx * scaleX + offX, wy * scaleY + offY);
         }
       }
     }
