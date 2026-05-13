@@ -2,7 +2,7 @@ import { dist, isPointInPoly, distToPoly } from './Utils.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 const _isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 // mapBoundary, spawnPoints, MINION_SPAWN_POINTS jsou čteny z activeGameMode.mapConfig za běhu
-import { spawnParticles, EffectText } from './Effects.js';
+import { spawnParticles, EffectText, DamageNumber } from './Effects.js';
 import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, grantRewards, grantMinionKillRewards, activeGameMode } from './main.js';
 import { playSound } from './Audio.js';
 
@@ -433,7 +433,14 @@ export class Minion{
         if (this.currentTarget && d > stopRange) { dx = this.currentTarget.pos.x - this.pos.x; dy = this.currentTarget.pos.y - this.pos.y; }
     } else {
         if (!this.atTarget) {
-            const destPos = activeGameMode.mapConfig.MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos;
+            let destPos = activeGameMode.mapConfig.MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos;
+            if (activeGameMode && activeGameMode.name === 'arena') {
+                if (towerTarget && towerTarget.owner === this.team) {
+                    destPos = this.team === 0 ? {x: 2796, y: 677} : {x: 604, y: 677};
+                } else {
+                    destPos = towerTarget.pos;
+                }
+            }
             let distToTarget = dist(this.pos, destPos);
             if (activeGameMode && activeGameMode.minionPathMode === 'linear') {
                 // ARAM: přímá linka k cíli
@@ -445,7 +452,16 @@ export class Minion{
                 if (distToTarget > 350) { let myA = Math.atan2((this.pos.y - cy)/Ry, (this.pos.x - cx)/Rx); let tA = Math.atan2((destPos.y - cy)/Ry, (destPos.x - cx)/Rx); let diff = tA - myA; while(diff <= -Math.PI) diff += 2*Math.PI; while(diff > Math.PI) diff -= 2*Math.PI; let lookAhead = myA + Math.sign(diff) * 0.15; dx = (cx + Rx * Math.cos(lookAhead)) - this.pos.x; dy = (cy + Ry * Math.sin(lookAhead)) - this.pos.y;
                 } else { dx = destPos.x - this.pos.x; dy = destPos.y - this.pos.y; }
             }
-            if (distToTarget <= 70) { this.atTarget = true; this.linger = 3.5; dx = 0; dy = 0; }
+            if (distToTarget <= 70) { 
+                this.atTarget = true; this.linger = 3.5; dx = 0; dy = 0; 
+                if (activeGameMode && activeGameMode.name === 'arena' && towerTarget && towerTarget.owner === this.team) {
+                    this.dead = true;
+                    if (!socket || game.isHost) {
+                        game.score[this.team] = (game.score[this.team] || 0) + 2;
+                        game.damageNumbers.push(new DamageNumber(this.pos.x, this.pos.y - 15, '+2', this.team === 0 ? '#486FED' : '#FF4E4E'));
+                    }
+                }
+            }
         }
     }
     if (this.atTarget) {

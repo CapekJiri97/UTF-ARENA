@@ -65,14 +65,25 @@ export const GameMode_Arena = {
       
       const spBlue = ArenaMap.arenaMinionSpawns[0];
       if (spBlue) {
-        for (let k = 0; k < 2; k++) game.minions.push(new Minion(spBlue.x + (Math.random() - 0.5) * 40, spBlue.y + (Math.random() - 0.5) * 40, 0, 0));
-        for (let k = 0; k < 2; k++) game.minions.push(new Minion(spBlue.x + (Math.random() - 0.5) * 40, spBlue.y + (Math.random() - 0.5) * 40, 0, 0, { isRanged: true }));
+        spBlue.forEach(sp => {
+          for (let k = 0; k < 2; k++) game.minions.push(new Minion(sp.x + (Math.random() - 0.5) * 40, sp.y + (Math.random() - 0.5) * 40, 0, 0));
+          for (let k = 0; k < 1; k++) game.minions.push(new Minion(sp.x + (Math.random() - 0.5) * 40, sp.y + (Math.random() - 0.5) * 40, 0, 0, { isRanged: true }));
+        });
       }
 
       const spRed = ArenaMap.arenaMinionSpawns[1];
       if (spRed) {
-        for (let k = 0; k < 2; k++) game.minions.push(new Minion(spRed.x + (Math.random() - 0.5) * 40, spRed.y + (Math.random() - 0.5) * 40, 1, 0));
-        for (let k = 0; k < 2; k++) game.minions.push(new Minion(spRed.x + (Math.random() - 0.5) * 40, spRed.y + (Math.random() - 0.5) * 40, 1, 0, { isRanged: true }));
+        spRed.forEach(sp => {
+          for (let k = 0; k < 2; k++) game.minions.push(new Minion(sp.x + (Math.random() - 0.5) * 40, sp.y + (Math.random() - 0.5) * 40, 1, 0));
+          for (let k = 0; k < 1; k++) game.minions.push(new Minion(sp.x + (Math.random() - 0.5) * 40, sp.y + (Math.random() - 0.5) * 40, 1, 0, { isRanged: true }));
+        });
+      }
+
+      const centerTower = game.towers[0];
+      if (centerTower && centerTower.owner >= 0) {
+        const owner = centerTower.owner;
+        for (let k = 0; k < 2; k++) game.minions.push(new Minion(centerTower.pos.x + (Math.random() - 0.5) * 40, centerTower.pos.y + (Math.random() - 0.5) * 40, owner, 0));
+        for (let k = 0; k < 2; k++) game.minions.push(new Minion(centerTower.pos.x + (Math.random() - 0.5) * 40, centerTower.pos.y + (Math.random() - 0.5) * 40, owner, 0, { isRanged: true }));
       }
     }
     return newTimer;
