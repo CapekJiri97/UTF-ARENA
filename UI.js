@@ -1055,6 +1055,15 @@ export function draw(){
   const _sgEl = document.getElementById('shopGoldDisplay');
   if (_sgEl && player) _sgEl.textContent = `[G] ${Math.floor(player.gold || 0)}g`;
 
+    const _fpsNow = performance.now();
+    if (!game._fpsLastTime) { game._fpsLastTime = _fpsNow; game._fpsFrames = 0; game._fpsValue = 0; }
+    game._fpsFrames += 1;
+    if (_fpsNow - game._fpsLastTime >= 500) {
+            game._fpsValue = Math.round((game._fpsFrames * 1000) / (_fpsNow - game._fpsLastTime));
+            game._fpsFrames = 0;
+            game._fpsLastTime = _fpsNow;
+    }
+
   const cw = canvas.clientWidth; const ch = canvas.clientHeight;
   const dpr = window.devicePixelRatio || 1;
   
@@ -1129,6 +1138,9 @@ export function draw(){
           }
       }
   }
+
+    const fpsEl = document.getElementById('fpsDisplay');
+    if (fpsEl) fpsEl.textContent = `FPS: ${game._fpsValue || 0}`;
   
   drawMinimap();
   if(game.startDelay > 0 && game.started) { ctx.font = '40px monospace'; ctx.fillStyle = '#ffcc00'; ctx.textAlign='center'; ctx.fillText(`MATCH STARTS IN ${Math.ceil(game.startDelay)}`, cw/2, 100); }
@@ -2840,6 +2852,12 @@ function initPcUI() {
     pingEl.id = 'pingDisplay';
     pingEl.style.cssText = 'position:fixed;left:10px;bottom:52px;font-size:10px;font-family:monospace;color:#555;z-index:4000;pointer-events:none;line-height:1.4;';
     pingEl.textContent = 'PING: --';
+    const fpsEl = document.createElement('span');
+    fpsEl.id = 'fpsDisplay';
+    fpsEl.style.marginLeft = '10px';
+    fpsEl.style.color = '#7aa';
+    fpsEl.textContent = 'FPS: --';
+    pingEl.appendChild(fpsEl);
     document.body.appendChild(pingEl);
 
     let lastHostState = 0;
