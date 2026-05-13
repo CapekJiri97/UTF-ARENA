@@ -1,39 +1,29 @@
 import { smoothPolygon } from './Utils.js';
 
-// ── ARAM mapa — jedna horizontální linka ──────────────────────────────────────
+// ── ARAM mapa — čistá aréna 5v5 ──────────────────────────────────────────────
 //
-// Layout (leva→pravá):
-//   [Blue spawn] [T0 blue] ─────── střed ─────── [T1 red] [Red spawn]
-//
-// T0 = blue "nexus" věž — zničení červenými = výhra červených
-// T1 = red  "nexus" věž — zničení modrými  = výhra modrých
-// Věže mají HP, nejdou capture, pouze střílí jako v LoL.
-// Žádné zdi, žádné healy, žádné powerupy.
+// Žádné věže, žádní minioni, žádné zdi, žádné healy, žádné powerupy.
+// Pouze spawny pro oba týmy a hranice mapy.
 
-export const world = { width: 3200, height: 1000 };
+export const world = { width: 3200, height: 2000 };
 
-// Spawn hráčů — za věžemi
+// Spawn hráčů — modrý vlevo, červený vpravo
+// 5 spawn slotů na tým, rozmístěných svisle
 export const spawnPoints = [
-  { x: 160, y: 500 },   // modrý tým — vlevo
-  { x: 3040, y: 500 },  // červený tým — vpravo
+  { x: 200, y: 1000 },  // modrý tým — střed vlevo
+  { x: 3000, y: 1000 }, // červený tým — střed vpravo
 ];
 
-// 2 věže — T0 blue (vlevo), T1 red (vpravo)
-export const towerPositions = [
-  { x: 600,  y: 500 }, // T0 — blue nexus věž
-  { x: 2600, y: 500 }, // T1 — red nexus věž
-];
+// Žádné věže
+export const towerPositions = [];
 
-// Nexus věže — obě věže jsou nexusy
-export const nexusTowerIndex = { 0: 0, 1: 1 };
+// Žádné nexus věže
+export const nexusTowerIndex = {};
 
-// Minion spawn pointy — těsně za věžemi (směrem ke středu)
-export const MINION_SPAWN_POINTS = [
-  { x: 820,  y: 500 }, // modrý tým spawní za T0
-  { x: 2380, y: 500 }, // červený tým spawní za T1
-];
+// Žádné minion spawn pointy
+export const MINION_SPAWN_POINTS = [];
 
-// Žádné heal pickupy — ARAM styl
+// Žádné heal pickupy
 export const healPickupPositions = [];
 
 // Žádný powerup
@@ -45,15 +35,17 @@ export const rawPolys = [];
 // Žádné nexus hex walls
 export const nexusHexWalls = [];
 
-// Hranice hrací plochy — úzký koridor
+// Hranice hrací plochy — otevřená aréna
 export const rawMapBoundary = [
-  { x: 60,   y: 260 }, { x: 3140, y: 260 },
-  { x: 3140, y: 740 }, { x: 60,   y: 740 },
+  { x: 60,   y: 60   },
+  { x: 3140, y: 60   },
+  { x: 3140, y: 1940 },
+  { x: 60,   y: 1940 },
 ];
 export const mapBoundary = smoothPolygon(rawMapBoundary, 3);
 
 // Vision config
-export const mapCenter = { x: 1600, y: 500 };
+export const mapCenter = { x: 1600, y: 1000 };
 export const visionRings = {
   ringPush: 50,
   powerupRadius: 300,
