@@ -111,9 +111,11 @@ export class Projectile{
 // Věže - Host je autorita pro obsazování a útoky
 export class Tower{
   constructor(x,y,index){
-    this.pos={x,y}; this.index = index; this.radius=20; this.captureRadius = 80;
-    this.owner = -1; this.control = 0; this.attackCooldown = 0;
+    this.pos={x,y}; this.index = index; this.radius=20;
     const isAram = activeGameMode && activeGameMode.name === 'aram';
+    const isArena = activeGameMode && activeGameMode.name === 'arena';
+    this.captureRadius = isArena ? 220 : 80;
+    this.owner = -1; this.control = 0; this.attackCooldown = 0;
     this.attackRange  = isAram ? 420 : 320;
     this.attackDamage = isAram ? 120 : 45;
     this.maxHp = isAram ? 2000 : null; // null = indestructible (classic)
@@ -361,6 +363,11 @@ export class Minion{
     }
     if(this.dead || game.gameOver) return; 
     const towerTarget = game.towers[this.targetIndex]; if(!towerTarget) return;
+    // ARAM retargeting na další žijící věž
+    if (towerTarget.dead && activeGameMode && activeGameMode.name === 'aram') {
+        if (this.team === 0 && this.targetIndex < 5) this.targetIndex++;
+        if (this.team === 1 && this.targetIndex < 2) this.targetIndex++;
+    }
     if(this.hp <= 0 && !this.dead) { this.dead = true; return; }
     if(dist(this.pos, activeGameMode.mapConfig.spawnPoints[1-this.team]) < 200 && (!socket || game.isHost)) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) { this.dead=true; return; } }
     if(this.flashTimer > 0) this.flashTimer -= dt;

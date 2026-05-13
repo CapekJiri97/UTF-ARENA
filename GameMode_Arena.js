@@ -3,6 +3,7 @@ import * as ArenaMap from './MapConfig_Arena.js';
 import { showEnd } from './UI.js';
 import { speakNexusWarning } from './Audio.js';
 import { ArenaBrain } from './BotBrain.js';
+import { Minion } from './Entities.js';
 
 // ── Arena game mode ───────────────────────────────────────────────────────────
 // 4v4, elipsová mapa, jedna neutrální věž uprostřed.
@@ -47,7 +48,7 @@ export const GameMode_Arena = {
     _ttsSpoken[0] = {}; _ttsSpoken[1] = {};
     this._holdTimer = 0;
 
-    camera.scale = 0.85;
+    camera.scale = 1.52;
 
     // Věž začíná neutrální
     setTimeout(() => {
@@ -57,9 +58,24 @@ export const GameMode_Arena = {
     }, 0);
   },
 
-  // Žádní minioni
   tickSpawn(_dt, spawnTimer, _interval) {
-    return spawnTimer;
+    let newTimer = spawnTimer + _dt;
+    if (newTimer >= 15.0) {
+      newTimer = 0;
+      
+      const spBlue = ArenaMap.arenaMinionSpawns[0];
+      if (spBlue) {
+        for (let k = 0; k < 2; k++) game.minions.push(new Minion(spBlue.x + (Math.random() - 0.5) * 40, spBlue.y + (Math.random() - 0.5) * 40, 0, 0));
+        for (let k = 0; k < 2; k++) game.minions.push(new Minion(spBlue.x + (Math.random() - 0.5) * 40, spBlue.y + (Math.random() - 0.5) * 40, 0, 0, { isRanged: true }));
+      }
+
+      const spRed = ArenaMap.arenaMinionSpawns[1];
+      if (spRed) {
+        for (let k = 0; k < 2; k++) game.minions.push(new Minion(spRed.x + (Math.random() - 0.5) * 40, spRed.y + (Math.random() - 0.5) * 40, 1, 0));
+        for (let k = 0; k < 2; k++) game.minions.push(new Minion(spRed.x + (Math.random() - 0.5) * 40, spRed.y + (Math.random() - 0.5) * 40, 1, 0, { isRanged: true }));
+      }
+    }
+    return newTimer;
   },
 
   tickObjective(dt, _drainRate, socket) {

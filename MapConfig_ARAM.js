@@ -14,14 +14,26 @@ export const spawnPoints = [
   { x: 3000, y: 1000 }, // červený tým — střed vpravo
 ];
 
-// Žádné věže
-export const towerPositions = [];
+// Věže v lince (3 pro modré, 3 pro červené)
+export const towerPositions = [
+  { x: 1200, y: 1000 }, // 0: Blue Outer
+  { x: 800,  y: 1000 }, // 1: Blue Inner
+  { x: 400,  y: 1000 }, // 2: Blue Base
+  { x: 2000, y: 1000 }, // 3: Red Outer
+  { x: 2400, y: 1000 }, // 4: Red Inner
+  { x: 2800, y: 1000 }, // 5: Red Base
+];
 
 // Žádné nexus věže
 export const nexusTowerIndex = {};
 
-// Žádné minion spawn pointy
 export const MINION_SPAWN_POINTS = [];
+
+// Místa odkud vyrážejí minioni
+export const aramMinionSpawns = [
+  { x: 300, y: 1000 }, // Blue
+  { x: 2900, y: 1000 } // Red
+];
 
 // Žádné heal pickupy
 export const healPickupPositions = [];

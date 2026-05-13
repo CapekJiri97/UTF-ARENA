@@ -31,6 +31,11 @@ export const nexusTowerIndex = {};
 // Žádní minioni
 export const MINION_SPAWN_POINTS = [];
 
+export const arenaMinionSpawns = [
+  { x: 320,  y: CY }, // modrý tým (100 units od 220 doprava)
+  { x: 3080, y: CY }  // červený tým (100 units od 3180 doleva)
+];
+
 // Žádné healy ani powerup
 export const healPickupPositions = [];
 export const powerupPosition = null;

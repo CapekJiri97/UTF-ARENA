@@ -8,11 +8,13 @@ import { Projectile, Tower, Minion, HealPickup, PowerUp } from './Entities.js';
 import { Player, BotPlayer } from './Player.js';
 import { buildMenu, populateShop, toggleShop, showEnd, draw, updateSpellLabels, updateInventory, updateShopGold, updateLobbyUI, updateRoomListUI } from './UI.js';
 import { GameMode_Classic } from './GameMode_Classic.js';
+import { GameMode_Speed } from './GameMode_Speed.js';
 import { GameMode_ARAM } from './GameMode_ARAM.js';
 import { GameMode_Arena } from './GameMode_Arena.js';
 
 export const GAME_MODES = {
   classic: GameMode_Classic,
+  speed:   GameMode_Speed,
   aram:    GameMode_ARAM,
   arena:   GameMode_Arena,
 };
@@ -410,8 +412,9 @@ import { initAudio, playSound } from './Audio.js';
     const nearby = game.players.filter(p => p.alive && p.team === killer.team && dist(p.pos, minionPos) <= 300);
     const recipients = nearby.length > 0 ? nearby : [killer];
     const pct = _MINION_EXP_PCT[Math.min(recipients.length - 1, _MINION_EXP_PCT.length - 1)];
+    const modeMult = (activeGameMode && activeGameMode.name === 'arena') ? 1.5 : 1.0;
     for (const p of recipients) {
-      const m = snowMult(p);
+      const m = snowMult(p) * modeMult;
       p.gold      += Math.round(8  * pct * m);
       p.totalGold += Math.round(8  * pct * m);
       p.exp       += Math.round(11 * pct * m);
@@ -1046,7 +1049,13 @@ import { initAudio, playSound } from './Audio.js';
     if (game.screenDamageFlash > 0) game.screenDamageFlash -= dt * 0.8;
     if (game.screenHealFlash > 0) game.screenHealFlash -= dt * 0.8;
     game.passiveTimer = (game.passiveTimer || 0) + dt;
-    if (game.startDelay <= 0 && game.passiveTimer >= 1.0) { game.passiveTimer -= 1.0; if (!socket || game.isHost) { for(let p of game.players) { p.gold += 2; p.totalGold += 2; p.exp += 1; p.totalExp = (p.totalExp||0) + 1; } } }
+    if (game.startDelay <= 0 && game.passiveTimer >= 1.0) { 
+        game.passiveTimer -= 1.0; 
+        let passiveMult = 1.0;
+        if (activeGameMode && activeGameMode.name === 'arena') passiveMult = 1.75;
+        if (activeGameMode && activeGameMode.name === 'speed') passiveMult = 3.0;
+        if (!socket || game.isHost) { for(let p of game.players) { p.gold += 2 * passiveMult; p.totalGold += 2 * passiveMult; p.exp += 1 * passiveMult; p.totalExp = (p.totalExp||0) + 1 * passiveMult; } } 
+    }
 
     game.cleanupTimer = (game.cleanupTimer || 0) + dt;
     if (game.cleanupTimer >= 30.0) {

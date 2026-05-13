@@ -350,14 +350,14 @@ export const AramBrain = {
     }
 
     // 3. Cílový bod: věž nebo (pokud žádné věže) nepřátelský spawn
-    const enemyTower = unownedTowers.find(t => t.owner !== team && !t.dead) || game.towers.find(t => t.owner !== team);
+    const enemyTower = unownedTowers.filter(t => !t.dead).sort((a,b) => dist(a.pos, spawnPoints[team]) - dist(b.pos, spawnPoints[team]))[0];
     const enemySpawnPos = spawnPoints[1 - team];
     // Pseudo-cíl pro pohyb bez věží — botové míří na střed mapy nebo k nepřátelskému spawnu
     const pushTarget = enemyTower || { pos: enemySpawnPos };
     const strat = mState.currentStrat;
 
     if (strat === 'HOLD') {
-      const myTower = ownedTowers[0];
+      const myTower = ownedTowers.filter(t => !t.dead).sort((a,b) => dist(a.pos, spawnPoints[1-team]) - dist(b.pos, spawnPoints[1-team]))[0];
       const holdPos = myTower || { pos: spawnPoints[team] };
       for (let b of [...unassigned]) reassign(b, 'DEFEND', myTower ? myTower : holdPos);
     } else if (strat === 'DIVE') {
