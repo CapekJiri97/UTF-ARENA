@@ -2030,6 +2030,16 @@ function buildFogCanvas(cw, ch, dpr) {
     cutCircle(p.pos.x, p.pos.y, visionR);
   }
   for (const sp of getStaticVisionPoints()) cutCircle(sp.x, sp.y, sp.r * camera.scale * dpr);
+  
+  if (activeGameMode.name === 'arena') {
+    const ax = (220 - camera.x) * camera.scale * dpr / PIXEL;
+    const ay = (470 - camera.y) * camera.scale * dpr / PIXEL;
+    const aw = (3180 - 220) * camera.scale * dpr / PIXEL;
+    const ah = (870 - 470) * camera.scale * dpr / PIXEL;
+    fc.fillStyle = '#000';
+    fc.fillRect(ax, ay, aw, ah);
+  }
+
   fc.globalCompositeOperation = 'source-over';
   const es = spawnPoints[enemyTeam];
   const esx = (es.x - camera.x) * camera.scale * dpr / PIXEL;
@@ -2099,6 +2109,22 @@ export function drawMinimap(){
               }
           }
       }
+
+      if (activeGameMode.name === 'arena') {
+          let sb = smoothPolygon(mapBoundary, 3);
+          let accumDist = 0; const bSpacing = mmSpacing * 1.5;
+          for(let i=0; i<sb.length; i++) { 
+              let p1 = sb[i], p2 = sb[(i+1)%sb.length]; 
+              let d = Math.hypot(p2.x-p1.x, p2.y-p1.y);
+              while(accumDist <= d) {
+                  let bx = p1.x + (p2.x-p1.x)*(accumDist/d); 
+                  let by = p1.y + (p2.y-p1.y)*(accumDist/d);
+                  bgCtx.fillText('#', bx * scaleX + offX, by * scaleY + offY);
+                  accumDist += bSpacing;
+              }
+              accumDist -= d;
+          }
+      }
   }
   ctxm.drawImage(game.minimapBg, 0, 0, w, h);
   const SPAWN_FOG_R_MM = 380;
@@ -2111,6 +2137,7 @@ export function drawMinimap(){
   const _staticVisionPtsMM = getStaticVisionPoints();
   function mmVisible(wx, wy) {
     if (_enemyTeamMM < 0) return true;
+    if (activeGameMode.name === 'arena' && wx >= 220 && wx <= 3180 && wy >= 470 && wy <= 870) return true;
     // Enemy spawn always hidden
     if (_enemySpawnMM) { const edx = wx - _enemySpawnMM.x, edy = wy - _enemySpawnMM.y; if (edx*edx + edy*edy <= _spawnFogR2) return false; }
     if (!isFinite(visionRSqMM)) return true;
@@ -2177,6 +2204,16 @@ export function drawMinimap(){
     for (const sp of _staticVisionPtsMM) {
       mmCutCircle(sp.x, sp.y, sp.r * scaleX * mmDpr / PIXEL_MM);
     }
+    
+    if (activeGameMode.name === 'arena') {
+        const ax = (220 * scaleX + offX) * mmDpr / PIXEL_MM;
+        const ay = (470 * scaleY + offY) * mmDpr / PIXEL_MM;
+        const aw = (3180 - 220) * scaleX * mmDpr / PIXEL_MM;
+        const ah = (870 - 470) * scaleY * mmDpr / PIXEL_MM;
+        fmCtx.fillStyle = '#000';
+        fmCtx.fillRect(ax, ay, aw, ah);
+    }
+
     // Re-fill enemy spawn (permanent)
     fmCtx.globalCompositeOperation = 'source-over';
     const emx = (_enemySpawnMM.x * scaleX + offX) * mmDpr / PIXEL_MM, emy = (_enemySpawnMM.y * scaleY + offY) * mmDpr / PIXEL_MM;
@@ -2217,6 +2254,22 @@ export function drawMinimap(){
           if (info.inside || info.minDist <= wObj.r) ovCtx.fillText('#', wx * scaleX + offX, wy * scaleY + offY);
         }
       }
+    }
+
+    if (activeGameMode.name === 'arena') {
+        let sb = smoothPolygon(mapBoundary, 3);
+        let accumDist = 0; const bSpacing = mmSpacingOv * 1.5;
+        for(let i=0; i<sb.length; i++) { 
+            let p1 = sb[i], p2 = sb[(i+1)%sb.length]; 
+            let d = Math.hypot(p2.x-p1.x, p2.y-p1.y);
+            while(accumDist <= d) {
+                let bx = p1.x + (p2.x-p1.x)*(accumDist/d); 
+                let by = p1.y + (p2.y-p1.y)*(accumDist/d);
+                ovCtx.fillText('#', bx * scaleX + offX, by * scaleY + offY);
+                accumDist += bSpacing;
+            }
+            accumDist -= d;
+        }
     }
   }
   ctxm.drawImage(game.minimapOverlay, 0, 0, w, h);
