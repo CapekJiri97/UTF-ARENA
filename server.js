@@ -70,6 +70,7 @@ io.on('connection', (socket) => {
       if (!currentRoom || !rooms[currentRoom]) return;
       if (data.blueBotDiff !== undefined) rooms[currentRoom].settings.blueBotDiff = data.blueBotDiff;
       if (data.redBotDiff !== undefined) rooms[currentRoom].settings.redBotDiff = data.redBotDiff;
+      if (data.gameMode   !== undefined) rooms[currentRoom].settings.gameMode   = data.gameMode;
       io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: rooms[currentRoom].players, settings: rooms[currentRoom].settings });
   });
 

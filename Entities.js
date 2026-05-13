@@ -142,8 +142,10 @@ export class Tower{
       if (this.owner === 0 && this.control < 0) { this.owner = -1; }
       if (this.owner === 1 && this.control > 0) { this.owner = -1; }
       if (this.control >= 100 && this.owner !== 0){
+          const prevOwner0 = this.owner;
           this.owner = 0; this.control = 100; game.shake = 0.3;
-          playSound('capture', this.pos);
+          playSound('capture_tower', this.pos, { team: 0 });
+          if (prevOwner0 === 1) playSound('lose_tower', this.pos, { team: 1 });
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 0 && dist(p.pos, this.pos) <= this.captureRadius);
               let totalLvl = 0, pCount = 0;
@@ -163,8 +165,10 @@ export class Tower{
           }
       } 
       if (this.control <= -100 && this.owner !== 1){
+          const prevOwner1 = this.owner;
           this.owner = 1; this.control = -100; game.shake = 0.3;
-          playSound('capture', this.pos);
+          playSound('capture_tower', this.pos, { team: 1 });
+          if (prevOwner1 === 0) playSound('lose_tower', this.pos, { team: 0 });
           if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 1 && dist(p.pos, this.pos) <= this.captureRadius);
               let totalLvl = 0, pCount = 0;
@@ -470,6 +474,7 @@ export class HealPickup {
       if(p.alive && this.active && dist(p.pos, this.pos) < this.radius + p.radius) {
         applyHeal(p, p.effectiveMaxHp * 0.5); this.active = false; this.respawnTimer = 45.0;
         spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); if (p === player) flashMessage("+50% HP!");
+        playSound('heal_pickup', this.pos);
         if (socket && game.isHost) socket.emit('host_event', { type: 'heal_pickup', playerId: p.id, hp: p.hp, healIndex: game.heals.indexOf(this) });
       }
     }

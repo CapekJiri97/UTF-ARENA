@@ -1008,7 +1008,7 @@ export class Player{
                 else if (this.currentTarget && this.currentTarget.team !== this.team && this.currentTarget.alive && !this.currentTarget.dead) aaTarget = this.currentTarget;
             if (aaTarget) { this.lastAutoTargetId = aaTarget.id; this.lastAutoTargetTime = performance.now(); }
         }
-    playSound('shoot', this.pos, { pitch: 0.8 + (this.className.charCodeAt(0) % 6) * 0.1 }); // Unikátní výška tónu pro útok hrdiny
+    playSound('attack', this.pos, { role: CLASSES[this.className]?.role, dmgType: CLASSES[this.className]?.dmgType, ranged: CLASSES[this.className]?.range });
     this.attackPenaltyTimer = 0.5; 
     
     // Odeslání akce na server (Host odesílá za sebe i za své boty)
@@ -2014,6 +2014,8 @@ export class BotPlayer extends Player {
         // V ARAM pointDiff = počet vlastněných věží mínus nepřátelských (nexus HP se nepoužívá)
         let pointDiff = activeGameMode.name === 'aram'
             ? game.towers.filter(t => t.owner === team).length - game.towers.filter(t => t.owner === 1 - team).length
+            : activeGameMode.name === 'arena'
+            ? (game.score?.[team] || 0) - (game.score?.[1 - team] || 0)
             : game.nexus[team] - game.nexus[1-team];
 
         const homeTowerIndexes = activeGameMode.homeTowerIndexes[team];

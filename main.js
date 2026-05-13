@@ -9,11 +9,19 @@ import { Player, BotPlayer } from './Player.js';
 import { buildMenu, populateShop, toggleShop, showEnd, draw, updateSpellLabels, updateInventory, updateShopGold, updateLobbyUI, updateRoomListUI } from './UI.js';
 import { GameMode_Classic } from './GameMode_Classic.js';
 import { GameMode_ARAM } from './GameMode_ARAM.js';
+import { GameMode_Arena } from './GameMode_Arena.js';
 
 export const GAME_MODES = {
   classic: GameMode_Classic,
   aram:    GameMode_ARAM,
+  arena:   GameMode_Arena,
 };
+
+// Registrace nového game modu za běhu — stačí zavolat z libovolného GameMode_*.js souboru.
+// Příklad: registerGameMode('deathmatch', GameMode_Deathmatch);
+export function registerGameMode(name, modeObj) {
+  GAME_MODES[name] = modeObj;
+}
 
 export let activeGameMode = GameMode_Classic;
 
@@ -51,12 +59,12 @@ import { initAudio, playSound } from './Audio.js';
     socket.on('lobby_update', (data) => { updateLobbyUI(data.players, data.roomName, data.settings); });
     socket.on('game_start', (data) => {
       const m = document.getElementById('menu'); if(m) m.style.display = 'none';
-      // Extrahujeme data správně a určíme, kdo je Host
       game.isHost = (socket.id === data.hostId);
-      game.hostId = data.hostId; // Zapamatujeme si ID hosta pro případ odpojení
+      game.hostId = data.hostId;
       if (data.settings) {
           game.blueBotDifficulty = data.settings.blueBotDiff / 100;
           game.redBotDifficulty = data.settings.redBotDiff / 100;
+          if (data.settings.gameMode) setActiveMode(data.settings.gameMode);
       }
       if(typeof startGameNetworked === 'function') startGameNetworked(data.players);
     });
@@ -614,7 +622,7 @@ import { initAudio, playSound } from './Audio.js';
       if (game.killFeed) game.killFeed.push(killData);
 
       if (!socket || game.isHost) {
-          if (killer) { grantRewards(killer, 150, 50); killer.kills++; if (typeof killer.refreshDominionPCS === 'function') killer.refreshDominionPCS(); game.nexus[victim.team] = Math.max(0, (game.nexus[victim.team] || 0) - 2); }
+          if (killer) { grantRewards(killer, 150, 50); killer.kills++; if (typeof killer.refreshDominionPCS === 'function') killer.refreshDominionPCS(); game.nexus[victim.team] = Math.max(0, (game.nexus[victim.team] || 0) - 2); if (typeof activeGameMode.onKill === 'function') activeGameMode.onKill(killer.team); }
           let now = performance.now();
           if (victim.recentAttackers) {
               victim.recentAttackers.forEach((data, attackerId) => {
@@ -724,6 +732,10 @@ import { initAudio, playSound } from './Audio.js';
     game.isSpectator = isSpectator;
     game.isHost = true; // Důležité: Aby boti a hra nečekali na síťové příkazy!
 
+    // Reinicializace mapy pro aktuální game mode (může se lišit od defaultu)
+    initWalls(); initTowers();
+    activeGameMode.init();
+
     const spawnPoints = activeGameMode.mapConfig.spawnPoints;
     let bluePicked = [];
     let redPicked = [];
@@ -744,8 +756,9 @@ import { initAudio, playSound } from './Audio.js';
 
     const getBotLane = (idx) => activeGameMode.getBotLane(idx);
 
-    let blueBotCount = (!isSpectator && playerTeam === 0) ? 4 : 5;
-    let redBotCount = (!isSpectator && playerTeam === 1) ? 4 : 5;
+    const teamSize = activeGameMode.mapConfig.teamSize || 5;
+    let blueBotCount = (!isSpectator && playerTeam === 0) ? teamSize - 1 : teamSize;
+    let redBotCount  = (!isSpectator && playerTeam === 1) ? teamSize - 1 : teamSize;
     let totalBots = Math.max(blueBotCount, redBotCount);
 
     // Boti si vybírají na střídačku, aby dokázali reagovat na kompozici nepřítele a nebrali zrcadlové postavy
@@ -777,6 +790,10 @@ import { initAudio, playSound } from './Audio.js';
 
   function startGameNetworked(playersData) {
     game.players = []; game.minions = []; game.projectiles = [];
+
+    // Reinicializace mapy pro aktuální game mode (setActiveMode bylo zavoláno těsně před tímto)
+    initWalls(); initTowers();
+    activeGameMode.init();
 
     const spawnPoints = activeGameMode.mapConfig.spawnPoints;
     let isSpectator = true;
@@ -810,8 +827,9 @@ import { initAudio, playSound } from './Audio.js';
 
     const getBotLane = (idx) => activeGameMode.getBotLane(idx);
 
-    let blueBotCount = Math.max(0, 5 - humansBlue);
-    let redBotCount = Math.max(0, 5 - humansRed);
+    const teamSize = activeGameMode.mapConfig.teamSize || 5;
+    let blueBotCount = Math.max(0, teamSize - humansBlue);
+    let redBotCount  = Math.max(0, teamSize - humansRed);
     let totalBots = Math.max(blueBotCount, redBotCount);
 
     for (let i = 1; i <= totalBots; i++) {

@@ -2,6 +2,7 @@ import { game, camera } from './State.js';
 import * as ClassicMap from './MapConfig.js';
 import { Minion } from './Entities.js';
 import { showEnd } from './UI.js';
+import { speakNexusWarning, resetNexusWarnings } from './Audio.js';
 
 // ── Classic / Dominion mode ───────────────────────────────────────────────────
 // Věže se capture-ují, minionové se spawní podél kruhu věží,
@@ -16,6 +17,7 @@ export const GameMode_Classic = {
   init() {
     game.nexus = { 0: 500, 1: 500 };
     camera.scale = 1.52;
+    resetNexusWarnings();
   },
 
   // Voláno každý tick hostitelem — spawn minionů
@@ -70,6 +72,9 @@ export const GameMode_Classic = {
     else if (diff < 0) game.nexus[0] -= nexusDrainRate * (-diff) * dt;
     game.nexus[0] = Math.max(0, game.nexus[0]);
     game.nexus[1] = Math.max(0, game.nexus[1]);
+
+    speakNexusWarning(0, game.nexus[0]);
+    speakNexusWarning(1, game.nexus[1]);
 
     if (game.nexus[0] <= 0 && !game.gameOver) this._triggerGameOver(1, socket);
     if (game.nexus[1] <= 0 && !game.gameOver) this._triggerGameOver(0, socket);

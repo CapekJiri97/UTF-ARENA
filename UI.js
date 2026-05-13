@@ -771,6 +771,16 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null
           game.blueBotDifficulty = settings.blueBotDiff / 100;
           game.redBotDifficulty = settings.redBotDiff / 100;
       }
+      // Synchronizuj game mode tlačítka podle toho co posílá server (důležité pro klienty v lobby)
+      if (settings.gameMode && socket) {
+          setActiveMode(settings.gameMode);
+          const modeBtnEls = document.querySelectorAll('.mode-btn');
+          modeBtnEls.forEach(b => {
+              const isActive = b.dataset.mode === settings.gameMode;
+              b.style.borderColor = isActive ? '#ffcc00' : '#444';
+              b.style.color       = isActive ? '#ffcc00' : '#444';
+          });
+      }
   }
 
   const startBtn = document.getElementById('startBtn');
@@ -2282,8 +2292,9 @@ export function buildMenu() {
       <div style="display:flex; flex-shrink: 0; justify-content:space-between; align-items:center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px;">
           <h1 id="lobbyTitle" style="margin:0; font-size: 20px; color: #ffcc00; font-family:monospace; letter-spacing:3px;">[ OFFLINE MODE ]</h1>
           <div style="display:flex; gap:8px; align-items:center;">
-              <button id="modeClassicBtn" style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#ffcc00; border:2px solid #ffcc00; letter-spacing:1px;">DOMINION</button>
-              <button id="modeAramBtn"    style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#444;   border:2px solid #444;   letter-spacing:1px;">ARAM</button>
+              <button class="mode-btn" data-mode="classic" style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#ffcc00; border:2px solid #ffcc00; letter-spacing:1px;">DOMINION</button>
+              <button class="mode-btn" data-mode="aram"    style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#444;   border:2px solid #444;   letter-spacing:1px;">ARAM</button>
+              <button class="mode-btn" data-mode="arena"   style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#444;   border:2px solid #444;   letter-spacing:1px;">ARENA</button>
               <button id="btnSpec" style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#aaa; border:1px solid #555;">[ SPECTATE ]</button>
               <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:6px 12px; cursor:pointer; font-family:monospace; background:#000; color:#ff4444; border:1px solid #ff4444; font-weight:bold;">[ LEAVE ]</button>
           </div>
@@ -2359,22 +2370,20 @@ export function buildMenu() {
       }
   };
 
-  // Game mode selector
-  const modeClassicBtn = document.getElementById('modeClassicBtn');
-  const modeAramBtn    = document.getElementById('modeAramBtn');
-  const modeBtns = [modeClassicBtn, modeAramBtn];
-
+  // Game mode selector — generický, funguje pro libovolný počet .mode-btn tlačítek
   function selectMode(modeName) {
     setActiveMode(modeName);
-    modeBtns.forEach(b => { b.style.borderColor = '#444'; b.style.color = '#444'; });
-    const active = modeName === 'aram' ? modeAramBtn : modeClassicBtn;
-    active.style.borderColor = '#ffcc00';
-    active.style.color = '#ffcc00';
+    document.querySelectorAll('.mode-btn').forEach(b => {
+      const isActive = b.dataset.mode === modeName;
+      b.style.borderColor = isActive ? '#ffcc00' : '#444';
+      b.style.color       = isActive ? '#ffcc00' : '#444';
+    });
     if (socket) socket.emit('update_settings', { gameMode: modeName });
   }
 
-  if (modeClassicBtn) modeClassicBtn.onclick = () => selectMode('classic');
-  if (modeAramBtn)    modeAramBtn.onclick    = () => selectMode('aram');
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.onclick = () => selectMode(b.dataset.mode);
+  });
 
   const readyBtn = document.getElementById('readyBtn');
   let myReady = false;
