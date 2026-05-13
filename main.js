@@ -1,5 +1,5 @@
 import { clamp, dist, isPointInPoly, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
-import { shopItems, canBuyShopItem, getShopItem } from './items.js';
+import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost, getItemSellPrice } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 // MapConfig data jsou čtena za běhu z activeGameMode.mapConfig
@@ -303,12 +303,15 @@ import { initAudio, playSound } from './Audio.js';
         else if (data.type === 'summoner') netPlayer.castSummonerSpell(true);
         else if (data.type === 'buy_item') {
           let it = getShopItem(data.itemId);
-          if (it && canBuyShopItem(netPlayer, it).ok && netPlayer.gold >= it.cost) {
-                netPlayer.gold -= it.cost;
-                netPlayer.items.push(data.itemId);
-                it.apply(netPlayer);
-                netPlayer.isDirty = true;
+          if (it && canBuyShopItem(netPlayer, it).ok) {
+            const cost = data.cost !== undefined ? data.cost : getItemBuyCost(netPlayer, it);
+            if (netPlayer.gold >= cost) {
+              netPlayer.gold -= cost;
+              netPlayer.items.push(data.itemId);
+              it.apply(netPlayer);
+              netPlayer.isDirty = true;
             }
+          }
         }
         else if (data.type === 'sell_item') {
           const idx = netPlayer.items.indexOf(data.itemId);
@@ -994,17 +997,10 @@ import { initAudio, playSound } from './Audio.js';
     if (allyBaseDist > 250 && player.alive) return flashMessage('Shop available only in your base!');
     const buyCheck = canBuyShopItem(player, it);
     if (!buyCheck.ok) return flashMessage(buyCheck.reason);
-    if (player.gold < it.cost) return flashMessage('Not enough gold');
+    const cost = getItemBuyCost(player, it);
+    if (player.gold < cost) return flashMessage('Not enough gold');
 
-    player.gold -= it.cost;
-
-    // Upgrade: remove prerequisite items from inventory (tier override)
-    const reqs = Array.isArray(it.requires) ? it.requires : (it.requires ? [it.requires] : []);
-    for (const reqId of reqs) {
-      const idx = player.items.indexOf(reqId);
-      if (idx !== -1) player.items.splice(idx, 1);
-    }
-
+    player.gold -= cost;
     player.items.push(it.id);
     recalcPlayerItemStats(player);
     player.isDirty = true;
@@ -1013,7 +1009,7 @@ import { initAudio, playSound } from './Audio.js';
     populateShop();
 
     if (socket && !game.isHost) {
-      socket.emit('player_action', { type: 'buy_item', id: player.id, itemId: it.id, cost: it.cost });
+      socket.emit('player_action', { type: 'buy_item', id: player.id, itemId: it.id, cost });
     }
   }
   export function sellItem(id) {
@@ -1024,7 +1020,7 @@ import { initAudio, playSound } from './Audio.js';
     if (allyBaseDist > 250 && player.alive) return flashMessage('Shop available only in your base!');
     const idx = player.items.indexOf(id);
     if (idx === -1) return flashMessage('Item not in inventory');
-    const sellPrice = Math.floor(it.cost * 0.6);
+    const sellPrice = getItemSellPrice(player, it);
     player.items.splice(idx, 1);
     player.gold += sellPrice;
     recalcPlayerItemStats(player);

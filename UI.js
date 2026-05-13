@@ -1,5 +1,5 @@
 import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
-import { shopItems, canBuyShopItem, getShopItem, getBuyBlockReason, calcTotalCost } from './items.js';
+import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost, getItemSellPrice, getItemCount, getUniqueItemCount, getTotalItemCount } from './items.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
 import { canvas, ctx, keys, player, socket, startGame, buyItem, sellItem, drawHealthBar, activeGameMode, setActiveMode, initWalls, initTowers } from './main.js';
@@ -179,63 +179,82 @@ const SHOP_TREE_ORDER = ['offense', 'sorcery', 'titan', 'combat', 'benevolence',
 
 const formatShopStats = (desc = '') => desc.split(',').map((part) => part.trim()).filter(Boolean);
 
-const getItemTierLabel = (itemId = '') => {
-    const m = itemId.match(/_t(\d+)/);
-    if (!m) return null;
-    const n = parseInt(m[1]);
-    return n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
+const buildItemCounts = (items = []) => {
+    const map = new Map();
+    const order = [];
+    for (const id of items) {
+        if (!map.has(id)) { map.set(id, 0); order.push(id); }
+        map.set(id, map.get(id) + 1);
+    }
+    return { map, order };
 };
 
 // Generates computed stat strings for an item using the player's actual base stats.
-// Falls back to parsing item.desc when no structured stats object is present.
-const computeItemPreview = (item, player) => {
+const computeItemPreview = (item, player, count = 1) => {
     if (!item.stats) return formatShopStats(item.desc);
     const s = item.stats;
+    const caps = item.caps || {};
     const parts = [];
+    const mult = Math.max(1, count || 1);
 
-    if (s.power) {
-        const pct = Math.round(s.power * 100);
+    const capPct = (value, cap) => {
+        if (cap === undefined || cap === null) return value;
+        return Math.min(value, cap);
+    };
+
+    const pctLine = (label, valuePct, capPctVal) => {
+        const total = capPct(valuePct * mult, capPctVal);
+        const pct = Math.round(total * 100);
+        const capText = capPctVal ? ` (cap ${Math.round(capPctVal * 100)}%)` : '';
+        return `+${pct}% ${label}${capText}`;
+    };
+
+    if (s.powerPct) {
+        const total = capPct(s.powerPct * mult, caps.powerPct);
+        const pct = Math.round(total * 100);
         if (player) {
             const base = player.dmgType === 'magical' ? (player.baseAP_stat || 0) : (player.baseAD_stat || 0);
             const label = player.dmgType === 'magical' ? 'AP' : 'AD';
-            parts.push(`+${pct}% Power (${Math.round(base * s.power)} ${label})`);
+            parts.push(`+${pct}% Power (${Math.round(base * total)} ${label})`);
         } else {
             parts.push(`+${pct}% Power`);
         }
     }
     if (s.hpPct) {
-        const pct = Math.round(s.hpPct * 100);
+        const total = capPct(s.hpPct * mult, caps.hpPct);
+        const pct = Math.round(total * 100);
         if (player) {
-            parts.push(`+${pct}% HP (${Math.round((player.baseMaxHp || 0) * s.hpPct)})`);
+            parts.push(`+${pct}% HP (${Math.round((player.baseMaxHp || 0) * total)})`);
         } else {
             parts.push(`+${pct}% HP`);
         }
     }
     if (s.armorPct) {
-        const pct = Math.round(s.armorPct * 100);
+        const total = capPct(s.armorPct * mult, caps.armorPct);
+        const pct = Math.round(total * 100);
         if (player) {
-            parts.push(`+${pct}% Armor (${Math.round((player.baseArmor_stat || 0) * s.armorPct)})`);
+            parts.push(`+${pct}% Armor (${Math.round((player.baseArmor_stat || 0) * total)})`);
         } else {
             parts.push(`+${pct}% Armor`);
         }
     }
     if (s.mrPct) {
-        const pct = Math.round(s.mrPct * 100);
+        const total = capPct(s.mrPct * mult, caps.mrPct);
+        const pct = Math.round(total * 100);
         if (player) {
-            parts.push(`+${pct}% MR (${Math.round((player.baseMR_stat || 0) * s.mrPct)})`);
+            parts.push(`+${pct}% MR (${Math.round((player.baseMR_stat || 0) * total)})`);
         } else {
             parts.push(`+${pct}% MR`);
         }
     }
-    if (s.asPct)        parts.push(`+${Math.round(s.asPct * 100)}% AS`);
-    if (s.ahFlat)       parts.push(`+${s.ahFlat} AH`);
-    if (s.lifestealPct) parts.push(`+${Math.round(s.lifestealPct * 100)}% Lifesteal`);
-    if (s.penPct)       parts.push(`+${Math.round(s.penPct * 100)}% Pen`);
-    if (s.antiHeal)     parts.push(`${Math.round(s.antiHeal * 100)}% Grievous Wounds`);
-    if (s.healPower)    parts.push(`+${Math.round(s.healPower * 100)}% Heal Power`);
-    if (s.spellDmg)     parts.push(`+${Math.round(s.spellDmg * 100)}% Max HP Spell Dmg`);
-    if (s.slowOnSpell)  parts.push(`${Math.round(s.slowOnSpell * 100)}% Slow on Spell`);
-    if (s.burnAura)     parts.push('Proximity Burn (1.5%/s)');
+    if (s.asPct) parts.push(pctLine('AS', s.asPct, caps.asPct));
+    if (s.ahFlat) parts.push(`+${s.ahFlat * mult} AH`);
+    if (s.lifestealPct) parts.push(pctLine('Lifesteal', s.lifestealPct, caps.lifestealPct));
+    if (s.msPct) parts.push(pctLine('Move Speed', s.msPct, caps.msPct));
+    if (s.penPct) parts.push(pctLine('Pen', s.penPct, caps.penPct));
+    if (s.maxHpDmgPct) parts.push(pctLine('Max HP Burn', s.maxHpDmgPct, caps.maxHpDmgPct));
+    if (s.slowOnHit) parts.push(pctLine('Slow (AA)', s.slowOnHit, caps.slowOnHit));
+    if (s.grievousWounds) parts.push(pctLine('GW', s.grievousWounds, caps.grievousWounds));
 
     return parts;
 };
@@ -249,8 +268,9 @@ const createShopStatPill = (text) => {
 
 const createShopCard = (item, currentPlayer, { tree = false } = {}) => {
     const buyCheck = canBuyShopItem(currentPlayer, item);
-    const canAfford = currentPlayer && (currentPlayer.gold || 0) >= item.cost;
     const count = currentPlayer && Array.isArray(currentPlayer.items) ? currentPlayer.items.filter((ownedId) => ownedId === item.id).length : 0;
+    const costNow = currentPlayer ? getItemBuyCost(currentPlayer, item) : (item.costBase || item.cost || 0);
+    const canAfford = currentPlayer && (currentPlayer.gold || 0) >= costNow;
 
     // State: 'buy' = can buy, 'prereq' = missing item, 'gold' = not enough gold
     const state = buyCheck.ok && canAfford ? 'buy' : (buyCheck.ok && !canAfford ? 'gold' : 'prereq');
@@ -272,20 +292,13 @@ const createShopCard = (item, currentPlayer, { tree = false } = {}) => {
     if (count > 0) {
         const countBadge = document.createElement('span');
         countBadge.className = 'shop-card-count';
-        countBadge.textContent = `×${count}`;
+        countBadge.textContent = `${count}x`;
         name.appendChild(countBadge);
     }
 
     const cost = document.createElement('div');
     cost.className = 'shop-card-cost';
-    const totalCost = currentPlayer ? calcTotalCost(currentPlayer, item) : item.cost;
-    if (totalCost > item.cost) {
-        cost.textContent = `${totalCost}g total`;
-        cost.title = `${item.cost}g item + ${totalCost - item.cost}g prerequisites`;
-        cost.style.color = '#ffaa44';
-    } else {
-        cost.textContent = `${item.cost}g`;
-    }
+    cost.textContent = `${costNow}g`;
 
     nameWrap.appendChild(name);
     nameWrap.appendChild(cost);
@@ -294,25 +307,10 @@ const createShopCard = (item, currentPlayer, { tree = false } = {}) => {
     // ── Stat pills ───────────────────────────────────────────────────
     const stats = document.createElement('div');
     stats.className = 'shop-card-stats';
-    for (const statText of computeItemPreview(item, currentPlayer)) {
+    for (const statText of computeItemPreview(item, currentPlayer, 1)) {
         stats.appendChild(createShopStatPill(statText));
     }
     left.appendChild(stats);
-
-    // ── Prereq chain line ────────────────────────────────────────────
-    const reqs = Array.isArray(item.requires) ? item.requires : (item.requires ? [item.requires] : []);
-    if (reqs.length > 0) {
-        const reqLine = document.createElement('div');
-        reqLine.className = 'shop-card-req';
-        const ownedIds = currentPlayer?.items || [];
-        const parts = reqs.map(reqId => {
-            const reqItem = getShopItem(reqId);
-            const owned = ownedIds.includes(reqId);
-            return `<span class="req-item${owned ? ' req-owned' : ' req-missing'}">${reqItem ? reqItem.name : reqId}</span>`;
-        });
-        reqLine.innerHTML = '► ' + parts.join(' + ');
-        left.appendChild(reqLine);
-    }
 
     // ── Buy button ───────────────────────────────────────────────────
     const btn = document.createElement('button');
@@ -322,8 +320,8 @@ const createShopCard = (item, currentPlayer, { tree = false } = {}) => {
         btn.textContent = '[BUY]';
         btn.title = '';
     } else if (state === 'gold') {
-        const deficit = item.cost - Math.floor(currentPlayer?.gold || 0);
-        btn.textContent = `+${deficit}g`;
+        const deficit = costNow - Math.floor(currentPlayer?.gold || 0);
+        btn.textContent = `+${Math.max(0, deficit)}g`;
         btn.title = `Need ${deficit} more gold`;
     } else {
         btn.textContent = '[REQ]';
@@ -859,7 +857,6 @@ export function populateShop() {
           <h2 class="shop-title">[ SHOP ] <span id="shopGoldDisplay" style="color:#ffcc00;font-size:16px;margin-left:10px;">[G] ${gold}g</span></h2>
           <button id="closeShopX" style="background:transparent;color:#ff4e4e;border:none;font-size:32px;font-weight:bold;cursor:pointer;line-height:1;padding:0 10px;">&times;</button>
         </div>
-        <div id="shopFilters" class="shop-filters"></div>
         <div class="shop-toolbar-actions">
           <button id="shopUpBtn" class="shop-nav-btn">▲</button>
           <button id="shopDownBtn" class="shop-nav-btn">▼</button>
@@ -875,54 +872,41 @@ export function populateShop() {
   overlay.querySelector('#shopUpBtn').onclick = () => overlay.scrollBy({ top: -320, behavior: 'smooth' });
   overlay.querySelector('#shopDownBtn').onclick = () => overlay.scrollBy({ top: 320, behavior: 'smooth' });
 
-  // Filter buttons
-  const filtersEl = document.getElementById('shopFilters');
-  const allBtn = document.createElement('button');
-  allBtn.className = `shop-filter-btn${_shopFilter === null ? ' active' : ''}`;
-  allBtn.textContent = 'All';
-  allBtn.onclick = () => { _shopFilter = null; populateShop(); };
-  filtersEl.appendChild(allBtn);
-  for (const [label, trees] of Object.entries(TREE_FILTER_MAP)) {
-    const btn = document.createElement('button');
-    btn.className = `shop-filter-btn${_shopFilter === label ? ' active' : ''}`;
-    btn.textContent = label;
-    btn.onclick = () => { _shopFilter = label; populateShop(); };
-    filtersEl.appendChild(btn);
-  }
-
   // Owned items bar
   const ownedBar = document.getElementById('shopOwnedBar');
   if (ownedBar) {
-    const ownedItems = player ? (player.items || []) : [];
+        const ownedItems = player ? (player.items || []) : [];
+        const counts = buildItemCounts(ownedItems);
+        const uniqueCount = counts.order.length;
     ownedBar.innerHTML = '';
     const wrap = document.createElement('div');
     wrap.className = 'shop-owned-bar';
     const title = document.createElement('div');
     title.className = 'shop-owned-title';
-    title.textContent = `INVENTORY  (${ownedItems.length}/6)`;
+        title.textContent = `INVENTORY  (${uniqueCount}/6, ${ownedItems.length}/20)`;
     wrap.appendChild(title);
     const list = document.createElement('div');
     list.className = 'shop-owned-list';
-    if (ownedItems.length === 0) {
+        if (ownedItems.length === 0) {
       const empty = document.createElement('span');
       empty.className = 'shop-owned-empty';
       empty.textContent = 'No items purchased yet';
       list.appendChild(empty);
     } else {
-      for (const id of ownedItems) {
-        const it = getShopItem(id);
+            for (const id of counts.order) {
+                const it = getShopItem(id);
         if (!it) continue;
-        const sellPrice = Math.floor(it.cost * 0.6);
+                const count = counts.map.get(id) || 1;
+                const sellPrice = getItemSellPrice(player, it);
         const tag = document.createElement('span');
         tag.className = 'shop-owned-tag';
-        tag.title = computeItemPreview(it, player).join(', ');
+                tag.title = computeItemPreview(it, player, count).join(', ');
         const nameSpan = document.createElement('span');
-        const tierLabel = getItemTierLabel(id);
-        nameSpan.textContent = tierLabel ? `${it.name} (${tierLabel})` : it.name;
+                nameSpan.textContent = count > 1 ? `${it.name} ${count}x` : it.name;
         const sellBtn = document.createElement('button');
         sellBtn.className = 'sell-btn';
         sellBtn.textContent = `sell ${sellPrice}g`;
-        sellBtn.title = `Sell for ${sellPrice}g (60% of ${it.cost}g)`;
+                sellBtn.title = `Sell for ${sellPrice}g (60% refund)`;
         sellBtn.onclick = (e) => { e.stopPropagation(); sellItem(id); };
         tag.appendChild(nameSpan);
         tag.appendChild(sellBtn);
@@ -935,11 +919,11 @@ export function populateShop() {
 
   const treeMount = document.getElementById('shopTreeMount');
   if (treeMount) {
-    treeMount.className = 'shop-tree-stack';
-    const visibleTrees = _shopFilter ? TREE_FILTER_MAP[_shopFilter] : SHOP_TREE_ORDER;
-    for (const treeId of visibleTrees) {
-      if (SHOP_TREE_CONFIGS[treeId]) renderTreeSection(treeMount, player, treeId);
-    }
+        treeMount.className = 'shop-tree-stack';
+        const basicIds = shopItems.filter(it => it.group === 'basic').map(it => it.id);
+        const specialIds = shopItems.filter(it => it.group === 'special').map(it => it.id);
+        renderShopSection(treeMount, 'BASIC ITEMS (300g +15g per stack)', basicIds, player);
+        renderShopSection(treeMount, 'SPECIAL ITEMS (500g +25g per stack)', specialIds, player);
   }
 }
 
@@ -953,20 +937,33 @@ export function updateInventory() {
   const inv = document.getElementById('inventory');
   if (!inv) return;
   inv.innerHTML = '';
-  const MAX_SLOTS = 6;
-  for (let i = 0; i < MAX_SLOTS; i++) {
-    const slot = document.createElement('div');
-    slot.className = 'invSlot';
-    if (i < player.items.length) {
-      const it = getShopItem(player.items[i]);
-      slot.textContent = it ? it.name : player.items[i];
-      slot.title = it ? computeItemPreview(it, player).join(', ') : '';
-    } else {
-      slot.textContent = '—';
-      slot.style.color = '#333';
+    const ownedItems = player.items || [];
+    const counts = buildItemCounts(ownedItems);
+    const MAX_SLOTS = 6;
+    for (let i = 0; i < MAX_SLOTS; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'invSlot';
+        if (i < counts.order.length) {
+            const id = counts.order[i];
+            const it = getShopItem(id);
+            const count = counts.map.get(id) || 1;
+            const name = it ? it.name : id;
+            const stats = it ? computeItemPreview(it, player, count) : [];
+            slot.innerHTML = `<div>${name}${count > 1 ? ' ' + count + 'x' : ''}</div>`;
+            if (stats.length > 0) {
+                const statLine = document.createElement('div');
+                statLine.style.color = '#777';
+                statLine.style.fontSize = '11px';
+                statLine.textContent = stats.join(' | ');
+                slot.appendChild(statLine);
+            }
+            slot.title = stats.join(', ');
+        } else {
+            slot.textContent = '—';
+            slot.style.color = '#333';
+        }
+        inv.appendChild(slot);
     }
-    inv.appendChild(slot);
-  }
 }
 
 export function drawBackground(ctx){
@@ -1765,8 +1762,10 @@ export function draw(){
 
         // ── INVENTORY (2×3 grid) ─────────────────────────────────────────
         const ownedIds = player.items || [];
+        const counts = buildItemCounts(ownedIds);
+        const uniqueCount = counts.order.length;
         ctx.fillStyle = '#ffcc00'; ctx.font = `bold 16px monospace`;
-        ctx.fillText(`INVENTORY  (${ownedIds.length}/6)`, leftM, startY); startY += 14;
+        ctx.fillText(`INVENTORY  (${uniqueCount}/6, ${ownedIds.length}/20)`, leftM, startY); startY += 14;
         ctx.fillStyle = '#333'; ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 10;
 
         {
@@ -1787,21 +1786,23 @@ export function draw(){
 
             ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(sx, sy, slotW, slotH);
-            ctx.strokeStyle = i < ownedIds.length ? '#4a4a0a' : '#222';
+            ctx.strokeStyle = i < counts.order.length ? '#4a4a0a' : '#222';
             ctx.lineWidth = 1;
             ctx.strokeRect(sx, sy, slotW, slotH);
 
-            if (i < ownedIds.length) {
-              const it = getShopItem(ownedIds[i]);
+                        if (i < counts.order.length) {
+                            const id = counts.order[i];
+                            const it = getShopItem(id);
               if (it) {
-                const statLines = computeItemPreview(it, player);
+                                const count = counts.map.get(id) || 1;
+                                const statLines = computeItemPreview(it, player, count);
                 const lineH = 16;
                 const totalContentH = 22 + statLines.length * lineH;
                 const paddingTop = Math.max(10, (slotH - totalContentH) / 2);
 
                 ctx.fillStyle = '#fc0'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left';
-                const vTier = getItemTierLabel(ownedIds[i]);
-                ctx.fillText(vTier ? `${it.name} (${vTier})` : it.name, sx + 8, sy + paddingTop);
+                                const name = count > 1 ? `${it.name} ${count}x` : it.name;
+                                ctx.fillText(name, sx + 8, sy + paddingTop);
 
                 ctx.fillStyle = '#888'; ctx.font = '12px monospace';
                 statLines.forEach((line, li) => {
@@ -1821,7 +1822,8 @@ export function draw(){
         const _mLs = player.lifesteal || 0;
         const _mGw = player.antiHeal || 0, _mSw = player.onHitSlow || 0, _mSs = player.onSpellHitSlow || 0;
         const _mApen = player.adaptivePen || 0;
-        if (_mLs > 0 || _mGw > 0 || _mSw > 0 || _mSs > 0 || _mApen > 0) {
+        const _mBurn = player.titanSigilSpellDmg || 0;
+        if (_mLs > 0 || _mGw > 0 || _mSw > 0 || _mSs > 0 || _mApen > 0 || _mBurn > 0) {
             if (startY < panelH - 30) {
                 startY += 6;
                 ctx.fillStyle = '#ffcc00'; ctx.font = `bold 12px monospace`;
@@ -1831,21 +1833,29 @@ export function draw(){
                 if (_mApen > 0) mLines.push(
                     { h: `ADAPTIVE PEN  (${Math.round(_mApen*100)}%)`, c: '#ffaa44' },
                     { t: `Reduces enemy Armor (physical) or MR (magical) by ${Math.round(_mApen*100)}%` },
-                    { t: `multiplicatively before damage is applied.` }
+                    { t: `multiplicatively before damage is applied.` },
+                    { t: `Stacks up to 50%.` }
+                );
+                if (_mBurn > 0) mLines.push(
+                    { h: `MAX HP BURN  (${Math.round(_mBurn*100)}%)`, c: '#ff9966' },
+                    { t: `Spells deal bonus ${Math.round(_mBurn*100)}% enemy Max HP damage.` },
+                    { t: `Stacks up to 5%.` }
                 );
                 if (_mLs > 0) mLines.push(
                     { h: `LIFESTEAL  (${Math.round(_mLs*100)}%)`, c: '#cc88ff' },
                     { t: `Heals you for ${Math.round(_mLs*100)}% of ALL damage dealt (AA and spells).` },
-                    { t: `AoE hits heal only 20% of normal rate (anti-stacking).` }
+                    { t: `AoE hits heal only 20% of normal rate (anti-stacking).` },
+                    { t: `Stacks up to 25%.` }
                 );
                 if (_mGw > 0) mLines.push(
                     { h: `GRIEVOUS WOUNDS  (${Math.round(_mGw*100)}%)`, c: '#ff8844' },
                     { t: `On-hit: reduces ALL healing target receives by ${Math.round(_mGw*100)}%.` },
-                    { t: `Does NOT stack — strongest effect wins.` }
+                    { t: `Stacks up to 60%.` }
                 );
                 if (_mSw > 0) mLines.push(
                     { h: `AA SLOW  (${Math.round(_mSw*100)}%)`, c: '#44ccff' },
-                    { t: `Basic attacks slow enemy by ${Math.round(_mSw*100)}% for a short duration.` }
+                    { t: `Basic attacks slow enemy by ${Math.round(_mSw*100)}% for a short duration.` },
+                    { t: `Stacks up to 30%.` }
                 );
                 if (_mSs > 0) mLines.push(
                     { h: `SPELL SLOW  (${Math.round(_mSs*100)}%)`, c: '#44ccff' },

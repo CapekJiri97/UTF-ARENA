@@ -1,6 +1,6 @@
 import { dist, distToPoly, expForLevel } from './Utils.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
-import { shopItems, canBuyShopItem, getShopItem } from './items.js';
+import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost } from './items.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
@@ -41,6 +41,7 @@ export class Player{
     this.baseAP_stat = cData.baseAP;
     this.baseArmor_stat = cData.baseArmor;
     this.baseMR_stat = cData.baseMR;
+    this.baseSpeed_stat = this.speed;
     
     // economy & stats
     this.gold = 600; this.totalGold = 600; this.kills = 0; this.deaths = 0; this.assists = 0;
@@ -597,25 +598,18 @@ export class Player{
     if (this === player) {
 
         // AUTO BUY — uses the same path-based system as bots
-        if (game.autoBuy && (!this.alive || allyBaseDist < 250) && this.gold >= 300) {
-        this._nextBuyCheck = (this._nextBuyCheck || 0) - dt;
-        if (game.autoBuy && (!this.alive || allyBaseDist < 250) && this.gold >= 300 && this._nextBuyCheck <= 0) {
-            this._nextBuyCheck = 1.0; // Kontrola nákupu max 1x za vteřinu
-            const enemies = game.players.filter(p => p.team !== this.team);
-            const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 ||
-                Object.values(e.spells || {}).some(sp => sp && sp.type &&
-                    (sp.type.includes('heal') || sp.type === 'projectile_egg' || sp.type === 'summon_healers')));
-
-            if (!this.targetPath || BotPlayer.isPathComplete(this, this.targetPath)) {
-                this.targetPath = BotPlayer.selectTargetPath(this, enemies, enemyHasHealing);
-            }
-
-            const item = this.targetPath ? BotPlayer.getNextPathItem(this, this.targetPath) : null;
-            if (item && this.gold >= item.cost && canBuyShopItem(this, item).ok) {
-                buyItem(item.id);
+        if (game.autoBuy && (!this.alive || allyBaseDist < 250)) {
+            this._nextBuyCheck = (this._nextBuyCheck || 0) - dt;
+            if (this._nextBuyCheck <= 0) {
+                this._nextBuyCheck = 1.0; // Kontrola nákupu max 1x za vteřinu
+                const enemies = game.players.filter(p => p.team !== this.team);
+                const item = BotPlayer.pickBuyableItem(this, null, enemies);
+                if (item && canBuyShopItem(this, item).ok) {
+                    const cost = getItemBuyCost(this, item);
+                    if (this.gold >= cost) buyItem(item.id);
+                }
             }
         }
-    }
     }
     // Passive HP Regen (Host počítá i pro síťové hráče pro synchronizaci, lokální hráč počítá sám pro plynulost)
     if (!socket || game.isHost || this === player) {
@@ -1703,7 +1697,8 @@ export class BotPlayer extends Player {
         };
         item.apply(probe);
         const after = BotPlayer.evaluateCombatProfile(probe, enemies);
-        return (after - before) / Math.max(1, item.cost / 300);
+        const cost = getItemBuyCost(owner, item);
+        return (after - before) / Math.max(1, cost / 300);
     }
 
     static pickBuyableItem(owner, candidateIds = null, enemies = null) {
@@ -1716,7 +1711,8 @@ export class BotPlayer extends Player {
 
         for (const candidate of pool) {
             if (!canBuyShopItem(owner, candidate).ok) continue;
-            if (owner.gold < candidate.cost) continue;
+            const cost = getItemBuyCost(owner, candidate);
+            if (owner.gold < cost) continue;
             const score = BotPlayer.scoreShopItem(owner, candidate, enemies);
             if (score > bestScore + 0.0001 || (Math.abs(score - bestScore) <= 0.0001 && Math.random() < 0.5)) {
                 bestItem = candidate;
@@ -2323,62 +2319,31 @@ export class BotPlayer extends Player {
         // 0. Údržba vojáků (Nakupování a levelování) JEN PRO BOTY
         for (let bot of teamBots) {
             const inBase = dist(bot.pos, spawnPoints[bot.team]) < 250;
-            if ((!bot.alive || inBase) && bot.gold >= 300) {
+            if (!bot.alive || inBase) {
                 const enemies = game.players.filter(p => p.team !== bot.team);
-                const enemyHasHealing = enemies.some(e => (e.lifesteal || 0) > 0.05 ||
-                    Object.values(e.spells || {}).some(sp => sp && sp.type &&
-                        (sp.type.includes('heal') || sp.type === 'projectile_egg' || sp.type === 'summon_healers')));
+                const item = BotPlayer.pickBuyableItem(bot, null, enemies);
+                if (item && canBuyShopItem(bot, item).ok) {
+                    const cost = getItemBuyCost(bot, item);
+                    if (bot.gold >= cost) {
+                        bot.gold -= cost;
+                        bot.items.push(item.id);
 
-                // Path commitment: pick or continue a target upgrade path
-                if (!bot.targetPath || BotPlayer.isPathComplete(bot, bot.targetPath)) {
-                    bot.targetPath = BotPlayer.selectTargetPath(bot, enemies, enemyHasHealing);
-                }
+                        const cData = CLASSES[bot.className];
+                        recalcPlayerItemStats(bot);
 
-                // Reactively add anti-heal path if enemies have lifesteal and we don't have it yet
-                const hasAntiHeal = (bot.items || []).some(id => ['blight_t1','blight_t2_off','blight_t3_off','blight_t2_tank','blight_t3_tank'].includes(id));
-                if (enemyHasHealing && !hasAntiHeal) {
-                    const antiPath = bot.role === 'TANK' ? ['blight_t1', 'blight_t2_tank', 'blight_t3_tank'] : ['blight_t1', 'blight_t2_off', 'blight_t3_off'];
-                    const antiNext = BotPlayer.getNextPathItem(bot, antiPath);
-                    if (antiNext && bot.gold >= antiNext.cost && canBuyShopItem(bot, antiNext).ok) {
-                        bot.targetPath = antiPath;
+                        // Apply difficulty modifier on item-derived stats (above base class)
+                        const extraMod = (bot.difficultyMod || 1.0) - 1.0;
+                        if (extraMod !== 0 && cData) {
+                            const dHp = bot.maxHp - cData.hp;
+                            const dHP = Math.round(dHp * extraMod);
+                            bot.maxHp += dHP; bot.hp = Math.min(bot.maxHp, bot.hp + dHP);
+                            bot.AD += Math.round((bot.AD - cData.baseAD) * extraMod);
+                            bot.AP += Math.round((bot.AP - cData.baseAP) * extraMod);
+                            bot.armor += Math.round((bot.armor - cData.baseArmor) * extraMod);
+                            bot.mr += Math.round((bot.mr - cData.baseMR) * extraMod);
+                        }
+                        bot.isDirty = true;
                     }
-                }
-
-                let item = bot.targetPath ? BotPlayer.getNextPathItem(bot, bot.targetPath) : null;
-                if (item && (bot.gold < item.cost || !canBuyShopItem(bot, item).ok)) item = null;
-                // Fallback: if path is stuck, pick a new one
-                if (!item && bot.targetPath) {
-                    bot.targetPath = BotPlayer.selectTargetPath(bot, enemies, enemyHasHealing);
-                    item = bot.targetPath ? BotPlayer.getNextPathItem(bot, bot.targetPath) : null;
-                    if (item && (bot.gold < item.cost || !canBuyShopItem(bot, item).ok)) item = null;
-                }
-
-                if (item) {
-                    // Override: remove prereqs from inventory before adding new item
-                    const reqs = Array.isArray(item.requires) ? item.requires : (item.requires ? [item.requires] : []);
-                    for (const reqId of reqs) {
-                        const idx = bot.items.indexOf(reqId);
-                        if (idx !== -1) bot.items.splice(idx, 1);
-                    }
-                    bot.gold -= item.cost;
-                    bot.items.push(item.id);
-
-                    const cData = CLASSES[bot.className];
-                    recalcPlayerItemStats(bot);
-
-                    // Apply difficulty modifier on item-derived stats (above base class)
-                    const extraMod = (bot.difficultyMod || 1.0) - 1.0;
-                    if (extraMod !== 0 && cData) {
-                        const dHp = bot.maxHp - cData.hp;
-                        const dHP = Math.round(dHp * extraMod);
-                        bot.maxHp += dHP; bot.hp = Math.min(bot.maxHp, bot.hp + dHP);
-                        bot.AD += Math.round((bot.AD - cData.baseAD) * extraMod);
-                        bot.AP += Math.round((bot.AP - cData.baseAP) * extraMod);
-                        bot.armor += Math.round((bot.armor - cData.baseArmor) * extraMod);
-                        bot.mr += Math.round((bot.mr - cData.baseMR) * extraMod);
-                    }
-                    bot.isDirty = true;
-                    // console.log(`[BOT ${bot.className}] bought ${item.name} (path: ${bot.targetPath ? bot.targetPath.join('→') : 'none'})`);
                 }
             }
             while(bot.spellPoints > 0) {
