@@ -2,17 +2,17 @@ import { smoothPolygon } from './Utils.js';
 
 // ── Arena mapa — 85 % Dominionu, elipsový tvar ────────────────────────────────
 //
-// Rozměry: 3400 × 2678  (4000*0.85 × 3150*0.85)
+// Rozměry: 3400 × 1339  (4000*0.85 × 3150*0.425)
 // Spawny: vlevo a vpravo, uprostřed výška
 // Jedna neutrální věž přesně uprostřed — obsadit ji = 5 bodů / 10 s
 // Žádné zdi, žádní minioni, žádné healy/powerupy
 // Hraje se 4v4, cíl = 150 bodů
 
-export const world = { width: 3400, height: 2678 };
+export const world = { width: 3400, height: 1339 };
 
 // Střed mapy
 const CX = 1700;
-const CY = 1339;
+const CY = 670;
 
 // Spawn hráčů — 4 sloty na tým, rozmístěné svisle
 export const spawnPoints = [
@@ -45,9 +45,9 @@ export const rawPolys = [];
 export const nexusHexWalls = [];
 
 // Hranice — elipsa aproximovaná polygonem (36 bodů)
-// Rx = 1640 (necháme 60px okraj), Ry = 1240
+// Rx = 1640 (necháme 60px okraj), Ry = 620
 const RX = 1640;
-const RY = 1240;
+const RY = 620;
 const ELLIPSE_STEPS = 36;
 export const rawMapBoundary = Array.from({ length: ELLIPSE_STEPS }, (_, i) => {
   const a = (i / ELLIPSE_STEPS) * Math.PI * 2;

@@ -91,7 +91,7 @@ export const GameMode_ARAM = {
     }
   },
 
-  drawHUD(ctx, cw, _isMobile) {
+  drawHUD(ctx, cw, isMobile) {
     ctx.textBaseline = 'top';
     ctx.textAlign = 'center';
     ctx.font = 'bold 13px monospace';
