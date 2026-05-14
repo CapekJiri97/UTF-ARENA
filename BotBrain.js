@@ -475,6 +475,17 @@ export const ArenaBrain = {
         return score;
     };
 
+    // 1.5 STUCK BOT FIX: bot je v capture radiusu věže, ale kolem jsou nepřátelé — musí bojovat
+    for (let b of [...unassigned]) {
+        if (b.state !== 'CAPTURE' || !b.objective) continue;
+        const inRadius = dist(b.pos, b.objective.pos) <= (b.objective.captureRadius || 80);
+        if (!inRadius) continue;
+        const nearEnemies = enemies.filter(e => e.alive && dist(e.pos, b.pos) < 500);
+        if (nearEnemies.length === 0) continue;
+        const huntTarget = nearEnemies.sort((a, x) => (a.hp / (a.effectiveMaxHp || a.maxHp)) - (x.hp / (x.effectiveMaxHp || x.maxHp)))[0];
+        reassign(b, 'HUNT', huntTarget);
+    }
+
     // 1.8 JUNGLE CAMPS FARMING
     const aliveCamps = game.minions.filter(m => m.isJungleMonster && !m.dead);
     // Jungle phase: věž je zamčena 35s + buffer — použijeme game timer přes věž
@@ -511,8 +522,10 @@ export const ArenaBrain = {
               if (s > bestScore) { bestScore = s; bestCamp = c; }
           }
           if (!bestCamp) {
-              // Více botů než kempů — zbytek čeká u věže
-              reassign(b, 'ASSAULT', centerTower);
+              // Více botů než kempů — přiřaď nejbližší kemp z vlastní strany (může si pomoct nebo čekat poblíž)
+              const closestMyCamp = myCamps.reduce((best, c) => dist(b.pos, c.pos) < dist(b.pos, best.pos) ? c : best, myCamps[0]);
+              reassign(b, 'FARM', closestMyCamp);
+              b.macroOrder.junglePhase = true;
           } else {
               assignedCamps.add(bestCamp);
               reassign(b, 'FARM', bestCamp);

@@ -258,8 +258,11 @@ export class Tower{
             this.attackCooldown = 1.2;
             const angle = Math.atan2(target.pos.y - this.pos.y, target.pos.x - this.pos.x);
             const speed = 550;
-            game.projectiles.push(new Projectile(this.pos.x, this.pos.y, Math.cos(angle)*speed, Math.sin(angle)*speed, 'tower', this.owner, {damage: this.attackDamage, dmgType: 'physical', glyph: '♦', life: this.attackRange/speed}));
-            if (socket) socket.emit('host_event', { type: 'tower_shoot', x: this.pos.x, y: this.pos.y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, owner: this.owner, damage: this.attackDamage, life: this.attackRange/speed });
+            const isHero = !!target.className;
+            const dmgMult = isHero ? 2.0 : 2.5; // +100% vs heroes, +150% vs minions
+            const shotDamage = Math.round(this.attackDamage * dmgMult);
+            game.projectiles.push(new Projectile(this.pos.x, this.pos.y, Math.cos(angle)*speed, Math.sin(angle)*speed, 'tower', this.owner, {damage: shotDamage, dmgType: 'physical', glyph: '♦', life: this.attackRange/speed}));
+            if (socket) socket.emit('host_event', { type: 'tower_shoot', x: this.pos.x, y: this.pos.y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, owner: this.owner, damage: shotDamage, life: this.attackRange/speed });
           }
         }
       }

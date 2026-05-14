@@ -426,6 +426,12 @@ import { initAudio, playSound } from './Audio.js';
     targetPlayer.totalGold += finalGold;
     targetPlayer.exp += finalExp;
     targetPlayer.totalExp = (targetPlayer.totalExp || 0) + finalExp;
+
+    // Boti nakupují hned jak mají gold (bez shop omezení zóny)
+    if (targetPlayer instanceof BotPlayer && (!socket || game.isHost)) {
+      const botEnemies = game.players.filter(p => p.team !== targetPlayer.team);
+      BotPlayer.botBuyItems(targetPlayer, botEnemies);
+    }
   }
 
   // Per-hero exp % when N allies are nearby at minion death: 1→100%, 2→75%, 3→50%, 4→33%, 5→25%
@@ -445,10 +451,16 @@ import { initAudio, playSound } from './Audio.js';
     const modeMult = (activeGameMode && activeGameMode.name === 'arena') ? 1.5 : 1.0;
     for (const p of recipients) {
       const m = snowMult(p) * modeMult;
+      const prevGold = p.gold;
       p.gold      += Math.round(8  * pct * m);
       p.totalGold += Math.round(8  * pct * m);
       p.exp       += Math.round(11 * pct * m);
       p.totalExp   = (p.totalExp || 0) + Math.round(11 * pct * m);
+      // Bot nakupuje jakmile překoná práh pro basic item (throttled)
+      if (p instanceof BotPlayer && (!socket || game.isHost) && prevGold < 250 && p.gold >= 250) {
+        const botEnemies = game.players.filter(e => e.team !== p.team);
+        BotPlayer.botBuyItems(p, botEnemies);
+      }
     }
   }
 
@@ -1008,6 +1020,15 @@ import { initAudio, playSound } from './Audio.js';
     for (const itemId of (pl.items || [])) {
       const it = getShopItem(itemId);
       if (it && it.apply) it.apply(pl);
+    }
+
+    // Apply difficulty bonuses (bots only) — these survive item resets
+    if (pl.diffBonusHP || pl.diffBonusAD || pl.diffBonusAP || pl.diffBonusArmor || pl.diffBonusMR) {
+        pl.maxHp  += (pl.diffBonusHP    || 0);
+        pl.AD     += (pl.diffBonusAD    || 0);
+        pl.AP     += (pl.diffBonusAP    || 0);
+        pl.armor  += (pl.diffBonusArmor || 0);
+        pl.mr     += (pl.diffBonusMR    || 0);
     }
 
     // Restore HP proportionally (don't let current HP exceed new max)

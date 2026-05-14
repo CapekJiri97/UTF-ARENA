@@ -1679,13 +1679,19 @@ export class BotPlayer extends Player {
 
       this.targetPath = null; // Active item upgrade path bot is working towards
       this.difficultyMod = this.team === 0 ? (game.blueBotDifficulty || 1.0) : (game.redBotDifficulty || 1.0);
+      // Difficulty bonusy jako absolutní offsety — přetrvají přes recalcPlayerItemStats
+      this.diffBonusHP    = this.difficultyMod !== 1.0 ? Math.round(this.maxHp    * (this.difficultyMod - 1.0)) : 0;
+      this.diffBonusAD    = this.difficultyMod !== 1.0 ? Math.round(this.AD       * (this.difficultyMod - 1.0)) : 0;
+      this.diffBonusAP    = this.difficultyMod !== 1.0 ? Math.round(this.AP       * (this.difficultyMod - 1.0)) : 0;
+      this.diffBonusArmor = this.difficultyMod !== 1.0 ? Math.round(this.armor    * (this.difficultyMod - 1.0)) : 0;
+      this.diffBonusMR    = this.difficultyMod !== 1.0 ? Math.round(this.mr       * (this.difficultyMod - 1.0)) : 0;
       if (this.difficultyMod !== 1.0) {
-          this.maxHp = Math.round(this.maxHp * this.difficultyMod);
-          this.hp = this.maxHp;
-          this.AD = Math.round(this.AD * this.difficultyMod);
-          this.AP = Math.round(this.AP * this.difficultyMod);
-          this.armor = Math.round(this.armor * this.difficultyMod);
-          this.mr = Math.round(this.mr * this.difficultyMod);
+          this.maxHp  += this.diffBonusHP;
+          this.hp      = this.maxHp;
+          this.AD     += this.diffBonusAD;
+          this.AP     += this.diffBonusAP;
+          this.armor  += this.diffBonusArmor;
+          this.mr     += this.diffBonusMR;
       }
     }
 
@@ -1779,42 +1785,86 @@ export class BotPlayer extends Player {
         const cost = getItemBuyCost(owner, item);
         let score = (after - before) / Math.max(1, cost / 300);
 
+        // --- STACK PENALTY — stejný item dražší a má diminishing returns ---
+        const { getItemCount: _gic } = { getItemCount: (pl, id) => (pl.items || []).filter(x => x === id).length };
+        const stackCount = (owner.items || []).filter(x => x === item.id).length;
+        if (stackCount >= 1) score *= Math.max(0.3, 1.0 - stackCount * 0.20);
+
+        // --- FÁZOVÝ AWARENESS — priority se mění s levelem a počtem items ---
+        const totalItems = (owner.items || []).length;
+        const phase = owner.level <= 3 && totalItems <= 1 ? 'early' : (owner.level >= 10 || totalItems >= 5 ? 'late' : 'mid');
+        const role = owner.role || 'FIGHTER';
+        const isMagic = owner.dmgType === 'magical';
+        const s = item.stats || {};
+
+        // Early: preferuj power, přeži a haste nad utility
+        if (phase === 'early') {
+            if (s.powerPct) score *= 1.3;
+            if (s.hpPct)    score *= 1.2;
+            if (s.ahFlat && (isMagic || role === 'SUPPORT')) score *= 1.25;
+            // Speciální items jsou drahé v early — penalizuj
+            if (item.group === 'special') score *= 0.75;
+        }
+        // Late: preferuj pen, burn, lifesteal, GW — základní staty mají DR
+        if (phase === 'late') {
+            if (s.penPct)        score *= 1.3;
+            if (s.maxHpDmgPct || s.strikeBurnPct) score *= 1.2;
+            if (s.lifestealPct && role !== 'SUPPORT' && role !== 'TANK') score *= 1.2;
+            if (s.powerPct && stackCount >= 2) score *= 0.7; // 3.+ power je overkill
+        }
+
+        // Ability haste: výrazně lepší pro casters (každý spell se vrátí rychleji)
+        if (s.ahFlat) {
+            const castHeavy = isMagic || role === 'SUPPORT';
+            if (castHeavy) score *= 1.4;
+        }
+
+        // Lifesteal: skoro zbytečná pro tanky a supporty
+        if (s.lifestealPct && (role === 'TANK' || role === 'SUPPORT')) score *= 0.3;
+
+        // Slow on-hit: výborný pro melee kteří potřebují udržet target
+        if (s.slowOnHit && !owner.range && role !== 'SUPPORT') score *= 1.2;
+
+        // Move speed: výborný pro meleeho, slabý pro range
+        if (s.msPct && owner.range) score *= 0.6;
+        if (s.msPct && !owner.range && role !== 'TANK') score *= 1.3;
+
         // --- COUNTER BUILD LOGIKA ---
-        if (enemies && enemies.length > 0 && item.stats && score > 0) {
+        if (enemies && enemies.length > 0 && score > 0) {
             let avgArmor = 0, avgMR = 0, maxEnemyHp = 0, healingFactor = 0, physThreat = 0, magThreat = 0;
             for (let e of enemies) {
                 avgArmor += e.armor || 0;
-                avgMR += e.mr || 0;
-                if (e.maxHp > maxEnemyHp) maxEnemyHp = e.maxHp;
-                
-                // Odhadneme "Healing Threat" tohoto nepřítele
+                avgMR    += e.mr    || 0;
+                if ((e.maxHp || 0) > maxEnemyHp) maxEnemyHp = e.maxHp;
                 healingFactor += (e.lifesteal || 0) + (e.healPower || 0);
-                if (['Healer', 'Cleric', 'Doctor', 'Eggchanter', 'Jirina', 'Tamer'].includes(e.className)) {
-                    healingFactor += 0.5; 
+                if (['Healer', 'Cleric', 'Doctor', 'Eggchanter', 'Jirina', 'Tamer', 'Goliath', 'Hana'].includes(e.className)) {
+                    healingFactor += 0.5;
                 }
-
-                // Odhadnutí rozložení poškození nepřátel
                 if (e.dmgType === 'magical') magThreat += (e.AP || 0) * 1.5;
                 else physThreat += (e.AD || 0) * 1.5;
             }
             avgArmor /= enemies.length;
-            avgMR /= enemies.length;
-            let totalThreat = physThreat + magThreat || 1;
-            let physRatio = physThreat / totalThreat;
-            let magRatio = magThreat / totalThreat;
+            avgMR    /= enemies.length;
+            const totalThreat = physThreat + magThreat || 1;
+            const physRatio = physThreat / totalThreat;
+            const magRatio  = magThreat  / totalThreat;
 
-            // 1. Enemy má moc Armoru nebo MR? -> Obrovská priorita pro Penetraci
-            if (item.stats.penPct && (avgArmor > 70 || avgMR > 70)) score *= 2.5;
-            
-            // 2. Enemy tým má spoustu healingu/healerů? -> Obrovská priorita pro Anti-Heal (GW)
-            if (item.stats.grievousWounds && healingFactor > 0.4) score *= 3.0;
-            
-            // 3. Enemy má hodně Max HP? -> Zvedne prioritu pro Burn itemy (Procentuální poškození)
-            if ((item.stats.maxHpDmgPct || item.stats.strikeBurnPct) && maxEnemyHp > 1600) score *= 2.0;
+            // 1. Enemy tuhý (hodně resistencí) → priorita penetrace
+            if (s.penPct && (avgArmor > 55 || avgMR > 55)) score *= 1.8 + (Math.max(avgArmor, avgMR) - 55) / 60;
 
-            // 4. Adaptivní obrana -> Stavění správných resistencí (pokud dominuje AP nebo AD)
-            if (item.stats.armorPct && physRatio > 0.65) score *= 1.5 + (physRatio - 0.65);
-            if (item.stats.mrPct && magRatio > 0.65) score *= 1.5 + (magRatio - 0.65);
+            // 2. Mnoho healerů → GW má obrovskou hodnotu
+            if (s.grievousWounds && healingFactor > 0.3) score *= 2.5 + healingFactor;
+
+            // 3. Tanky s hodně HP → burn má high value
+            if ((s.maxHpDmgPct || s.strikeBurnPct) && maxEnemyHp > 1400) score *= 1.5 + (maxEnemyHp - 1400) / 1200;
+
+            // 4. Adaptivní obrana — stav tu rezistenci které přijde hrozba
+            if (s.armorPct && physRatio > 0.60) score *= 1.4 + (physRatio - 0.60) * 2;
+            if (s.mrPct    && magRatio  > 0.60) score *= 1.4 + (magRatio  - 0.60) * 2;
+
+            // 5. Heal power: pouze pokud mám spelly které hojí
+            const hasHeals = owner.spells && Object.values(owner.spells).some(sp => sp && sp.type && sp.type.includes('heal'));
+            if (s.healPower && !hasHeals) score *= 0.15;
         }
 
         return score;
@@ -1840,6 +1890,24 @@ export class BotPlayer extends Player {
         }
 
         return bestItem;
+    }
+
+    // Nakup všechna dostupná items které si bot může dovolit (voláno po gold update)
+    static botBuyItems(bot, enemies) {
+        if (!bot || !recalcPlayerItemStats) return;
+        let bought = true;
+        while (bought) {
+            bought = false;
+            const item = BotPlayer.pickBuyableItem(bot, null, enemies);
+            if (!item) break;
+            const cost = getItemBuyCost(bot, item);
+            if (bot.gold < cost || !canBuyShopItem(bot, item).ok) break;
+            bot.gold -= cost;
+            bot.items.push(item.id);
+            recalcPlayerItemStats(bot);
+            bot.isDirty = true;
+            bought = true;
+        }
     }
 
     /* --- OLD ITEM PATH LOGIC (DISABLED) ---
@@ -2121,12 +2189,13 @@ export class BotPlayer extends Player {
 
     levelUp() {
         super.levelUp();
-        let extraMod = (this.difficultyMod || 1.0) - 1.0;
+        const extraMod = (this.difficultyMod || 1.0) - 1.0;
         if (extraMod !== 0 && (!socket || game.isHost)) {
-            this.maxHp += Math.round(15 * extraMod);
-            this.hp += Math.round(15 * extraMod);
-            this.AD += Math.round(1 * extraMod);
-            this.AP += Math.round(1 * extraMod);
+            const statGain = this.role === 'SLAYER' ? 0.9 : 1;
+            // Kumuluj difficulty bonusy — recalcPlayerItemStats je pak aplikuje nad base+items
+            this.diffBonusHP    = (this.diffBonusHP    || 0) + Math.round(15 * extraMod);
+            this.diffBonusAD    = (this.diffBonusAD    || 0) + Math.round(statGain * extraMod);
+            this.diffBonusAP    = (this.diffBonusAP    || 0) + Math.round(statGain * extraMod);
             this.isDirty = true;
         }
     }
@@ -2473,21 +2542,7 @@ export class BotPlayer extends Player {
                     if (bot.gold >= cost) {
                         bot.gold -= cost;
                         bot.items.push(item.id);
-
-                        const cData = CLASSES[bot.className];
-                        recalcPlayerItemStats(bot);
-
-                        // Apply difficulty modifier on item-derived stats (above base class)
-                        const extraMod = (bot.difficultyMod || 1.0) - 1.0;
-                        if (extraMod !== 0 && cData) {
-                            const dHp = bot.maxHp - cData.hp;
-                            const dHP = Math.round(dHp * extraMod);
-                            bot.maxHp += dHP; bot.hp = Math.min(bot.maxHp, bot.hp + dHP);
-                            bot.AD += Math.round((bot.AD - cData.baseAD) * extraMod);
-                            bot.AP += Math.round((bot.AP - cData.baseAP) * extraMod);
-                            bot.armor += Math.round((bot.armor - cData.baseArmor) * extraMod);
-                            bot.mr += Math.round((bot.mr - cData.baseMR) * extraMod);
-                        }
+                        recalcPlayerItemStats(bot); // difficulty bonusy jsou v diffBonus* a aplikují se uvnitř
                         bot.isDirty = true;
                     }
                 }
@@ -2712,15 +2767,22 @@ export class BotPlayer extends Player {
           if (alliesOnTower >= this.maxGroupSize) score -= this.personalWeights.overcrowdedTowerPenalty;
           else if (alliesOnTower === 0) score += this.personalWeights.emptyTowerScore;
           
+          // PROGRES BONUS: Neodchází od věže, když už to skoro má — ale ne pokud jsou kolem nepřátelé!
           if (this.state === 'CAPTURE' && this.objective === t) {
-              score += this.personalWeights.objectiveHysteresis;
-              // PROGRES BONUS: Neodchází, když už to skoro má!
-              let progressVal = (this.team === 0) ? (t.control + 100)/200 : (100 - t.control)/200; // 0 až 1
-              if (progressVal > 0) score += progressVal * 20000; 
+              const inCapRadius = dist(this.pos, t.pos) <= (t.captureRadius || 80);
+              const enemiesNearCap = inCapRadius ? aliveEnemies.filter(e => dist(e.pos, this.pos) < 500).length : 0;
+              if (enemiesNearCap === 0) {
+                  score += this.personalWeights.objectiveHysteresis;
+                  let progressVal = (this.team === 0) ? (t.control + 100)/200 : (100 - t.control)/200;
+                  if (progressVal > 0) score += progressVal * 20000;
+              }
           }
-          
+
           // ROZKAZ OD CENTRÁLNÍHO MOZKU PŘEBÍJÍ VŠE
-          if (this.macroOrder && ['DEFEND', 'SNEAK_CAPTURE', 'ASSAULT'].includes(this.macroOrder.type) && this.macroOrder.target === t) {
+          // Výjimka: pokud jsme v capture radiusu a nepřátelé jsou blízko, bojujeme — nepřipínáme k věži
+          const inCapRadius2 = this.state === 'CAPTURE' && this.objective === t && dist(this.pos, t.pos) <= (t.captureRadius || 80);
+          const enemiesNearCapture = inCapRadius2 ? aliveEnemies.filter(e => dist(e.pos, this.pos) < 500).length : 0;
+          if (this.macroOrder && ['DEFEND', 'SNEAK_CAPTURE', 'ASSAULT'].includes(this.macroOrder.type) && this.macroOrder.target === t && enemiesNearCapture === 0) {
               score += 60000;
           }
           if (this.macroOrder && this.macroOrder.type === 'PUSH_LANE' && this.macroOrder.target === t) {
