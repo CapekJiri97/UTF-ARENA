@@ -15,28 +15,10 @@ import { dist } from './Utils.js';
 // Žádní minioni, žádné healy, žádné powerupy.
 
 const SCORE_CAP        = 150;   // body pro výhru
-const HOLD_POINTS      = 5;     // body za 10 sekund držení věže
-const HOLD_INTERVAL    = 10.0;  // sekund mezi bodováním za držení
+const HOLD_POINTS      = 3;     // body za 10 sekund držení věže
+const HOLD_INTERVAL    = 6.0;  // sekund mezi bodováním za držení
 const KILL_POINTS      = 1;     // bod za kill
 
-// TTS varovné prahy — analogie k nexus HP, ale pro body
-const WARN_NEAR   = 120;  // "120 points!"
-const WARN_CLOSE  = 140;  // "140 points!"
-
-const _ttsSpoken = { 0: {}, 1: {} };
-
-function speakScore(team, score) {
-  if (typeof speechSynthesis === 'undefined') return;
-  const key = score >= WARN_CLOSE ? 'close' : score >= WARN_NEAR ? 'near' : null;
-  if (!key || _ttsSpoken[team][key]) return;
-  _ttsSpoken[team][key] = true;
-  const teamName = team === 0 ? 'Blue' : 'Red';
-  const pts = score >= WARN_CLOSE ? WARN_CLOSE : WARN_NEAR;
-  const msg = new SpeechSynthesisUtterance(`${teamName} team at ${pts} points!`);
-  msg.lang = 'en-US'; msg.volume = 1.0; msg.rate = 1.1;
-  msg.pitch = team === 0 ? 1.2 : 0.85;
-  speechSynthesis.speak(msg);
-}
 
 export const GameMode_Arena = {
   name: 'arena',
@@ -54,12 +36,12 @@ export const GameMode_Arena = {
     camera.scale = 1.52;
 
     this.camps = [
-        { x: 2350, y: 160, buff: 'AS_AH', glyph: 'A', color: '#ffff00', respawnTimer: 0, m: null }, // Nahoře Vpravo
-        { x: 1700, y: 120, buff: 'POWER', glyph: 'P', color: '#ff4444', respawnTimer: 0, m: null }, // Nahoře Střed
-        { x: 1050, y: 160, buff: 'TANK', glyph: 'T', color: '#44ff44', respawnTimer: 0, m: null },  // Nahoře Vlevo
-        { x: 2350, y: 1180, buff: 'TANK', glyph: 'T', color: '#44ff44', respawnTimer: 0, m: null }, // Dole Vpravo
-        { x: 1700, y: 1220, buff: 'POWER', glyph: 'P', color: '#ff4444', respawnTimer: 0, m: null },// Dole Střed
-        { x: 1050, y: 1180, buff: 'AS_AH', glyph: 'A', color: '#ffff00', respawnTimer: 0, m: null } // Dole Vlevo
+        { x: 2350, y: 160, buff: 'AS_AH', glyph: 'A', color: '#4a53d0', respawnTimer: 0, m: null }, // Nahoře Vpravo
+        { x: 1700, y: 120, buff: 'POWER', glyph: 'P', color: '#f98101', respawnTimer: 0, m: null }, // Nahoře Střed
+        { x: 1050, y: 160, buff: 'TANK', glyph: 'T', color: '#0da20d', respawnTimer: 0, m: null },  // Nahoře Vlevo
+        { x: 2350, y: 1180, buff: 'TANK', glyph: 'T', color: '#0da20d', respawnTimer: 0, m: null }, // Dole Vpravo
+        { x: 1700, y: 1220, buff: 'POWER', glyph: 'P', color: '#f98101', respawnTimer: 0, m: null },// Dole Střed
+        { x: 1050, y: 1180, buff: 'AS_AH', glyph: 'A', color: '#4a53d0', respawnTimer: 0, m: null } // Dole Vlevo
     ];
 
     // Věž začíná neutrální
