@@ -198,6 +198,8 @@ import { initAudio, playSound } from './Audio.js';
         if (tower) { 
             if (tower.owner !== tData.o && tData.o !== -1) game.shake = 0.3; // Zemětřesení pro klienty při zabrání
             tower.control = tData.c; tower.owner = tData.o; 
+            if (tData.l !== undefined) tower.isLocked = tData.l;
+            if (tData.u !== undefined) tower.unlockTimer = tData.u;
         }
       });
       // Sdílení lékárniček, powerupů a životů základen z Hosta na Klienty
@@ -604,6 +606,7 @@ import { initAudio, playSound } from './Audio.js';
     
     // PŘIDÁNO: Centrální registrace mrtvých minionů pro prevenci "duchů" a falešných duplicitních zisků goldů
     if (target instanceof Minion && target.hp <= 0) {
+        if (typeof target._handleJungleDeath === 'function') target._handleJungleDeath();
         if (!game.deadMinionIds) game.deadMinionIds = new Set();
         game.deadMinionIds.add(target.id);
     }
@@ -1281,7 +1284,7 @@ import { initAudio, playSound } from './Audio.js';
                         towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0,
                         powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown ? { ...p.pcsBreakdown } : null
                     })),
-                    towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner})),
+                    towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner, l: t.isLocked, u: t.unlockTimer})),
                     heals: game.heals.map(h => h.active),
                     powerup: game.powerup ? { a: game.powerup.active, c: game.powerup.captureTimer } : null,
                     nexus: [game.nexus[0], game.nexus[1]]

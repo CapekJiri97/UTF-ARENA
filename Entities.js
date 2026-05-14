@@ -129,6 +129,8 @@ export class Tower{
     this.dead  = false;
     // LoL agro: tracks which enemy hero last attacked an ally in range
     this._aggroTarget = null;
+    this.isLocked = false;
+    this.unlockTimer = 0;
   }
   update(dt){ if(game.gameOver) return;
     if (this.dead) {
@@ -137,6 +139,18 @@ export class Tower{
       }
       return;
     }
+
+    if (this.isLocked) {
+        this.unlockTimer -= dt;
+        if (this.unlockTimer <= 0) {
+            this.isLocked = false;
+            if (!socket || game.isHost) {
+                game.effectTexts.push(new EffectText(this.pos.x, this.pos.y-40, "UNLOCKED!", '#0f0'));
+            }
+        }
+        return; // Dokud je zamčeno, nelze obsadit ani věž nestřílí
+    }
+
     if (!socket || game.isHost) {
       // Capture logika — jen v Classic (ARAM věže mají HP a ničí se)
       if (this.maxHp === null) {
@@ -282,6 +296,17 @@ export class Tower{
     if (this.dead) return;
     ctx.font='20px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
     const color = this.owner>=0 ? TEAM_COLOR[this.owner] : NEUTRAL_COLOR;
+    
+    if (this.isLocked) {
+        ctx.fillStyle = '#666'; ctx.fillText('L', this.pos.x, this.pos.y);
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace';
+        ctx.fillText(`Unlocks in ${Math.ceil(this.unlockTimer)}s`, this.pos.x, this.pos.y - 25);
+        
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.captureRadius, 0, Math.PI*2); ctx.stroke();
+        return; // Během zámku nevykreslujeme HP ani obsazovací ring
+    }
+
     ctx.fillStyle = color; ctx.fillText('T', this.pos.x, this.pos.y);
 
     // HP bar pro ARAM věže

@@ -47,6 +47,8 @@ export const GameMode_Arena = {
     setTimeout(() => {
       for (const t of game.towers) {
         t.owner = -1; t.control = 0;
+        t.isLocked = true;
+        t.unlockTimer = 30.0;
       }
     }, 0);
   },
@@ -100,6 +102,12 @@ export const GameMode_Arena = {
                   if (this.camp) this.camp.respawnTimer = 150.0;
                   if (!socket || game.isHost) {
                     let killer = game.players.find(p => p.id === this.lastAttackerId);
+                    if (!killer) {
+                        let kMinion = game.minions.find(m => m.id === this.lastAttackerId);
+                        if (kMinion && kMinion.ownerId) {
+                            killer = game.players.find(p => p.id === kMinion.ownerId);
+                        }
+                    }
                     if (killer) {
                       if (this.camp.buff === 'POWER') killer.junglePowerTimer = 120.0;
                       else if (this.camp.buff === 'AS_AH') killer.jungleAsAhTimer = 120.0;
@@ -119,8 +127,8 @@ export const GameMode_Arena = {
                     
                     // Zabíjení monstra a předávání buffu
                     if (this.hp <= 0) {
-                    if (typeof this._handleJungleDeath === 'function') this._handleJungleDeath();
-                    this.dead = true;
+                        if (typeof this._handleJungleDeath === 'function') this._handleJungleDeath();
+                        this.dead = true;
                         return;
                     }
                     
@@ -128,12 +136,26 @@ export const GameMode_Arena = {
                     if (this.attackCooldown > 0) this.attackCooldown -= dt;
                     if (this.knockbackTimer > 0) { this.knockbackTimer -= dt; return; }
                     
-                    if (this.lastAttackerId && !this.targetHeroId) this.targetHeroId = this.lastAttackerId;
-                    
-                    let target = game.players.find(p => p.id === this.targetHeroId);
                     let distToCamp = dist(this.pos, {x: this.camp.x, y: this.camp.y});
                     
-                    if (target && target.alive && distToCamp < 250) {
+                    if (distToCamp >= 250) {
+                        this.isResetting = true;
+                    }
+                    
+                    if (this.isResetting && distToCamp < 10) {
+                        this.isResetting = false;
+                        this.lastAttackerId = null;
+                        this.targetHeroId = null;
+                    }
+                    
+                    if (this.lastAttackerId && !this.targetHeroId && !this.isResetting) {
+                        this.targetHeroId = this.lastAttackerId;
+                    }
+                    
+                    let target = game.players.find(p => p.id === this.targetHeroId) || game.minions.find(m => m.id === this.targetHeroId);
+                    let isTargetValid = target && (target.alive !== false && !target.dead);
+                    
+                    if (isTargetValid && !this.isResetting) {
                         let d = dist(this.pos, target.pos);
                         if (d <= 65) {
                             if (this.attackCooldown <= 0) {
@@ -146,8 +168,14 @@ export const GameMode_Arena = {
                         } else { let dx = target.pos.x - this.pos.x, dy = target.pos.y - this.pos.y; let l = Math.hypot(dx, dy); this.pos.x += (dx/l)*this.speed*dt; this.pos.y += (dy/l)*this.speed*dt; }
                     } else {
                         this.targetHeroId = null;
-                        if (distToCamp > 10) { let dx = this.camp.x - this.pos.x, dy = this.camp.y - this.pos.y; let l = Math.hypot(dx, dy); this.pos.x += (dx/l)*this.speed*dt; this.pos.y += (dy/l)*this.speed*dt; this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.15 * dt); } 
-                        else { this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.15 * dt); }
+                        if (distToCamp > 10) { 
+                            let dx = this.camp.x - this.pos.x, dy = this.camp.y - this.pos.y; let l = Math.hypot(dx, dy); 
+                            this.pos.x += (dx/l)*this.speed*dt; this.pos.y += (dy/l)*this.speed*dt; 
+                            this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.15 * dt); 
+                        } else { 
+                            this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.15 * dt); 
+                            this.lastAttackerId = null;
+                        }
                     }
                 };
                 
