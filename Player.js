@@ -1162,7 +1162,8 @@ export class Player{
         game.projectiles.push(new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), vx, vy, this.id, this.team, {
             damage: damage, dmgType: this.dmgType, glyph: sp.pGlyph, life: life,
             spawnMinion: true, mGlyph: sp.summonGlyph, mHp: sumHp, mAd: sumAd,
-            slowDuration: slowDur, slowMod: slowMod, isSpell: true
+            slowDuration: slowDur, slowMod: slowMod, isSpell: true,
+            spawnDeathTimer: sp.spawnDeathTimer || 0, spawnDeathPercent: 0.20
         }));
     } else if (sp.type === 'buff_ad_as') {
         this.adAsBuffTimer = sp.duration;
@@ -1339,6 +1340,7 @@ export class Player{
                 m.maxHp = Math.round(damage * 1.5); m.hp = m.maxHp; m.attackDamage = Math.round(damage * 0.35);
                 m.glyph = sp.mGlyph || 'g';
                 m.isSummon = true; m.ownerId = this.id; m.speed = 115;
+                m.spawnDeathTimer = sp.spawnDeathTimer || 0; m.deathDamagePercent = 0.15;
                 game.minions.push(m);
             }
         }

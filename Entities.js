@@ -90,6 +90,7 @@ export class Projectile{
           m.maxHp = this.opts.mHp || 100; m.hp = m.maxHp; m.attackDamage = this.opts.mAd || 10;
           m.glyph = this.opts.mGlyph || 'b';
               m.isSummon = true; m.ownerId = this.ownerId; m.speed = 135;
+          m.spawnDeathTimer = this.opts.spawnDeathTimer || 0; m.deathDamagePercent = this.opts.spawnDeathPercent || 0.20;
           game.minions.push(m);
           spawnParticles(this.pos.x, this.pos.y, 10, '#a3c');
       }
@@ -365,6 +366,7 @@ export class Minion{
     this.thinkTimer = Math.random() * 0.5; this.state = 'PUSH'; this.currentTarget = null;
     this.knockbackTimer = 0; this.knockbackVel = {x: 0, y: 0};
     this.stunTimer = 0; this.silenceTimer = 0;
+    this.spawnDeathTimer = 0; this.deathDamagePercent = 0; this.deathStartTime = null;
   }
   think() {
     let giveUpRange = this.isSummon ? 800 : (this.isRanged ? 280 : 200);
@@ -379,7 +381,19 @@ export class Minion{
         const enemyMinions = game.minions.filter(m => !m.dead && m.team !== this.team && m !== this);
         
         if (this.isSummon) {
-            for (const p of enemyPlayers) { const d = dist(this.pos, p.pos); if (d < minDist) { nearestEnemy = p; minDist = d; } }
+            // Ghouls prioritize slowed and silenced targets
+            let slowedSilencedEnemy = null, slowedSilencedDist = minDist;
+            for (const p of enemyPlayers) { 
+                const d = dist(this.pos, p.pos);
+                if (d < minDist) {
+                    if ((p.slowTimer > 0 || p.silenceTimer > 0) && d < slowedSilencedDist) {
+                        slowedSilencedEnemy = p; slowedSilencedDist = d;
+                    } else if (!slowedSilencedEnemy) {
+                        nearestEnemy = p; minDist = d;
+                    }
+                }
+            }
+            if (slowedSilencedEnemy) nearestEnemy = slowedSilencedEnemy;
         }
         if (!nearestEnemy) {
             const potentialTargets = [...enemyPlayers, ...enemyMinions];
@@ -410,6 +424,19 @@ export class Minion{
         if (this.team === 0 && this.targetIndex < 5) this.targetIndex++;
         if (this.team === 1 && this.targetIndex < 2) this.targetIndex++;
     }
+    
+    // Handle summon death timer (e.g. Pheasant after 6s or Ghoul after 8s)
+    if (this.isSummon && this.spawnDeathTimer > 0 && (!socket || game.isHost)) {
+        if (this.deathStartTime === null) this.deathStartTime = 0;
+        this.deathStartTime += dt;
+        if (this.deathStartTime >= this.spawnDeathTimer) {
+            // Start dying: take percentage of max HP per second
+            const deathDamage = this.maxHp * this.deathDamagePercent * dt;
+            this.hp -= deathDamage;
+            if (Math.random() < 0.1) spawnParticles(this.pos.x, this.pos.y, 1, '#f00', {life: 0.3});
+        }
+    }
+    
     if(this.hp <= 0 && !this.dead) {
       if (typeof this._handleJungleDeath === 'function') this._handleJungleDeath();
       this.dead = true;

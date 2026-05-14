@@ -12,10 +12,10 @@ export const shopItems = [
 ];
 */
 
-const BASIC_COST = 300;
-const BASIC_STEP = 15;
-const SPECIAL_COST = 500;
-const SPECIAL_STEP = 25;
+const BASIC_COST = 250;
+const BASIC_STEP = 25;
+const SPECIAL_COST = 525;
+const SPECIAL_STEP = 50;
 
 const capAdd = (current, add, cap) => {
   if (cap === undefined || cap === null) return current + add;
@@ -30,30 +30,30 @@ const applyMoveSpeedPct = (pl, pctAdd, capPct) => {
 };
 
 export const shopItems = [
-  // ── BASIC STATS (300g, +15g per same item) ───────────────────────────
+  // ── BASIC STATS (250g, +25g per same item) ───────────────────────────
   {
     id: 'basic_power', name: 'Basic Power', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { powerPct: 0.15 },
-    apply: (pl) => { addAdaptive(pl, 0.15); }
+    stats: { powerPct: 0.20 },
+    apply: (pl) => { addAdaptive(pl, 0.20); }
   },
   {
     id: 'basic_hp', name: 'Basic HP', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { hpPct: 0.12 },
-    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.12); pl.maxHp += h; pl.hp += h; }
+    stats: { hpPct: 0.14 },
+    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.14); pl.maxHp += h; pl.hp += h; }
   },
   {
     id: 'basic_armor', name: 'Basic Armor', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { armorPct: 0.20 },
-    apply: (pl) => { pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.20); }
+    stats: { armorPct: 0.25 },
+    apply: (pl) => { pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.25); }
   },
   {
     id: 'basic_mr', name: 'Basic MR', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { mrPct: 0.20 },
-    apply: (pl) => { pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.20); }
+    stats: { mrPct: 0.25 },
+    apply: (pl) => { pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.25); }
   },
   {
     id: 'basic_haste', name: 'Basic Haste', group: 'basic',
@@ -64,11 +64,11 @@ export const shopItems = [
   {
     id: 'basic_as', name: 'Basic Attack Speed', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { asPct: 0.12 },
-    apply: (pl) => { pl.attackSpeed += 0.12; }
+    stats: { asPct: 0.15 },
+    apply: (pl) => { pl.attackSpeed += 0.15; }
   },
 
-  // ── SPECIAL EFFECTS (500g, +25g per same item) ───────────────────────
+  // ── SPECIAL EFFECTS (525gs, +50g per same item) ───────────────────────
   {
     id: 'special_lifesteal', name: 'Special Lifesteal', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
@@ -90,8 +90,8 @@ export const shopItems = [
   {
     id: 'special_pen', name: 'Special Penetration', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { penPct: 0.12 }, caps: { penPct: 0.60 },
-    apply: (pl) => { pl.adaptivePen = capAdd(pl.adaptivePen || 0, 0.12, 0.60); }
+    stats: { penPct: 0.15}, caps: { penPct: 0.60 },
+    apply: (pl) => { pl.adaptivePen = capAdd(pl.adaptivePen || 0, 0.15, 0.60); }
   },
   {
     id: 'special_burn', name: 'Special Burn Aura', group: 'special',
