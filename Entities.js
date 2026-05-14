@@ -12,7 +12,9 @@ export class Projectile{
     this.color = ownerTeam === 0 ? '#486FED' : (ownerTeam === 1 ? '#FF4E4E' : '#fff'); 
     this.opts = opts; }
   update(dt){ if(this.dead) return; this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; if(this.life<=0) this.dead = true;
-    if(!isPointInPoly(this.pos.x, this.pos.y, activeGameMode.mapConfig.mapBoundary)) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; }
+    // Boundary check only every other frame (boundary is large, projectiles move slowly relative to it)
+    this._boundaryTick = (this._boundaryTick || 0) + 1;
+    if(this._boundaryTick >= 2) { this._boundaryTick = 0; if(!isPointInPoly(this.pos.x, this.pos.y, activeGameMode.mapConfig.mapBoundary)) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; } }
 
 
 
@@ -323,17 +325,21 @@ export class Tower{
       ctx.fillText(Math.ceil(this.hp) + '/' + this.maxHp, this.pos.x, by - 3);
     }
 
-    // Capture ring (jen classic)
+    // Capture ring (jen classic) — arc místo fillText smyčky (5× méně draw callů)
     if (this.maxHp === null) {
-      let pct = Math.max(0, Math.min(1, Math.abs(this.control) / 100));
-      let progressAngle = -Math.PI/2 + pct * Math.PI*2;
-      ctx.font='10px monospace';
-      for(let a = -Math.PI/2; a < Math.PI*1.5; a += 0.2) {
-          let isCaptured = pct > 0 && a <= progressAngle;
-          let char = isCaptured ? '#' : '.';
-          ctx.fillStyle = isCaptured ? ((this.control > 0 || this.owner === 0) ? TEAM_COLOR[0] : TEAM_COLOR[1]) : 'rgba(255,255,255,0.2)';
-          ctx.fillText(char, this.pos.x + Math.cos(a)*this.captureRadius, this.pos.y + Math.sin(a)*this.captureRadius);
+      const pct = Math.max(0, Math.min(1, Math.abs(this.control) / 100));
+      const r = this.captureRadius;
+      ctx.lineWidth = 4;
+      // Prázdný kruh (základ)
+      ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, r, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.stroke();
+      // Vyplněný oblouk (progress)
+      if (pct > 0) {
+        const capColor = (this.control > 0 || this.owner === 0) ? TEAM_COLOR[0] : TEAM_COLOR[1];
+        ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, r, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2);
+        ctx.strokeStyle = capColor; ctx.stroke();
       }
+      ctx.lineWidth = 1;
     }
   }
 }
@@ -369,38 +375,37 @@ export class Minion{
     this.spawnDeathTimer = 0; this.deathDamagePercent = 0; this.deathStartTime = null;
   }
   think() {
+    const isArena = activeGameMode && activeGameMode.name === 'arena';
     let giveUpRange = this.isSummon ? 800 : (this.isRanged ? 280 : 200);
-    if (activeGameMode && activeGameMode.name === 'arena' && !this.isSummon) giveUpRange = 120; // Rychleji ztratí zájem a vrátí se k postupu
+    if (isArena && !this.isSummon) giveUpRange = 120;
     if (this.currentTarget && (this.currentTarget.dead || this.currentTarget.hp <= 0 || dist(this.pos, this.currentTarget.pos) > giveUpRange)) {
         this.currentTarget = null; this.state = 'PUSH';
     }
     if (this.state === 'PUSH') {
         let nearestEnemy = null, minDist = this.isSummon ? 600 : (this.isRanged ? 200 : 150);
-        if (activeGameMode && activeGameMode.name === 'arena' && !this.isSummon) minDist = 100; // Mají klapky na očích a hledí si své cesty
-        const enemyPlayers = game.players.filter(p => p.alive && p.team !== this.team);
-        const enemyMinions = game.minions.filter(m => !m.dead && m.team !== this.team && m !== this);
-        
-        if (this.isSummon) {
-            // Ghouls prioritize slowed and silenced targets
-            let slowedSilencedEnemy = null, slowedSilencedDist = minDist;
-            for (const p of enemyPlayers) { 
-                const d = dist(this.pos, p.pos);
+        if (isArena && !this.isSummon) minDist = 100;
+        let slowedSilencedEnemy = null, slowedSilencedDist = minDist;
+
+        for (const p of game.players) {
+            if (!p.alive || p.team === this.team) continue;
+            const d = dist(this.pos, p.pos);
+            if (this.isSummon) {
                 if (d < minDist) {
-                    if ((p.slowTimer > 0 || p.silenceTimer > 0) && d < slowedSilencedDist) {
-                        slowedSilencedEnemy = p; slowedSilencedDist = d;
-                    } else if (!slowedSilencedEnemy) {
-                        nearestEnemy = p; minDist = d;
-                    }
+                    if ((p.slowTimer > 0 || p.silenceTimer > 0) && d < slowedSilencedDist) { slowedSilencedEnemy = p; slowedSilencedDist = d; }
+                    else if (!slowedSilencedEnemy) { nearestEnemy = p; minDist = d; }
                 }
+            } else {
+                let eff = d; if (isArena) eff += 200;
+                if (eff < minDist) { nearestEnemy = p; minDist = eff; }
             }
-            if (slowedSilencedEnemy) nearestEnemy = slowedSilencedEnemy;
         }
+        if (this.isSummon && slowedSilencedEnemy) nearestEnemy = slowedSilencedEnemy;
+
         if (!nearestEnemy) {
-            const potentialTargets = [...enemyPlayers, ...enemyMinions];
-            for (const t of potentialTargets) { 
-                let d = dist(this.pos, t.pos); 
-                if (activeGameMode && activeGameMode.name === 'arena' && !this.isSummon && t.className) d += 200; // Silně ignorují hrdiny
-                if (d < minDist) { nearestEnemy = t; minDist = d; } 
+            for (const m of game.minions) {
+                if (m.dead || m.team === this.team || m === this) continue;
+                const d = dist(this.pos, m.pos);
+                if (d < minDist) { nearestEnemy = m; minDist = d; }
             }
         }
         if (nearestEnemy) { this.state = 'ATTACK'; this.currentTarget = nearestEnemy; }
@@ -602,14 +607,16 @@ export class PowerUp {
     ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 24px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; 
     ctx.fillText('PP', this.pos.x, this.pos.y);
     
-    ctx.font = '12px monospace';
-    let progressAngle = -Math.PI/2 + (this.captureTimer / 10.0) * Math.PI*2;
-    for(let a = -Math.PI/2; a < Math.PI*1.5; a += 0.2) {
-        let isCaptured = this.captureTimer > 0 && a <= progressAngle;
-        ctx.fillStyle = isCaptured ? '#ffcc00' : 'rgba(255, 204, 0, 0.3)';
-        let char = isCaptured ? '#' : '.';
-        ctx.fillText(char, this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius);
+    // Capture ring — arc místo fillText smyčky
+    const _ppPct = Math.min(1, this.captureTimer / 10.0);
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,204,0,0.2)'; ctx.stroke();
+    if (_ppPct > 0) {
+        ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, -Math.PI / 2, -Math.PI / 2 + _ppPct * Math.PI * 2);
+        ctx.strokeStyle = '#ffcc00'; ctx.stroke();
     }
+    ctx.lineWidth = 1;
     
     if(this.captureTimer > 0) { 
         ctx.font = '16px monospace'; ctx.fillStyle = '#ffcc00'; 

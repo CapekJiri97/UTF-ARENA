@@ -354,6 +354,7 @@ export class Player{
       if (this.beamTimer > 0) {
           if (this.beamTimer !== 9999) this.beamTimer -= dt;
           let target = game.players.find(p => p.id === this.beamTargetId);
+          this._beamTargetCache = target || null;
           let breakRange = (this.beamData ? this.beamData.range : 150) + 50; // Drobná buffer zóna na utržení
           if (!target || target.dead || target.hp <= 0 || dist(this.pos, target.pos) > breakRange || this.stunTimer > 0 || this.silenceTimer > 0) {
               this.beamTimer = 0; this.beamTargetId = null; this.uberChargeTimer = 0; this.uberChargeTriggered = false;
@@ -983,19 +984,14 @@ export class Player{
     }
 
     if (this.beamTimer > 0 && this.beamTargetId) {
-        let target = game.players.find(p => p.id === this.beamTargetId) || game.minions.find(m => m.id === this.beamTargetId);
-        if (target) {
+        const _bt = this._beamTargetCache;
+        if (_bt && _bt.alive !== false && !_bt.dead) {
             ctx.save();
             ctx.beginPath();
             ctx.moveTo(this.pos.x, this.pos.y);
-            ctx.lineTo(target.pos.x, target.pos.y);
-            ctx.strokeStyle = 'rgba(0, 255, 100, 0.25)';
+            ctx.lineTo(_bt.pos.x, _bt.pos.y);
+            ctx.strokeStyle = 'rgba(0, 255, 100, 0.35)';
             ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([10, 10]);
-            ctx.lineDashOffset = -performance.now() / 20;
             ctx.stroke();
             ctx.restore();
         }

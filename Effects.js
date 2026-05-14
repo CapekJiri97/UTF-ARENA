@@ -2,7 +2,7 @@ import { game } from './State.js';
 const _isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 // PERFORMANCE: Reduce particle limit on mobile/low-power devices
-const PARTICLE_CAP = _isMobile ? 600 : 1500;
+const PARTICLE_CAP = _isMobile ? 400 : 800;
 
 export class Particle {
   constructor(x, y, color, opts={}) {
@@ -22,26 +22,35 @@ export class Particle {
     this.stretchY = opts.stretchY || 1;
   }
   update(dt) { this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; this.size = Math.max(1, this.size + this.grow * dt); }
-  draw(ctx) { 
-    ctx.save(); ctx.globalAlpha = Math.max(0, this.life/this.maxLife); 
+  draw(ctx) {
+    const alpha = Math.max(0, this.life / this.maxLife);
+    const needsSave = this.rotate || this.stretchX !== 1 || this.stretchY !== 1;
+    const prevAlpha = ctx.globalAlpha;
+    ctx.globalAlpha = alpha;
     if(this.shape === 'ring') {
       ctx.strokeStyle = this.color; ctx.lineWidth = this.lineWidth;
       ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI*2); ctx.stroke();
     } else if (this.shape === 'arc') {
       ctx.strokeStyle = this.color; ctx.lineWidth = this.lineWidth;
-      ctx.beginPath(); 
+      ctx.beginPath();
       ctx.moveTo(this.pos.x, this.pos.y);
-      ctx.arc(this.pos.x, this.pos.y, this.radius, this.angle - this.cone/2, this.angle + this.cone/2); 
-      ctx.closePath();
-      ctx.stroke();
-    } else {
-      ctx.fillStyle = this.color; ctx.font = this.size+'px monospace'; 
+      ctx.arc(this.pos.x, this.pos.y, this.radius, this.angle - this.cone/2, this.angle + this.cone/2);
+      ctx.closePath(); ctx.stroke();
+    } else if (needsSave) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = this.color; ctx.font = this.size + 'px monospace';
       ctx.translate(this.pos.x, this.pos.y);
       if(this.rotate) ctx.rotate(this.angle);
       if(this.stretchX !== 1 || this.stretchY !== 1) ctx.scale(this.stretchX, this.stretchY);
       ctx.fillText(this.glyph, 0, 0);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = this.color; ctx.font = this.size + 'px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(this.glyph, this.pos.x, this.pos.y);
     }
-    ctx.restore(); 
+    ctx.globalAlpha = prevAlpha;
   }
 }
 
