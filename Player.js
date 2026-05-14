@@ -269,7 +269,6 @@ export class Player{
 
           let dx = 0, dy = 0;
           const ownerDist = dist(this.pos, owner.pos);
-          if (ownerDist > 250) {
           if (ownerDist > 187) {
               target = null;
               dx = owner.pos.x - this.pos.x; dy = owner.pos.y - this.pos.y;
@@ -299,7 +298,6 @@ export class Player{
                   }
               } else { dx = target.pos.x - this.pos.x; dy = target.pos.y - this.pos.y; }
           } else {
-              if (ownerDist > 250) {
               if (ownerDist > 187) {
                   dx = owner.pos.x - this.pos.x; dy = owner.pos.y - this.pos.y;
               } else {
@@ -308,7 +306,6 @@ export class Player{
                   let fy = owner.pos.y + Math.sin(fAng) * 120;
                   let d = dist(this.pos, {x: fx, y: fy});
                   if (d > 40) { dx = fx - this.pos.x; dy = fy - this.pos.y; }
-                  if (ownerDist > 600) { this.pos.x = owner.pos.x + Math.cos(fAng) * 250; this.pos.y = owner.pos.y + Math.sin(fAng) * 250; }
                   if (ownerDist > 450) { this.pos.x = owner.pos.x + Math.cos(fAng) * 187; this.pos.y = owner.pos.y + Math.sin(fAng) * 187; }
               }
           }
@@ -3683,6 +3680,7 @@ export class BotPlayer extends Player {
                   this.shoot(tx, ty); 
                   let ja = this.jungleAsAhTimer > 0 ? 1.1 : 1.0;
                   let effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0) * ja;
+                  if (this.hanaBuffTimer > 0) effAS *= (this.spells.Q.bonusAsMult || 1.25);
                   this.attackCooldown = this.attackDelay / effAS; 
               }
               
@@ -3805,6 +3803,7 @@ export class BotPlayer extends Player {
                       this.shoot(kitingTarget.pos.x, kitingTarget.pos.y); 
                       let ja = this.jungleAsAhTimer > 0 ? 1.1 : 1.0;
                       let effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0) * ja;
+                      if (this.hanaBuffTimer > 0) effAS *= (this.spells.Q.bonusAsMult || 1.25);
                       this.attackCooldown = this.attackDelay / effAS; 
                   }
                   this.kitingSpellTimer = (this.kitingSpellTimer || 0) - dt;
