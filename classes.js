@@ -307,9 +307,9 @@ export const CLASSES = {
 
   Mage: {
     glyph: 'M', role: 'SLAYER', range: true, dmgType: 'magical', aaScale: 0.20,
-    hp: 700, speed: 112, attackDelay: 1.4,
-    baseAtk: 35, baseAD: 0, baseAP: 70,
-    baseArmor: 28, baseMR: 34,
+    hp: 660, speed: 112, attackDelay: 1.4,
+    baseAtk: 30, baseAD: 0, baseAP: 78,
+    baseArmor: 28, baseMR: 30,
     Q: {
       baseCooldown: 3.9, castTime: 0.3,
       baseDamage: 95, scaleAP: 0.65, scaleAD: 0,
