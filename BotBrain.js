@@ -475,85 +475,66 @@ export const ArenaBrain = {
 
     // 1.8 JUNGLE CAMPS FARMING
     const aliveCamps = game.minions.filter(m => m.isJungleMonster && !m.dead);
-    const isStartOfGame = (game.score[0] || 0) < 5 && (game.score[1] || 0) < 5;
+    // Jungle phase: prvních 38 sekund hry (dokud je věž zamčená + pár sekund navíc)
+    if (mState.junglePhaseStart === undefined) mState.junglePhaseStart = performance.now();
+    const junglePhaseElapsed = (performance.now() - mState.junglePhaseStart) / 1000;
+    const isJunglePhase = junglePhaseElapsed < 38;
 
-    if (isStartOfGame && aliveCamps.length > 0) {
-      if (mState.startSplit === undefined) {
-          mState.startSplit = [4, 3, 2][Math.floor(Math.random() * 3)]; // 4/0, 3/1, 2/2 (Camps / Mid)
-      }
-      // Blue team -> top camps (y < 600), Red team -> bottom camps (y > 600)
-      const myCamps = aliveCamps.filter(c => team === 0 ? c.pos.y < 600 : c.pos.y > 600);
+    if (isJunglePhase && aliveCamps.length > 0) {
+      // Blue team -> top camps (y < 650), Red team -> bottom camps (y > 650)
+      const myCamps = aliveCamps.filter(c => team === 0 ? c.pos.y < 650 : c.pos.y > 650);
       if (myCamps.length > 0) {
-        let candidates = [...unassigned].sort((a,b) => {
-            // Tanci, Supporti a Caster Mágové preferují Mid, AD a Melee radši do Jungle
-            const scoreA = (['SUPPORT', 'TANK'].includes(a.role) ? 100 : 0) + (['Mage','Summoner','Pyromancer','Tamer'].includes(a.className) ? 50 : 0) - (['SLAYER', 'FIGHTER', 'SPLITPUSHER'].includes(a.role) && a.dmgType === 'physical' ? 100 : 0);
-            const scoreB = (['SUPPORT', 'TANK'].includes(b.role) ? 100 : 0) + (['Mage','Summoner','Pyromancer','Tamer'].includes(b.className) ? 50 : 0) - (['SLAYER', 'FIGHTER', 'SPLITPUSHER'].includes(b.role) && b.dmgType === 'physical' ? 100 : 0);
-            return scoreA - scoreB;
+        // Seřaď kandadáty: AD/melee spíš do junglu, mágové/supporti spíš na mid
+        const candidates = [...unassigned].sort((a, b) => {
+            const prefA = (['SLAYER','FIGHTER','SPLITPUSHER'].includes(a.role) && a.dmgType === 'physical' ? 1 : 0)
+                        - (['SUPPORT','TANK'].includes(a.role) ? 1 : 0);
+            const prefB = (['SLAYER','FIGHTER','SPLITPUSHER'].includes(b.role) && b.dmgType === 'physical' ? 1 : 0)
+                        - (['SUPPORT','TANK'].includes(b.role) ? 1 : 0);
+            return prefB - prefA; // vyšší = více jungle
         });
 
-        let numCamps = Math.min(candidates.length, mState.startSplit);
-        let toCamps = candidates.slice(0, numCamps);
-        let toMid = candidates.slice(numCamps);
-
-        for (let b of toMid) {
-            reassign(b, 'ASSAULT', centerTower);
-        }
-
-        if (toCamps.length > 0) {
-            let bestCamp = myCamps[0];
-            let bestScore = -Infinity;
-            let bestTaker = toCamps[0];
-            
+        // Přiřaď každého bota na nejbližší/nejvhodnější JINÝ kemp
+        const assignedCamps = new Set();
+        for (let b of candidates) {
+            // Najdi nejlepší volný kemp pro tohoto bota
+            let bestCamp = null, bestScore = -Infinity;
             for (let c of myCamps) {
-                for (let b of toCamps) {
-                    let s = getCampPref(b, c);
-                    if (s > bestScore) {
-                        bestScore = s;
-                        bestCamp = c;
-                        bestTaker = b;
-                    }
-                }
+                if (assignedCamps.has(c)) continue;
+                let s = getCampPref(b, c);
+                if (s > bestScore) { bestScore = s; bestCamp = c; }
             }
-            for (let b of toCamps) {
+            // Pokud jsou kempy obsazené, pošli zbylé na věž
+            if (!bestCamp) {
+                reassign(b, 'ASSAULT', centerTower);
+            } else {
+                assignedCamps.add(bestCamp);
                 reassign(b, 'FARM', bestCamp);
-                b.macroOrder.designatedTakerId = bestTaker.id;
+                b.macroOrder.junglePhase = true;
             }
         }
+      } else {
+        // Žádné moje kempy — všichni na věž
+        for (let b of [...unassigned]) reassign(b, 'ASSAULT', centerTower);
       }
     } else {
-      // Free time farming
+      // Po jungle phase — pokud věž není ohrožena, pošli 1-2 boty farmit nejbližší volný kemp
       const weOwnTower = centerTower && centerTower.owner === team;
       const enemyThreats = enemies.filter(e => e.alive && dist(e.pos, centerTower.pos) < centerTower.captureRadius + 600).length;
 
-      if (weOwnTower && enemyThreats <= 1 && aliveCamps.length > 0) {
-        if (!mState.currentSquadSize || Math.random() < 0.1) {
-            mState.currentSquadSize = Math.floor(Math.random() * 3) + 1; // 1 to 3 boti na jeden kemp
-        }
-        let availableForFarm = unassigned.filter(b => ['SLAYER', 'FIGHTER', 'SPLITPUSHER', 'TANK', 'SUPPORT'].includes(b.role));
-        availableForFarm.sort((a,b) => (['SLAYER', 'FIGHTER'].includes(b.role) ? 0 : 1) - (['SLAYER', 'FIGHTER'].includes(a.role) ? 0 : 1));
-        
-        let squad = availableForFarm.slice(0, mState.currentSquadSize);
-        
-        if (squad.length > 0) {
-            let bestCamp = aliveCamps[0];
-            let bestScore = -Infinity;
-            let bestTaker = squad[0];
-            
+      if (weOwnTower && enemyThreats === 0 && aliveCamps.length > 0 && unassigned.length > 1) {
+        const farmerCount = Math.min(1, unassigned.length - 1); // max 1 bot farmí, zbytek drží věž
+        const farmers = [...unassigned]
+            .sort((a, b) => dist(a.pos, centerTower.pos) - dist(b.pos, centerTower.pos)) // pošli ty nejblíž věži ven
+            .slice(unassigned.length - farmerCount);
+        const assignedCamps2 = new Set();
+        for (let b of farmers) {
+            let bestCamp = null, bestScore = -Infinity;
             for (let c of aliveCamps) {
-                for (let b of squad) {
-                    let s = getCampPref(b, c);
-                    if (s > bestScore) {
-                        bestScore = s;
-                        bestCamp = c;
-                        bestTaker = b;
-                    }
-                }
+                if (assignedCamps2.has(c)) continue;
+                let s = getCampPref(b, c);
+                if (s > bestScore) { bestScore = s; bestCamp = c; }
             }
-            
-            for (let b of squad) {
-                reassign(b, 'FARM', bestCamp);
-                b.macroOrder.designatedTakerId = bestTaker.id;
-            }
+            if (bestCamp) { assignedCamps2.add(bestCamp); reassign(b, 'FARM', bestCamp); }
         }
       }
     }

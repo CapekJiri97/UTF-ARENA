@@ -20,7 +20,7 @@ export class Projectile{
 
 
     let cx = Math.floor(this.pos.x / 200), cy = Math.floor(this.pos.y / 200);
-    let nearbyWalls = game.wallGrid ? (game.wallGrid.get(`${cx},${cy}`) || []) : game.walls;
+    let nearbyWalls = game.wallGrid ? (game.wallGrid.get(cx * 10000 + cy) || []) : game.walls;
     for(let w of nearbyWalls) { 
       let info = distToPoly(this.pos.x, this.pos.y, w.pts);
       if(info.inside || info.minDist < w.r) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; }
@@ -123,7 +123,7 @@ export class Tower{
     this.pos={x,y}; this.index = index; this.radius=20;
     const isAram = activeGameMode && activeGameMode.name === 'aram';
     const isArena = activeGameMode && activeGameMode.name === 'arena';
-    this.captureRadius = isArena ? 220 : 80;
+    this.captureRadius = isArena ? 165 : 80;
     this.owner = -1; this.control = 0; this.attackCooldown = 0;
     this.attackRange  = isAram ? 420 : 320;
     this.attackDamage = isAram ? 120 : 45;
@@ -160,13 +160,14 @@ export class Tower{
       const counts = [0,0]; let rallyBonus = [0,0];
       for(let p of game.players){ if(p.alive && dist(p.pos, this.pos) <= this.captureRadius) { counts[p.team]++; if(p.rallyTimer > 0) rallyBonus[p.team] += 2; } } 
       const presenceDelta = (counts[0] + rallyBonus[0]) - (counts[1] + rallyBonus[1]);
-      if(presenceDelta !== 0){ 
-        const rate = Math.sign(presenceDelta) * (25 + (Math.abs(presenceDelta) - 1) * 5);
-        this.control += rate * dt; 
-      } else { 
-        if(this.owner === 0 && this.control < 100) this.control = Math.min(100, this.control + 6*dt); 
-        else if(this.owner === 1 && this.control > -100) this.control = Math.max(-100, this.control - 6*dt); 
-        else if(this.owner === -1) { if(this.control > 0) this.control = Math.max(0, this.control - 6*dt); else if(this.control < 0) this.control = Math.min(0, this.control + 6*dt); }
+      const captureSpeedMult = isArena ? 0.5 : 1.0;
+      if(presenceDelta !== 0){
+        const rate = Math.sign(presenceDelta) * (25 + (Math.abs(presenceDelta) - 1) * 5) * captureSpeedMult;
+        this.control += rate * dt;
+      } else {
+        if(this.owner === 0 && this.control < 100) this.control = Math.min(100, this.control + 6*captureSpeedMult*dt);
+        else if(this.owner === 1 && this.control > -100) this.control = Math.max(-100, this.control - 6*captureSpeedMult*dt);
+        else if(this.owner === -1) { if(this.control > 0) this.control = Math.max(0, this.control - 6*captureSpeedMult*dt); else if(this.control < 0) this.control = Math.min(0, this.control + 6*captureSpeedMult*dt); }
       }
       this.control = Math.max(-100, Math.min(100, this.control)); 
       if (this.owner === 0 && this.control < 0) { this.owner = -1; }
@@ -325,21 +326,17 @@ export class Tower{
       ctx.fillText(Math.ceil(this.hp) + '/' + this.maxHp, this.pos.x, by - 3);
     }
 
-    // Capture ring (jen classic) — arc místo fillText smyčky (5× méně draw callů)
+    // Capture ring (jen classic) — #/. fillText loop
     if (this.maxHp === null) {
-      const pct = Math.max(0, Math.min(1, Math.abs(this.control) / 100));
-      const r = this.captureRadius;
-      ctx.lineWidth = 4;
-      // Prázdný kruh (základ)
-      ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, r, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.stroke();
-      // Vyplněný oblouk (progress)
-      if (pct > 0) {
-        const capColor = (this.control > 0 || this.owner === 0) ? TEAM_COLOR[0] : TEAM_COLOR[1];
-        ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, r, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2);
-        ctx.strokeStyle = capColor; ctx.stroke();
+      let pct = Math.max(0, Math.min(1, Math.abs(this.control) / 100));
+      let progressAngle = -Math.PI/2 + pct * Math.PI*2;
+      ctx.font = '10px monospace';
+      for(let a = -Math.PI/2; a < Math.PI*1.5; a += 0.2) {
+        let isCaptured = pct > 0 && a <= progressAngle;
+        let char = isCaptured ? '#' : '.';
+        ctx.fillStyle = isCaptured ? ((this.control > 0 || this.owner === 0) ? TEAM_COLOR[0] : TEAM_COLOR[1]) : 'rgba(255,255,255,0.2)';
+        ctx.fillText(char, this.pos.x + Math.cos(a)*this.captureRadius, this.pos.y + Math.sin(a)*this.captureRadius);
       }
-      ctx.lineWidth = 1;
     }
   }
 }
@@ -543,7 +540,7 @@ export class Minion{
         if (dx !== 0 || dy !== 0) {
             let currentL = Math.hypot(dx, dy); if (currentL > 0) { dx /= currentL; dy /= currentL; }
             let pcx = Math.floor(this.pos.x / 200), pcy = Math.floor(this.pos.y / 200);
-            let nearbyWalls = game.wallGrid ? (game.wallGrid.get(`${pcx},${pcy}`) || []) : game.walls;
+            let nearbyWalls = game.wallGrid ? (game.wallGrid.get(pcx * 10000 + pcy) || []) : game.walls;
             for(let w of nearbyWalls) { let info = distToPoly(this.pos.x, this.pos.y, w.pts); if (info.minDist < w.r + 30 && !info.inside) { dx += info.closestNorm.x * 2.5; dy += info.closestNorm.y * 2.5; let tx = -info.closestNorm.y; let ty = info.closestNorm.x; if (dx * tx + dy * ty < 0) { tx = -tx; ty = -ty; } dx += tx * 3.5 + (Math.random() - 0.5) * 0.5; dy += ty * 3.5 + (Math.random() - 0.5) * 0.5; } }
         }
         const l = Math.hypot(dx, dy); if (l > 0) { moveEntityWithCollision(this, (dx / l) * this.speed, (dy / l) * this.speed, dt); }
@@ -607,16 +604,14 @@ export class PowerUp {
     ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 24px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; 
     ctx.fillText('PP', this.pos.x, this.pos.y);
     
-    // Capture ring — arc místo fillText smyčky
-    const _ppPct = Math.min(1, this.captureTimer / 10.0);
-    ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,204,0,0.2)'; ctx.stroke();
-    if (_ppPct > 0) {
-        ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, -Math.PI / 2, -Math.PI / 2 + _ppPct * Math.PI * 2);
-        ctx.strokeStyle = '#ffcc00'; ctx.stroke();
+    ctx.font = '12px monospace';
+    let progressAngle = -Math.PI/2 + (this.captureTimer / 10.0) * Math.PI*2;
+    for(let a = -Math.PI/2; a < Math.PI*1.5; a += 0.2) {
+        let isCaptured = this.captureTimer > 0 && a <= progressAngle;
+        ctx.fillStyle = isCaptured ? '#ffcc00' : 'rgba(255, 204, 0, 0.3)';
+        let char = isCaptured ? '#' : '.';
+        ctx.fillText(char, this.pos.x + Math.cos(a)*this.radius, this.pos.y + Math.sin(a)*this.radius);
     }
-    ctx.lineWidth = 1;
     
     if(this.captureTimer > 0) { 
         ctx.font = '16px monospace'; ctx.fillStyle = '#ffcc00'; 

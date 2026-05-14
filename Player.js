@@ -2902,11 +2902,13 @@ export class BotPlayer extends Player {
                   }
               } else {
                   if (farmUrge) {
-                      score += 1500; // Zvýšeno, aby farmařil více
+                      score += 1500;
                       if (this.macroOrder.target && this.macroOrder.target.id === e.id) {
-                          score += 45000; // Gigantická priorita pro nařízený jungle kemp
-                          
-                          // PŘIDÁNO: Last hit logic (přenechání buffu kolegovi)
+                          // Jungle phase: přebij i ASSAULT order na věž (který dá +60000)
+                          const jungleBonus = this.macroOrder.junglePhase ? 90000 : 45000;
+                          score += jungleBonus;
+
+                          // Last hit logic (přenechání buffu kolegovi)
                           if (this.macroOrder.designatedTakerId && this.macroOrder.designatedTakerId !== this.id) {
                               let takerAlly = aliveAllies.find(a => a.id === this.macroOrder.designatedTakerId);
                               if (takerAlly && dist(takerAlly.pos, e.pos) < 600 && e.hp < 200) {
@@ -3567,7 +3569,7 @@ export class BotPlayer extends Player {
           if (this.lastPosCheck && dist(this.pos, this.lastPosCheck) < 5) {
                   let nearWall = false;
                       let cx = Math.floor(this.pos.x / 200), cy = Math.floor(this.pos.y / 200);
-                      let nearbyWalls = game.wallGrid ? (game.wallGrid.get(`${cx},${cy}`) || []) : game.walls;
+                      let nearbyWalls = game.wallGrid ? (game.wallGrid.get(cx * 10000 + cy) || []) : game.walls;
                       for (let w of nearbyWalls) {
                       let info = distToPoly(this.pos.x, this.pos.y, w.pts);
                       if (info.minDist <= w.r + 50 || info.inside) {

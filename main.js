@@ -283,9 +283,8 @@ import { initAudio, playSound } from './Audio.js';
             else color = isLocal ? '#ffffff' : '#ffc83c';
             
             game.damageNumbers.push(new DamageNumber(t.pos.x, t.pos.y-6, data.amount, color));
-            let pCount = Math.min(10, Math.max(2, Math.floor(data.amount / 25)));
-            const _dmgGlyphs = ['✦','×','✸','*','✺'];
-            spawnParticles(t.pos.x, t.pos.y, pCount, '#f00', { glyph: _dmgGlyphs[Math.floor(Math.random()*_dmgGlyphs.length)], size: 13, speed: 100 + (data.amount / 2) });
+            let pCount = Math.min(30, Math.max(3, Math.floor(data.amount / 10)));
+            spawnParticles(t.pos.x, t.pos.y, pCount, '#f00', { speed: 100 + (data.amount / 2) });
                     if (t === player) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + data.amount / 450);
         }
       } else if (data.type === 'show_heal') {
@@ -293,9 +292,6 @@ import { initAudio, playSound } from './Audio.js';
         if (t) {
             game.damageNumbers.push(new DamageNumber(t.pos.x, t.pos.y-15, '+' + data.amount, '#00ff00'));
             if (t === player) game.screenHealFlash = Math.min(1.0, (game.screenHealFlash || 0) + data.amount / 450);
-            const _healGlyphs = ['+','♥','✚','❤'];
-            const _hpCount = Math.min(6, Math.max(2, Math.floor(data.amount / 20)));
-            spawnParticles(t.pos.x, t.pos.y, _hpCount, '#00ff88', { glyph: _healGlyphs[Math.floor(Math.random()*_healGlyphs.length)], size: 13, speed: 70, life: 0.6 });
         }
       } else if (data.type === 'jungle_buff') {
         let p = game.players.find(x => x.id === data.playerId);
@@ -472,9 +468,6 @@ import { initAudio, playSound } from './Audio.js';
         if (actualHeal > 0) {
             if (target === player) game.screenHealFlash = Math.min(1.0, (game.screenHealFlash || 0) + actualHeal / 450);
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-15, '+' + actualHeal, '#00ff00'));
-            const _healGlyphs = ['+','♥','✚','❤'];
-            const _hpCount = Math.min(6, Math.max(2, Math.floor(actualHeal / 20)));
-            spawnParticles(target.pos.x, target.pos.y, _hpCount, '#00ff88', { glyph: _healGlyphs[Math.floor(Math.random()*_healGlyphs.length)], size: 13, speed: 70, life: 0.6 });
             if (socket) socket.emit('host_event', { type: 'show_heal', targetId: target.id, amount: actualHeal });
             if (socket && target instanceof Player) {
                 socket.emit('host_event', { type: 'player_hp_update', id: target.id, hp: target.hp, shield: target.shield });
@@ -568,9 +561,8 @@ import { initAudio, playSound } from './Audio.js';
         if (target === player && (!socket || game.isHost || isNetwork)) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + finalDamage / 450);
         
         if (!socket || game.isHost || isNetwork) {
-            let pCount = Math.min(10, Math.max(2, Math.floor(finalDamage / 25)));
-            const _dmgGlyphs = ['✦','×','✸','*','✺'];
-            spawnParticles(target.pos.x, target.pos.y, pCount, '#f00', { glyph: _dmgGlyphs[Math.floor(Math.random()*_dmgGlyphs.length)], size: 13, speed: 100 + (finalDamage / 2) });
+            let pCount = Math.min(30, Math.max(3, Math.floor(finalDamage / 10)));
+            spawnParticles(target.pos.x, target.pos.y, pCount, '#f00', { speed: 100 + (finalDamage / 2) });
         }
 
         if (!socket || game.isHost) {
@@ -698,7 +690,7 @@ import { initAudio, playSound } from './Audio.js';
     ent.pos.y = clamp(ent.pos.y, ent.radius, activeGameMode.mapConfig.world.height - ent.radius);
     
     let gridX = Math.floor(ent.pos.x / 200), gridY = Math.floor(ent.pos.y / 200);
-    let nearbyWalls = game.wallGrid ? (game.wallGrid.get(`${gridX},${gridY}`) || []) : game.walls;
+    let nearbyWalls = game.wallGrid ? (game.wallGrid.get(gridX * 10000 + gridY) || []) : game.walls;
     for(let w of nearbyWalls) {
       let info = distToPoly(ent.pos.x, ent.pos.y, w.pts);
       if (info.inside) {
@@ -954,7 +946,7 @@ import { initAudio, playSound } from './Audio.js';
       let endY = Math.floor((maxY + r + 50) / game.wallGridSize);
       for(let x=startX; x<=endX; x++) {
           for(let y=startY; y<=endY; y++) {
-              let key = `${x},${y}`;
+              let key = x * 10000 + y;
               if(!game.wallGrid.has(key)) game.wallGrid.set(key, []);
               game.wallGrid.get(key).push(wallObj);
           }
@@ -1270,11 +1262,15 @@ import { initAudio, playSound } from './Audio.js';
                         }
                         return base;
                     }),
-                    minions: game.minions.map(m => {
-                        const base = { id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: m.dead };
-                        if (m._syncDirty) { m._syncDirty = false; return { ...base, maxHp: m.maxHp, team: m.team, targetIndex: m.targetIndex, isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId, isSc: m.isSmallChicken, isBc: m.isBigChicken }; }
-                        return base;
-                    }),
+                    minions: (function() {
+                        const out = [];
+                        for (const m of game.minions) {
+                            if (m.dead) { out.push({ id: m.id, dead: true }); continue; }
+                            if (m._syncDirty) { m._syncDirty = false; out.push({ id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: false, maxHp: m.maxHp, team: m.team, targetIndex: m.targetIndex, isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId, isSc: m.isSmallChicken, isBc: m.isBigChicken }); }
+                            else { out.push({ id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: false }); }
+                        }
+                        return out;
+                    })(),
                 }); } catch(netErr) { console.warn('[NET] host_state (fast) serialize error:', netErr.message); }
             }
             // Pomalý tick: stav mapy + humans stats 3x/s (věci co se nemění rychle)

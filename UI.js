@@ -1122,19 +1122,31 @@ export function draw(){
   }
 
   // --- SCREEN FLASH EFFECTS ---
-  // OPTIMIZATION: Reduce particle count and skip text rendering for better performance
   if (game.screenDamageFlash > 0 || game.screenHealFlash > 0) {
       let maxDmg = Math.max(0, game.screenDamageFlash);
       let maxHeal = Math.max(0, game.screenHealFlash);
-      
-      // Simple colored flash overlay instead of heavy text particles
-      if (maxDmg > 0) {
-          ctx.fillStyle = `rgba(255, 50, 50, ${0.15 * maxDmg})`;
-          ctx.fillRect(0, 0, cw, ch);
-      }
-      if (maxHeal > 0) {
-          ctx.fillStyle = `rgba(50, 255, 50, ${0.12 * maxHeal})`;
-          ctx.fillRect(0, 0, cw, ch);
+      let particleCount = Math.floor(20 + (maxDmg * 60) + (maxHeal * 60));
+
+      ctx.font = 'bold 48px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      let chars = ['#', '%', '&', '=', 'X', '@'];
+
+      for(let i=0; i<particleCount; i++) {
+          let rx, ry;
+          if (Math.random() > 0.5) {
+              rx = Math.random() * cw;
+              ry = Math.random() > 0.5 ? Math.random() * 120 : ch - Math.random() * 120;
+          } else {
+              rx = Math.random() > 0.5 ? Math.random() * 120 : cw - Math.random() * 120;
+              ry = Math.random() * ch;
+          }
+          if (maxDmg > 0 && Math.random() < maxDmg) {
+              ctx.fillStyle = `rgba(255, 0, 0, ${Math.random() * 0.8 * maxDmg})`;
+              ctx.fillText(chars[Math.floor(Math.random() * chars.length)], rx, ry);
+          }
+          if (maxHeal > 0 && Math.random() < maxHeal) {
+              ctx.fillStyle = `rgba(0, 255, 0, ${Math.random() * 0.7 * maxHeal})`;
+              ctx.fillText(chars[Math.floor(Math.random() * chars.length)], rx, ry);
+          }
       }
   }
 
