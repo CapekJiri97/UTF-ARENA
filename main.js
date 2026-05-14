@@ -653,7 +653,7 @@ import { initAudio, playSound } from './Audio.js';
               killerId = lastHeroAttackerId;
               killer = game.players.find(p => p.id === killerId);
           }
-      }
+        }
 
       // Oznámení všem klientům, že hráč zemřel (Pouze Host smí odeslat tento event)
       if (socket && game.isHost) socket.emit('host_event', { type: 'player_died', id: victim.id, killerId: killerId });
@@ -1150,6 +1150,7 @@ import { initAudio, playSound } from './Audio.js';
             }
           }
       }
+    }
     }
 
     if (game.shake > 0) game.shake -= dt;
