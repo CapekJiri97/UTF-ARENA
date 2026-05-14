@@ -317,7 +317,7 @@ import { initAudio, playSound } from './Audio.js';
             if (netPlayer.gold >= cost) {
               netPlayer.gold -= cost;
               netPlayer.items.push(data.itemId);
-              it.apply(netPlayer);
+              recalcPlayerItemStats(netPlayer);
               netPlayer.isDirty = true;
             }
           }
