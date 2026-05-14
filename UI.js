@@ -204,8 +204,8 @@ const computeItemPreview = (item, player, count = 1) => {
 
     const pctLine = (label, valuePct, capPctVal) => {
         const total = capPct(valuePct * mult, capPctVal);
-        const pct = Math.round(total * 100);
-        const capText = capPctVal ? ` (cap ${Math.round(capPctVal * 100)}%)` : '';
+        const pct = (total * 100) % 1 === 0 ? Math.round(total * 100) : (total * 100).toFixed(1);
+        const capText = capPctVal ? ` (cap ${(capPctVal * 100) % 1 === 0 ? Math.round(capPctVal * 100) : (capPctVal * 100).toFixed(1)}%)` : '';
         return `+${pct}% ${label}${capText}`;
     };
 
@@ -252,9 +252,11 @@ const computeItemPreview = (item, player, count = 1) => {
     if (s.lifestealPct) parts.push(pctLine('Lifesteal', s.lifestealPct, caps.lifestealPct));
     if (s.msPct) parts.push(pctLine('Move Speed', s.msPct, caps.msPct));
     if (s.penPct) parts.push(pctLine('Pen', s.penPct, caps.penPct));
-    if (s.maxHpDmgPct) parts.push(pctLine('Max HP Burn', s.maxHpDmgPct, caps.maxHpDmgPct));
+    if (s.maxHpDmgPct) parts.push(pctLine('Max HP Burn/sec (Range 180, 0.5s tick)', s.maxHpDmgPct, caps.maxHpDmgPct));
+    if (s.strikeBurnPct) parts.push(pctLine('Strike Burn/2s (AoE half)', s.strikeBurnPct, caps.strikeBurnPct));
     if (s.slowOnHit) parts.push(pctLine('Slow (AA)', s.slowOnHit, caps.slowOnHit));
     if (s.grievousWounds) parts.push(pctLine('GW', s.grievousWounds, caps.grievousWounds));
+    if (s.healPower) parts.push(pctLine('Heal Power', s.healPower, caps.healPower));
 
     return parts;
 };
@@ -1257,11 +1259,14 @@ export function draw(){
               let buffAsMultT = 1.0 + (t.adAsBuffTimer > 0 ? t.adAsBuffAmount : 0);
               if (t.hanaBuffTimer > 0) buffAsMultT *= (t.spells?.Q?.bonusAsMult || 1.25);
               const _puT = t.hasPowerup ? 1.2 : 1;
-              const _arT = Math.round(t.armor * _puT * (t.boostTimer > 0 ? 1.1 : 1) + (t.defBuffTimer > 0 ? 50 : 0));
-              const _mrT = Math.round(t.mr * _puT * (t.boostTimer > 0 ? 1.1 : 1) + (t.defBuffTimer > 0 ? 50 : 0));
+              const _jpT = t.junglePowerTimer > 0 ? 1.1 : 1.0;
+              const _jaT = t.jungleAsAhTimer > 0 ? 1.1 : 1.0;
+              const _jtT = t.jungleTankTimer > 0 ? 1.1 : 1.0;
+              const _arT = Math.round(t.armor * _puT * (t.boostTimer > 0 ? 1.1 : 1) * _jtT + (t.defBuffTimer > 0 ? 50 : 0));
+              const _mrT = Math.round(t.mr * _puT * (t.boostTimer > 0 ? 1.1 : 1) * _jtT + (t.defBuffTimer > 0 ? 50 : 0));
               const _spT = Math.round(t.speed * _puT * (t.msBuffTimer > 0 ? 1 + t.msBuffAmount : 1));
               const _tPwrLabel = (t.dmgType === 'magical') ? 'AP' : 'AD';
-              const _tPwrVal = (t.dmgType === 'magical') ? Math.round(t.AP * _puT) : Math.round(t.AD * _puT * buffAdMultT);
+              const _tPwrVal = (t.dmgType === 'magical') ? Math.round(t.AP * _puT * _jpT) : Math.round(t.AD * _puT * buffAdMultT * _jpT);
               const stX = tx + 152, r1 = ty + 25, r2 = ty + 48, r3 = ty + 70;
               const c0 = stX, c1 = stX + 70, c2 = stX + 138, c3 = stX + 204;
               ctx.fillStyle = '#aaa'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
@@ -1271,9 +1276,9 @@ export function draw(){
               // Col 1: MR, HP, AH
               ctx.fillText(`MR:${_mrT}`, c1, r1);
               ctx.fillText(`HP:${t.effectiveMaxHp || t.maxHp}`, c1, r2);
-              ctx.fillText(`AH:${t.abilityHaste || 0}`, c1, r3);
+              ctx.fillText(`AH:${(t.abilityHaste || 0) + (t.jungleAsAhTimer > 0 ? 10 : 0)}`, c1, r3);
               // Col 2: AS, SP
-              ctx.fillText(`AS:${(t.attackDelay / (t.attackSpeed * buffAsMultT)).toFixed(2)}`, c2, r1);
+              ctx.fillText(`AS:${(t.attackDelay / (t.attackSpeed * buffAsMultT * _jaT)).toFixed(2)}`, c2, r1);
               ctx.fillText(`SP:${_spT}`, c2, r2);
               // Col 3: item stats
               ctx.fillText(`LS:${Math.round(_tls*100)}%`, c3, r1);
@@ -1738,11 +1743,14 @@ export function draw(){
         let vBuffAsMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
         if (player.hanaBuffTimer > 0) vBuffAsMult *= (player.spells?.Q?.bonusAsMult || 1.25);
         const _vPu = player.hasPowerup ? 1.2 : 1;
-        let vAdVal = Math.round(player.AD * _vPu * vBuffAdMult);
-        let vApVal = Math.round(player.AP * _vPu);
-        let vArVal = Math.round(player.armor * _vPu * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
-        let vMrVal = Math.round(player.mr * _vPu * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
-        let vAsVal = (player.attackSpeed * vBuffAsMult).toFixed(2);
+        let vJp = player.junglePowerTimer > 0 ? 1.1 : 1.0;
+        let vJa = player.jungleAsAhTimer > 0 ? 1.1 : 1.0;
+        let vJt = player.jungleTankTimer > 0 ? 1.1 : 1.0;
+        let vAdVal = Math.round(player.AD * _vPu * vBuffAdMult * vJp);
+        let vApVal = Math.round(player.AP * _vPu * vJp);
+        let vArVal = Math.round(player.armor * _vPu * (player.boostTimer > 0 ? 1.1 : 1) * vJt + (player.defBuffTimer > 0 ? 50 : 0));
+        let vMrVal = Math.round(player.mr * _vPu * (player.boostTimer > 0 ? 1.1 : 1) * vJt + (player.defBuffTimer > 0 ? 50 : 0));
+        let vAsVal = (player.attackSpeed * vBuffAsMult * vJa).toFixed(2);
         let vMsVal = Math.round(player.speed * _vPu * (player.msBuffTimer > 0 ? 1 + player.msBuffAmount : 1));
         const _vLs = player.lifesteal || 0;
         const _vGw = player.antiHeal || 0, _vSw = player.onHitSlow || 0, _vSs = player.onSpellHitSlow || 0;
@@ -1752,7 +1760,7 @@ export function draw(){
         ctx.fillStyle = '#aaa';
         ctx.fillText(`${vPowerLabel}: ${String(vPowerVal).padEnd(5)} | Armor: ${vArVal}`, leftM, startY); startY += 20;
         ctx.fillText(`MR:    ${String(vMrVal).padEnd(5)} | Speed: ${vMsVal}`, leftM, startY); startY += 20;
-        ctx.fillText(`A.Spd: ${String(vAsVal).padEnd(5)} | Haste: ${player.abilityHaste}`, leftM, startY); startY += 18;
+        ctx.fillText(`A.Spd: ${String(vAsVal).padEnd(5)} | Haste: ${player.abilityHaste + (player.jungleAsAhTimer > 0 ? 10 : 0)}`, leftM, startY); startY += 18;
         ctx.fillStyle = '#7cf';
         ctx.fillText(`LS: ${Math.round(_vLs*100)}%  | Pen: ${Math.round(_vApen*100)}%  | GW: ${Math.round(_vGw*100)}%`, leftM, startY); startY += 18;
         if (player.healPower > 0) { ctx.fillText(`Heal Power: +${Math.round(player.healPower*100)}%`, leftM, startY); startY += 18; }
@@ -1822,8 +1830,9 @@ export function draw(){
         const _mLs = player.lifesteal || 0;
         const _mGw = player.antiHeal || 0, _mSw = player.onHitSlow || 0, _mSs = player.onSpellHitSlow || 0;
         const _mApen = player.adaptivePen || 0;
-        const _mBurn = player.titanSigilSpellDmg || 0;
-        if (_mLs > 0 || _mGw > 0 || _mSw > 0 || _mSs > 0 || _mApen > 0 || _mBurn > 0) {
+        const _mBurn = player.aoeBurnPct || 0;
+        const _mStrikeBurn = player.strikeBurnPct || 0;
+        if (_mLs > 0 || _mGw > 0 || _mSw > 0 || _mSs > 0 || _mApen > 0 || _mBurn > 0 || _mStrikeBurn > 0) {
             if (startY < panelH - 30) {
                 startY += 6;
                 ctx.fillStyle = '#ffcc00'; ctx.font = `bold 12px monospace`;
@@ -1836,10 +1845,15 @@ export function draw(){
                     { t: `multiplicatively before damage is applied.` },
                     { t: `Stacks up to 50%.` }
                 );
+                if (_mStrikeBurn > 0) mLines.push(
+                    { h: `STRIKE BURN  (${(_mStrikeBurn*100).toFixed(1)}%)`, c: '#ff9966' },
+                    { t: `Spells and Attacks burn target for ${(_mStrikeBurn*100).toFixed(1)}% Max HP true dmg over 2s.` },
+                    { t: `AoE spells apply only half damage. Stacks up to 4.5%.` }
+                );
                 if (_mBurn > 0) mLines.push(
-                    { h: `MAX HP BURN  (${Math.round(_mBurn*100)}%)`, c: '#ff9966' },
-                    { t: `Spells deal bonus ${Math.round(_mBurn*100)}% enemy Max HP damage.` },
-                    { t: `Stacks up to 5%.` }
+                    { h: `BURN AURA  (${(_mBurn*100).toFixed(1)}%)`, c: '#ff9966' },
+                    { t: `Deals ${(_mBurn*100).toFixed(1)}% of enemy Max HP as true damage per sec.` },
+                    { t: `Aura radius is 180 (ticks every 0.5s). Stacks up to 4.5%.` }
                 );
                 if (_mLs > 0) mLines.push(
                     { h: `LIFESTEAL  (${Math.round(_mLs*100)}%)`, c: '#cc88ff' },
@@ -1859,7 +1873,8 @@ export function draw(){
                 );
                 if (_mSs > 0) mLines.push(
                     { h: `SPELL SLOW  (${Math.round(_mSs*100)}%)`, c: '#44ccff' },
-                    { t: `Spells slow enemy by ${Math.round(_mSs*100)}% for a short duration.` }
+                    { t: `Spells slow enemy by ${Math.round(_mSs*100)}% for a short duration.` },
+                    { t: `AoE spells apply only half of this value.` }
                 );
                 for (const ml of mLines) {
                     if (startY > panelH - 14) break;
@@ -2218,8 +2233,9 @@ export function drawMinimap(){
 
   for(let t of game.towers){ const x = t.pos.x * scaleX + offX; const y = t.pos.y * scaleY + offY; ctxm.fillStyle = t.owner===0? '#486FED' : t.owner===1? '#FF4E4E' : '#777'; ctxm.fillRect(x-3,y-3,6,6); }
   for(let m of game.minions){
-    if (player && !game.isSpectator && m.team !== player.team && !mmVisible(m.pos.x, m.pos.y)) continue;
+    if (player && !game.isSpectator && m.team !== player.team && !mmVisible(m.pos.x, m.pos.y) && !m.isJungleMonster) continue;
     const x = m.pos.x * scaleX + offX; const y = m.pos.y * scaleY + offY; ctxm.fillStyle = m.team===0? '#aaddff':'#ffb3b3'; ctxm.fillRect(x-1,y-1,2,2);
+    if (m.isJungleMonster) { ctxm.fillStyle = m.color || '#fff'; ctxm.fillRect(x-2, y-2, 4, 4); } else { ctxm.fillStyle = m.team===0? '#aaddff':'#ffb3b3'; ctxm.fillRect(x-1, y-1, 2, 2); }
   }
   for(let p of game.players){
     if (!p.alive) continue;

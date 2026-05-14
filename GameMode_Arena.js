@@ -4,6 +4,9 @@ import { showEnd } from './UI.js';
 import { speakNexusWarning } from './Audio.js';
 import { ArenaBrain } from './BotBrain.js';
 import { Minion } from './Entities.js';
+import { player, flashMessage, applyDamage, drawHealthBar, socket } from './main.js';
+import { spawnParticles } from './Effects.js';
+import { dist } from './Utils.js';
 
 // ── Arena game mode ───────────────────────────────────────────────────────────
 // 4v4, elipsová mapa, jedna neutrální věž uprostřed.
@@ -50,6 +53,15 @@ export const GameMode_Arena = {
 
     camera.scale = 1.52;
 
+    this.camps = [
+        { x: 2350, y: 160, buff: 'AS_AH', glyph: 'A', color: '#ffff00', respawnTimer: 0, m: null }, // Nahoře Vpravo
+        { x: 1700, y: 120, buff: 'POWER', glyph: 'P', color: '#ff4444', respawnTimer: 0, m: null }, // Nahoře Střed
+        { x: 1050, y: 160, buff: 'TANK', glyph: 'T', color: '#44ff44', respawnTimer: 0, m: null },  // Nahoře Vlevo
+        { x: 2350, y: 1180, buff: 'TANK', glyph: 'T', color: '#44ff44', respawnTimer: 0, m: null }, // Dole Vpravo
+        { x: 1700, y: 1220, buff: 'POWER', glyph: 'P', color: '#ff4444', respawnTimer: 0, m: null },// Dole Střed
+        { x: 1050, y: 1180, buff: 'AS_AH', glyph: 'A', color: '#ffff00', respawnTimer: 0, m: null } // Dole Vlevo
+    ];
+
     // Věž začíná neutrální
     setTimeout(() => {
       for (const t of game.towers) {
@@ -85,6 +97,77 @@ export const GameMode_Arena = {
         for (let k = 0; k < 1; k++) game.minions.push(new Minion(centerTower.pos.x + (Math.random() - 0.5) * 40, centerTower.pos.y + (Math.random() - 0.5) * 40, owner, 0));
         for (let k = 0; k < 1; k++) game.minions.push(new Minion(centerTower.pos.x + (Math.random() - 0.5) * 40, centerTower.pos.y + (Math.random() - 0.5) * 40, owner, 0, { isRanged: true }));
       }
+    }
+
+    // Spawnování a udržování Jungle kempů
+    for (let camp of this.camps) {
+        if (!camp.m || camp.m.dead) {
+            camp.respawnTimer -= _dt;
+            if (camp.respawnTimer <= 0) {
+                let m = new Minion(camp.x, camp.y, -1, 0); 
+                m.isJungleMonster = true;
+                m.maxHp = 1250; m.hp = m.maxHp;
+                m.attackDamage = 35;
+                m.glyph = camp.glyph;
+                m.speed = 100;
+                m.camp = camp;
+                m.color = camp.color;
+                
+                m.update = function(dt) {
+                    if (this.dead || game.gameOver) return;
+                    
+                    // Zabíjení monstra a předávání buffu
+                    if (this.hp <= 0) {
+                        this.dead = true;
+                        this.camp.respawnTimer = 150.0;
+                        if (!socket || game.isHost) {
+                            let killer = game.players.find(p => p.id === this.lastAttackerId);
+                            if (killer) {
+                                if (this.camp.buff === 'POWER') killer.junglePowerTimer = 120.0;
+                                else if (this.camp.buff === 'AS_AH') killer.jungleAsAhTimer = 120.0;
+                                else if (this.camp.buff === 'TANK') killer.jungleTankTimer = 120.0;
+                                
+                                if (socket) socket.emit('host_event', {type: 'jungle_buff', playerId: killer.id, buff: this.camp.buff});
+                                spawnParticles(killer.pos.x, killer.pos.y, 30, '#fff', {speed: 150});
+                                if (killer === player) flashMessage("JUNGLE BUFF OBTAINED!");
+                                playSound('heal_pickup', killer.pos); 
+                            }
+                        }
+                        spawnParticles(this.pos.x, this.pos.y, 20, this.camp.color);
+                        return;
+                    }
+                    
+                    if (this.flashTimer > 0) this.flashTimer -= dt;
+                    if (this.attackCooldown > 0) this.attackCooldown -= dt;
+                    if (this.knockbackTimer > 0) { this.knockbackTimer -= dt; return; }
+                    
+                    if (this.lastAttackerId && !this.targetHeroId) this.targetHeroId = this.lastAttackerId;
+                    
+                    let target = game.players.find(p => p.id === this.targetHeroId);
+                    let distToCamp = dist(this.pos, {x: this.camp.x, y: this.camp.y});
+                    
+                    if (target && target.alive && distToCamp < 250) {
+                        let d = dist(this.pos, target.pos);
+                        if (d <= 65) {
+                            if (this.attackCooldown <= 0) {
+                                this.attackCooldown = 1.2;
+                                if (!socket || game.isHost) applyDamage(target, this.attackDamage, 'physical', this.id);
+                                const ang = Math.atan2(target.pos.y - this.pos.y, target.pos.x - this.pos.x);
+                                spawnParticles(this.pos.x + Math.cos(ang)*15, this.pos.y + Math.sin(ang)*15, 1, '#f00', {glyph: ')', angle: ang, speed: 60, life: 0.15, size: 40});
+                                playSound('hit', this.pos);
+                            }
+                        } else { let dx = target.pos.x - this.pos.x, dy = target.pos.y - this.pos.y; let l = Math.hypot(dx, dy); this.pos.x += (dx/l)*this.speed*dt; this.pos.y += (dy/l)*this.speed*dt; }
+                    } else {
+                        this.targetHeroId = null;
+                        if (distToCamp > 10) { let dx = this.camp.x - this.pos.x, dy = this.camp.y - this.pos.y; let l = Math.hypot(dx, dy); this.pos.x += (dx/l)*this.speed*dt; this.pos.y += (dy/l)*this.speed*dt; this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.15 * dt); } 
+                        else { this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.15 * dt); }
+                    }
+                };
+                
+                m.draw = function(ctx) { ctx.font='bold 24px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = this.flashTimer > 0 ? '#fff' : this.camp.color; ctx.fillText(this.glyph, this.pos.x, this.pos.y); drawHealthBar(ctx, this.hp, this.maxHp, this.pos.x, this.pos.y+16, this.team); };
+                camp.m = m; game.minions.push(m);
+            }
+        }
     }
     return newTimer;
   },

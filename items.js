@@ -34,38 +34,38 @@ export const shopItems = [
   {
     id: 'basic_power', name: 'Basic Power', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { powerPct: 0.10 },
-    apply: (pl) => { addAdaptive(pl, 0.10); }
+    stats: { powerPct: 0.15 },
+    apply: (pl) => { addAdaptive(pl, 0.15); }
   },
   {
     id: 'basic_hp', name: 'Basic HP', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { hpPct: 0.10 },
-    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.10); pl.maxHp += h; pl.hp += h; }
+    stats: { hpPct: 0.12 },
+    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.12); pl.maxHp += h; pl.hp += h; }
   },
   {
     id: 'basic_armor', name: 'Basic Armor', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { armorPct: 0.15 },
-    apply: (pl) => { pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.15); }
+    stats: { armorPct: 0.20 },
+    apply: (pl) => { pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.20); }
   },
   {
     id: 'basic_mr', name: 'Basic MR', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { mrPct: 0.15 },
-    apply: (pl) => { pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.15); }
+    stats: { mrPct: 0.20 },
+    apply: (pl) => { pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.20); }
   },
   {
     id: 'basic_haste', name: 'Basic Haste', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { ahFlat: 15 },
-    apply: (pl) => { pl.abilityHaste = (pl.abilityHaste || 0) + 15; }
+    stats: { ahFlat: 12 },
+    apply: (pl) => { pl.abilityHaste = (pl.abilityHaste || 0) + 12; }
   },
   {
     id: 'basic_as', name: 'Basic Attack Speed', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { asPct: 0.15 },
-    apply: (pl) => { pl.attackSpeed += 0.15; }
+    stats: { asPct: 0.12 },
+    apply: (pl) => { pl.attackSpeed += 0.12; }
   },
 
   // ── SPECIAL EFFECTS (500g, +25g per same item) ───────────────────────
@@ -76,37 +76,51 @@ export const shopItems = [
     apply: (pl) => { pl.lifesteal = capAdd(pl.lifesteal || 0, 0.05, 0.25); }
   },
   {
+    id: 'special_heal_power', name: 'Special Heal Power', group: 'special',
+    costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
+    stats: { healPower: 0.15 }, caps: { healPower: 0.45 },
+    apply: (pl) => { pl.healPower = capAdd(pl.healPower || 0, 0.15, 0.45); }
+  },
+  {
     id: 'special_movespeed', name: 'Special Move Speed', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { msPct: 0.03 }, caps: { msPct: 0.15 },
-    apply: (pl) => { applyMoveSpeedPct(pl, 0.03, 0.15); }
+    stats: { msPct: 0.04 }, caps: { msPct: 0.20 },
+    apply: (pl) => { applyMoveSpeedPct(pl, 0.04, 0.20); }
   },
   {
     id: 'special_pen', name: 'Special Penetration', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { penPct: 0.10 }, caps: { penPct: 0.50 },
-    apply: (pl) => { pl.adaptivePen = capAdd(pl.adaptivePen || 0, 0.10, 0.50); }
+    stats: { penPct: 0.12 }, caps: { penPct: 0.60 },
+    apply: (pl) => { pl.adaptivePen = capAdd(pl.adaptivePen || 0, 0.12, 0.60); }
   },
   {
-    id: 'special_burn', name: 'Special Max HP Burn', group: 'special',
+    id: 'special_burn', name: 'Special Burn Aura', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { maxHpDmgPct: 0.01 }, caps: { maxHpDmgPct: 0.05 },
+    stats: { maxHpDmgPct: 0.015 }, caps: { maxHpDmgPct: 0.045 },
     apply: (pl) => {
-      pl.titanSigilSpellDmg = capAdd(pl.titanSigilSpellDmg || 0, 0.01, 0.05);
-      pl.titanSigilCd = 2.0;
+      pl.aoeBurnPct = capAdd(pl.aoeBurnPct || 0, 0.015, 0.045);
     }
+  },
+  {
+    id: 'special_strike_burn', name: 'Special Strike Burn', group: 'special',
+    costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
+    stats: { strikeBurnPct: 0.015 }, caps: { strikeBurnPct: 0.045 },
+    apply: (pl) => { pl.strikeBurnPct = capAdd(pl.strikeBurnPct || 0, 0.015, 0.045); }
   },
   {
     id: 'special_slow', name: 'Special Slow', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
     stats: { slowOnHit: 0.06 }, caps: { slowOnHit: 0.30 },
-    apply: (pl) => { pl.onHitSlow = capAdd(pl.onHitSlow || 0, 0.06, 0.30); }
+    apply: (pl) => { 
+      pl.onHitSlow = capAdd(pl.onHitSlow || 0, 0.06, 0.30); 
+      pl.onSpellHitSlow = pl.onHitSlow;
+    }
   },
   {
     id: 'special_gw', name: 'Special Grievous Wounds', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { grievousWounds: 0.12 }, caps: { grievousWounds: 0.60 },
-    apply: (pl) => { pl.antiHeal = capAdd(pl.antiHeal || 0, 0.12, 0.60); }
+    stats: { grievousWounds: 0.20 }, caps: { grievousWounds: 0.60 },
+    apply: (pl) => { pl.antiHeal = capAdd(pl.antiHeal || 0, 0.20, 0.60); }
   }
 ];
 

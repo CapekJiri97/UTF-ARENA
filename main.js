@@ -467,7 +467,7 @@ import { initAudio, playSound } from './Audio.js';
     return 0;
   }
 
-  export function applyDamage(target, amount, type, sourceId, isNetwork = false, isSpell = false) {
+  export function applyDamage(target, amount, type, sourceId, isNetwork = false, isSpell = false, isAoE = false) {
     if(!target || target.dead || target.hp <= 0) return 0;
     if(target.invulnerableTimer > 0 && type !== 'true') {
         game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-6, "IMMUNE"));
@@ -491,6 +491,7 @@ import { initAudio, playSound } from './Audio.js';
     let arm = target.armor || 0; let mr = target.mr || 0;
     if(target.hasPowerup) { arm *= 1.2; mr *= 1.2; }
     if(target.boostTimer > 0) { arm *= 1.1; mr *= 1.1; }
+    if(target.jungleTankTimer > 0) { arm *= 1.1; mr *= 1.1; }
     if(target.defBuffTimer > 0) { arm += 50; mr += 50; }
     if (sourceEntity) {
       const pen = sourceEntity.adaptivePen || 0;
@@ -499,7 +500,7 @@ import { initAudio, playSound } from './Audio.js';
     }
     if (type === 'physical') multiplier = 100 / (100 + arm);
     else if (type === 'magical') multiplier = 100 / (100 + mr);
-    else if (type === 'true') multiplier = 1; // Pure damage (Fountain laser)
+    else if (type === 'true' || type === 'dot') multiplier = 1; // Pure damage (Fountain laser)
     
     // OPRAVA: Host posílá striktní zprávu o poškození minionů pouze proti lidským hráčům (Boti se posílají rovnou celí přes host_state prevence zdvojení).
     if (socket && game.isHost && !isNetwork) {
@@ -520,6 +521,7 @@ import { initAudio, playSound } from './Audio.js';
             finalDamage -= sDmg;
         }
         target.hp -= finalDamage;
+        target.lastAttackerId = sourceId;
         // Titan's Sigil/Shard passive: % enemy max HP bonus magic dmg on spell hit (4s CD)
         if (finalDamage > 0 && isSpell && (sourceEntity?.titanSigilSpellDmg || 0) > 0 && (sourceEntity.titanSigilCd || 0) <= 0 && target.maxHp && type !== 'true') {
             const sigilBonus = Math.round(target.maxHp * sourceEntity.titanSigilSpellDmg);
@@ -532,7 +534,7 @@ import { initAudio, playSound } from './Audio.js';
     
     if (finalDamage > 0 || actualDamage > 0) {
         let isHeroInvolved = game.players.some(p => p.id === sourceId || p.id === target.id);
-        if (isHeroInvolved) { // Přehrává zvuk pouze pokud se boje účastní nějaký hrdina (redukce šumu z minionů)
+        if (isHeroInvolved && type !== 'dot') { // Přehrává zvuk pouze pokud se boje účastní nějaký hrdina a nejedná se o tichý DoT
             playSound('hit', target.pos);
         }
         if (target === player && (!socket || game.isHost || isNetwork)) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + finalDamage / 450);
@@ -548,7 +550,7 @@ import { initAudio, playSound } from './Audio.js';
             if (finalDamage < actualDamage) color = '#aaaaaa';
             else if (type === 'physical') color = isLocal ? '#ffdddd' : '#ff8888';
             else if (type === 'magical') color = isLocal ? '#ddddff' : '#88bbff';
-            else color = isLocal ? '#ffffff' : '#ffc83c';
+            else color = isLocal ? '#ffffff' : '#ffc83c'; // includes 'true' and 'dot'
             
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-6, actualDamage, color));
             if (socket) socket.emit('host_event', { type: 'show_damage', targetId: target.id, amount: actualDamage, sourceId: sourceId, dmgType: type });
@@ -974,7 +976,8 @@ import { initAudio, playSound } from './Audio.js';
     pl.magicPenFlat = 0;
     pl.titanSigilSpellDmg = 0;
     pl.titanSigilCd = pl.titanSigilCd || 0;
-    pl.hasAoeBurn = false;
+    pl.aoeBurnPct = 0;
+    pl.strikeBurnPct = 0;
     pl.healPower = 0;
     pl.shieldOnHit = 0;
     pl.speed = cData.speed + 40 + (cData.range && cData.role !== 'SUPPORT' ? 5 : 0);
@@ -1044,12 +1047,32 @@ import { initAudio, playSound } from './Audio.js';
         let ox = p.pos.x, oy = p.pos.y;
         p.update(dt);
         if (dt > 0) p.vel = { x: (p.pos.x - ox) / dt, y: (p.pos.y - oy) / dt };
+        
+        if (p.burnDotTimer > 0 && p.alive && (!socket || game.isHost)) {
+            p.burnDotTimer -= dt;
+            p.burnDotTick = (p.burnDotTick || 0) - dt;
+            if (p.burnDotTick <= 0) {
+                p.burnDotTick = 0.5;
+                applyDamage(p, p.burnDotTickDmg, 'dot', p.burnDotSource, false, false, false);
+                spawnParticles(p.pos.x, p.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
+            }
+        }
     }
     for(let p of game.projectiles) p.update(dt);
     for(let m of game.minions) {
         let ox = m.pos.x, oy = m.pos.y;
         m.update(dt);
         if (dt > 0) m.vel = { x: (m.pos.x - ox) / dt, y: (m.pos.y - oy) / dt };
+        
+        if (m.burnDotTimer > 0 && !m.dead && (!socket || game.isHost)) {
+            m.burnDotTimer -= dt;
+            m.burnDotTick = (m.burnDotTick || 0) - dt;
+            if (m.burnDotTick <= 0) {
+                m.burnDotTick = 0.5;
+                applyDamage(m, m.burnDotTickDmg, 'dot', m.burnDotSource, false, false, false);
+                spawnParticles(m.pos.x, m.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
+            }
+        }
     }
     for(let d of game.damageNumbers) d.update(dt);
     for(let t of game.towers) t.update(dt);
@@ -1107,6 +1130,25 @@ import { initAudio, playSound } from './Audio.js';
               }
             }
           }
+
+          // Strike Burn
+          if ((sourceEntity.strikeBurnPct || 0) > 0 && type !== 'true' && type !== 'dot' && target.maxHp && !(target instanceof Tower)) {
+            let burnMult = (isSpell && isAoE) ? 0.5 : 1.0;
+            let totalBurnDmg = target.maxHp * sourceEntity.strikeBurnPct * burnMult;
+            target.burnDotTimer = 2.0;
+            target.burnDotTickDmg = totalBurnDmg / 4.0;
+            target.burnDotSource = sourceId;
+            if (!target.burnDotTick || target.burnDotTick <= 0) target.burnDotTick = 0.5;
+          }
+        }
+      } else if (data.type === 'jungle_buff') {
+        let p = game.players.find(x => x.id === data.playerId);
+        if (p) {
+            if (data.buff === 'POWER') p.junglePowerTimer = 120.0;
+            else if (data.buff === 'AS_AH') p.jungleAsAhTimer = 120.0;
+            else if (data.buff === 'TANK') p.jungleTankTimer = 120.0;
+            spawnParticles(p.pos.x, p.pos.y, 30, '#fff', {speed: 150});
+            if(p === player) flashMessage("JUNGLE BUFF OBTAINED!");
         }
       }
     }

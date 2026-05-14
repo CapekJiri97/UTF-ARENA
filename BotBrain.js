@@ -443,6 +443,121 @@ export const ArenaBrain = {
       }
     }
 
+    // 1.5 REGROUP (Sjednocení týmu, pokud je většina mrtvá)
+    const teamDead = game.players.filter(p => p.team === team && !p.alive).length;
+    if (teamDead >= 2) {
+      for (let b of [...unassigned]) {
+        reassign(b, 'REGROUP', { pos: spawnPoints[team] });
+      }
+      return; // Dál nic nepřidělujeme, čekáme v základně na tým
+    }
+
+    // Helper for camp preference
+    const getCampPref = (bot, camp) => {
+        if (!camp.camp) return 0; // fallback if it's not a jungle monster
+        let score = 100;
+        if (camp.camp.buff === 'TANK') {
+            if (bot.role === 'TANK') score += 500;
+            if (bot.role === 'SUPPORT') score += 400;
+            if (bot.role === 'FIGHTER') score += 200;
+        } else if (camp.camp.buff === 'POWER') {
+            if (bot.dmgType === 'magical' && bot.role === 'SLAYER') score += 500;
+            if (bot.role === 'FIGHTER') score += 300;
+            if (bot.role === 'SLAYER') score += 100;
+        } else if (camp.camp.buff === 'AS_AH') {
+            if (bot.dmgType === 'physical' && bot.role === 'SLAYER') score += 500;
+            if (bot.role === 'SPLITPUSHER') score += 400;
+            if (bot.role === 'FIGHTER') score += 200;
+        }
+        score -= dist(bot.pos, camp.pos) * 0.05;
+        return score;
+    };
+
+    // 1.8 JUNGLE CAMPS FARMING
+    const aliveCamps = game.minions.filter(m => m.isJungleMonster && !m.dead);
+    const isStartOfGame = (game.score[0] || 0) < 5 && (game.score[1] || 0) < 5;
+
+    if (isStartOfGame && aliveCamps.length > 0) {
+      if (mState.startSplit === undefined) {
+          mState.startSplit = [4, 3, 2][Math.floor(Math.random() * 3)]; // 4/0, 3/1, 2/2 (Camps / Mid)
+      }
+      // Blue team -> top camps (y < 600), Red team -> bottom camps (y > 600)
+      const myCamps = aliveCamps.filter(c => team === 0 ? c.pos.y < 600 : c.pos.y > 600);
+      if (myCamps.length > 0) {
+        let candidates = [...unassigned].sort((a,b) => {
+            // Tanci, Supporti a Caster Mágové preferují Mid, AD a Melee radši do Jungle
+            const scoreA = (['SUPPORT', 'TANK'].includes(a.role) ? 100 : 0) + (['Mage','Summoner','Pyromancer','Tamer'].includes(a.className) ? 50 : 0) - (['SLAYER', 'FIGHTER', 'SPLITPUSHER'].includes(a.role) && a.dmgType === 'physical' ? 100 : 0);
+            const scoreB = (['SUPPORT', 'TANK'].includes(b.role) ? 100 : 0) + (['Mage','Summoner','Pyromancer','Tamer'].includes(b.className) ? 50 : 0) - (['SLAYER', 'FIGHTER', 'SPLITPUSHER'].includes(b.role) && b.dmgType === 'physical' ? 100 : 0);
+            return scoreA - scoreB;
+        });
+
+        let numCamps = Math.min(candidates.length, mState.startSplit);
+        let toCamps = candidates.slice(0, numCamps);
+        let toMid = candidates.slice(numCamps);
+
+        for (let b of toMid) {
+            reassign(b, 'ASSAULT', centerTower);
+        }
+
+        if (toCamps.length > 0) {
+            let bestCamp = myCamps[0];
+            let bestScore = -Infinity;
+            let bestTaker = toCamps[0];
+            
+            for (let c of myCamps) {
+                for (let b of toCamps) {
+                    let s = getCampPref(b, c);
+                    if (s > bestScore) {
+                        bestScore = s;
+                        bestCamp = c;
+                        bestTaker = b;
+                    }
+                }
+            }
+            for (let b of toCamps) {
+                reassign(b, 'FARM', bestCamp);
+                b.macroOrder.designatedTakerId = bestTaker.id;
+            }
+        }
+      }
+    } else {
+      // Free time farming
+      const weOwnTower = centerTower && centerTower.owner === team;
+      const enemyThreats = enemies.filter(e => e.alive && dist(e.pos, centerTower.pos) < centerTower.captureRadius + 600).length;
+
+      if (weOwnTower && enemyThreats <= 1 && aliveCamps.length > 0) {
+        if (!mState.currentSquadSize || Math.random() < 0.1) {
+            mState.currentSquadSize = Math.floor(Math.random() * 3) + 1; // 1 to 3 boti na jeden kemp
+        }
+        let availableForFarm = unassigned.filter(b => ['SLAYER', 'FIGHTER', 'SPLITPUSHER', 'TANK', 'SUPPORT'].includes(b.role));
+        availableForFarm.sort((a,b) => (['SLAYER', 'FIGHTER'].includes(b.role) ? 0 : 1) - (['SLAYER', 'FIGHTER'].includes(a.role) ? 0 : 1));
+        
+        let squad = availableForFarm.slice(0, mState.currentSquadSize);
+        
+        if (squad.length > 0) {
+            let bestCamp = aliveCamps[0];
+            let bestScore = -Infinity;
+            let bestTaker = squad[0];
+            
+            for (let c of aliveCamps) {
+                for (let b of squad) {
+                    let s = getCampPref(b, c);
+                    if (s > bestScore) {
+                        bestScore = s;
+                        bestCamp = c;
+                        bestTaker = b;
+                    }
+                }
+            }
+            
+            for (let b of squad) {
+                reassign(b, 'FARM', bestCamp);
+                b.macroOrder.designatedTakerId = bestTaker.id;
+            }
+        }
+      }
+    }
+
     if (strat === 'DIVE') {
       // Hunt low-hp nepřátelé — pak obsaď věž
       const target = enemies.filter(e => e.className).sort((a, b) =>
