@@ -6,6 +6,7 @@ import { Minion } from './Entities.js';
 import { player, flashMessage, applyDamage, drawHealthBar, socket } from './main.js';
 import { spawnParticles } from './Effects.js';
 import { dist } from './Utils.js';
+import { playSound } from './Audio.js';
 
 // ── Arena game mode ───────────────────────────────────────────────────────────
 // 4v4, elipsová mapa, jedna neutrální věž uprostřed.
