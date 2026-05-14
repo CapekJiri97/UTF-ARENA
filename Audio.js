@@ -28,7 +28,7 @@ function getSpatial(pos) {
     const dx = pos.x - lx;
     const dy = pos.y - ly;
     const d = Math.hypot(dx, dy);
-    const maxDist = 1400;
+    const maxDist = 500;
     if (d > maxDist) return null;
     const volumeMult = Math.pow(Math.max(0, 1 - d / maxDist), 1.5);
     const panVal = Math.max(-1, Math.min(1, dx / (window.innerWidth / camera.scale / 2)));

@@ -1,6 +1,9 @@
 import { game } from './State.js';
 const _isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+// PERFORMANCE: Reduce particle limit on mobile/low-power devices
+const PARTICLE_CAP = _isMobile ? 600 : 1500;
+
 export class Particle {
   constructor(x, y, color, opts={}) {
     this.pos = {x, y};
@@ -42,7 +45,6 @@ export class Particle {
   }
 }
 
-const PARTICLE_CAP = 1500;
 export function spawnParticles(x, y, count, color, opts={}) {
   if (game.particles.length >= PARTICLE_CAP) return;
   const allowed = Math.min(count, PARTICLE_CAP - game.particles.length);

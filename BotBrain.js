@@ -571,14 +571,27 @@ export const ArenaBrain = {
       // Všichni obléhají věž — capture first
       for (let b of [...unassigned]) reassign(b, 'ASSAULT', centerTower);
     } else { // HOLD_AND_FIGHT
-      // Tanky a fighteři drží věž, slayeři huntují
+      // Tanky a fighteři drží věž (pokud je dostupná), slayeři huntují
+      // Pokud je věž zamčená, všichni farmují kemp a čekají
+      const towerLocked = centerTower && centerTower.isLocked;
+      
       for (let b of [...unassigned]) {
         if (['SLAYER', 'SPLITPUSHER'].includes(b.role) && enemies.length > 0) {
           const nearbyEnemy = enemies.filter(e => e.className && dist(e.pos, b.pos) < 1600)
             .sort((a, b) => a.hp - b.hp)[0];
           if (nearbyEnemy) { reassign(b, 'HUNT', nearbyEnemy); continue; }
         }
-        reassign(b, 'ASSAULT', centerTower);
+        
+        // Pokud je věž zamčená, jdi do lesů farmit
+        if (towerLocked && aliveCamps.length > 0) {
+          const bestCamp = aliveCamps.reduce((best, camp) => 
+            getCampPref(b, camp) > getCampPref(b, best) ? camp : best
+          );
+          reassign(b, 'FARM', bestCamp);
+        } else {
+          // Věž je dostupná — jdi ji obsadit
+          reassign(b, 'ASSAULT', centerTower);
+        }
       }
     }
   },

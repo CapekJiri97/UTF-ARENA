@@ -924,8 +924,8 @@ export function populateShop() {
         treeMount.className = 'shop-tree-stack';
         const basicIds = shopItems.filter(it => it.group === 'basic').map(it => it.id);
         const specialIds = shopItems.filter(it => it.group === 'special').map(it => it.id);
-        renderShopSection(treeMount, 'BASIC ITEMS (300g +15g per stack)', basicIds, player);
-        renderShopSection(treeMount, 'SPECIAL ITEMS (500g +25g per stack)', specialIds, player);
+        renderShopSection(treeMount, 'BASIC ITEMS (250g +25g per stack)', basicIds, player);
+        renderShopSection(treeMount, 'SPECIAL ITEMS (525g +50g per stack)', specialIds, player);
   }
 }
 
@@ -1012,6 +1012,8 @@ export function drawBackground(ctx){
       }
 
       bgCtx.font = '16px monospace'; const natureColors = ['#334d1e', '#426b27', '#528530', '#4d3d26', '#614f33', '#2a3b18'];
+      // OPTIMIZATION: Limit wall detail on Speed mode (smaller zoom shows less detail anyway)
+      const isSpeedMode = activeGameMode.name === 'speed';
       for (let w of game.walls) {
         let startX = Math.floor((w.bbox.minX - w.r)/20)*20, endX = Math.ceil((w.bbox.maxX + w.r)/20)*20;
         let startY = Math.floor((w.bbox.minY - w.r)/20)*20, endY = Math.ceil((w.bbox.maxY + w.r)/20)*20;
@@ -1020,10 +1022,23 @@ export function drawBackground(ctx){
             let info = distToPoly(wx, wy, w.pts);
             if (info.inside || info.minDist <= w.r) {
               bgCtx.fillStyle = natureColors[(Math.abs(wx * 7 + wy * 13)) % natureColors.length];
-              if (!info.inside && info.minDist > w.r - 15) bgCtx.fillText('L', wx, wy); else bgCtx.fillText('#', wx, wy);
+              // Skip detailed wall edges on speed mode for perf
+              if (isSpeedMode) {
+                bgCtx.fillText('#', wx, wy);
+              } else {
+                if (!info.inside && info.minDist > w.r - 15) bgCtx.fillText('L', wx, wy); else bgCtx.fillText('#', wx, wy);
+              }
             }
           }
         }
+      }
+
+      // Tower path dots — cached here so they don't re-draw every frame
+      bgCtx.strokeStyle = 'rgba(255,255,255,0.02)'; bgCtx.lineWidth = 1; bgCtx.fillStyle = 'rgba(255,255,255,0.05)'; bgCtx.font = '14px monospace'; bgCtx.textAlign='center'; bgCtx.textBaseline='middle';
+      if (game.towers && game.towers.length > 0) {
+          for(let i=0; i<game.towers.length; i++){ let t1 = game.towers[i], t2 = game.towers[(i+1)%game.towers.length]; let d = dist(t1.pos, t2.pos);
+              for(let step=0; step<d; step+=40) bgCtx.fillText(':', t1.pos.x + (t2.pos.x - t1.pos.x) * (step/d), t1.pos.y + (t2.pos.y - t1.pos.y) * (step/d));
+          }
       }
   }
   ctx.drawImage(game.bgCanvas, 0, 0);
@@ -1038,13 +1053,6 @@ export function drawBackground(ctx){
           ctx.globalAlpha = 0.2;
           ctx.drawImage(game._mapOverlayImg, 0, 0, mapWorld.width, mapWorld.height);
           ctx.restore();
-      }
-  }
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.02)'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.font = '14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  if (game.towers && game.towers.length > 0) {
-      for(let i=0; i<game.towers.length; i++){ let t1 = game.towers[i], t2 = game.towers[(i+1)%game.towers.length]; let d = dist(t1.pos, t2.pos);
-          for(let step=0; step<d; step+=40) ctx.fillText(':', t1.pos.x + (t2.pos.x - t1.pos.x) * (step/d), t1.pos.y + (t2.pos.y - t1.pos.y) * (step/d));
       }
   }
 }
@@ -1073,7 +1081,12 @@ export function draw(){
   for(let h of game.heals) h.draw(ctx); if(game.powerup) game.powerup.draw(ctx); for(let sp of game.speedPads) sp.draw(ctx);
 
   // Build fog mask (1/16-scale canvas)
-  buildFogCanvas(cw, ch, dpr);
+  // OPTIMIZATION: Only call if needed (camera moved or player updated)
+  if (!game._fogLastCameraX || game._fogLastCameraX !== camera.x || !game._fogLastCameraY || game._fogLastCameraY !== camera.y) {
+    buildFogCanvas(cw, ch, dpr);
+    game._fogLastCameraX = camera.x;
+    game._fogLastCameraY = camera.y;
+  }
 
   // Draw entities onto offscreen canvas, then erase those inside fog
   const pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
@@ -1109,32 +1122,19 @@ export function draw(){
   }
 
   // --- SCREEN FLASH EFFECTS ---
+  // OPTIMIZATION: Reduce particle count and skip text rendering for better performance
   if (game.screenDamageFlash > 0 || game.screenHealFlash > 0) {
       let maxDmg = Math.max(0, game.screenDamageFlash);
       let maxHeal = Math.max(0, game.screenHealFlash);
-      let particleCount = Math.floor(20 + (maxDmg * 60) + (maxHeal * 60));
       
-      ctx.font = 'bold 48px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      let chars = ['#', '%', '&', '=', 'X', '@'];
-      
-      for(let i=0; i<particleCount; i++) {
-          let rx, ry;
-          if (Math.random() > 0.5) {
-              rx = Math.random() * cw;
-              ry = Math.random() > 0.5 ? Math.random() * 120 : ch - Math.random() * 120;
-          } else {
-              rx = Math.random() > 0.5 ? Math.random() * 120 : cw - Math.random() * 120;
-              ry = Math.random() * ch;
-          }
-          
-          if (maxDmg > 0 && Math.random() < maxDmg) {
-              ctx.fillStyle = `rgba(255, 0, 0, ${Math.random() * 0.8 * maxDmg})`;
-              ctx.fillText(chars[Math.floor(Math.random() * chars.length)], rx, ry);
-          }
-          if (maxHeal > 0 && Math.random() < maxHeal) {
-              ctx.fillStyle = `rgba(0, 255, 0, ${Math.random() * 0.7 * maxHeal})`;
-              ctx.fillText(chars[Math.floor(Math.random() * chars.length)], rx, ry);
-          }
+      // Simple colored flash overlay instead of heavy text particles
+      if (maxDmg > 0) {
+          ctx.fillStyle = `rgba(255, 50, 50, ${0.15 * maxDmg})`;
+          ctx.fillRect(0, 0, cw, ch);
+      }
+      if (maxHeal > 0) {
+          ctx.fillStyle = `rgba(50, 255, 50, ${0.12 * maxHeal})`;
+          ctx.fillRect(0, 0, cw, ch);
       }
   }
 
@@ -2027,7 +2027,9 @@ export function draw(){
 
 // Returns world-space static vision zones: powerup center + tower ring path
 const FOG_UPDATE_MS = 33;
-const MINIMAP_UPDATE_MS = 50;
+const _isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+// PERFORMANCE: Minimap updates less frequently on mobile to save battery
+const MINIMAP_UPDATE_MS = _isMobile ? 100 : 50;
 let _staticVisionCache = { mode: null, towerCount: 0, points: null };
 
 function getStaticVisionPoints() {

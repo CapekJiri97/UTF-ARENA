@@ -10,12 +10,12 @@ import { playSound } from './Audio.js';
 
 // ── Arena game mode ───────────────────────────────────────────────────────────
 // 4v4, elipsová mapa, jedna neutrální věž uprostřed.
-// Skóre: držení věže = +5 bodů / 10 s, kill = +1 bod.
+// Skóre: držení věže = +3 bodů / 6 s, kill = +1 bod.
 // První tým na 150 bodů vyhrává.
 // Žádní minioni, žádné healy, žádné powerupy.
 
 const SCORE_CAP        = 150;   // body pro výhru
-const HOLD_POINTS      = 3;     // body za 10 sekund držení věže
+const HOLD_POINTS      = 3;     // body za 6 sekund držení věže
 const HOLD_INTERVAL    = 6.0;  // sekund mezi bodováním za držení
 const KILL_POINTS      = 1;     // bod za kill
 
@@ -35,12 +35,12 @@ export const GameMode_Arena = {
     camera.scale = 1.52;
 
     this.camps = [
-        { x: 2350, y: 160, buff: 'AS_AH', glyph: 'A', color: '#4a53d0', respawnTimer: 0, m: null }, // Nahoře Vpravo
-        { x: 1700, y: 120, buff: 'POWER', glyph: 'P', color: '#f98101', respawnTimer: 0, m: null }, // Nahoře Střed
-        { x: 1050, y: 160, buff: 'TANK', glyph: 'T', color: '#0da20d', respawnTimer: 0, m: null },  // Nahoře Vlevo
-        { x: 2350, y: 1180, buff: 'TANK', glyph: 'T', color: '#0da20d', respawnTimer: 0, m: null }, // Dole Vpravo
-        { x: 1700, y: 1220, buff: 'POWER', glyph: 'P', color: '#f98101', respawnTimer: 0, m: null },// Dole Střed
-        { x: 1050, y: 1180, buff: 'AS_AH', glyph: 'A', color: '#4a53d0', respawnTimer: 0, m: null } // Dole Vlevo
+        { x: 2350, y: 160, buff: 'AS_AH', glyph: 'Sp', color: '#8fd04a', respawnTimer: 0, m: null }, // Nahoře Vpravo
+        { x: 1700, y: 120, buff: 'POWER', glyph: 'Pw', color: '#f98101', respawnTimer: 0, m: null }, // Nahoře Střed
+        { x: 1050, y: 160, buff: 'TANK', glyph: 'Ta', color: '#0da20d', respawnTimer: 0, m: null },  // Nahoře Vlevo
+        { x: 2350, y: 1180, buff: 'TANK', glyph: 'Ta', color: '#0da20d', respawnTimer: 0, m: null }, // Dole Vpravo
+        { x: 1700, y: 1220, buff: 'POWER', glyph: 'Pw', color: '#f98101', respawnTimer: 0, m: null },// Dole Střed
+        { x: 1050, y: 1180, buff: 'AS_AH', glyph: 'Sp', color: '#8fd04a', respawnTimer: 0, m: null } // Dole Vlevo
     ];
 
     // Věž začíná neutrální
@@ -48,7 +48,7 @@ export const GameMode_Arena = {
       for (const t of game.towers) {
         t.owner = -1; t.control = 0;
         t.isLocked = true;
-        t.unlockTimer = 30.0;
+        t.unlockTimer = 35.0;
       }
     }, 0);
   },

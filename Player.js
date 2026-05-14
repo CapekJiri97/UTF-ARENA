@@ -146,14 +146,44 @@ export class Player{
           this.powerupUptime += dt;
       }
 
-      for (let tower of game.towers) {
+      // Pre-compute per-tower pressure once, shared across all callers in same tick via game._pcsCache
+      const now = performance.now();
+      if (!game._pcsCache || now - game._pcsCache.ts > 450) {
+          const cache = { ts: now, towers: [] };
+          for (let tower of game.towers) {
+              const r250 = tower.captureRadius + 250;
+              const r250sq = r250 * r250;
+              let hasEnemy0 = false, hasEnemy1 = false, hasMinion0 = false, hasMinion1 = false;
+              for (const p of game.players) {
+                  if (!p.alive) continue;
+                  const dx = p.pos.x - tower.pos.x, dy = p.pos.y - tower.pos.y;
+                  if (dx * dx + dy * dy <= r250sq) {
+                      if (p.team === 0) hasEnemy0 = true; else hasEnemy1 = true;
+                  }
+              }
+              for (const m of game.minions) {
+                  if (m.dead) continue;
+                  const dx = m.pos.x - tower.pos.x, dy = m.pos.y - tower.pos.y;
+                  if (dx * dx + dy * dy <= r250sq) {
+                      if (m.team === 0) hasMinion0 = true; else hasMinion1 = true;
+                  }
+              }
+              cache.towers.push({ hasEnemy0, hasEnemy1, hasMinion0, hasMinion1 });
+          }
+          game._pcsCache = cache;
+      }
+
+      const homeTowers = activeGameMode.homeTowerIndexes[this.team];
+      for (let i = 0; i < game.towers.length; i++) {
+          const tower = game.towers[i];
           const towerDistance = dist(this.pos, tower.pos);
           if (towerDistance > tower.captureRadius + 420) continue;
 
-          const enemyPressure = game.players.some(p => p.alive && p.team !== this.team && dist(p.pos, tower.pos) <= tower.captureRadius + 250);
-          const alliedWavePressure = game.minions.some(m => !m.dead && m.team === this.team && dist(m.pos, tower.pos) <= tower.captureRadius + 250);
+          const tc = game._pcsCache.towers[i];
+          const enemyPressure = this.team === 0 ? tc.hasEnemy1 : tc.hasEnemy0;
+          const alliedWavePressure = this.team === 0 ? tc.hasMinion0 : tc.hasMinion1;
           const isBotCaptureStance = this instanceof BotPlayer && this.state === 'CAPTURE' && this.objective === tower;
-          const isHomeTower = activeGameMode.homeTowerIndexes[this.team].includes(tower.index);
+          const isHomeTower = homeTowers.includes(tower.index);
 
           if (tower.owner === this.team) {
               if (enemyPressure || isBotCaptureStance) {
@@ -173,22 +203,19 @@ export class Player{
   }
 
   refreshDominionPCS() {
-      const breakdown = {
-          kills: (this.kills || 0) * 120,
-          assists: (this.assists || 0) * 75,
-          deaths: -(this.deaths || 0) * 180,
-          dmgDealt: (this.stats?.dmgDealt || 0) * 0.02,
-          hpHealed: (this.stats?.hpHealed || 0) * 0.05,
-          towerCaptures: (this.towerCaptures || 0) * 1400,
-          towerDefends: (this.towerDefends || 0) * 60,
-          towerAssaultTime: (this.towerAssaultTime || 0) * 16,
-          objectivePresenceTime: (this.objectivePresenceTime || 0) * 6,
-          powerupsCollected: (this.powerupsCollected || 0) * 300,
-          powerupUptime: (this.powerupUptime || 0) * 4
-      };
-
-      const total = Object.values(breakdown).reduce((sum, value) => sum + value, 0);
-      this.pcsBreakdown = breakdown;
+      const kills              = (this.kills || 0) * 120;
+      const assists            = (this.assists || 0) * 75;
+      const deaths             = -(this.deaths || 0) * 180;
+      const dmgDealt           = (this.stats?.dmgDealt || 0) * 0.02;
+      const hpHealed           = (this.stats?.hpHealed || 0) * 0.05;
+      const towerCaptures      = (this.towerCaptures || 0) * 1400;
+      const towerDefends       = (this.towerDefends || 0) * 60;
+      const towerAssaultTime   = (this.towerAssaultTime || 0) * 16;
+      const objectivePresence  = (this.objectivePresenceTime || 0) * 6;
+      const powerupsCollected  = (this.powerupsCollected || 0) * 300;
+      const powerupUptime      = (this.powerupUptime || 0) * 4;
+      const total = kills + assists + deaths + dmgDealt + hpHealed + towerCaptures + towerDefends + towerAssaultTime + objectivePresence + powerupsCollected + powerupUptime;
+      this.pcsBreakdown = { kills, assists, deaths, dmgDealt, hpHealed, towerCaptures, towerDefends, towerAssaultTime, objectivePresenceTime: objectivePresence, powerupsCollected, powerupUptime };
       this.pcs = Math.max(0, Math.round(total));
       return this.pcs;
   }
