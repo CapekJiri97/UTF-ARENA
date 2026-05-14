@@ -642,8 +642,8 @@ export class Player{
                     if (target.team === this.team || !target.alive || target.hp <= 0) continue;
                     if (dist(this.pos, target.pos) > 180) continue;
                     const burnDmg = target.maxHp * (this.aoeBurnPct / 2);
-                    applyDamage(target, burnDmg, 'true', this);
-                    if (target.hp <= 0) handlePlayerKill(target, this);
+                    applyDamage(target, burnDmg, 'true', this.id);
+                    if (target.hp <= 0) handlePlayerKill(target, this.id);
                     spawnParticles(target.pos.x, target.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
                 }
             }

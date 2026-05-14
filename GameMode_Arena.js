@@ -1,7 +1,6 @@
 import { game, camera } from './State.js';
 import * as ArenaMap from './MapConfig_Arena.js';
 import { showEnd } from './UI.js';
-import { speakNexusWarning } from './Audio.js';
 import { ArenaBrain } from './BotBrain.js';
 import { Minion } from './Entities.js';
 import { player, flashMessage, applyDamage, drawHealthBar, socket } from './main.js';
@@ -30,7 +29,6 @@ export const GameMode_Arena = {
   init() {
     game.score  = { 0: 0, 1: 0 };
     game.nexus  = { 0: SCORE_CAP, 1: SCORE_CAP }; // proxy pro HUD kompatibilitu — zobrazíme skóre
-    _ttsSpoken[0] = {}; _ttsSpoken[1] = {};
     this._holdTimer = 0;
 
     camera.scale = 1.52;
@@ -170,10 +168,6 @@ export const GameMode_Arena = {
     // Synchronizuj game.nexus pro HUD (zobrazujeme skóre místo HP)
     game.nexus[0] = game.score[0] || 0;
     game.nexus[1] = game.score[1] || 0;
-
-    // TTS varování
-    speakScore(0, game.score[0] || 0);
-    speakScore(1, game.score[1] || 0);
 
     // Win condition
     if ((game.score[0] || 0) >= SCORE_CAP && !game.gameOver) this._triggerGameOver(0, socket);
