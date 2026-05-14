@@ -1248,7 +1248,14 @@ export function draw(){
           const tw = 400, th = 82; const tx = 0, ty = 0;
           ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.strokeStyle = (t.team >= 0) ? TEAM_COLOR[t.team] : NEUTRAL_COLOR; ctx.lineWidth = 2; ctx.fillRect(tx, ty, tw, th); ctx.strokeRect(tx, ty, tw, th);
 
-          ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left'; let tName = t.className || 'Minion'; ctx.fillText(`${tName} ${t.level ? 'LV'+t.level : ''}`, tx + 15, ty + 25);
+          ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left'; 
+          let tName = t.className || 'Minion'; 
+          if (t.isJungleMonster && t.camp) {
+              if (t.camp.buff === 'POWER') tName = 'Power Camp (+10% AD/AP)';
+              else if (t.camp.buff === 'AS_AH') tName = 'Speed Camp (+10% AS/AH)';
+              else if (t.camp.buff === 'TANK') tName = 'Tank Camp (+10% Def/HP)';
+          }
+          ctx.fillText(`${tName} ${t.level ? 'LV'+t.level : ''}`.trim(), tx + 15, ty + 25);
 
           let fT = Math.max(0, Math.min(15, Math.round((Math.max(0,t.hp)/(t.effectiveMaxHp || t.maxHp)) * 15) || 0)); let hpBarStr = '[' + '#'.repeat(fT) + '-'.repeat(15 - fT) + ']';
           ctx.fillStyle = (t.team >= 0) ? TEAM_COLOR[t.team] : NEUTRAL_COLOR; ctx.font = 'bold 14px monospace'; ctx.fillText(hpBarStr, tx + 15, ty + 48);

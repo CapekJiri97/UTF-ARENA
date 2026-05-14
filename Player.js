@@ -1622,9 +1622,14 @@ export class BotPlayer extends Player {
 
       // Aplikace osobností bota (Role-based AI Weights)
       if (this.role === 'SPLITPUSHER') {
-          this.personalWeights.heroKillScore *= 0.2; // Pacifista
+          if (activeGameMode && (activeGameMode.name === 'arena' || activeGameMode.name === 'aram')) {
+              this.personalWeights.heroKillScore *= 0.8; // V bojových módech nesmí být úplný pacifista
+              this.personalWeights.towerBaseScore *= 1.2; 
+          } else {
+              this.personalWeights.heroKillScore *= 0.2; // Pacifista
+              this.personalWeights.towerBaseScore *= 1.8; // Miluje věže
+          }
           this.personalWeights.enemyBaseScore *= 0.2;
-          this.personalWeights.towerBaseScore *= 1.8; // Miluje věže
           this.personalWeights.emptyTowerScore *= 2.5;
           this.personalWeights.neutralTowerScore *= 2.5;
           this.personalWeights.powerupScore *= 3.0; // Posedlost PowerUpem
@@ -2823,6 +2828,10 @@ export class BotPlayer extends Player {
 
                   if (this.isDesperate) {
                       cowardiceThreshold -= 0.15; // Zoufalství: Budou riskovat i vyloženě špatné souboje o cíle!
+                  }
+
+                  if (activeGameMode && (activeGameMode.name === 'arena' || activeGameMode.name === 'aram')) {
+                      cowardiceThreshold -= 0.15; // V týmových brawlech se tolik nebojí
                   }
 
                   // ZVLÁŠTNÍ PRAVIDLO: Kradení věží -> Zbabělec utíká hned jak někoho vidí!
