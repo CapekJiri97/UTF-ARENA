@@ -45,7 +45,7 @@ export const CLASSES = {
   Jirina: {
     glyph: '❋', role: 'FIGHTER', range: false, dmgType: 'magical', aaScale: 0.35,
     hp: 900, speed: 118, attackDelay: 1.2,
-    baseAtk: 35, baseAD: 0, baseAP: 58,
+    baseAtk: 45, baseAD: 0, baseAP: 50,
     baseArmor: 38, baseMR: 38,
     Q: {
       baseCooldown: 5.5, castTime: 0.1,
@@ -87,7 +87,7 @@ export const CLASSES = {
   Ironclad: {
     glyph: 'I', role: 'TANK', range: false, dmgType: 'physical', aaScale: 0.45,
     hp: 950, speed: 110, attackDelay: 1.4,
-    baseAtk: 40, baseAD: 40, baseAP: 0,
+    baseAtk: 45, baseAD: 35, baseAP: 0,
     baseArmor: 42, baseMR: 38,
     Q: {
       baseCooldown: 9.5, castTime: 0.1,
@@ -106,7 +106,7 @@ export const CLASSES = {
   Hana: {
     glyph: '✿', role: 'TANK', range: false, dmgType: 'magical', aaScale: 0.40, customMeleeAoE: 'ring',
     hp: 900, speed: 118, attackDelay: 1.4,
-    baseAtk: 35, baseAD: 0, baseAP: 50,
+    baseAtk: 35, baseAD: 0, baseAP: 55,
     baseArmor: 35, baseMR: 35,
     Q: {
       baseCooldown: 12.0, castTime: 0.15,
@@ -446,7 +446,7 @@ export const CLASSES = {
   Oracle: {
     glyph: 'O', role: 'SUPPORT', range: true, dmgType: 'physical', aaScale: 0.65,
     hp: 610, speed: 110, attackDelay: 1.1,
-    baseAtk: 35, baseAD: 60, baseAP: 0,
+    baseAtk: 25, baseAD: 70, baseAP: 0,
     baseArmor: 22, baseMR: 25,
     Q: {
       baseCooldown: 13.0, castTime: 0.25,

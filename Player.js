@@ -1172,7 +1172,7 @@ export class Player{
         for(let i=0; i<count; i++) {
             const a = count === 1 ? angle : angle - (spread*(count-1))/2 + i*spread;
             const vx = Math.cos(a)*speed; const vy = Math.sin(a)*speed;
-            game.projectiles.push(new Projectile(this.pos.x + Math.cos(a)*(this.radius+6), this.pos.y + Math.sin(a)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:sp.pGlyph, life: life, slowDuration: slowDur, slowMod: slowMod, pullToCaster: sp.pullToCaster, bonusMaxHpDmg: sp.bonusMaxHpDmg || 0, isSpell: true}));
+            game.projectiles.push(new Projectile(this.pos.x + Math.cos(a)*(this.radius+6), this.pos.y + Math.sin(a)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:sp.pGlyph, life: life, slowDuration: slowDur, slowMod: slowMod, silenceDuration: sp.silenceDuration || 0, stunDuration: sp.stunDuration || 0, pullToCaster: sp.pullToCaster, bonusMaxHpDmg: sp.bonusMaxHpDmg || 0, isSpell: true}));
         }
     } else if (sp.type === 'projectile_summon') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x); const speed = sp.pSpeed || 900; const life = sp.life || (700 / speed);

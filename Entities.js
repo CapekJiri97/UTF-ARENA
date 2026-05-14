@@ -160,7 +160,7 @@ export class Tower{
       const counts = [0,0]; let rallyBonus = [0,0];
       for(let p of game.players){ if(p.alive && dist(p.pos, this.pos) <= this.captureRadius) { counts[p.team]++; if(p.rallyTimer > 0) rallyBonus[p.team] += 2; } } 
       const presenceDelta = (counts[0] + rallyBonus[0]) - (counts[1] + rallyBonus[1]);
-      const captureSpeedMult = isArena ? 0.5 : 1.0;
+      const captureSpeedMult = (activeGameMode && activeGameMode.name === 'arena') ? 0.5 : 1.0;
       if(presenceDelta !== 0){
         const rate = Math.sign(presenceDelta) * (25 + (Math.abs(presenceDelta) - 1) * 5) * captureSpeedMult;
         this.control += rate * dt;
