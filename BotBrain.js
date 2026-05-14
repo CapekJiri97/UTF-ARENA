@@ -418,7 +418,7 @@ export const ArenaBrain = {
   },
 
   assignMacroOrders(ctx) {
-    const { team, mState, enemies, teamBots, unassigned: _unassigned, assign } = ctx;
+    const { team, mState, enemies, teamBots, unassigned: _unassigned, assign, spawnPoints } = ctx;
 
     let unassigned = [..._unassigned];
     const reassign = (bot, type, target) => { assign(bot, type, target); unassigned = unassigned.filter(b => b.id !== bot.id); };

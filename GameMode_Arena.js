@@ -93,28 +93,34 @@ export const GameMode_Arena = {
                 m.speed = 100;
                 m.camp = camp;
                 m.color = camp.color;
+                m._jungleDeathHandled = false;
+                m._handleJungleDeath = function() {
+                  if (this._jungleDeathHandled) return;
+                  this._jungleDeathHandled = true;
+                  if (this.camp) this.camp.respawnTimer = 150.0;
+                  if (!socket || game.isHost) {
+                    let killer = game.players.find(p => p.id === this.lastAttackerId);
+                    if (killer) {
+                      if (this.camp.buff === 'POWER') killer.junglePowerTimer = 120.0;
+                      else if (this.camp.buff === 'AS_AH') killer.jungleAsAhTimer = 120.0;
+                      else if (this.camp.buff === 'TANK') killer.jungleTankTimer = 120.0;
+
+                      if (socket) socket.emit('host_event', {type: 'jungle_buff', playerId: killer.id, buff: this.camp.buff});
+                      spawnParticles(killer.pos.x, killer.pos.y, 30, '#fff', {speed: 150});
+                      if (killer === player) flashMessage("JUNGLE BUFF OBTAINED!");
+                      playSound('heal_pickup', killer.pos);
+                    }
+                  }
+                  spawnParticles(this.pos.x, this.pos.y, 20, this.camp.color);
+                };
                 
                 m.update = function(dt) {
                     if (this.dead || game.gameOver) return;
                     
                     // Zabíjení monstra a předávání buffu
                     if (this.hp <= 0) {
-                        this.dead = true;
-                        this.camp.respawnTimer = 150.0;
-                        if (!socket || game.isHost) {
-                            let killer = game.players.find(p => p.id === this.lastAttackerId);
-                            if (killer) {
-                                if (this.camp.buff === 'POWER') killer.junglePowerTimer = 120.0;
-                                else if (this.camp.buff === 'AS_AH') killer.jungleAsAhTimer = 120.0;
-                                else if (this.camp.buff === 'TANK') killer.jungleTankTimer = 120.0;
-                                
-                                if (socket) socket.emit('host_event', {type: 'jungle_buff', playerId: killer.id, buff: this.camp.buff});
-                                spawnParticles(killer.pos.x, killer.pos.y, 30, '#fff', {speed: 150});
-                                if (killer === player) flashMessage("JUNGLE BUFF OBTAINED!");
-                                playSound('heal_pickup', killer.pos); 
-                            }
-                        }
-                        spawnParticles(this.pos.x, this.pos.y, 20, this.camp.color);
+                    if (typeof this._handleJungleDeath === 'function') this._handleJungleDeath();
+                    this.dead = true;
                         return;
                     }
                     

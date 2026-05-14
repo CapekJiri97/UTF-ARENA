@@ -131,7 +131,12 @@ export class Tower{
     this._aggroTarget = null;
   }
   update(dt){ if(game.gameOver) return;
-    if (this.dead) return;
+    if (this.dead) {
+      if (typeof this._handleJungleDeath === 'function' && !this._jungleDeathHandled) {
+        this._handleJungleDeath();
+      }
+      return;
+    }
     if (!socket || game.isHost) {
       // Capture logika — jen v Classic (ARAM věže mají HP a ničí se)
       if (this.maxHp === null) {
@@ -380,7 +385,11 @@ export class Minion{
         if (this.team === 0 && this.targetIndex < 5) this.targetIndex++;
         if (this.team === 1 && this.targetIndex < 2) this.targetIndex++;
     }
-    if(this.hp <= 0 && !this.dead) { this.dead = true; return; }
+    if(this.hp <= 0 && !this.dead) {
+      if (typeof this._handleJungleDeath === 'function') this._handleJungleDeath();
+      this.dead = true;
+      return;
+    }
     if(dist(this.pos, activeGameMode.mapConfig.spawnPoints[1-this.team]) < 200 && (!socket || game.isHost)) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) { this.dead=true; return; } }
     if(this.flashTimer > 0) this.flashTimer -= dt;
     if(this.stunTimer > 0) this.stunTimer -= dt;
