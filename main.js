@@ -291,6 +291,15 @@ import { initAudio, playSound } from './Audio.js';
             game.damageNumbers.push(new DamageNumber(t.pos.x, t.pos.y-15, '+' + data.amount, '#00ff00'));
                     if (t === player) game.screenHealFlash = Math.min(1.0, (game.screenHealFlash || 0) + data.amount / 450);
         }
+      } else if (data.type === 'jungle_buff') {
+        let p = game.players.find(x => x.id === data.playerId);
+        if (p) {
+            if (data.buff === 'POWER') p.junglePowerTimer = 120.0;
+            else if (data.buff === 'AS_AH') p.jungleAsAhTimer = 120.0;
+            else if (data.buff === 'TANK') p.jungleTankTimer = 120.0;
+            spawnParticles(p.pos.x, p.pos.y, 30, '#fff', {speed: 150});
+            if(p === player) flashMessage("JUNGLE BUFF OBTAINED!");
+        }
       }
     });
     
@@ -528,6 +537,16 @@ import { initAudio, playSound } from './Audio.js';
             target.hp -= sigilBonus;
             sourceEntity.titanSigilCd = 2.0;
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y + 14, sigilBonus, '#e0e0ff'));
+        }
+
+        // Strike Burn
+        if ((sourceEntity?.strikeBurnPct || 0) > 0 && type !== 'true' && type !== 'dot' && target.maxHp && !(target instanceof Tower)) {
+            let burnMult = (isSpell && isAoE) ? 0.5 : 1.0;
+            let totalBurnDmg = target.maxHp * sourceEntity.strikeBurnPct * burnMult;
+            target.burnDotTimer = 2.0;
+            target.burnDotTickDmg = totalBurnDmg / 4.0;
+            target.burnDotSource = sourceId;
+            if (!target.burnDotTick || target.burnDotTick <= 0) target.burnDotTick = 0.5;
         }
     }
     target.flashTimer = 0.1;
@@ -1130,26 +1149,6 @@ import { initAudio, playSound } from './Audio.js';
               }
             }
           }
-
-          // Strike Burn
-          if ((sourceEntity.strikeBurnPct || 0) > 0 && type !== 'true' && type !== 'dot' && target.maxHp && !(target instanceof Tower)) {
-            let burnMult = (isSpell && isAoE) ? 0.5 : 1.0;
-            let totalBurnDmg = target.maxHp * sourceEntity.strikeBurnPct * burnMult;
-            target.burnDotTimer = 2.0;
-            target.burnDotTickDmg = totalBurnDmg / 4.0;
-            target.burnDotSource = sourceId;
-            if (!target.burnDotTick || target.burnDotTick <= 0) target.burnDotTick = 0.5;
-          }
-        }
-      } else if (data.type === 'jungle_buff') {
-        let p = game.players.find(x => x.id === data.playerId);
-        if (p) {
-            if (data.buff === 'POWER') p.junglePowerTimer = 120.0;
-            else if (data.buff === 'AS_AH') p.jungleAsAhTimer = 120.0;
-            else if (data.buff === 'TANK') p.jungleTankTimer = 120.0;
-            spawnParticles(p.pos.x, p.pos.y, 30, '#fff', {speed: 150});
-            if(p === player) flashMessage("JUNGLE BUFF OBTAINED!");
-        }
       }
     }
 
