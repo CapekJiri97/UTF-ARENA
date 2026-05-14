@@ -577,10 +577,10 @@ export class Player{
             this.omnislashCount--;
 
             let allTargets = [];
-            for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 450) allTargets.push(p);
-            for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 450) allTargets.push(m);
+            for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 80) allTargets.push(p);
+            for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 80) allTargets.push(m);
 
-            let dashTargets = allTargets.filter(t => dist(this.pos, t.pos) <= 350);
+            let dashTargets = allTargets.filter(t => dist(this.pos, t.pos) <= 80);
             if (this.omniLastTargetId && this.omniConsecutiveHits >= 2) {
                 let hasOther = dashTargets.some(t => t.id !== this.omniLastTargetId);
                 if (!hasOther) dashTargets = [];
@@ -714,6 +714,7 @@ export class Player{
            game.particles.push(new Particle(this.pos.x, this.pos.y, '#f80', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
            for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage * 0.75, expl.dmgType, expl.id, false, true, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } } }
            for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id, false, true, true); if (expl.bonusCurrentHpDmg && (!socket || game.isHost)) { applyDamage(p, Math.round(p.hp * expl.bonusCurrentHpDmg), 'magical', expl.id, false, true, true); } if (expl.silenceDuration) { p.silenceTimer = Math.max(p.silenceTimer || 0, expl.silenceDuration); game.effectTexts.push(new EffectText(p.pos.x, p.pos.y-20, "SILENCED", '#fff')); } if (expl.slowDuration) { p.slowTimer = Math.max(p.slowTimer || 0, expl.slowDuration); p.slowMod = expl.slowMod || 0.6; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, expl.id); } } }
+           if (expl.msBuff > 0) { this.msBuffTimer = Math.max(this.msBuffTimer || 0, expl.msBuffDuration); this.msBuffAmount = Math.max(this.msBuffAmount || 0, expl.msBuff); }
            spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
            this.dashEndExplosion = null;
         }
@@ -1321,7 +1322,7 @@ export class Player{
             let aoeSlow = this.onSpellHitSlow ? this.onSpellHitSlow / 2 : 0;
             const _dSlowDur = aoeSlow ? Math.max(sp.slowDuration || 0, 1.5) : (sp.slowDuration || 0);
             const _dSlowMod = aoeSlow ? Math.min(sp.slowMod || 0.6, 1 - aoeSlow) : sp.slowMod;
-            this.dashEndExplosion = { radius: sp.radius, damage: damage, dmgType: this.dmgType, id: this.id, slowDuration: _dSlowDur, slowMod: _dSlowMod, silenceDuration: sp.silenceDuration, bonusCurrentHpDmg: sp.bonusCurrentHpDmg || 0 };
+            this.dashEndExplosion = { radius: sp.radius, damage: damage, dmgType: this.dmgType, id: this.id, slowDuration: _dSlowDur, slowMod: _dSlowMod, silenceDuration: sp.silenceDuration, bonusCurrentHpDmg: sp.bonusCurrentHpDmg || 0, msBuff: sp.msBuff || 0, msBuffDuration: sp.msBuffDuration || 0 };
         }
     } else if (sp.type === 'shield_explode') {
         this.shield = (sp.amount || 0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 20);
@@ -3373,10 +3374,10 @@ export class BotPlayer extends Player {
               this.omnislashTick = this.omnislashData ? (this.omnislashData.tickRate || 0.2) : 0.2;
               this.omnislashCount--;
               let allTargets = [];
-              for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 450) allTargets.push(p);
-              for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 450) allTargets.push(m);
+              for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 80) allTargets.push(p);
+              for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 80) allTargets.push(m);
 
-              let closeTargets = allTargets.filter(t => dist(this.pos, t.pos) <= 100);
+              let closeTargets = allTargets.filter(t => dist(this.pos, t.pos) <= 80);
               if (this.omniLastTargetId && this.omniConsecutiveHits >= 2) {
                   let hasOther = closeTargets.some(t => t.id !== this.omniLastTargetId);
                   if (!hasOther) closeTargets = [];
@@ -3760,9 +3761,11 @@ export class BotPlayer extends Player {
                   else if (this.spells.E.type === 'heal_aoe') castE = (this.hp < this.effectiveMaxHp * 0.7);
                   else if (this.spells.E.type === 'summon_healers') castE = (this.hp < this.effectiveMaxHp * 0.8 || d < 400);
                   else if (this.spells.E.type === 'dash' || this.spells.E.type === 'dash_def') {
-                      if (this.range) { if (d < 250) { castE = true; etx = this.pos.x + (this.pos.x - tx); ety = this.pos.y + (this.pos.y - ty); } }
-                      if (isMeleeVsRanged) { if (d > this.attackRange && d < this.attackRange + 250) castE = true; } // Chytré zkrácení vzdálenosti
-                      else if (this.range) { if (d < 250) { castE = true; etx = this.pos.x + (this.pos.x - tx); ety = this.pos.y + (this.pos.y - ty); } }
+                      if (this.spells.E.radius && this.spells.E.distance <= 80) {
+                          // Krátký AoE dash (Lynx E) — castuj blízko nepřítele
+                          castE = (d < (this.spells.E.radius || 120) + 60);
+                      } else if (this.range) { if (d < 250) { castE = true; etx = this.pos.x + (this.pos.x - tx); ety = this.pos.y + (this.pos.y - ty); } }
+                      else if (isMeleeVsRanged) { if (d > this.attackRange && d < this.attackRange + 250) castE = true; }
                       else { if (d > 150 && d < 400) castE = true; }
                   } else if (this.spells.E.type === 'aoe' || this.spells.E.type === 'aoe_knockback' || this.spells.E.type === 'cone_knockback' || this.spells.E.type === 'cone_slow_shield') castE = (d < (this.spells.E.radius || 200));
                   else if (this.spells.E.type === 'reaper_e') castE = (d > 100 && d < 350) || (this.spells.Q.cd > 2.0 && d < 200);

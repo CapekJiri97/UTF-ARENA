@@ -180,8 +180,8 @@ export const CLASSES = {
     E: {
       baseCooldown: 8.0, castTime: 0.05,
       baseDamage: 75, scaleAP: 0, scaleAD: 0.35,
-      type: 'aoe', radius: 100,
-      desc: 'Blade burst around self — damage all nearby enemies.'
+      type: 'dash', distance: 50, dashTime: 0.1, radius: 100, msBuff: 0.10, msBuffDuration: 1.0,
+      desc: 'Short dash + blade burst — damage nearby enemies, gain 10% MS for 1s.'
     }
   },
 
@@ -237,7 +237,7 @@ export const CLASSES = {
     E: {
       baseCooldown: 16.0, castTime: 0.35,
       baseDamage: 40, scaleAP: 0, scaleAD: 0.4, scaleLevel: 8,
-      type: 'omnislash', count: 5, tickRate: 0.2, distance: 80, dashTime: 0.12,
+      type: 'omnislash', count: 5, tickRate: 0.2, distance: 250, dashTime: 0.2,
       desc: 'Dash — on hit: blink 5× to nearby enemies, strike each.'
     }
   },
@@ -307,9 +307,9 @@ export const CLASSES = {
 
   Mage: {
     glyph: 'M', role: 'SLAYER', range: true, dmgType: 'magical', aaScale: 0.20,
-    hp: 650, speed: 112, attackDelay: 1.4,
+    hp: 700, speed: 112, attackDelay: 1.4,
     baseAtk: 35, baseAD: 0, baseAP: 70,
-    baseArmor: 24, baseMR: 30,
+    baseArmor: 28, baseMR: 34,
     Q: {
       baseCooldown: 3.9, castTime: 0.3,
       baseDamage: 95, scaleAP: 0.65, scaleAD: 0,
@@ -319,8 +319,8 @@ export const CLASSES = {
     E: {
       baseCooldown: 8.0, castTime: 0.6,
       baseDamage: 95, scaleAP: 0.70, scaleAD: 0,
-      type: 'aoe', radius: 140,
-      desc: 'AoE explosion at target location.'
+      type: 'aoe', radius: 140, slowDuration: 0.5, slowMod: 0.80,
+      desc: 'AoE explosion at target location — damage + 20% slow (0.5s).'
     }
   },
 
@@ -431,13 +431,13 @@ export const CLASSES = {
     baseArmor: 22, baseMR: 25,
     Q: {
       baseCooldown: 8.0, castTime: 0.3,
-      baseDamage: 30, scaleAP: 0.75, scaleAD: 0, amount: 5,
+      baseDamage: 30, scaleAP: 0.75, scaleAD: 0, amount: 6,
       type: 'projectile_egg', pSpeed: 400, life: 0.625, healInterval: 1.0, slowDuration: 0.5, slowMod: 0.20,
       desc: 'Throw egg — damage + slow target. On impact: Hen hatches, heals + damages nearby enemies.'
     },
     E: {
       baseCooldown: 18.0, castTime: 0.4,
-      baseDamage: 0, amount: 5, scaleAP: 0.35, scaleAD: 0,
+      baseDamage: 0, amount: 6, scaleAP: 0.42, scaleAD: 0,
       type: 'summon_healers', healInterval: 2,
       desc: 'Summon 3 Chicks — follow allies, heal them + damage nearby enemies.'
     }

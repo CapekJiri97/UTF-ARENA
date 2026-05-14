@@ -452,10 +452,12 @@ export const ArenaBrain = {
       return; // Dál nic nepřidělujeme, čekáme v základně na tým
     }
 
-    // Helper for camp preference
+    // Helper for camp preference — silně preferuje vlastní stranu mapy
     const getCampPref = (bot, camp) => {
-        if (!camp.camp) return 0; // fallback if it's not a jungle monster
-        let score = 100;
+        if (!camp.camp) return 0;
+        // Základní váha: kemp na vlastní straně = +10000, na cizí = -5000
+        const isOwnSide = team === 0 ? camp.pos.y < 650 : camp.pos.y > 650;
+        let score = isOwnSide ? 10000 : -5000;
         if (camp.camp.buff === 'TANK') {
             if (bot.role === 'TANK') score += 500;
             if (bot.role === 'SUPPORT') score += 400;
@@ -469,63 +471,64 @@ export const ArenaBrain = {
             if (bot.role === 'SPLITPUSHER') score += 400;
             if (bot.role === 'FIGHTER') score += 200;
         }
-        score -= dist(bot.pos, camp.pos) * 0.05;
+        score -= dist(bot.pos, camp.pos) * 0.1;
         return score;
     };
 
     // 1.8 JUNGLE CAMPS FARMING
     const aliveCamps = game.minions.filter(m => m.isJungleMonster && !m.dead);
-    // Jungle phase: prvních 38 sekund hry (dokud je věž zamčená + pár sekund navíc)
+    // Jungle phase: věž je zamčena 35s + buffer — použijeme game timer přes věž
+    const towerIsLocked = centerTower && centerTower.isLocked;
+    // Udržujeme vlastní timer: jakmile věž se odemkne, jungle phase končí do 8s
     if (mState.junglePhaseStart === undefined) mState.junglePhaseStart = performance.now();
-    const junglePhaseElapsed = (performance.now() - mState.junglePhaseStart) / 1000;
-    const isJunglePhase = junglePhaseElapsed < 38;
+    if (towerIsLocked) mState.junglePhaseEnd = undefined; // resetuj dokud je zamčená
+    else if (mState.junglePhaseEnd === undefined) mState.junglePhaseEnd = performance.now() + 8000;
+    const isJunglePhase = towerIsLocked || (mState.junglePhaseEnd !== undefined && performance.now() < mState.junglePhaseEnd);
 
-    if (isJunglePhase && aliveCamps.length > 0) {
-      // Blue team -> top camps (y < 650), Red team -> bottom camps (y > 650)
-      const myCamps = aliveCamps.filter(c => team === 0 ? c.pos.y < 650 : c.pos.y > 650);
-      if (myCamps.length > 0) {
-        // Seřaď kandadáty: AD/melee spíš do junglu, mágové/supporti spíš na mid
-        const candidates = [...unassigned].sort((a, b) => {
-            const prefA = (['SLAYER','FIGHTER','SPLITPUSHER'].includes(a.role) && a.dmgType === 'physical' ? 1 : 0)
-                        - (['SUPPORT','TANK'].includes(a.role) ? 1 : 0);
-            const prefB = (['SLAYER','FIGHTER','SPLITPUSHER'].includes(b.role) && b.dmgType === 'physical' ? 1 : 0)
-                        - (['SUPPORT','TANK'].includes(b.role) ? 1 : 0);
-            return prefB - prefA; // vyšší = více jungle
-        });
+    // Vlastní kempy = kempy na naší straně mapy
+    const myCamps = aliveCamps.filter(c => team === 0 ? c.pos.y < 650 : c.pos.y > 650);
 
-        // Přiřaď každého bota na nejbližší/nejvhodnější JINÝ kemp
-        const assignedCamps = new Set();
-        for (let b of candidates) {
-            // Najdi nejlepší volný kemp pro tohoto bota
-            let bestCamp = null, bestScore = -Infinity;
-            for (let c of myCamps) {
-                if (assignedCamps.has(c)) continue;
-                let s = getCampPref(b, c);
-                if (s > bestScore) { bestScore = s; bestCamp = c; }
-            }
-            // Pokud jsou kempy obsazené, pošli zbylé na věž
-            if (!bestCamp) {
-                reassign(b, 'ASSAULT', centerTower);
-            } else {
-                assignedCamps.add(bestCamp);
-                reassign(b, 'FARM', bestCamp);
-                b.macroOrder.junglePhase = true;
-            }
-        }
-      } else {
-        // Žádné moje kempy — všichni na věž
-        for (let b of [...unassigned]) reassign(b, 'ASSAULT', centerTower);
+    if (isJunglePhase && myCamps.length > 0) {
+      // Jungle phase: všichni boti jdou do svých kempů — přebije jakoukoliv strategii
+      // Seřaď: AD/melee přednost, mágové a supporti na konec (dostanou přebytečné kempy)
+      const candidates = [...unassigned].sort((a, b) => {
+          const prefA = (['SLAYER','FIGHTER','SPLITPUSHER'].includes(a.role) ? 2 : 0)
+                      + (a.dmgType === 'physical' ? 1 : 0)
+                      - (['SUPPORT'].includes(a.role) ? 2 : 0);
+          const prefB = (['SLAYER','FIGHTER','SPLITPUSHER'].includes(b.role) ? 2 : 0)
+                      + (b.dmgType === 'physical' ? 1 : 0)
+                      - (['SUPPORT'].includes(b.role) ? 2 : 0);
+          return prefB - prefA;
+      });
+
+      // Přiřaď každého bota na nejlepší volný kemp — každý kemp jen jednou
+      const assignedCamps = new Set();
+      for (let b of candidates) {
+          let bestCamp = null, bestScore = -Infinity;
+          for (let c of myCamps) {
+              if (assignedCamps.has(c)) continue;
+              let s = getCampPref(b, c);
+              if (s > bestScore) { bestScore = s; bestCamp = c; }
+          }
+          if (!bestCamp) {
+              // Více botů než kempů — zbytek čeká u věže
+              reassign(b, 'ASSAULT', centerTower);
+          } else {
+              assignedCamps.add(bestCamp);
+              reassign(b, 'FARM', bestCamp);
+              b.macroOrder.junglePhase = true;
+          }
       }
-    } else {
-      // Po jungle phase — pokud věž není ohrožena, pošli 1-2 boty farmit nejbližší volný kemp
+    } else if (!isJunglePhase) {
+      // Po jungle phase — max 1 bot farmí, zbytek drží věž
       const weOwnTower = centerTower && centerTower.owner === team;
       const enemyThreats = enemies.filter(e => e.alive && dist(e.pos, centerTower.pos) < centerTower.captureRadius + 600).length;
 
       if (weOwnTower && enemyThreats === 0 && aliveCamps.length > 0 && unassigned.length > 1) {
-        const farmerCount = Math.min(1, unassigned.length - 1); // max 1 bot farmí, zbytek drží věž
+        const farmerCount = Math.min(1, unassigned.length - 1);
         const farmers = [...unassigned]
-            .sort((a, b) => dist(a.pos, centerTower.pos) - dist(b.pos, centerTower.pos)) // pošli ty nejblíž věži ven
-            .slice(unassigned.length - farmerCount);
+            .sort((a, b) => dist(b.pos, centerTower.pos) - dist(a.pos, centerTower.pos))
+            .slice(0, farmerCount);
         const assignedCamps2 = new Set();
         for (let b of farmers) {
             let bestCamp = null, bestScore = -Infinity;
