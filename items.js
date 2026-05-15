@@ -45,27 +45,25 @@ export const shopItems = [
   {
     id: 'basic_hp', name: 'Basic HP', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    // 10% base HP + 55 flat HP
-    // Carry (HP 590): +59 + 55 = 114 total   Tank (HP 1050): +105 + 55 = 160 total
-    // Carry gets ~57% of what a tank gets (vs ~56% pure-%). Meaningful survivability for carries.
-    stats: { hpPct: 0.10, hpFlat: 55 },
-    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.10) + 55; pl.maxHp += h; pl.hp += h; }
+    // 5% base HP + 55 flat HP  (% sníženo o 50%)
+    // Carry (HP 590): +30 + 55 = 85 total   Tank (HP 1050): +53 + 55 = 108 total
+    stats: { hpPct: 0.05, hpFlat: 55 },
+    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.05) + 55; pl.maxHp += h; pl.hp += h; }
   },
   {
     id: 'basic_armor', name: 'Basic Armor', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    // 16% base armor + 4 flat
-    // Carry (armor 19): +3 + 4 = 7 total   Tank (armor 42): +6.7 + 4 = 10.7 total
-    // Carry gets meaningful armor; tank stays ahead but gap closes vs pure %.
-    stats: { armorPct: 0.16, armorFlat: 4 },
-    apply: (pl) => { pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.16) + 4; }
+    // 10% base armor + 3 flat
+    // Carry (armor 19): +2 + 3 = 5 total   Tank (armor 42): +4.2 + 3 = 7.2 total
+    stats: { armorPct: 0.10, armorFlat: 3 },
+    apply: (pl) => { pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.10) + 3; }
   },
   {
     id: 'basic_mr', name: 'Basic MR', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    // 16% base MR + 4 flat  (same philosophy as armor)
-    stats: { mrPct: 0.16, mrFlat: 4 },
-    apply: (pl) => { pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.16) + 4; }
+    // 10% base MR + 3 flat
+    stats: { mrPct: 0.10, mrFlat: 3 },
+    apply: (pl) => { pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.10) + 3; }
   },
   {
     id: 'basic_haste', name: 'Basic Haste', group: 'basic',
@@ -104,8 +102,8 @@ export const shopItems = [
   {
     id: 'special_pen', name: 'Special Penetration', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { penPct: 0.15}, caps: { penPct: 0.60 },
-    apply: (pl) => { pl.adaptivePen = capAdd(pl.adaptivePen || 0, 0.15, 0.60); }
+    stats: { penPct: 0.18}, caps: { penPct: 0.60 },
+    apply: (pl) => { pl.adaptivePen = capAdd(pl.adaptivePen || 0, 0.18, 0.60); }
   },
   {
     id: 'special_burn', name: 'Special Burn Aura', group: 'special',

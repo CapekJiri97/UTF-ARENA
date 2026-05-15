@@ -16,6 +16,12 @@ export const SUMMONER_SPELLS = {
 // hpRegen: základní regenerace HP za sekundu (default: 2.0).
 // customMeleeAoE: 'ring' - změní tvar útoku nablízko z kuželu na kruh (např. Hana).
 // scaleLevel: kolik poškození/léčení se přidá za každý vylepšený level spellu (defaultně 8 u poškození, 10 u léčení).
+// --- LEVEL SCALING (za každý level) ---
+// lvlHP:    +HP za level
+// lvlArmor: +Armor za level
+// lvlMR:    +Magic Resist za level
+// lvlPower: +AD nebo +AP za level (podle dmgType)
+// lvlAtk:   +baseAtk za level (velmi malý bonus k základnímu auto útoku)
 // ==========================================
 export const CLASSES = {
   // ==========================================
@@ -25,9 +31,10 @@ export const CLASSES = {
   Vanguard: {
     glyph: 'V', role: 'FIGHTER', range: false, dmgType: 'physical', aaScale: 0.55,
     respawnBase: 7, respawnPerLevel: 1, hpRegen: 2.0,
-    hp: 950, speed: 120, attackDelay: 1.4,
+    hp: 820, speed: 120, attackDelay: 1.4,
     baseAtk: 35, baseAD: 45, baseAP: 0,
     baseArmor: 35, baseMR: 30,
+    lvlHP: 30, lvlArmor: 1.0, lvlMR: 0.7, lvlPower: 2.0, lvlAtk: 1.0,
     Q: {
       baseCooldown: 6.0, castTime: 0.05,
       baseDamage: 75, scaleAP: 0, scaleAD: 0.20, dashTime: 0.2,
@@ -44,9 +51,10 @@ export const CLASSES = {
 
   Jirina: {
     glyph: '❋', role: 'FIGHTER', range: false, dmgType: 'magical', aaScale: 0.35,
-    hp: 900, speed: 118, attackDelay: 1.2,
+    hp: 780, speed: 118, attackDelay: 1.2,
     baseAtk: 45, baseAD: 0, baseAP: 50,
     baseArmor: 38, baseMR: 38,
+    lvlHP: 28, lvlArmor: 1.0, lvlMR: 0.8, lvlPower: 1.8, lvlAtk: 1.0,
     Q: {
       baseCooldown: 5.5, castTime: 0.1,
       baseDamage: 65, scaleAP: 0.60, scaleAD: 0,
@@ -63,9 +71,10 @@ export const CLASSES = {
 
   Bruiser: {
     glyph: 'B', role: 'FIGHTER', range: false, dmgType: 'physical', aaScale: 0.60,
-    hp: 880, speed: 120, attackDelay: 1.1,
+    hp: 760, speed: 120, attackDelay: 1.1,
     baseAtk: 43, baseAD: 48, baseAP: 0,
     baseArmor: 33, baseMR: 28,
+    lvlHP: 28, lvlArmor: 0.8, lvlMR: 0.6, lvlPower: 2.2, lvlAtk: 1.0,
     Q: {
       baseCooldown: 6.0, castTime: 0.1,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.40,
@@ -86,9 +95,10 @@ export const CLASSES = {
 
   Ironclad: {
     glyph: 'I', role: 'TANK', range: false, dmgType: 'physical', aaScale: 0.45,
-    hp: 950, speed: 110, attackDelay: 1.4,
+    hp: 780, speed: 110, attackDelay: 1.4,
     baseAtk: 45, baseAD: 35, baseAP: 0,
-    baseArmor: 42, baseMR: 38,
+    baseArmor: 36, baseMR: 32,
+    lvlHP: 38, lvlArmor: 0.9, lvlMR: 1.3, lvlPower: 2.2, lvlAtk: 0.8,
     Q: {
       baseCooldown: 9.5, castTime: 0.1,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.25, bonusMaxHpDmg: 0.08,
@@ -105,9 +115,10 @@ export const CLASSES = {
 
   Hana: {
     glyph: '✿', role: 'TANK', range: false, dmgType: 'magical', aaScale: 0.40, customMeleeAoE: 'ring',
-    hp: 900, speed: 118, attackDelay: 1.4,
+    hp: 760, speed: 118, attackDelay: 1.4,
     baseAtk: 35, baseAD: 0, baseAP: 55,
-    baseArmor: 35, baseMR: 35,
+    baseArmor: 29, baseMR: 29,
+    lvlHP: 35, lvlArmor: 1.4, lvlMR: 1.5, lvlPower: 2.0, lvlAtk: 0.8,
     Q: {
       baseCooldown: 12.0, castTime: 0.15,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
@@ -124,9 +135,10 @@ export const CLASSES = {
 
   Jailer: {
     glyph: 'J', role: 'TANK', range: false, dmgType: 'magical', aaScale: 0.40,
-    hp: 1050, speed: 105, attackDelay: 1.5,
+    hp: 820, speed: 105, attackDelay: 1.5,
     baseAtk: 50, baseAD: 0, baseAP: 55,
-    baseArmor: 40, baseMR: 40,
+    baseArmor: 34, baseMR: 34,
+    lvlHP: 40, lvlArmor: 1.0, lvlMR: 1.7, lvlPower: 2.0, lvlAtk: 0.8,
     Q: {
       baseCooldown: 10.0, castTime: 0.3,
       baseDamage: 55, scaleAP: 0.5, scaleAD: 0,
@@ -144,9 +156,10 @@ export const CLASSES = {
 
   Goliath: {
     glyph: 'G', role: 'TANK', range: false, dmgType: 'physical', aaScale: 0.50,
-    hp: 1025, speed: 106, attackDelay: 1.6,
+    hp: 800, speed: 106, attackDelay: 1.6,
     baseAtk: 45, baseAD: 45, baseAP: 0,
-    baseArmor: 40, baseMR: 42,
+    baseArmor: 34, baseMR: 36,
+    lvlHP: 42, lvlArmor: 1.0, lvlMR: 1.6, lvlPower: 2.3, lvlAtk: 0.8,
     Q: {
       baseCooldown: 7.5, castTime: 0.15,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.35, bonusCurrentHpDmg: 0.0375, dashTime: 0.2,
@@ -167,9 +180,10 @@ export const CLASSES = {
 
   Lynx: {
     glyph: 'L', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.60,
-    hp: 620, speed: 130, attackDelay: 0.8,
+    hp: 680, speed: 130, attackDelay: 0.8,
     baseAtk: 55, baseAD: 58, baseAP: 0,
-    baseArmor: 22, baseMR: 22,
+    baseArmor: 28, baseMR: 28,
+    lvlHP: 10, lvlArmor: 0.3, lvlMR: 0.2, lvlPower: 1.5, lvlAtk: 0.5,
     Q: {
       baseCooldown: 5.0, castTime: 0.05,
       baseDamage: 45, scaleAP: 0, scaleAD: 0.2,
@@ -187,9 +201,10 @@ export const CLASSES = {
 
   Zephyr: {
     glyph: 'Z', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.35,
-    hp: 690, speed: 135, attackDelay: 0.9,
+    hp: 750, speed: 135, attackDelay: 0.9,
     baseAtk: 40, baseAD: 0, baseAP: 55,
-    baseArmor: 25, baseMR: 25,
+    baseArmor: 31, baseMR: 31,
+    lvlHP: 11, lvlArmor: 0.3, lvlMR: 0.3, lvlPower: 1.4, lvlAtk: 0.5,
     Q: {
       baseCooldown: 10.0, castTime: 0.0,
       baseDamage: 0, scaleAP: 0.001, scaleAD: 0,
@@ -206,9 +221,10 @@ export const CLASSES = {
 
   Volstrov: {
     glyph: 'B', role: 'MAGE', range: true, attackRange: 180, dmgType: 'magical', aaScale: 0.60,
-    hp: 660, speed: 118, attackDelay: 1.0,
+    hp: 720, speed: 118, attackDelay: 1.0,
     baseAtk: 30, baseAD: 0, baseAP: 72,
-    baseArmor: 26, baseMR: 28,
+    baseArmor: 32, baseMR: 34,
+    lvlHP: 11, lvlArmor: 0.3, lvlMR: 0.4, lvlPower: 1.5, lvlAtk: 0.5,
     Q: {
       baseCooldown: 13.0, castTime: 0.0,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
@@ -225,9 +241,10 @@ export const CLASSES = {
 
   Reaper: {
     glyph: 'R', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.40,
-    hp: 590, speed: 120, attackDelay: 0.82,
+    hp: 650, speed: 120, attackDelay: 0.82,
     baseAtk: 45, baseAD: 0, baseAP: 58,
-    baseArmor: 22, baseMR: 24,
+    baseArmor: 28, baseMR: 30,
+    lvlHP: 10, lvlArmor: 0.2, lvlMR: 0.3, lvlPower: 1.5, lvlAtk: 0.5,
     Q: {
       baseCooldown: 10.0, castTime: 0.15,
       baseDamage: 20, scaleAP: 0.50, scaleAD: 0,
@@ -244,9 +261,10 @@ export const CLASSES = {
 
   Wanderer: {
     glyph: 'W', role: 'SLAYER', range: false, dmgType: 'physical', aaScale: 0.55,
-    hp: 640, speed: 125, attackDelay: 0.9,
+    hp: 700, speed: 125, attackDelay: 0.9,
     baseAtk: 40, baseAD: 68, baseAP: 0,
-    baseArmor: 25, baseMR: 25,
+    baseArmor: 31, baseMR: 31,
+    lvlHP: 10, lvlArmor: 0.3, lvlMR: 0.2, lvlPower: 1.5, lvlAtk: 0.5,
     Q: {
       baseCooldown: 9.0, castTime: 0.0,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.3, scaleLevel: 3,
@@ -263,9 +281,10 @@ export const CLASSES = {
 
   Kratoma: {
     glyph: 'K', role: 'SLAYER', range: true, attackRange: 160, dmgType: 'physical', aaScale: 0.5,
-    hp: 590, speed: 115, attackDelay: 1.1,
+    hp: 650, speed: 115, attackDelay: 1.1,
     baseAtk: 30, baseAD: 65, baseAP: 0,
-    baseArmor: 22, baseMR: 22,
+    baseArmor: 28, baseMR: 28,
+    lvlHP: 10, lvlArmor: 0.3, lvlMR: 0.2, lvlPower: 1.5, lvlAtk: 0.5,
     projCount: 3, projSpread: 0.3,
     Q: {
       baseCooldown: 13.0, castTime: 0.7,
@@ -284,9 +303,10 @@ export const CLASSES = {
 
   Quiller: {
     glyph: 'Q', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.75,
-    hp: 550, speed: 110, attackDelay: 0.9,
+    hp: 620, speed: 110, attackDelay: 0.9,
     baseAtk: 30, baseAD: 75, baseAP: 0,
-    baseArmor: 19, baseMR: 21,
+    baseArmor: 25, baseMR: 27,
+    lvlHP: 10, lvlArmor: 0.2, lvlMR: 0.2, lvlPower: 1.5, lvlAtk: 0.5,
     Q: {
       baseCooldown: 6.5, castTime: 0.4,
       baseDamage: 40, scaleAP: 0, scaleAD: 0.40,
@@ -303,9 +323,10 @@ export const CLASSES = {
 
   Fusilier: {
     glyph: 'F', role: 'SLAYER', range: true, dmgType: 'physical', aaScale: 0.7,
-    hp: 610, speed: 115, attackDelay: 0.85,
+    hp: 670, speed: 115, attackDelay: 0.85,
     baseAtk: 30, baseAD: 72, baseAP: 0,
-    baseArmor: 21, baseMR: 22,
+    baseArmor: 27, baseMR: 28,
+    lvlHP: 10, lvlArmor: 0.3, lvlMR: 0.2, lvlPower: 1.5, lvlAtk: 0.5,
     Q: {
       baseCooldown: 6.0, castTime: 0.25,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.20,
@@ -326,9 +347,10 @@ export const CLASSES = {
 
   Mage: {
     glyph: 'M', role: 'MAGE', range: true, dmgType: 'magical', aaScale: 0.20,
-    hp: 660, speed: 112, attackDelay: 1.4,
+    hp: 720, speed: 112, attackDelay: 1.4,
     baseAtk: 30, baseAD: 0, baseAP: 78,
-    baseArmor: 28, baseMR: 30,
+    baseArmor: 34, baseMR: 36,
+    lvlHP: 11, lvlArmor: 0.4, lvlMR: 0.4, lvlPower: 1.6, lvlAtk: 0.4,
     Q: {
       baseCooldown: 3.9, castTime: 0.3,
       baseDamage: 95, scaleAP: 0.65, scaleAD: 0,
@@ -345,9 +367,10 @@ export const CLASSES = {
 
   Summoner: {
     glyph: 'S', role: 'MAGE', range: true, dmgType: 'magical', aaScale: 0.20,
-    hp: 650, speed: 108, attackDelay: 1.3,
+    hp: 710, speed: 108, attackDelay: 1.3,
     baseAtk: 30, baseAD: 0, baseAP: 75,
-    baseArmor: 25, baseMR: 22,
+    baseArmor: 31, baseMR: 28,
+    lvlHP: 11, lvlArmor: 0.3, lvlMR: 0.3, lvlPower: 1.5, lvlAtk: 0.4,
     Q: {
       baseCooldown: 6.0, castTime: 0.3,
       baseDamage: 55, scaleAP: 0.80, scaleAD: 0,
@@ -364,9 +387,10 @@ export const CLASSES = {
 
   Pyromancer: {
     glyph: 'P', role: 'SLAYER', range: true, dmgType: 'magical', aaScale: 0.20,
-    hp: 600, speed: 115, attackDelay: 1.3,
+    hp: 660, speed: 115, attackDelay: 1.3,
     baseAtk: 30, baseAD: 0, baseAP: 75,
-    baseArmor: 22, baseMR: 25,
+    baseArmor: 28, baseMR: 31,
+    lvlHP: 10, lvlArmor: 0.3, lvlMR: 0.3, lvlPower: 1.5, lvlAtk: 0.4,
     Q: {
       baseCooldown: 8.0, castTime: 0.0,
       baseDamage: 250, scaleAP: 0.95, scaleAD: 0, scaleLevel: 20,
@@ -383,9 +407,10 @@ export const CLASSES = {
 
   Tamer: {
     glyph: 'T', role: 'MAGE', range: true, attackRange: 205, dmgType: 'magical', aaScale: 0.2,
-    hp: 540, speed: 110, attackDelay: 1.1,
+    hp: 600, speed: 110, attackDelay: 1.1,
     baseAtk: 25, baseAD: 0, baseAP: 65,
-    baseArmor: 15, baseMR: 20,
+    baseArmor: 21, baseMR: 26,
+    lvlHP: 10, lvlArmor: 0.2, lvlMR: 0.3, lvlPower: 1.4, lvlAtk: 0.4,
     Q: {
       baseCooldown: 7.0, castTime: 0.15,
       baseDamage: 76, scaleAP: 0.45, scaleAD: 0,
@@ -406,9 +431,10 @@ export const CLASSES = {
 
   Healer: {
     glyph: 'H', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.2,
-    hp: 650, speed: 104, attackDelay: 1.2,
+    hp: 700, speed: 104, attackDelay: 1.2,
     baseAtk: 25, baseAD: 0, baseAP: 65,
-    baseArmor: 35, baseMR: 30,
+    baseArmor: 40, baseMR: 35,
+    lvlHP: 12, lvlArmor: 0.7, lvlMR: 0.6, lvlPower: 1.2, lvlAtk: 0.3,
     Q: {
       baseCooldown: 5.5, castTime: 0.3,
       baseDamage: 65, scaleAP: 0.6, scaleAD: 0,
@@ -425,9 +451,10 @@ export const CLASSES = {
 
   Cleric: {
     glyph: 'C', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
-    hp: 630, speed: 108, attackDelay: 1.2,
+    hp: 680, speed: 108, attackDelay: 1.2,
     baseAtk: 25, baseAD: 0, baseAP: 70,
-    baseArmor: 22, baseMR: 25,
+    baseArmor: 27, baseMR: 30,
+    lvlHP: 12, lvlArmor: 0.5, lvlMR: 0.5, lvlPower: 1.2, lvlAtk: 0.3,
     Q: {
       baseCooldown: 6.0, castTime: 0.3,
       baseDamage: 0, amount: 80, scaleAP: 0.65, scaleAD: 0,
@@ -445,9 +472,10 @@ export const CLASSES = {
 
   Eggchanter: {
     glyph: 'E', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
-    hp: 640, speed: 105, attackDelay: 1.3,
+    hp: 690, speed: 105, attackDelay: 1.3,
     baseAtk: 25, baseAD: 0, baseAP: 60,
-    baseArmor: 22, baseMR: 25,
+    baseArmor: 27, baseMR: 30,
+    lvlHP: 12, lvlArmor: 0.5, lvlMR: 0.5, lvlPower: 1.2, lvlAtk: 0.3,
     Q: {
       baseCooldown: 8.0, castTime: 0.3,
       baseDamage: 30, scaleAP: 0.75, scaleAD: 0, amount: 6,
@@ -464,9 +492,10 @@ export const CLASSES = {
 
   Oracle: {
     glyph: 'O', role: 'MAGE', range: true, dmgType: 'physical', aaScale: 0.65,
-    hp: 610, speed: 110, attackDelay: 1.1,
+    hp: 670, speed: 110, attackDelay: 1.1,
     baseAtk: 25, baseAD: 70, baseAP: 0,
-    baseArmor: 22, baseMR: 25,
+    baseArmor: 28, baseMR: 31,
+    lvlHP: 11, lvlArmor: 0.3, lvlMR: 0.3, lvlPower: 1.4, lvlAtk: 0.5,
     Q: {
       baseCooldown: 13.0, castTime: 0.25,
       baseDamage: 90, scaleAP: 0, scaleAD: 0.30, scaleLevel: 10,
@@ -483,9 +512,10 @@ export const CLASSES = {
 
   Doctor: {
     glyph: 'D', role: 'SUPPORT', range: false, dmgType: 'physical', aaScale: 0.40,
-    hp: 600, speed: 118, attackDelay: 1.1,
+    hp: 650, speed: 118, attackDelay: 1.1,
     baseAtk: 30, baseAD: 55, baseAP: 0,
-    baseArmor: 22, baseMR: 22,
+    baseArmor: 27, baseMR: 27,
+    lvlHP: 12, lvlArmor: 0.5, lvlMR: 0.5, lvlPower: 1.2, lvlAtk: 0.3,
     Q: {
       baseCooldown: 6.2, castTime: 0.0,
       baseDamage: 0, scaleAP: 0, scaleAD: 0.065, amount: 2.6, scaleLevel: 0.65, range: 200, tickRate: 0.1,

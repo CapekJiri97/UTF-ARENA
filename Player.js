@@ -451,7 +451,24 @@ export class Player{
 
   levelUp(){
     playSound('levelup', this.pos);
-        if (!socket || game.isHost || this === player) { const statGain = this.role === 'SLAYER' ? 0.9 : 1; this.level += 1; this.spellPoints += 1; this.maxHp += 15; this.hp = Math.min(this.effectiveMaxHp, this.hp + 15); this.AD += statGain; this.AP += statGain; this.isDirty = true; }
+    if (!socket || game.isHost || this === player) {
+      const cData = CLASSES[this.className] || {};
+      const hpGain    = cData.lvlHP    ?? 15;
+      const armorGain = cData.lvlArmor ?? 0.5;
+      const mrGain    = cData.lvlMR    ?? 0.5;
+      const pwrGain   = cData.lvlPower ?? 1.0;
+      const atkGain   = cData.lvlAtk   ?? 0.5;
+      this.level += 1; this.spellPoints += 1;
+      this.maxHp += hpGain; this.hp = Math.min(this.effectiveMaxHp, this.hp + hpGain);
+      this.AD += pwrGain; this.AP += pwrGain;
+      this.armor += armorGain; this.mr += mrGain;
+      this.baseAtk = (this.baseAtk || cData.baseAtk || 0) + atkGain;
+      // Grow base stat references so %-based items scale with level
+      this.baseMaxHp      += hpGain;
+      this.baseAD_stat    += pwrGain; this.baseAP_stat    += pwrGain;
+      this.baseArmor_stat += armorGain; this.baseMR_stat  += mrGain;
+      this.isDirty = true;
+    }
     this.levelUpTimer = 2.0; spawnParticles(this.pos.x, this.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0});
   }
 
@@ -757,9 +774,22 @@ export class Player{
             if(l>0){ dx/=l; dy/=l; this.vel.x = dx*moveSpeed; this.vel.y = dy*moveSpeed; } else { this.vel.x = 0; this.vel.y = 0; }
             moveEntityWithCollision(this, this.vel.x, this.vel.y, dt);
         } else if (this.targetPos) { // Logika pro ostatní (síťové) hráče
-            // Interpolace pohybu síťových hráčů pro plynulost na Hostovi i u Klientů
-            if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; } // Pokud se teleportnul (např. po respawnu), tak přeskočí
-            else { this.pos.x += (this.targetPos.x - this.pos.x) * 35 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 35 * dt; }
+            const d = dist(this.pos, this.targetPos);
+            if (d > 250) {
+                // Teleport (respawn, dash) — snap okamžitě
+                this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y;
+                this.netVel = null;
+            } else {
+                // Extrapolace: posun podle odhadnuté velocity + korekce lerp k targetPos
+                const vx = (this.netVel ? this.netVel.x : 0);
+                const vy = (this.netVel ? this.netVel.y : 0);
+                this.pos.x += vx * dt;
+                this.pos.y += vy * dt;
+                // Korekce — táhne pozici zpět k server truth, slabší než pure lerp
+                const corrStrength = 5;
+                this.pos.x += (this.targetPos.x - this.pos.x) * corrStrength * dt;
+                this.pos.y += (this.targetPos.y - this.pos.y) * corrStrength * dt;
+            }
         }
     }
 
@@ -1929,53 +1959,53 @@ export class BotPlayer extends Player {
 
     // Archetype stat score multiplikátory — klíče odpovídají stats v items.js
     static BUILD_ARCHETYPES = {
-        'glass_cannon':   { powerPct: 1.9, penPct: 1.6, hpPct: 0.3, armorPct: 0.25, mrPct: 0.25 },
-        'full_power':     { powerPct: 1.7, ahFlat: 1.4, penPct: 1.3, hpPct: 0.5, armorPct: 0.35, mrPct: 0.35 },
-        'bruiser_power':  { powerPct: 1.4, hpPct: 1.5, armorPct: 1.2, mrPct: 1.2, penPct: 1.1 },
+        'glass_cannon':   { powerPct: 1.9, penPct: 2.2, hpPct: 0.3, armorPct: 0.25, mrPct: 0.25 },
+        'full_power':     { powerPct: 1.7, ahFlat: 1.4, penPct: 1.9, hpPct: 0.5, armorPct: 0.35, mrPct: 0.35 },
+        'bruiser_power':  { powerPct: 1.4, hpPct: 1.5, armorPct: 1.2, mrPct: 1.2, penPct: 1.6 },
         'full_tank':      { hpPct: 2.0, armorPct: 1.8, mrPct: 1.8, powerPct: 0.3, penPct: 0.4 },
-        'anti_tank':      { penPct: 1.8, maxHpDmgPct: 2.0, strikeBurnPct: 1.8, grievousWounds: 1.5, powerPct: 1.2 },
-        'lifesteal':      { lifestealPct: 2.2, powerPct: 1.4, hpPct: 1.1, penPct: 1.0 },
-        'haste_mage':     { ahFlat: 2.0, powerPct: 1.5, penPct: 1.2, hpPct: 0.6 },
+        'anti_tank':      { penPct: 2.8, maxHpDmgPct: 2.5, strikeBurnPct: 2.3, grievousWounds: 1.8, powerPct: 1.2 },
+        'lifesteal':      { lifestealPct: 2.2, powerPct: 1.4, hpPct: 1.1, penPct: 1.6 },
+        'haste_mage':     { ahFlat: 2.0, powerPct: 1.5, penPct: 1.8, hpPct: 0.6 },
         'support_healer': { healPower: 2.5, ahFlat: 1.6, hpPct: 1.3, armorPct: 1.1, mrPct: 1.1, powerPct: 0.5 },
         'support_tank':   { hpPct: 1.8, armorPct: 1.7, mrPct: 1.7, grievousWounds: 1.4, powerPct: 0.4 },
         'support_gw':     { grievousWounds: 2.5, ahFlat: 1.5, powerPct: 1.1, hpPct: 1.2 },
-        'kite_slow':      { slowOnHit: 2.0, msPct: 1.5, powerPct: 1.3, penPct: 1.1, hpPct: 0.7 },
-        'splitpush_ms':   { msPct: 1.8, powerPct: 1.4, penPct: 1.2, hpPct: 0.9, armorPct: 0.7 },
+        'kite_slow':      { slowOnHit: 2.0, msPct: 1.5, powerPct: 1.3, penPct: 1.8, hpPct: 0.7 },
+        'splitpush_ms':   { msPct: 1.8, powerPct: 1.4, penPct: 1.9, hpPct: 0.9, armorPct: 0.7 },
         'burn_tank':      { maxHpDmgPct: 2.0, strikeBurnPct: 1.8, hpPct: 1.5, armorPct: 1.3, mrPct: 1.3, powerPct: 0.6 },
-        'as_carry':       { asPct: 2.0, powerPct: 1.5, penPct: 1.2, lifestealPct: 1.4, hpPct: 0.7 },
+        'as_carry':       { asPct: 2.0, powerPct: 1.5, penPct: 1.9, lifestealPct: 1.4, hpPct: 0.7 },
     };
 
     // Per-class archetype tabulky: [archName, váha 0..1] — součet vah = 1.0
     static CLASS_ARCHETYPES = {
         // FIGHTER
-        'Vanguard':    [['bruiser_power', 0.5], ['full_tank', 0.25], ['anti_tank', 0.25]],
-        'Jirina':      [['bruiser_power', 0.4], ['full_power', 0.35], ['support_healer', 0.25]],
-        'Bruiser':     [['glass_cannon', 0.35], ['bruiser_power', 0.4], ['lifesteal', 0.25]],
+        'Vanguard':    [['bruiser_power', 0.35], ['anti_tank', 0.45], ['full_tank', 0.2]],
+        'Jirina':      [['anti_tank', 0.4], ['bruiser_power', 0.35], ['full_power', 0.25]],
+        'Bruiser':     [['anti_tank', 0.4], ['glass_cannon', 0.35], ['lifesteal', 0.25]],
         // TANK
         'Ironclad':    [['full_tank', 0.5], ['burn_tank', 0.3], ['bruiser_power', 0.2]],
         'Hana':        [['burn_tank', 0.4], ['full_tank', 0.35], ['bruiser_power', 0.25]],
         'Jailer':      [['full_tank', 0.4], ['anti_tank', 0.3], ['bruiser_power', 0.3]],
         'Goliath':     [['full_tank', 0.35], ['burn_tank', 0.35], ['lifesteal', 0.3]],
         // ASSASSIN/SLAYER
-        'Lynx':        [['glass_cannon', 0.45], ['lifesteal', 0.3], ['kite_slow', 0.25]],
-        'Zephyr':      [['splitpush_ms', 0.4], ['full_power', 0.35], ['glass_cannon', 0.25]],
-        'Reaper':      [['full_power', 0.4], ['glass_cannon', 0.35], ['haste_mage', 0.25]],
-        'Wanderer':    [['glass_cannon', 0.4], ['lifesteal', 0.35], ['anti_tank', 0.25]],
+        'Lynx':        [['anti_tank', 0.4], ['glass_cannon', 0.35], ['lifesteal', 0.25]],
+        'Zephyr':      [['anti_tank', 0.4], ['splitpush_ms', 0.35], ['glass_cannon', 0.25]],
+        'Reaper':      [['anti_tank', 0.4], ['full_power', 0.35], ['haste_mage', 0.25]],
+        'Wanderer':    [['anti_tank', 0.45], ['glass_cannon', 0.35], ['lifesteal', 0.2]],
         // RANGED
-        'Quiller':     [['glass_cannon', 0.45], ['kite_slow', 0.3], ['anti_tank', 0.25]],
-        'Kratoma':     [['full_power', 0.4], ['glass_cannon', 0.3], ['bruiser_power', 0.3]],
-        'Fusilier':    [['glass_cannon', 0.4], ['as_carry', 0.35], ['kite_slow', 0.25]],
-        'Volstrov':    [['as_carry', 0.45], ['glass_cannon', 0.3], ['haste_mage', 0.25]],
+        'Quiller':     [['anti_tank', 0.45], ['glass_cannon', 0.35], ['kite_slow', 0.2]],
+        'Kratoma':     [['anti_tank', 0.4], ['full_power', 0.35], ['glass_cannon', 0.25]],
+        'Fusilier':    [['anti_tank', 0.4], ['glass_cannon', 0.35], ['as_carry', 0.25]],
+        'Volstrov':    [['anti_tank', 0.4], ['as_carry', 0.35], ['haste_mage', 0.25]],
         // MAGE
-        'Mage':        [['haste_mage', 0.45], ['glass_cannon', 0.35], ['anti_tank', 0.2]],
-        'Summoner':    [['haste_mage', 0.4], ['full_power', 0.35], ['anti_tank', 0.25]],
-        'Pyromancer':  [['glass_cannon', 0.35], ['haste_mage', 0.35], ['full_tank', 0.3]],
-        'Tamer':       [['haste_mage', 0.4], ['support_healer', 0.35], ['full_power', 0.25]],
+        'Mage':        [['anti_tank', 0.45], ['haste_mage', 0.35], ['glass_cannon', 0.2]],
+        'Summoner':    [['anti_tank', 0.4], ['haste_mage', 0.35], ['full_power', 0.25]],
+        'Pyromancer':  [['anti_tank', 0.45], ['glass_cannon', 0.35], ['haste_mage', 0.2]],
+        'Tamer':       [['anti_tank', 0.35], ['haste_mage', 0.4], ['support_healer', 0.25]],
         // SUPPORT
         'Healer':      [['support_healer', 0.5], ['haste_mage', 0.3], ['support_gw', 0.2]],
         'Cleric':      [['support_healer', 0.4], ['support_tank', 0.35], ['support_gw', 0.25]],
         'Eggchanter':  [['support_healer', 0.45], ['haste_mage', 0.3], ['support_gw', 0.25]],
-        'Oracle':      [['glass_cannon', 0.35], ['anti_tank', 0.3], ['support_gw', 0.35]],
+        'Oracle':      [['anti_tank', 0.45], ['glass_cannon', 0.3], ['support_gw', 0.25]],
         'Doctor':      [['support_healer', 0.4], ['support_tank', 0.3], ['support_gw', 0.3]],
     };
 
@@ -3459,8 +3489,19 @@ export class BotPlayer extends Player {
               return;
           }
           if (this.targetPos) {
-              if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; }
-              else { this.pos.x += (this.targetPos.x - this.pos.x) * 35 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 35 * dt; }
+              const d = dist(this.pos, this.targetPos);
+              if (d > 250) {
+                  this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y;
+                  this.netVel = null;
+              } else {
+                  const vx = (this.netVel ? this.netVel.x : 0);
+                  const vy = (this.netVel ? this.netVel.y : 0);
+                  this.pos.x += vx * dt;
+                  this.pos.y += vy * dt;
+                  const corrStrength = 5;
+                  this.pos.x += (this.targetPos.x - this.pos.x) * corrStrength * dt;
+                  this.pos.y += (this.targetPos.y - this.pos.y) * corrStrength * dt;
+              }
           }
           return;
       }

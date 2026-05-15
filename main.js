@@ -81,7 +81,15 @@ import { initAudio, playSound } from './Audio.js';
     socket.on('network_player_update', (data) => {
       let netPlayer = game.playersById ? game.playersById.get(data.id) : game.players.find(p => p.id === data.id);
       if (netPlayer && netPlayer !== player) { 
-        netPlayer.targetPos = { x: data.x, y: data.y }; // Nastavení cílové pozice pro plynulý pohyb
+        // Velocity extrapolace — spočítáme rychlost z rozdílu pozic, žádná extra data po síti
+        if (netPlayer.targetPos) {
+          const dx = data.x - netPlayer.targetPos.x;
+          const dy = data.y - netPlayer.targetPos.y;
+          const dt2 = netPlayer._lastPosTime ? Math.min(0.2, (performance.now() - netPlayer._lastPosTime) / 1000) : 0.05;
+          netPlayer.netVel = { x: dx / (dt2 || 0.05), y: dy / (dt2 || 0.05) };
+        }
+        netPlayer._lastPosTime = performance.now();
+        netPlayer.targetPos = { x: data.x, y: data.y };
         if (!netPlayer.alive && data.alive) netPlayer.revive(); // Pokud u nás byl mrtvý, ale už ožil
         //else if (netPlayer.alive && !data.alive) netPlayer.die(); // Nahrazeno autoritativním 'player_died' eventem
         //netPlayer.hp = data.hp; // HP je nyní plně pod kontrolou Hosta
@@ -142,6 +150,13 @@ import { initAudio, playSound } from './Audio.js';
                   E: { ...cData.E, cd: bot.spells.E.cd, level: bData.eLvl || 1 }
               };
           }
+          if (bot.targetPos) {
+            const dx = bData.x - bot.targetPos.x;
+            const dy = bData.y - bot.targetPos.y;
+            const dt2 = bot._lastPosTime ? Math.min(0.2, (performance.now() - bot._lastPosTime) / 1000) : 0.05;
+            bot.netVel = { x: dx / (dt2 || 0.05), y: dy / (dt2 || 0.05) };
+          }
+          bot._lastPosTime = performance.now();
           bot.targetPos = { x: bData.x, y: bData.y }; bot.hp = bData.hp; bot.alive = bData.alive; bot.aimAngle = bData.aimAngle;
           if (bData.slowT !== undefined) bot.slowTimer = bData.slowT;
           if (bData.boostT !== undefined) bot.boostTimer = bData.boostT;
@@ -207,6 +222,12 @@ import { initAudio, playSound } from './Audio.js';
            game.minions.push(minion);
         }
         if (minion) {
+          if (minion.targetPos) {
+            const dx = mData.x - minion.targetPos.x; const dy = mData.y - minion.targetPos.y;
+            const dt2 = minion._lastPosTime ? Math.min(0.2, (performance.now() - minion._lastPosTime) / 1000) : 0.05;
+            minion.netVel = { x: dx / (dt2 || 0.05), y: dy / (dt2 || 0.05) };
+          }
+          minion._lastPosTime = performance.now();
           minion.targetPos = { x: mData.x, y: mData.y }; minion.hp = mData.hp; minion.dead = mData.dead;
           if (mData.maxHp !== undefined) minion.maxHp = mData.maxHp;
           if (mData.glyph !== undefined) minion.glyph = mData.glyph;
@@ -1037,14 +1058,14 @@ import { initAudio, playSound } from './Audio.js';
     if (!cData) return;
     const hpFrac = pl.maxHp > 0 ? Math.max(0, Math.min(1, pl.hp / pl.maxHp)) : 1;
 
-    // Reset to base class stats
-    pl.AD = cData.baseAD;
-    pl.AP = cData.baseAP;
+    // Reset to level-grown base stats (fall back to class data for level-1 players)
+    pl.AD = pl.baseAD_stat !== undefined ? pl.baseAD_stat : cData.baseAD;
+    pl.AP = pl.baseAP_stat !== undefined ? pl.baseAP_stat : cData.baseAP;
     pl.attackSpeed = 1.0;
     pl.abilityHaste = 0;
-    pl.armor = cData.baseArmor;
-    pl.mr = cData.baseMR;
-    pl.maxHp = cData.hp;
+    pl.armor = pl.baseArmor_stat !== undefined ? pl.baseArmor_stat : cData.baseArmor;
+    pl.mr = pl.baseMR_stat !== undefined ? pl.baseMR_stat : cData.baseMR;
+    pl.maxHp = pl.baseMaxHp !== undefined ? pl.baseMaxHp : cData.hp;
     pl.hpRegen = cData.hpRegen || 2.0;
     pl.lifesteal = 0;
     pl.antiHeal = 0;

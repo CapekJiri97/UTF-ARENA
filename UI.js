@@ -1771,6 +1771,30 @@ export function draw(){
         ctx.fillStyle = '#fff'; ctx.fillText(`[F / L] ${player.summonerSpell} - Cooldown: ${sumSpell.cd}s`, leftM, startY); startY += 20;
         ctx.fillStyle = '#ddd'; startY = wrapText(`    "${sumSpell.desc}"`, leftM, startY, panelW - 40, 18) + 18;
 
+        // ── INVENTORY SUMMARY ───────────────────────────────────────────
+        if (startY < panelH - 30) {
+            const cInvIds = player.items || [];
+            const cCounts = buildItemCounts(cInvIds);
+            if (cCounts.order.length > 0) {
+                startY += 6;
+                ctx.fillStyle = '#ffcc00'; ctx.font = `bold 14px monospace`;
+                ctx.fillText(`ITEMS  (${cCounts.order.length}/6)`, leftM, startY); startY += 18;
+                ctx.fillStyle = '#333'; ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 8;
+                for (const id of cCounts.order) {
+                    if (startY > panelH - 14) break;
+                    const it = getShopItem(id);
+                    if (!it) continue;
+                    const cnt = cCounts.map.get(id) || 1;
+                    const statParts = computeItemPreview(it, player, cnt);
+                    ctx.fillStyle = '#fc0'; ctx.font = `bold 11px monospace`;
+                    ctx.fillText(cnt > 1 ? `  ${it.name} ${cnt}x` : `  ${it.name}`, leftM, startY); startY += 14;
+                    ctx.fillStyle = '#888'; ctx.font = `10px monospace`;
+                    const statStr = statParts.join('  ');
+                    ctx.fillText(`    ${statStr}`, leftM, startY); startY += 13;
+                }
+            }
+        }
+
         ctx.restore();
     }
 
@@ -1795,7 +1819,13 @@ export function draw(){
         ctx.font = `13px monospace`;
         ctx.fillText(`Class: ${player.className}  LV${player.level}`, leftM, startY); startY += 22;
         ctx.fillText(`HP: ${Math.floor(player.hp)} / ${player.effectiveMaxHp}  |  Gold: ${Math.floor(player.gold)}`, leftM, startY); startY += 22;
-        ctx.fillText(`Kills: ${player.kills}  Deaths: ${player.deaths}  Assists: ${player.assists}`, leftM, startY); startY += 30;
+        ctx.fillText(`Kills: ${player.kills}  Deaths: ${player.deaths}  Assists: ${player.assists}`, leftM, startY); startY += 18;
+        {
+            const vCd = CLASSES[player.className] || {};
+            const vPwrLabel = player.dmgType === 'magical' ? 'AP' : 'AD';
+            ctx.fillStyle = '#555'; ctx.font = `10px monospace`;
+            ctx.fillText(`per level: +${vCd.lvlHP ?? 15} HP  +${vCd.lvlArmor ?? 0.5} Armor  +${vCd.lvlMR ?? 0.5} MR  +${vCd.lvlPower ?? 1.0} ${vPwrLabel}`, leftM, startY); startY += 18;
+        }
 
         ctx.fillStyle = '#ffcc00'; ctx.fillText(`ATTRIBUTES`, leftM, startY); startY += 22;
         let vBuffAdMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
@@ -2821,6 +2851,7 @@ export function initMobileUI() {
     sideBtns.style.display = 'flex'; sideBtns.style.flexDirection = 'row'; sideBtns.style.gap = '6px'; sideBtns.style.pointerEvents = 'auto';
 
     sideBtns.appendChild(createBtn('b', 'SHOP', false, '8vh', '2vh'));
+    sideBtns.appendChild(createBtn('v', 'INV', false, '8vh', '2vh'));
     sideBtns.appendChild(createBtn('c', 'INFO', false, '8vh', '2vh'));
     sideBtns.appendChild(createBtn('tab', 'TAB', false, '8vh', '2vh'));
 
