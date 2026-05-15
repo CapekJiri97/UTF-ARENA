@@ -209,45 +209,62 @@ const computeItemPreview = (item, player, count = 1) => {
         return `+${pct}% ${label}${capText}`;
     };
 
-    if (s.powerPct) {
-        const total = capPct(s.powerPct * mult, caps.powerPct);
-        const pct = Math.round(total * 100);
+    if (s.powerPct || s.powerFlat) {
+        const pctTotal = s.powerPct ? capPct(s.powerPct * mult, caps.powerPct) : 0;
+        const flatTotal = s.powerFlat ? s.powerFlat * mult : 0;
         if (player) {
             const base = player.dmgType === 'magical' ? (player.baseAP_stat || 0) : (player.baseAD_stat || 0);
             const label = player.dmgType === 'magical' ? 'AP' : 'AD';
-            parts.push(`+${pct}% Power (${Math.round(base * total)} ${label})`);
+            const computed = Math.round(base * pctTotal) + flatTotal;
+            const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
+            parts.push(`${pctStr}Power (+${computed} ${label})`);
         } else {
-            parts.push(`+${pct}% Power`);
+            const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
+            const flatStr = flatTotal ? `+${flatTotal} flat ` : '';
+            parts.push(`${pctStr}${flatStr}Power`);
         }
     }
-    if (s.hpPct) {
-        const total = capPct(s.hpPct * mult, caps.hpPct);
-        const pct = Math.round(total * 100);
+    if (s.hpPct || s.hpFlat) {
+        const pctTotal = s.hpPct ? capPct(s.hpPct * mult, caps.hpPct) : 0;
+        const flatTotal = s.hpFlat ? s.hpFlat * mult : 0;
         if (player) {
-            parts.push(`+${pct}% HP (${Math.round((player.baseMaxHp || 0) * total)})`);
+            const computed = Math.round((player.baseMaxHp || 0) * pctTotal) + flatTotal;
+            const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
+            parts.push(`${pctStr}HP (+${computed})`);
         } else {
-            parts.push(`+${pct}% HP`);
+            const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
+            const flatStr = flatTotal ? `+${flatTotal} flat ` : '';
+            parts.push(`${pctStr}${flatStr}HP`);
         }
     }
-    if (s.armorPct) {
-        const total = capPct(s.armorPct * mult, caps.armorPct);
-        const pct = Math.round(total * 100);
+    if (s.armorPct || s.armorFlat) {
+        const pctTotal = s.armorPct ? capPct(s.armorPct * mult, caps.armorPct) : 0;
+        const flatTotal = s.armorFlat ? s.armorFlat * mult : 0;
         if (player) {
-            parts.push(`+${pct}% Armor (${Math.round((player.baseArmor_stat || 0) * total)})`);
+            const computed = Math.round((player.baseArmor_stat || 0) * pctTotal) + flatTotal;
+            const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
+            parts.push(`${pctStr}Armor (+${computed})`);
         } else {
-            parts.push(`+${pct}% Armor`);
+            const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
+            const flatStr = flatTotal ? `+${flatTotal} flat ` : '';
+            parts.push(`${pctStr}${flatStr}Armor`);
         }
     }
-    if (s.mrPct) {
-        const total = capPct(s.mrPct * mult, caps.mrPct);
-        const pct = Math.round(total * 100);
+    if (s.mrPct || s.mrFlat) {
+        const pctTotal = s.mrPct ? capPct(s.mrPct * mult, caps.mrPct) : 0;
+        const flatTotal = s.mrFlat ? s.mrFlat * mult : 0;
         if (player) {
-            parts.push(`+${pct}% MR (${Math.round((player.baseMR_stat || 0) * total)})`);
+            const computed = Math.round((player.baseMR_stat || 0) * pctTotal) + flatTotal;
+            const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
+            parts.push(`${pctStr}MR (+${computed})`);
         } else {
-            parts.push(`+${pct}% MR`);
+            const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
+            const flatStr = flatTotal ? `+${flatTotal} flat ` : '';
+            parts.push(`${pctStr}${flatStr}MR`);
         }
     }
     if (s.asPct) parts.push(pctLine('AS', s.asPct, caps.asPct));
+    if (s.asFlat) parts.push(`+${s.asFlat * mult} AS`);
     if (s.ahFlat) parts.push(`+${s.ahFlat * mult} AH`);
     if (s.lifestealPct) parts.push(pctLine('Lifesteal', s.lifestealPct, caps.lifestealPct));
     if (s.msPct) parts.push(pctLine('Move Speed', s.msPct, caps.msPct));
@@ -1066,6 +1083,8 @@ export function drawBackground(ctx){
   }
 }
 
+const _FLASH_CHARS = ['#', '%', '&', '=', 'X', '@'];
+
 export function draw(){
   // Real-time shop gold sync
   const _sgEl = document.getElementById('shopGoldDisplay');
@@ -1134,10 +1153,10 @@ export function draw(){
   if (game.screenDamageFlash > 0 || game.screenHealFlash > 0) {
       let maxDmg = Math.max(0, game.screenDamageFlash);
       let maxHeal = Math.max(0, game.screenHealFlash);
-      let particleCount = Math.floor(20 + (maxDmg * 60) + (maxHeal * 60));
+      let particleCount = Math.min(40, Math.floor(20 + (maxDmg * 40) + (maxHeal * 40)));
 
       ctx.font = 'bold 48px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      let chars = ['#', '%', '&', '=', 'X', '@'];
+      const chars = _FLASH_CHARS;
 
       for(let i=0; i<particleCount; i++) {
           let rx, ry;
@@ -1167,15 +1186,15 @@ export function draw(){
 
   if (player && !player.alive) {
       ctx.save();
-      const isMob = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      ctx.font = (isMob ? 'bold 24px' : 'bold 40px') + ' monospace'; 
+      const isMob = game.isMobile || false;
+      ctx.font = (isMob ? 'bold 24px' : 'bold 40px') + ' monospace';
       ctx.fillStyle = '#ff4e4e'; ctx.textAlign='center'; ctx.shadowColor = '#000'; ctx.shadowBlur = 10;
       ctx.fillText('RESPAWNING IN ' + Math.ceil(player.respawnTimer) + 's', cw/2, ch/2 - (isMob ? 30 : 50));
       ctx.restore();
   }
 
   if(game.started) {
-    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isMobile = game.isMobile || false;
 
     // --- TOP LEFT CONTROLS ---
     if (!isMobile) {
@@ -2284,7 +2303,7 @@ export function drawMinimap(){
     if (player && !game.isSpectator && p.team !== player.team && !mmVisible(p.pos.x, p.pos.y)) continue;
     const x = p.pos.x * scaleX + offX; const y = p.pos.y * scaleY + offY;
     ctxm.fillStyle = p.team === 0 ? '#486FED' : '#FF4E4E';
-    const _isMobMM = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const _isMobMM = game.isMobile || false;
     ctxm.font = (p === player ? (_isMobMM ? 'bold 9px' : 'bold 16px') : (_isMobMM ? 'bold 7px' : 'bold 12px')) + ' monospace';
     ctxm.textAlign = 'center'; ctxm.textBaseline = 'middle';
     ctxm.fillText(p.glyph, x, y);

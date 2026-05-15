@@ -205,15 +205,15 @@ export const CLASSES = {
   },
 
   Volstrov: {
-    glyph: 'B', role: 'MAGE', range: true, attackRange: 160, dmgType: 'magical', aaScale: 0.55,
-    hp: 620, speed: 118, attackDelay: 1.0,
+    glyph: 'B', role: 'MAGE', range: true, attackRange: 160, dmgType: 'magical', aaScale: 0.60,
+    hp: 660, speed: 118, attackDelay: 1.0,
     baseAtk: 30, baseAD: 0, baseAP: 72,
-    baseArmor: 22, baseMR: 24,
+    baseArmor: 26, baseMR: 28,
     Q: {
-      baseCooldown: 12.0, castTime: 0.0,
+      baseCooldown: 13.0, castTime: 0.0,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
-      type: 'volstrov_q', duration: 3.0, bonusAsMult: 1.6, bonusRange: 80, msSlow: 0.5,
-      desc: '3s: attacks gain range (+80), pierce all enemies in path, +60% attack speed. -50% movement speed.'
+      type: 'volstrov_q', duration: 3.0, bonusAsMult: 1.5, bonusRange: 80, msSlow: 0.5,
+      desc: '3s: attacks gain range (+80), pierce all enemies in path, +50% attack speed. -50% movement speed.'
     },
     E: {
       baseCooldown: 10.0, castTime: 0.0,

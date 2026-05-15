@@ -34,14 +34,15 @@ import { initAudio, playSound } from './Audio.js';
 
   export const canvas = document.getElementById('gameCanvas');
   export const ctx = canvas.getContext('2d');
+  export const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   function resize(){
-      const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       game._dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2);
       canvas.width = window.innerWidth * game._dpr;
       canvas.height = window.innerHeight * game._dpr;
       canvas.style.width = window.innerWidth + 'px';
       canvas.style.height = window.innerHeight + 'px';
 
+      game.isMobile = isMobile;
       if (isMobile && typeof camera !== 'undefined') {
           const cw = Math.max(window.innerWidth, window.innerHeight);
           const ch = Math.min(window.innerWidth, window.innerHeight);
@@ -78,7 +79,7 @@ import { initAudio, playSound } from './Audio.js';
       if(typeof startGameNetworked === 'function') startGameNetworked(data.players);
     });
     socket.on('network_player_update', (data) => {
-      let netPlayer = game.players.find(p => p.id === data.id);
+      let netPlayer = game.playersById ? game.playersById.get(data.id) : game.players.find(p => p.id === data.id);
       if (netPlayer && netPlayer !== player) { 
         netPlayer.targetPos = { x: data.x, y: data.y }; // Nastavení cílové pozice pro plynulý pohyb
         if (!netPlayer.alive && data.alive) netPlayer.revive(); // Pokud u nás byl mrtvý, ale už ožil
@@ -95,6 +96,18 @@ import { initAudio, playSound } from './Audio.js';
         netPlayer.beamTimer = data.beamT || 0;
         netPlayer.beamTargetId = data.beamId;
         netPlayer.uberChargeTimer = data.uberT || 0;
+        if (data.invT !== undefined) netPlayer.invulnerableTimer = data.invT;
+        if (data.defT !== undefined) netPlayer.defBuffTimer = data.defT;
+        if (data.kbT !== undefined && data.kbT > 0) { netPlayer.knockbackTimer = data.kbT; netPlayer.knockbackVel = { x: data.kbVx || 0, y: data.kbVy || 0 }; }
+        if (data.msBuffT !== undefined) { netPlayer.msBuffTimer = data.msBuffT; netPlayer.msBuffAmount = data.msBuffAmt || 0; }
+        if (data.junglePwrT !== undefined) netPlayer.junglePowerTimer = data.junglePwrT;
+        if (data.jungleAsAhT !== undefined) netPlayer.jungleAsAhTimer = data.jungleAsAhT;
+        if (data.jungleTankT !== undefined) netPlayer.jungleTankTimer = data.jungleTankT;
+        if (data.adAsBuffT !== undefined) { netPlayer.adAsBuffTimer = data.adAsBuffT; netPlayer.adAsBuffAmount = data.adAsBuffAmt || 0; }
+        if (data.antiHealT !== undefined) { netPlayer.antiHealTimer = data.antiHealT; netPlayer.antiHealStrength = data.antiHealStr || 0; }
+        if (data.regenBuffT !== undefined) { netPlayer.regenBuffTimer = data.regenBuffT; netPlayer.regenBuffAmount = data.regenBuffAmt || 0; }
+        if (data.hasPwrup !== undefined) { netPlayer.hasPowerup = data.hasPwrup; netPlayer.powerupTimer = data.pwrupT || 0; }
+        if (data.beamUberT !== undefined) netPlayer.beamUberTimer = data.beamUberT;
 
         if (data.isFullUpdate) {
           if (data.level && data.level > netPlayer.level) { netPlayer.levelUpTimer = 2.0; spawnParticles(netPlayer.pos.x, netPlayer.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
@@ -102,7 +115,7 @@ import { initAudio, playSound } from './Audio.js';
           netPlayer.items.length = data.items !== undefined ? data.items : netPlayer.items.length;
           netPlayer.AD = data.AD || netPlayer.AD; netPlayer.AP = data.AP || netPlayer.AP; netPlayer.armor = data.armor || netPlayer.armor;
           netPlayer.mr = data.mr || netPlayer.mr; netPlayer.speed = data.speed || netPlayer.speed; netPlayer.attackSpeed = data.attackSpeed || netPlayer.attackSpeed; netPlayer.abilityHaste = data.abilityHaste || netPlayer.abilityHaste;
-          netPlayer.invulnerableTimer = data.invTimer || 0; netPlayer.defBuffTimer = data.defTimer || 0; // Ochrana proti lokálnímu falešnému damage
+          netPlayer.invulnerableTimer = data.invTimer || netPlayer.invulnerableTimer; netPlayer.defBuffTimer = data.defTimer || netPlayer.defBuffTimer;
           // PŘIDÁNO: Synchro spell levelů pro správný damage z jejich střel
           if (netPlayer.spells) {
               if (data.qLvl) netPlayer.spells.Q.level = data.qLvl;
@@ -117,7 +130,7 @@ import { initAudio, playSound } from './Audio.js';
     socket.on('network_host_state', (data) => {
       if (game && game.isHost) return; // Host ignoruje tyto zprávy, má svou vlastní pravdu
       (data.bots || []).forEach(bData => {
-        let bot = game.players.find(p => p.id === bData.id);
+        let bot = game.playersById ? game.playersById.get(bData.id) : game.players.find(p => p.id === bData.id);
         if (bot) {
           // PŘIDÁNO: Synchronizace třídy bota, pokud se při startovní randomizaci u Klienta a Hosta lišila
           if (bot.className !== bData.className && bData.className) {
@@ -139,6 +152,17 @@ import { initAudio, playSound } from './Audio.js';
           if (bData.beamT !== undefined) bot.beamTimer = bData.beamT;
           if (bData.beamId !== undefined) bot.beamTargetId = bData.beamId;
           if (bData.uberT !== undefined) bot.uberChargeTimer = bData.uberT;
+          if (bData.invT !== undefined) bot.invulnerableTimer = bData.invT;
+          if (bData.defT !== undefined) bot.defBuffTimer = bData.defT;
+          if (bData.msBuffT !== undefined) { bot.msBuffTimer = bData.msBuffT; bot.msBuffAmount = bData.msBuffAmt || 0; }
+          if (bData.junglePwrT !== undefined) bot.junglePowerTimer = bData.junglePwrT;
+          if (bData.jungleAsAhT !== undefined) bot.jungleAsAhTimer = bData.jungleAsAhT;
+          if (bData.jungleTankT !== undefined) bot.jungleTankTimer = bData.jungleTankT;
+          if (bData.adAsBuffT !== undefined) { bot.adAsBuffTimer = bData.adAsBuffT; bot.adAsBuffAmount = bData.adAsBuffAmt || 0; }
+          if (bData.antiHealT !== undefined) { bot.antiHealTimer = bData.antiHealT; bot.antiHealStrength = bData.antiHealStr || 0; }
+          if (bData.regenBuffT !== undefined) { bot.regenBuffTimer = bData.regenBuffT; bot.regenBuffAmount = bData.regenBuffAmt || 0; }
+          if (bData.hasPwrup !== undefined) { bot.hasPowerup = bData.hasPwrup; bot.powerupTimer = bData.pwrupT || 0; }
+          if (bData.beamUberT !== undefined) bot.beamUberTimer = bData.beamUberT;
 
           if (bData.isFullUpdate) {
             if (bData.level && bData.level > bot.level) { bot.levelUpTimer = 2.0; spawnParticles(bot.pos.x, bot.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
@@ -169,7 +193,7 @@ import { initAudio, playSound } from './Audio.js';
       }
 
       (data.minions || []).forEach(mData => {
-        let minion = game.minions.find(m => m.id === mData.id);
+        let minion = game.minionsById ? game.minionsById.get(mData.id) : game.minions.find(m => m.id === mData.id);
         if (!minion && !mData.dead && !game.deadMinionIds.has(mData.id)) { // Pokud u klienta chybí a nebyl lokálně zabit, vytvoříme ho
            minion = new Minion(mData.x, mData.y, mData.team ?? 0, mData.targetIndex ?? 0);
            minion.id = mData.id;
@@ -205,10 +229,13 @@ import { initAudio, playSound } from './Audio.js';
       // Sdílení lékárniček, powerupů a životů základen z Hosta na Klienty
       if (data.heals) data.heals.forEach((act, i) => { if(game.heals[i]) game.heals[i].active = act; });
       if (data.powerup && game.powerup) { game.powerup.active = data.powerup.a; game.powerup.captureTimer = data.powerup.c; }
-      if (data.nexus) { game.nexus[0] = data.nexus[0]; game.nexus[1] = data.nexus[1]; }
+      if (data.nexus) {
+        game.nexus[0] = data.nexus[0]; game.nexus[1] = data.nexus[1];
+        if (activeGameMode.name === 'arena') { if (!game.score) game.score = {}; game.score[0] = data.nexus[0]; game.score[1] = data.nexus[1]; }
+      }
           if (data.humans) {
               data.humans.forEach(hData => {
-                  let p = game.players.find(x => x.id === hData.id);
+                  let p = game.playersById ? game.playersById.get(hData.id) : game.players.find(x => x.id === hData.id);
                   if (p) {
                       if (p === player) {
                           // LOKÁLNÍ HRÁČ: Počítáme jen přírůstky Goldů a EXPů z Hosta, abychom zamezili skákání UI při nákupech!
@@ -231,6 +258,17 @@ import { initAudio, playSound } from './Audio.js';
                       if (hData.uberT !== undefined) p.uberChargeTimer = hData.uberT;
                       if (hData.macro !== undefined) p.macroOrder = hData.macro ? { type: hData.macro } : null;
                       if (hData.stats && p.stats) { p.stats.dmgDealt = hData.stats.dmgDealt; p.stats.dmgTaken = hData.stats.dmgTaken; p.stats.hpHealed = hData.stats.hpHealed; }
+                      if (hData.invT !== undefined) p.invulnerableTimer = hData.invT;
+                      if (hData.defT !== undefined) p.defBuffTimer = hData.defT;
+                      if (hData.msBuffT !== undefined) { p.msBuffTimer = hData.msBuffT; p.msBuffAmount = hData.msBuffAmt || 0; }
+                      if (hData.junglePwrT !== undefined) p.junglePowerTimer = hData.junglePwrT;
+                      if (hData.jungleAsAhT !== undefined) p.jungleAsAhTimer = hData.jungleAsAhT;
+                      if (hData.jungleTankT !== undefined) p.jungleTankTimer = hData.jungleTankT;
+                      if (hData.adAsBuffT !== undefined) { p.adAsBuffTimer = hData.adAsBuffT; p.adAsBuffAmount = hData.adAsBuffAmt || 0; }
+                      if (hData.antiHealT !== undefined) { p.antiHealTimer = hData.antiHealT; p.antiHealStrength = hData.antiHealStr || 0; }
+                      if (hData.regenBuffT !== undefined) { p.regenBuffTimer = hData.regenBuffT; p.regenBuffAmount = hData.regenBuffAmt || 0; }
+                      if (hData.hasPwrup !== undefined) { p.hasPowerup = hData.hasPwrup; p.powerupTimer = hData.pwrupT || 0; }
+                      if (hData.beamUberT !== undefined) p.beamUberTimer = hData.beamUberT;
                         if (hData.towerCaptures !== undefined) p.towerCaptures = hData.towerCaptures;
                         if (hData.towerDefends !== undefined) p.towerDefends = hData.towerDefends;
                         if (hData.towerAssaultTime !== undefined) p.towerAssaultTime = hData.towerAssaultTime;
@@ -302,6 +340,11 @@ import { initAudio, playSound } from './Audio.js';
             spawnParticles(p.pos.x, p.pos.y, 30, '#fff', {speed: 150});
             if(p === player) flashMessage("JUNGLE BUFF OBTAINED!");
         }
+      } else if (data.type === 'uber_buffs') {
+        const doc = game.players.find(x => x.id === data.doctorId);
+        const tgt = game.players.find(x => x.id === data.targetId);
+        if (doc) { doc.beamUberTimer = 1.5; doc.invulnerableTimer = Math.max(doc.invulnerableTimer || 0, 1.5); doc.msBuffTimer = Math.max(doc.msBuffTimer || 0, 1.5); doc.msBuffAmount = 0.3; }
+        if (tgt) { tgt.invulnerableTimer = Math.max(tgt.invulnerableTimer || 0, 1.5); tgt.msBuffTimer = Math.max(tgt.msBuffTimer || 0, 1.5); tgt.msBuffAmount = 0.3; spawnParticles(tgt.pos.x, tgt.pos.y, 20, '#ffcc00', {speed: 180}); if (tgt === player) flashMessage("UBERCHARGE! IMMUNE!"); }
       }
     });
     
@@ -793,6 +836,7 @@ import { initAudio, playSound } from './Audio.js';
     game.isHost = true; // Důležité: Aby boti a hra nečekali na síťové příkazy!
 
     // Reinicializace mapy pro aktuální game mode (může se lišit od defaultu)
+    game.bgCanvas = null; game.minimapBg = null; game.minimapOverlay = null;
     initWalls(); initTowers();
     activeGameMode.init();
 
@@ -860,6 +904,7 @@ import { initAudio, playSound } from './Audio.js';
     game.players = []; game.minions = []; game.projectiles = [];
 
     // Reinicializace mapy pro aktuální game mode (setActiveMode bylo zavoláno těsně před tímto)
+    game.bgCanvas = null; game.minimapBg = null; game.minimapOverlay = null;
     initWalls(); initTowers();
     activeGameMode.init();
 
@@ -1190,7 +1235,7 @@ import { initAudio, playSound } from './Audio.js';
     }
 
     game.cleanupTimer = (game.cleanupTimer || 0) + dt;
-    if (game.cleanupTimer >= 30.0) {
+    if (game.cleanupTimer >= 5.0) {
       game.cleanupTimer = 0;
       if (game.burstHits) { const now = performance.now(); game.burstHits.forEach((v, k) => { if (now - (v.time || 0) > 10000) game.burstHits.delete(k); }); }
       if (game.deadMinionIds && game.deadMinionIds.size > 200) game.deadMinionIds.clear();
@@ -1204,8 +1249,12 @@ import { initAudio, playSound } from './Audio.js';
     game.projectiles = game.projectiles.filter(p=>!p.dead);
     game.minions = game.minions.filter(m=>!m.dead);
     game.damageNumbers = game.damageNumbers.filter(d=>d.life>0);
-    game.particles = game.particles.filter(p=>p.life>0);
+    if (game.particles.length > 800) game.particles = game.particles.filter(p=>p.life>0);
+    else game.particles = game.particles.filter(p=>p.life>0);
     game.effectTexts = game.effectTexts.filter(et=>et.life>0);
+    // Udržuj O(1) lookup mapy aktuální po cleanup
+    game.playersById = new Map(game.players.map(p => [p.id, p]));
+    game.minionsById = new Map(game.minions.map(m => [m.id, m]));
 
     // spawning + nexus drain + win condition — delegováno na aktivní game mode
     if (!socket || game.isHost) {
@@ -1243,7 +1292,16 @@ import { initAudio, playSound } from './Audio.js';
                     id: player.id, x: player.pos.x, y: player.pos.y, aimAngle: player.aimAngle,
                     slowT: player.slowTimer, boostT: player.boostTimer, stunT: player.stunTimer,
                     silenceT: player.silenceTimer, shield: player.shield, hanaT: player.hanaBuffTimer,
-                    beamT: player.beamTimer, beamId: player.beamTargetId, uberT: player.uberChargeTimer
+                    beamT: player.beamTimer, beamId: player.beamTargetId, uberT: player.uberChargeTimer,
+                    invT: player.invulnerableTimer, defT: player.defBuffTimer,
+                    kbT: player.knockbackTimer, kbVx: player.knockbackVel ? player.knockbackVel.x : 0, kbVy: player.knockbackVel ? player.knockbackVel.y : 0,
+                    msBuffT: player.msBuffTimer, msBuffAmt: player.msBuffAmount,
+                    junglePwrT: player.junglePowerTimer, jungleAsAhT: player.jungleAsAhTimer, jungleTankT: player.jungleTankTimer,
+                    adAsBuffT: player.adAsBuffTimer, adAsBuffAmt: player.adAsBuffAmount,
+                    antiHealT: player.antiHealTimer, antiHealStr: player.antiHealStrength,
+                    regenBuffT: player.regenBuffTimer, regenBuffAmt: player.regenBuffAmount,
+                    hasPwrup: player.hasPowerup, pwrupT: player.powerupTimer,
+                    beamUberT: player.beamUberTimer
                 };
                 if (player.isDirty) {
                     player.isDirty = false;
@@ -1263,11 +1321,19 @@ import { initAudio, playSound } from './Audio.js';
         if (game.isHost) {
             // Rychlý tick: pozice botů + minionů 10x/s
             game.hostSyncTimer = (game.hostSyncTimer || 0) + dt;
-            if (game.hostSyncTimer >= 0.1) {
+            if (game.hostSyncTimer >= 0.05) {
                 game.hostSyncTimer = 0;
                 try { socket.emit('host_state', {
                     bots: game.players.filter(p => p instanceof BotPlayer).map(b => {
-                        const base = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, stunT: b.stunTimer, shield: b.shield };
+                        const base = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, stunT: b.stunTimer, shield: b.shield,
+                            invT: b.invulnerableTimer, defT: b.defBuffTimer,
+                            msBuffT: b.msBuffTimer, msBuffAmt: b.msBuffAmount,
+                            junglePwrT: b.junglePowerTimer, jungleAsAhT: b.jungleAsAhTimer, jungleTankT: b.jungleTankTimer,
+                            adAsBuffT: b.adAsBuffTimer, adAsBuffAmt: b.adAsBuffAmount,
+                            antiHealT: b.antiHealTimer, antiHealStr: b.antiHealStrength,
+                            regenBuffT: b.regenBuffTimer, regenBuffAmt: b.regenBuffAmount,
+                            hasPwrup: b.hasPowerup, pwrupT: b.powerupTimer,
+                            beamUberT: b.beamUberTimer };
                         if (b.isDirty) {
                             b.isDirty = false;
                             return { ...base, isFullUpdate: true, className: b.className,
@@ -1307,7 +1373,15 @@ import { initAudio, playSound } from './Audio.js';
                         stats: p.stats ? { dmgDealt: p.stats.dmgDealt, dmgTaken: p.stats.dmgTaken, hpHealed: p.stats.hpHealed, dmgDealtToHeroes: p.stats.dmgDealtToHeroes || 0, dmgDealtToMinions: p.stats.dmgDealtToMinions || 0 } : null,
                         alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null, beamT: p.beamTimer, beamId: p.beamTargetId, uberT: p.uberChargeTimer,
                         towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0,
-                        powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown ? { ...p.pcsBreakdown } : null
+                        powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown ? { ...p.pcsBreakdown } : null,
+                        invT: p.invulnerableTimer, defT: p.defBuffTimer,
+                        msBuffT: p.msBuffTimer, msBuffAmt: p.msBuffAmount,
+                        junglePwrT: p.junglePowerTimer, jungleAsAhT: p.jungleAsAhTimer, jungleTankT: p.jungleTankTimer,
+                        adAsBuffT: p.adAsBuffTimer, adAsBuffAmt: p.adAsBuffAmount,
+                        antiHealT: p.antiHealTimer, antiHealStr: p.antiHealStrength,
+                        regenBuffT: p.regenBuffTimer, regenBuffAmt: p.regenBuffAmount,
+                        hasPwrup: p.hasPowerup, pwrupT: p.powerupTimer,
+                        beamUberT: p.beamUberTimer
                     })),
                     towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner, l: t.isLocked, u: t.unlockTimer})),
                     heals: game.heals.map(h => h.active),

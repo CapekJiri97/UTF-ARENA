@@ -376,6 +376,7 @@ export class Player{
                       target.msBuffTimer = Math.max(target.msBuffTimer || 0, 1.5); target.msBuffAmount = 0.3;
                       spawnParticles(this.pos.x, this.pos.y, 20, '#ffcc00', {speed: 180});
                       spawnParticles(target.pos.x, target.pos.y, 20, '#ffcc00', {speed: 180});
+                      if (socket && game.isHost) socket.emit('host_event', { type: 'uber_buffs', doctorId: this.id, targetId: target.id });
                   }
               }
               this.beamTick -= dt;
@@ -757,7 +758,7 @@ export class Player{
         } else if (this.targetPos) { // Logika pro ostatní (síťové) hráče
             // Interpolace pohybu síťových hráčů pro plynulost na Hostovi i u Klientů
             if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; } // Pokud se teleportnul (např. po respawnu), tak přeskočí
-            else { this.pos.x += (this.targetPos.x - this.pos.x) * 15 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 15 * dt; }
+            else { this.pos.x += (this.targetPos.x - this.pos.x) * 25 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 25 * dt; }
         }
     }
 
@@ -1037,11 +1038,11 @@ export class Player{
               } break;
           case 'Revive': this.revive(); spawnParticles(this.pos.x, this.pos.y, 40, '#fff', {speed: 200}); break;
           case 'Exhaust': game.particles.push(new Particle(this.pos.x, this.pos.y, '#f00', {shape: 'ring', radius: 300, life: 0.5, lineWidth: 6}));
-              for(let p of game.players) {
+              if (!socket || game.isHost) { for(let p of game.players) {
                   if (p.team !== this.team && p.alive && dist(p.pos, this.pos) <= 300) {
                       p.slowTimer = 2.0; p.slowMod = 0.6; spawnParticles(p.pos.x, p.pos.y, 10, '#f00');
                   }
-              } break;
+              } } break;
       }
   }
 
@@ -1254,12 +1255,12 @@ export class Player{
             m.knockbackTimer = 0.2; m.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
             if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); }
         } }
-        for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){
+        if (!socket || game.isHost) { for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){
             applyDamage(p, damage, this.dmgType, this.id, false, true, true); if (slowDur) { p.slowTimer = Math.max(p.slowTimer||0, slowDur); p.slowMod = slowMod; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff');
             let angle = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
             p.knockbackTimer = 0.2; p.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
-            if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } 
-        } } 
+            if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); }
+        } } }
         spawnParticles(this.pos.x, this.pos.y, 10, '#f55');
     } else if (sp.type === 'cone_knockback') {
         const range = sp.radius || 120;
@@ -1279,7 +1280,7 @@ export class Player{
                 if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); }
             }
         } }
-        for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){
+        if (!socket || game.isHost) { for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){
             const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
             const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
             if (da <= cone/2) {
@@ -1288,7 +1289,7 @@ export class Player{
                 p.knockbackTimer = 0.2; p.knockbackVel = { x: Math.cos(angle)*750, y: Math.sin(angle)*750 };
                 if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); }
             }
-        } }
+        } } }
         spawnParticles(this.pos.x, this.pos.y, 8, '#f55');
     } else if (sp.type === 'cone_slow_shield') {
         const range = sp.radius || 120;
@@ -1307,7 +1308,7 @@ export class Player{
                 if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); }
             }
         } }
-        for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){
+        if (!socket || game.isHost) { for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){
             const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
             const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang)));
             if (da <= cone/2) {
@@ -1315,7 +1316,7 @@ export class Player{
                 if (csSlowDur) { p.slowTimer = Math.max(p.slowTimer||0, csSlowDur); p.slowMod = csSlowMod; }
                 if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); }
             }
-        } }
+        } } }
         if (sp.shieldAmount) {
             this.shield = sp.shieldAmount + (pAP * 0.2);
             this.shieldTimer = sp.duration || 2.5;
@@ -3457,7 +3458,7 @@ export class BotPlayer extends Player {
           }
           if (this.targetPos) {
               if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; }
-              else { this.pos.x += (this.targetPos.x - this.pos.x) * 15 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 15 * dt; }
+              else { this.pos.x += (this.targetPos.x - this.pos.x) * 25 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 25 * dt; }
           }
           return;
       }

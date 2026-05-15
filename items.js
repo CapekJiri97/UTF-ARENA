@@ -31,40 +31,54 @@ const applyMoveSpeedPct = (pl, pctAdd, capPct) => {
 
 export const shopItems = [
   // ── BASIC STATS (250g, +25g per same item) ───────────────────────────
+  // Hybrid flat+% design: flat favours low-base carries, % favours high-base tanks.
+  // Net result: tanks stay tankier on tank items, carries get a meaningful boost on power items.
   {
     id: 'basic_power', name: 'Basic Power', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { powerPct: 0.20 },
-    apply: (pl) => { addAdaptive(pl, 0.20); }
+    // 8% base + 7 flat adaptive power
+    // Carry (AP 75): +6 AP + 7 = 13 total   Tank (AP 55): +4.4 + 7 = 11.4 total
+    // Carries benefit more from repeated stacks; tanks still gain but less per %.
+    stats: { powerPct: 0.08, powerFlat: 7 },
+    apply: (pl) => { addAdaptive(pl, 0.08); if (pl.dmgType === 'magical') pl.AP = (pl.AP || 0) + 7; else pl.AD = (pl.AD || 0) + 7; }
   },
   {
     id: 'basic_hp', name: 'Basic HP', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { hpPct: 0.14 },
-    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.14); pl.maxHp += h; pl.hp += h; }
+    // 10% base HP + 55 flat HP
+    // Carry (HP 590): +59 + 55 = 114 total   Tank (HP 1050): +105 + 55 = 160 total
+    // Carry gets ~57% of what a tank gets (vs ~56% pure-%). Meaningful survivability for carries.
+    stats: { hpPct: 0.10, hpFlat: 55 },
+    apply: (pl) => { const h = Math.round((pl.baseMaxHp || pl.maxHp) * 0.10) + 55; pl.maxHp += h; pl.hp += h; }
   },
   {
     id: 'basic_armor', name: 'Basic Armor', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { armorPct: 0.25 },
-    apply: (pl) => { pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.25); }
+    // 16% base armor + 4 flat
+    // Carry (armor 19): +3 + 4 = 7 total   Tank (armor 42): +6.7 + 4 = 10.7 total
+    // Carry gets meaningful armor; tank stays ahead but gap closes vs pure %.
+    stats: { armorPct: 0.16, armorFlat: 4 },
+    apply: (pl) => { pl.armor += Math.round((pl.baseArmor_stat || pl.armor) * 0.16) + 4; }
   },
   {
     id: 'basic_mr', name: 'Basic MR', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { mrPct: 0.25 },
-    apply: (pl) => { pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.25); }
+    // 16% base MR + 4 flat  (same philosophy as armor)
+    stats: { mrPct: 0.16, mrFlat: 4 },
+    apply: (pl) => { pl.mr += Math.round((pl.baseMR_stat || pl.mr) * 0.16) + 4; }
   },
   {
     id: 'basic_haste', name: 'Basic Haste', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { ahFlat: 12 },
-    apply: (pl) => { pl.abilityHaste = (pl.abilityHaste || 0) + 12; }
+    // Pure flat — class-agnostic by nature
+    stats: { ahFlat: 13 },
+    apply: (pl) => { pl.abilityHaste = (pl.abilityHaste || 0) + 13; }
   },
   {
     id: 'basic_as', name: 'Basic Attack Speed', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
-    stats: { asPct: 0.15 },
+    // Pure flat — class-agnostic (everyone starts at 1.0 base)
+    stats: { asFlat: 0.15 },
     apply: (pl) => { pl.attackSpeed += 0.15; }
   },
 

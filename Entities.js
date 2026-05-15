@@ -635,9 +635,10 @@ export class PowerUp {
 export class SpeedPad {
   constructor(x, y) { this.pos = {x, y}; this.radius = 60; }
   update(dt) {
-    if(socket && !game.isHost) return; 
-    for (let p of game.players) {
-      if (p.alive && dist(p.pos, this.pos) < this.radius + p.radius) {
+    // Host zpracovává všechny hráče; klient jen svého lokálního hráče (boti jsou na Hostovi)
+    const targets = (socket && !game.isHost) ? (player ? [player] : []) : game.players;
+    for (let p of targets) {
+      if (p && p.alive && dist(p.pos, this.pos) < this.radius + p.radius) {
         p.msBuffTimer = Math.max(p.msBuffTimer || 0, 3.0);
         p.msBuffAmount = Math.max(p.msBuffAmount || 0, 0.25);
         if (Math.random() < 0.2) spawnParticles(p.pos.x, p.pos.y, 1, '#0ff', {life: 0.3, speed: 50});
