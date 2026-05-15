@@ -1352,9 +1352,9 @@ import { initAudio, playSound } from './Audio.js';
                     minions: [], // Minioni přesunuty do slow ticku — fast packet je pouze pro PvP entity
                 }); } catch(netErr) { console.warn('[NET] host_state (fast) serialize error:', netErr.message); }
             }
-            // Pomalý tick: stav mapy + humans stats 3x/s (věci co se nemění rychle)
+            // Pomalý tick: stav mapy + humans stats 10x/s (věci co se nemění rychle)
             game.hostSlowSyncTimer = (game.hostSlowSyncTimer || 0) + dt;
-            if (game.hostSlowSyncTimer >= 0.33) {
+            if (game.hostSlowSyncTimer >= 0.10) {
                 game.hostSlowSyncTimer = 0;
                 try { socket.emit('host_state', {
                     bots: [],
