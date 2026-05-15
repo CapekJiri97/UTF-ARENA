@@ -204,6 +204,25 @@ export const CLASSES = {
     }
   },
 
+  Volstrov: {
+    glyph: 'B', role: 'MAGE', range: true, attackRange: 160, dmgType: 'magical', aaScale: 0.55,
+    hp: 620, speed: 118, attackDelay: 1.0,
+    baseAtk: 30, baseAD: 0, baseAP: 72,
+    baseArmor: 22, baseMR: 24,
+    Q: {
+      baseCooldown: 12.0, castTime: 0.0,
+      baseDamage: 0, scaleAP: 0, scaleAD: 0,
+      type: 'volstrov_q', duration: 3.0, bonusAsMult: 1.6, bonusRange: 80, msSlow: 0.5,
+      desc: '3s: attacks gain range (+80), pierce all enemies in path, +60% attack speed. -50% movement speed.'
+    },
+    E: {
+      baseCooldown: 10.0, castTime: 0.0,
+      baseDamage: 0, scaleAP: 0.30, scaleAD: 0, amount: 50, dashTime: 0.12,
+      type: 'volstrov_e', distance: 60, duration: 1.5,
+      desc: 'Short dash + small shield (1.5s). Reduces Q remaining cooldown by 50%.'
+    }
+  },
+
   Reaper: {
     glyph: 'R', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.40,
     hp: 590, speed: 120, attackDelay: 0.82,
@@ -306,7 +325,7 @@ export const CLASSES = {
   // ==========================================
 
   Mage: {
-    glyph: 'M', role: 'SLAYER', range: true, dmgType: 'magical', aaScale: 0.20,
+    glyph: 'M', role: 'MAGE', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 660, speed: 112, attackDelay: 1.4,
     baseAtk: 30, baseAD: 0, baseAP: 78,
     baseArmor: 28, baseMR: 30,
@@ -325,7 +344,7 @@ export const CLASSES = {
   },
 
   Summoner: {
-    glyph: 'S', role: 'SLAYER', range: true, dmgType: 'magical', aaScale: 0.20,
+    glyph: 'S', role: 'MAGE', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 650, speed: 108, attackDelay: 1.3,
     baseAtk: 30, baseAD: 0, baseAP: 75,
     baseArmor: 25, baseMR: 22,
@@ -444,7 +463,7 @@ export const CLASSES = {
   },
 
   Oracle: {
-    glyph: 'O', role: 'SUPPORT', range: true, dmgType: 'physical', aaScale: 0.65,
+    glyph: 'O', role: 'MAGE', range: true, dmgType: 'physical', aaScale: 0.65,
     hp: 610, speed: 110, attackDelay: 1.1,
     baseAtk: 25, baseAD: 70, baseAP: 0,
     baseArmor: 22, baseMR: 25,

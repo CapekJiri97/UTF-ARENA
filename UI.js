@@ -1046,13 +1046,22 @@ export function drawBackground(ctx){
   if (game.showMapOverlay && (activeGameMode.name === 'classic' || activeGameMode.name === 'speed')) {
       if (!game._mapOverlayImg) {
           game._mapOverlayImg = new Image();
+          game._mapOverlayImg.onload = () => { game._mapOverlayCanvas = null; }; // invalidate cache on load
           game._mapOverlayImg.src = 'crystal scar 4000x3150.png';
       }
       if (game._mapOverlayImg.complete && game._mapOverlayImg.naturalWidth > 0) {
-          ctx.save();
-          ctx.globalAlpha = 0.2;
-          ctx.drawImage(game._mapOverlayImg, 0, 0, mapWorld.width, mapWorld.height);
-          ctx.restore();
+          // Překresli jednou do offscreen canvasu ve 1/4 rozlišení mapy + s alphou — pak škáluj při blitu
+          const ocW = Math.round(mapWorld.width / 4), ocH = Math.round(mapWorld.height / 4);
+          if (!game._mapOverlayCanvas || game._mapOverlayCanvas._w !== ocW) {
+              const oc = document.createElement('canvas');
+              oc.width = ocW; oc.height = ocH;
+              oc._w = ocW;
+              const octx = oc.getContext('2d');
+              octx.globalAlpha = 0.2;
+              octx.drawImage(game._mapOverlayImg, 0, 0, ocW, ocH);
+              game._mapOverlayCanvas = oc;
+          }
+          ctx.drawImage(game._mapOverlayCanvas, 0, 0, mapWorld.width, mapWorld.height);
       }
   }
 }
@@ -1072,8 +1081,8 @@ export function draw(){
     }
 
   const cw = canvas.clientWidth; const ch = canvas.clientHeight;
-  const dpr = window.devicePixelRatio || 1;
-  
+  const dpr = game._dpr || window.devicePixelRatio || 1;
+
   ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle = '#000'; ctx.fillRect(0,0,cw,ch);
   ctx.setTransform(camera.scale*dpr,0,0,camera.scale*dpr, -camera.x*camera.scale*dpr, -camera.y*camera.scale*dpr);
   if (game.shake > 0) { const mag = game.shake * 20; ctx.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag); }
@@ -1364,6 +1373,8 @@ export function draw(){
         if (t === 'flamethrower')        return 'Channel';
         if (t === 'reaper_q')            return 'Empower';
         if (t === 'reaper_e')            return 'Dash';
+        if (t === 'volstrov_q')          return 'Empower';
+        if (t === 'volstrov_e')          return 'Dash';
         if (t === 'tamer_q')             return 'Mark';
         if (t === 'tamer_e')             return 'Revive';
         if (t === 'heal_beam')           return 'Toggle';
@@ -1702,6 +1713,16 @@ export function draw(){
                 lines.push(...buildBreakdown('Shield', amt, scLvl, scAD, scAP));
                 lines.push({ t: `    +40% Movement Speed for ${sp.duration || 1.5}s.`, c: '#0f0' });
                 lines.push({ t: `    Resets Q cooldown instantly!`, c: '#ffcc00' });
+            } else if (sp.type === 'volstrov_q') {
+                lines.push({ t: `    Duration: ${sp.duration || 3}s`, c: '#fff' });
+                lines.push({ t: `    +${Math.round(((sp.bonusAsMult||1.6)-1)*100)}% Attack Speed | +${sp.bonusRange||80} Attack Range`, c: '#ffe066' });
+                lines.push({ t: `    Attacks pierce all enemies in path.`, c: '#ffe066' });
+                lines.push({ t: `    -${Math.round((sp.msSlow||0.5)*100)}% Movement Speed while active.`, c: '#f88' });
+            } else if (sp.type === 'volstrov_e') {
+                let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 10;
+                lines.push(...buildBreakdown('Shield', amt, scLvl, scAD, scAP));
+                lines.push({ t: `    Dash ${sp.distance||60} units. Shield lasts ${sp.duration||1.5}s.`, c: '#fff' });
+                lines.push({ t: `    Reduces Q remaining cooldown by 50%.`, c: '#ffe066' });
             } else {
                 let scLvl = sp.scaleLevel !== undefined ? sp.scaleLevel : 8;
                 lines.push(...buildBreakdown('Damage', bDmg, scLvl, scAD, scAP));
@@ -2582,8 +2603,8 @@ export function buildMenu() {
       'FIGHTER': ['Bruiser', 'Vanguard', 'Jirina'], 
       'TANK': ['Ironclad', 'Goliath', 'Hana', 'Jailer'], 
       'ASSASSIN': ['Lynx', 'Zephyr', 'Reaper', 'Wanderer'],
-      'RANGED': ['Quiller', 'Kratoma', 'Fusilier'],
-      'MAGE': ['Mage', 'Summoner', 'Pyromancer', 'Tamer'], 
+      'RANGED': ['Quiller', 'Kratoma', 'Fusilier', 'Volstrov'],
+      'MAGE': ['Mage', 'Summoner', 'Pyromancer', 'Tamer'],
       'SUPPORT': ['Healer', 'Cleric', 'Eggchanter', 'Oracle', 'Doctor'] 
   };
   const allBtns = [];

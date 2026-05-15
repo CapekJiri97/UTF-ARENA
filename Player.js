@@ -31,6 +31,9 @@ export class Player{
     this.shieldTimer = 0;
     this.reaperCharge = 0; // Stacky posílených útoků
     this.reaperTimer = 0;
+    this.volstrovQTimer = 0;
+    this.volstrovQData = null;
+    this.volstrovEBuff = 0;
 
     // stats
     this.maxHp = cData.hp; this.hp = this.maxHp; this.hpRegen = cData.hpRegen || 2.0;
@@ -401,6 +404,8 @@ export class Player{
     this.hanaBuffTimer = 0; this.adAsBuffTimer = 0; this.defBuffTimer = 0;
     this.invulnerableTimer = 0; this.boostTimer = 0; this.rallyTimer = 0;
     this.reaperCharge = 0; this.reaperTimer = 0;
+    this.volstrovQTimer = 0; this.volstrovQData = null;
+    this.volstrovEBuff = 0;
     this.revivingPet = false; this.petTargetId = null;
     this.flamethrowerTimer = 0;
     this.spinTimer = 0; this.spinData = null;
@@ -475,6 +480,8 @@ export class Player{
         if (this.shieldTimer <= 0 && !this.shieldExplodeData) this.shield = 0;
     }
     if(this.hanaBuffTimer > 0) this.hanaBuffTimer -= dt;
+    if(this.volstrovQTimer > 0) { this.volstrovQTimer -= dt; if(this.volstrovQTimer <= 0) this.volstrovQData = null; }
+    if(this.volstrovEBuff > 0) this.volstrovEBuff -= dt;
     if(this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if(this.beamUberTimer > 0) this.beamUberTimer -= dt;
     if(this.defBuffTimer > 0) this.defBuffTimer -= dt;
@@ -741,6 +748,7 @@ export class Player{
         if (this === player) { // PŘIDÁNO: Zabráníme aplikaci lokálních WASD na cizí hráče
             if(keys['w']) dy-=1; if(keys['s']) dy+=1; if(keys['a']) dx-=1; if(keys['d']) dx+=1; l = Math.hypot(dx,dy);
             let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? (this.slowMod || 0.6) : 1.0);
+            if(this.volstrovQTimer > 0 && this.volstrovQData) moveSpeed *= (1.0 - (this.volstrovQData.msSlow || 0.5));
             if(this.castingTimeRemaining > 0) moveSpeed *= 0.3; // 70% slow během castingu!
             if(this.attackPenaltyTimer > 0) moveSpeed *= 0.8;
             if(this.stunTimer > 0) moveSpeed = 0;
@@ -878,6 +886,7 @@ export class Player{
     let ja = this.jungleAsAhTimer > 0 ? 1.1 : 1.0;
     let effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0) * ja;
     if (this.hanaBuffTimer > 0) effAS *= (this.spells.Q.bonusAsMult || 1.25);
+    if (this.volstrovQTimer > 0 && this.volstrovQData) effAS *= (this.volstrovQData.bonusAsMult || 1.6);
     if(this === player && wantAttack && this.attackCooldown<=0 && canAttack){ this.shoot(this.pos.x + Math.cos(this.aimAngle)*100, this.pos.y + Math.sin(this.aimAngle)*100); this.attackCooldown = this.attackDelay / effAS; }
 
     // spells cooldowns
@@ -959,6 +968,7 @@ export class Player{
     if (this.defBuffTimer > 0) statuses.push({ t: 'DEFENSE', c: '#88f' });
     if (this.adAsBuffTimer > 0) statuses.push({ t: 'FRENZY', c: '#f00' });
     if (this.hanaBuffTimer > 0) statuses.push({ t: 'EMPOWERED', c: '#f0f' });
+    if (this.volstrovQTimer > 0) statuses.push({ t: 'SOLAR MODE', c: '#ffe066' });
     if (this.reaperCharge > 0) statuses.push({ t: `EMPOWERED (${this.reaperCharge})`, c: '#800080' });
     if (this.antiHealTimer > 0) statuses.push({ t: `GRIEVOUS ${Math.round((this.antiHealStrength || 0) * 100)}%`, c: '#ff6600' });
     
@@ -1070,14 +1080,18 @@ export class Player{
     }
 
     if(this.range){ // ranged - projectile with limited range
-      const angle = Math.atan2(ty-this.pos.y, tx-this.pos.x); const speed = 800; const range = this.attackRange; const life = range / speed; 
+      const volQ = (this.volstrovQTimer > 0 && this.volstrovQData) ? this.volstrovQData : null;
+      const angle = Math.atan2(ty-this.pos.y, tx-this.pos.x); const speed = 800;
+      const range = this.attackRange + (volQ ? (volQ.bonusRange || 80) : 0);
+      const life = range / speed;
       let pCount = CLASSES[this.className].projCount || 1;
       let pSpread = CLASSES[this.className].projSpread || 0.25;
       const burstId = pCount > 1 ? (this.id + '_' + Date.now()) : null;
       for(let i=0; i<pCount; i++) {
           const a = pCount === 1 ? angle : angle - (pSpread*(pCount-1))/2 + i*pSpread;
           const vx = Math.cos(a)*speed; const vy = Math.sin(a)*speed;
-          const opts = {damage:damage, dmgType: this.dmgType, glyph:'-' , life:life, radius: 8};
+          const opts = {damage:damage, dmgType: this.dmgType, glyph: volQ ? '|' : '-', life:life, radius: 8};
+          if (volQ) opts.pierce = true;
           if (burstId) { opts.burstId = burstId; opts.burstMax = pCount; }
           if (this.onHitSlow) {
               opts.slowDuration = 1.5;
@@ -1152,7 +1166,7 @@ export class Player{
     }
 
     sp.cd = this.computeSpellCooldown(spKey) + (sp.castTime || 0); // Cooldown se rovnou navýší o délku cast time
-    this.castingTimeRemaining = sp.castTime || 0; 
+    this.castingTimeRemaining = sp.castTime || 0;
     this.castingTimeTotal = sp.castTime || 0;
 
     const buffAdMult = 1.0 + (this.adAsBuffTimer > 0 ? this.adAsBuffAmount : 0);
@@ -1622,7 +1636,22 @@ export class Player{
             if (this === player) flashMessage("Requires 5s of continuous healing!");
         }
     }
-    if (this === player) updateSpellLabels(); 
+    if (sp.type === 'volstrov_q') {
+        this.volstrovQTimer = sp.duration || 3.0;
+        this.volstrovQData = { bonusAsMult: sp.bonusAsMult || 1.6, bonusRange: sp.bonusRange || 80, msSlow: sp.msSlow || 0.5 };
+        spawnParticles(this.pos.x, this.pos.y, 20, '#ffe066', {speed: 160});
+    } else if (sp.type === 'volstrov_e') {
+        const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
+        const distToMove = sp.distance || 60;
+        const dashTime = sp.dashTime || 0.12;
+        this.dashTimer = dashTime;
+        this.dashVel = { x: Math.cos(angle)*(distToMove/dashTime), y: Math.sin(angle)*(distToMove/dashTime) };
+        this.shield = (sp.amount || 50) + (pAP * (sp.scaleAP || 0.30));
+        this.shieldTimer = sp.duration || 1.5;
+        if (this.spells.Q.cd > 0) this.spells.Q.cd *= 0.5;
+        spawnParticles(this.pos.x, this.pos.y, 15, '#ffe066', {speed: 120});
+    }
+    if (this === player) updateSpellLabels();
   }
 }
 
@@ -1678,6 +1707,7 @@ export class BotPlayer extends Player {
       this.randomizePokeThresholds();
 
       this.targetPath = null; // Active item upgrade path bot is working towards
+      this.buildArchetype = BotPlayer.rollBuildArchetype(this.className);
       this.difficultyMod = this.team === 0 ? (game.blueBotDifficulty || 1.0) : (game.redBotDifficulty || 1.0);
       // Difficulty bonusy jako absolutní offsety — přetrvají přes recalcPlayerItemStats
       this.diffBonusHP    = this.difficultyMod !== 1.0 ? Math.round(this.maxHp    * (this.difficultyMod - 1.0)) : 0;
@@ -1867,8 +1897,85 @@ export class BotPlayer extends Player {
             if (s.healPower && !hasHeals) score *= 0.15;
         }
 
+        // --- BUILD ARCHETYPE — každý bot má identitu která posouvá jeho score priority ---
+        if (owner.buildArchetype) {
+            const arch = BotPlayer.BUILD_ARCHETYPES[owner.buildArchetype];
+            if (arch) {
+                for (const [statKey, mult] of Object.entries(arch)) {
+                    if (s[statKey]) score *= mult;
+                }
+            }
+        }
+
+        // --- STOCHASTICKÝ ŠRUM — malá náhoda aby boti občas koupili i off-archetype item ---
+        score *= 0.88 + Math.random() * 0.24; // ±12% noise; občas překryje i archetyp penalizaci
+
         return score;
     }
+
+    static rollBuildArchetype(className) {
+        const table = BotPlayer.CLASS_ARCHETYPES[className];
+        if (!table || table.length === 0) return null;
+        const roll = Math.random();
+        let acc = 0;
+        for (const [archName, weight] of table) {
+            acc += weight;
+            if (roll < acc) return archName;
+        }
+        return table[table.length - 1][0];
+    }
+
+    // Archetype stat score multiplikátory — klíče odpovídají stats v items.js
+    static BUILD_ARCHETYPES = {
+        'glass_cannon':   { powerPct: 1.9, penPct: 1.6, hpPct: 0.3, armorPct: 0.25, mrPct: 0.25 },
+        'full_power':     { powerPct: 1.7, ahFlat: 1.4, penPct: 1.3, hpPct: 0.5, armorPct: 0.35, mrPct: 0.35 },
+        'bruiser_power':  { powerPct: 1.4, hpPct: 1.5, armorPct: 1.2, mrPct: 1.2, penPct: 1.1 },
+        'full_tank':      { hpPct: 2.0, armorPct: 1.8, mrPct: 1.8, powerPct: 0.3, penPct: 0.4 },
+        'anti_tank':      { penPct: 1.8, maxHpDmgPct: 2.0, strikeBurnPct: 1.8, grievousWounds: 1.5, powerPct: 1.2 },
+        'lifesteal':      { lifestealPct: 2.2, powerPct: 1.4, hpPct: 1.1, penPct: 1.0 },
+        'haste_mage':     { ahFlat: 2.0, powerPct: 1.5, penPct: 1.2, hpPct: 0.6 },
+        'support_healer': { healPower: 2.5, ahFlat: 1.6, hpPct: 1.3, armorPct: 1.1, mrPct: 1.1, powerPct: 0.5 },
+        'support_tank':   { hpPct: 1.8, armorPct: 1.7, mrPct: 1.7, grievousWounds: 1.4, powerPct: 0.4 },
+        'support_gw':     { grievousWounds: 2.5, ahFlat: 1.5, powerPct: 1.1, hpPct: 1.2 },
+        'kite_slow':      { slowOnHit: 2.0, msPct: 1.5, powerPct: 1.3, penPct: 1.1, hpPct: 0.7 },
+        'splitpush_ms':   { msPct: 1.8, powerPct: 1.4, penPct: 1.2, hpPct: 0.9, armorPct: 0.7 },
+        'burn_tank':      { maxHpDmgPct: 2.0, strikeBurnPct: 1.8, hpPct: 1.5, armorPct: 1.3, mrPct: 1.3, powerPct: 0.6 },
+        'as_carry':       { asPct: 2.0, powerPct: 1.5, penPct: 1.2, lifestealPct: 1.4, hpPct: 0.7 },
+    };
+
+    // Per-class archetype tabulky: [archName, váha 0..1] — součet vah = 1.0
+    static CLASS_ARCHETYPES = {
+        // FIGHTER
+        'Vanguard':    [['bruiser_power', 0.5], ['full_tank', 0.25], ['anti_tank', 0.25]],
+        'Jirina':      [['bruiser_power', 0.4], ['full_power', 0.35], ['support_healer', 0.25]],
+        'Bruiser':     [['glass_cannon', 0.35], ['bruiser_power', 0.4], ['lifesteal', 0.25]],
+        // TANK
+        'Ironclad':    [['full_tank', 0.5], ['burn_tank', 0.3], ['bruiser_power', 0.2]],
+        'Hana':        [['burn_tank', 0.4], ['full_tank', 0.35], ['bruiser_power', 0.25]],
+        'Jailer':      [['full_tank', 0.4], ['anti_tank', 0.3], ['bruiser_power', 0.3]],
+        'Goliath':     [['full_tank', 0.35], ['burn_tank', 0.35], ['lifesteal', 0.3]],
+        // ASSASSIN/SLAYER
+        'Lynx':        [['glass_cannon', 0.45], ['lifesteal', 0.3], ['kite_slow', 0.25]],
+        'Zephyr':      [['splitpush_ms', 0.4], ['full_power', 0.35], ['glass_cannon', 0.25]],
+        'Reaper':      [['full_power', 0.4], ['glass_cannon', 0.35], ['haste_mage', 0.25]],
+        'Wanderer':    [['glass_cannon', 0.4], ['lifesteal', 0.35], ['anti_tank', 0.25]],
+        // RANGED
+        'Quiller':     [['glass_cannon', 0.45], ['kite_slow', 0.3], ['anti_tank', 0.25]],
+        'Kratoma':     [['full_power', 0.4], ['glass_cannon', 0.3], ['bruiser_power', 0.3]],
+        'Fusilier':    [['glass_cannon', 0.4], ['as_carry', 0.35], ['kite_slow', 0.25]],
+        'Volstrov':    [['as_carry', 0.45], ['glass_cannon', 0.3], ['haste_mage', 0.25]],
+        // MAGE
+        'Mage':        [['haste_mage', 0.45], ['glass_cannon', 0.35], ['anti_tank', 0.2]],
+        'Summoner':    [['haste_mage', 0.4], ['full_power', 0.35], ['anti_tank', 0.25]],
+        'Pyromancer':  [['glass_cannon', 0.35], ['haste_mage', 0.35], ['full_tank', 0.3]],
+        'Tamer':       [['haste_mage', 0.4], ['support_healer', 0.35], ['full_power', 0.25]],
+        // SUPPORT
+        'Healer':      [['support_healer', 0.5], ['haste_mage', 0.3], ['support_gw', 0.2]],
+        'Cleric':      [['support_healer', 0.4], ['support_tank', 0.35], ['support_gw', 0.25]],
+        'Eggchanter':  [['support_healer', 0.45], ['haste_mage', 0.3], ['support_gw', 0.25]],
+        'Oracle':      [['glass_cannon', 0.35], ['anti_tank', 0.3], ['support_gw', 0.35]],
+        'Doctor':      [['support_healer', 0.4], ['support_tank', 0.3], ['support_gw', 0.3]],
+    };
 
     static pickBuyableItem(owner, candidateIds = null, enemies = null) {
         const pool = Array.isArray(candidateIds) && candidateIds.length
@@ -3780,9 +3887,10 @@ export class BotPlayer extends Player {
                   let ja = this.jungleAsAhTimer > 0 ? 1.1 : 1.0;
                   let effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0) * ja;
                   if (this.hanaBuffTimer > 0) effAS *= (this.spells.Q.bonusAsMult || 1.25);
-                  this.attackCooldown = this.attackDelay / effAS; 
+                  if (this.volstrovQTimer > 0 && this.volstrovQData) effAS *= (this.volstrovQData.bonusAsMult || 1.6);
+                  this.attackCooldown = this.attackDelay / effAS;
               }
-              
+
               // Spells Logic (Q)
               let isMeleeVsRanged = !this.range && this.target.range;
               if (this.spells.Q && this.spells.Q.cd <= 0 && this.castingTimeRemaining <= 0) {
@@ -3812,6 +3920,7 @@ export class BotPlayer extends Player {
                           if (bestAlly && bestAlly.hp/bestAlly.effectiveMaxHp < 0.95) { castQ = true; qtx = bestAlly.pos.x; qty = bestAlly.pos.y; }
                       }
                   }
+                  else if (this.spells.Q.type === 'volstrov_q') castQ = (d < 400 && this.volstrovQTimer <= 0); // Volstrov Q — aktivuje buff jen když není aktivní
                   else castQ = (d < 450);
                   if (castQ) this.castSpell('Q', qtx, qty);
               }
@@ -3831,6 +3940,11 @@ export class BotPlayer extends Player {
                       else { if (d > 150 && d < 400) castE = true; }
                   } else if (this.spells.E.type === 'aoe' || this.spells.E.type === 'aoe_knockback' || this.spells.E.type === 'cone_knockback' || this.spells.E.type === 'cone_slow_shield') castE = (d < (this.spells.E.radius || 200));
                   else if (this.spells.E.type === 'reaper_e') castE = (d > 100 && d < 350) || (this.spells.Q.cd > 2.0 && d < 200);
+                  else if (this.spells.E.type === 'volstrov_e') {
+                      const qCdHigh = this.spells.Q.cd > (this.spells.Q.baseCooldown || 12) * 0.35;
+                      castE = (qCdHigh && d < 350) || (this.hp < this.effectiveMaxHp * 0.55);
+                      if (castE && d < 200) { etx = this.pos.x + (this.pos.x - tx); ety = this.pos.y + (this.pos.y - ty); }
+                  }
                   else if (this.spells.E.type === 'flamethrower') castE = (d < (this.spells.E.range || 300));
                   else if (this.spells.E.type === 'tamer_e') {
                       let pet = game.minions.find(m => m.ownerId === this.id && m.isTamerPet && !m.dead);
@@ -3985,6 +4099,7 @@ export class BotPlayer extends Player {
 
       const l = Math.hypot(dx, dy);
        let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? (this.slowMod || 0.6) : 1.0);
+      if (this.volstrovQTimer > 0 && this.volstrovQData) moveSpeed *= (1.0 - (this.volstrovQData.msSlow || 0.5));
       if (this.attackPenaltyTimer > 0) moveSpeed *= (this.range ? 0.6 : 0.85);
       if (l > 0) { 
           // --- PŘITAHOVÁNÍ K SPEED PADŮM ---

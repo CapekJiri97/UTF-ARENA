@@ -26,15 +26,21 @@ export class Projectile{
       if(info.inside || info.minDist < w.r) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; }
     }
     
+    const pierce = this.opts.pierce || false;
+    if (!pierce) this._pierceHit = null; // non-pierce: reset not needed, but safe
+
     let hitTarget = null;
-    for(let m of game.minions){ 
-      if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){ 
+    for(let m of game.minions){
+      if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){
+        if (pierce && this._pierceHit && this._pierceHit.has(m.id)) continue;
         hitTarget = m; applyDamage(m, this._scaleBurstDamage(m.id, this.damage), this.dmgType, this.ownerId, false, this.opts.isSpell || false);
         if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
-        if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantMinionKillRewards(owner, m.pos); } } break;
-      } 
+        if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantMinionKillRewards(owner, m.pos); } }
+        if (pierce) { if (!this._pierceHit) this._pierceHit = new Set(); this._pierceHit.add(m.id); this.processOnHit(m); hitTarget = null; continue; }
+        break;
+      }
     }
-    if (hitTarget) { this.processOnHit(hitTarget); this.dead = true; return; }
+    if (!pierce && hitTarget) { this.processOnHit(hitTarget); this.dead = true; return; }
 
     // Věže s HP (ARAM) — lze je zasáhnout projektily hráčů a minionů (ne jinými věžemi)
     if (this.ownerId !== 'tower' && (!socket || game.isHost)) {
@@ -42,19 +48,22 @@ export class Projectile{
         if (!t.dead && t.maxHp !== null && t.owner !== this.ownerTeam && dist(this.pos, t.pos) < this.radius + t.radius + 12) {
           t.takeDamage(this.damage, this.ownerId);
           spawnParticles(this.pos.x, this.pos.y, 4, '#ff8800');
-          this.dead = true; return;
+          if (!pierce) { this.dead = true; return; }
         }
       }
     }
 
     for(let p of game.players){
       if(p.id !== this.ownerId && p.team !== this.ownerTeam && p.alive && dist(this.pos, p.pos) < this.radius + p.radius){
+        if (pierce && this._pierceHit && this._pierceHit.has(p.id)) continue;
         hitTarget = p; applyDamage(p, this._scaleBurstDamage(p.id, this.damage), this.dmgType, this.ownerId, false, this.opts.isSpell || false);
         if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
-        if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.ownerId); } break;
+        if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.ownerId); }
+        if (pierce) { if (!this._pierceHit) this._pierceHit = new Set(); this._pierceHit.add(p.id); this.processOnHit(p); hitTarget = null; continue; }
+        break;
       }
     }
-    if (hitTarget) { this.processOnHit(hitTarget); this.dead = true; }
+    if (!pierce && hitTarget) { this.processOnHit(hitTarget); this.dead = true; }
   }
   processOnHit(target) {
       if (this.opts.slowDuration) {

@@ -34,14 +34,14 @@ import { initAudio, playSound } from './Audio.js';
 
   export const canvas = document.getElementById('gameCanvas');
   export const ctx = canvas.getContext('2d');
-  function resize(){ 
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = window.innerWidth * dpr; 
-      canvas.height = window.innerHeight * dpr; 
+  function resize(){
+      const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      game._dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2);
+      canvas.width = window.innerWidth * game._dpr;
+      canvas.height = window.innerHeight * game._dpr;
       canvas.style.width = window.innerWidth + 'px';
       canvas.style.height = window.innerHeight + 'px';
 
-      const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       if (isMobile && typeof camera !== 'undefined') {
           const cw = Math.max(window.innerWidth, window.innerHeight);
           const ch = Math.min(window.innerWidth, window.innerHeight);
