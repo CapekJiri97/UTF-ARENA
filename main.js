@@ -1349,6 +1349,15 @@ import { initAudio, playSound } from './Audio.js';
                         }
                         return base;
                     }),
+                    minions: [], // Minioni přesunuty do slow ticku — fast packet je pouze pro PvP entity
+                }); } catch(netErr) { console.warn('[NET] host_state (fast) serialize error:', netErr.message); }
+            }
+            // Pomalý tick: stav mapy + humans stats 3x/s (věci co se nemění rychle)
+            game.hostSlowSyncTimer = (game.hostSlowSyncTimer || 0) + dt;
+            if (game.hostSlowSyncTimer >= 0.33) {
+                game.hostSlowSyncTimer = 0;
+                try { socket.emit('host_state', {
+                    bots: [],
                     minions: (function() {
                         const out = [];
                         for (const m of game.minions) {
@@ -1358,15 +1367,6 @@ import { initAudio, playSound } from './Audio.js';
                         }
                         return out;
                     })(),
-                }); } catch(netErr) { console.warn('[NET] host_state (fast) serialize error:', netErr.message); }
-            }
-            // Pomalý tick: stav mapy + humans stats 3x/s (věci co se nemění rychle)
-            game.hostSlowSyncTimer = (game.hostSlowSyncTimer || 0) + dt;
-            if (game.hostSlowSyncTimer >= 0.33) {
-                game.hostSlowSyncTimer = 0;
-                try { socket.emit('host_state', {
-                    bots: [],
-                    minions: [],
                     humans: game.players.filter(p => !(p instanceof BotPlayer)).map(p => ({
                         id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, stunT: p.stunTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
                         kills: p.kills, deaths: p.deaths, assists: p.assists,

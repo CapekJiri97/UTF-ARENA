@@ -422,8 +422,9 @@ export class Player{
     if(player && this.id === player.id) { game.shake = 0.5; flashMessage('You died — respawning...'); } 
         this.refreshDominionPCS();
   }
-  revive(){ 
+  revive(){
     this.alive = true; this.respawnTimer = 0;
+    this.macroOrder = null; // Starý order po smrti není platný — macro mozek přidělí nový
     // OPRAVA: Zdraví a pozice do základny se musí resetovat lokálně všem hráčům! Nejen Hostovi.
       if (this.className === 'Tamer') this.spawnTamerPet(1.0);
     this.hp = this.effectiveMaxHp; const sp = spawnPoints[this.team]; if(sp) { this.pos.x = sp.x; this.pos.y = sp.y; this.targetPos = null; }
@@ -758,7 +759,7 @@ export class Player{
         } else if (this.targetPos) { // Logika pro ostatní (síťové) hráče
             // Interpolace pohybu síťových hráčů pro plynulost na Hostovi i u Klientů
             if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; } // Pokud se teleportnul (např. po respawnu), tak přeskočí
-            else { this.pos.x += (this.targetPos.x - this.pos.x) * 25 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 25 * dt; }
+            else { this.pos.x += (this.targetPos.x - this.pos.x) * 35 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 35 * dt; }
         }
     }
 
@@ -2867,6 +2868,7 @@ export class BotPlayer extends Player {
           }
           
           if (t.owner === -1) score += this.personalWeights.neutralTowerScore;
+          if (t.isLocked) score -= 80000; // Zamčená věž — nechoď tam, jdi do jungle nebo čekej
           
           let alliesOnTower = 0;
           for (let id in game.teamIntents[this.team]) {
@@ -2890,7 +2892,7 @@ export class BotPlayer extends Player {
           // Výjimka: pokud jsme v capture radiusu a nepřátelé jsou blízko, bojujeme — nepřipínáme k věži
           const inCapRadius2 = this.state === 'CAPTURE' && this.objective === t && dist(this.pos, t.pos) <= (t.captureRadius || 80);
           const enemiesNearCapture = inCapRadius2 ? aliveEnemies.filter(e => dist(e.pos, this.pos) < 500).length : 0;
-          if (this.macroOrder && ['DEFEND', 'SNEAK_CAPTURE', 'ASSAULT'].includes(this.macroOrder.type) && this.macroOrder.target === t && enemiesNearCapture === 0) {
+          if (this.macroOrder && ['DEFEND', 'SNEAK_CAPTURE', 'ASSAULT'].includes(this.macroOrder.type) && this.macroOrder.target === t && enemiesNearCapture === 0 && !t.isLocked) {
               score += 60000;
           }
           if (this.macroOrder && this.macroOrder.type === 'PUSH_LANE' && this.macroOrder.target === t) {
@@ -3458,7 +3460,7 @@ export class BotPlayer extends Player {
           }
           if (this.targetPos) {
               if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; }
-              else { this.pos.x += (this.targetPos.x - this.pos.x) * 25 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 25 * dt; }
+              else { this.pos.x += (this.targetPos.x - this.pos.x) * 35 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 35 * dt; }
           }
           return;
       }

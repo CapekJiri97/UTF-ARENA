@@ -488,20 +488,28 @@ export const ArenaBrain = {
 
     // 1.8 JUNGLE CAMPS FARMING
     const aliveCamps = game.minions.filter(m => m.isJungleMonster && !m.dead);
-    // Jungle phase: věž je zamčena 35s + buffer — použijeme game timer přes věž
     const towerIsLocked = centerTower && centerTower.isLocked;
-    // Udržujeme vlastní timer: jakmile věž se odemkne, jungle phase končí do 8s
-    if (mState.junglePhaseStart === undefined) mState.junglePhaseStart = performance.now();
-    if (towerIsLocked) mState.junglePhaseEnd = undefined; // resetuj dokud je zamčená
-    else if (mState.junglePhaseEnd === undefined) mState.junglePhaseEnd = performance.now() + 8000;
-    const isJunglePhase = towerIsLocked || (mState.junglePhaseEnd !== undefined && performance.now() < mState.junglePhaseEnd);
+    // Kolik sekund zbývá do odemčení věže (0 pokud je odemčená)
+    const unlockSecsLeft = towerIsLocked ? (centerTower.unlockTimer || 0) : 0;
+    // Boti přeruší jungle a jdou na věž pokud zbývá méně než 10s do odemčení
+    const towerAlmostUnlocked = towerIsLocked && unlockSecsLeft < 10;
+
+    // Udržujeme vlastní timer: jakmile věž se odemkne, jungle phase končí do 6s
+    if (towerIsLocked && !towerAlmostUnlocked) mState.junglePhaseEnd = undefined; // resetuj dokud je zamčená a ještě čas
+    else if (mState.junglePhaseEnd === undefined) mState.junglePhaseEnd = performance.now() + 6000;
+    const isJunglePhase = (towerIsLocked && !towerAlmostUnlocked) ||
+                          (mState.junglePhaseEnd !== undefined && performance.now() < mState.junglePhaseEnd);
 
     // Vlastní kempy = kempy na naší straně mapy
     const myCamps = aliveCamps.filter(c => team === 0 ? c.pos.y < 650 : c.pos.y > 650);
 
+    // Předsunutá čekací pozice u věže (offset od středu, na vlastní straně)
+    const waitOffset = team === 0 ? { x: 0, y: -220 } : { x: 0, y: 220 };
+    const waitPos = centerTower ? { pos: { x: centerTower.pos.x + waitOffset.x, y: centerTower.pos.y + waitOffset.y } } : null;
+
     if (isJunglePhase && myCamps.length > 0) {
-      // Jungle phase: všichni boti jdou do svých kempů — přebije jakoukoliv strategii
-      // Seřaď: AD/melee přednost, mágové a supporti na konec (dostanou přebytečné kempy)
+      // Jungle phase: boti jdou do svých kempů — přebije jakoukoliv strategii
+      // Seřaď: AD/melee přednost, mágové a supporti na konec
       const candidates = [...unassigned].sort((a, b) => {
           const prefA = (['SLAYER','FIGHTER','SPLITPUSHER'].includes(a.role) ? 2 : 0)
                       + (a.dmgType === 'physical' ? 1 : 0)
@@ -522,10 +530,8 @@ export const ArenaBrain = {
               if (s > bestScore) { bestScore = s; bestCamp = c; }
           }
           if (!bestCamp) {
-              // Více botů než kempů — přiřaď nejbližší kemp z vlastní strany (může si pomoct nebo čekat poblíž)
-              const closestMyCamp = myCamps.reduce((best, c) => dist(b.pos, c.pos) < dist(b.pos, best.pos) ? c : best, myCamps[0]);
-              reassign(b, 'FARM', closestMyCamp);
-              b.macroOrder.junglePhase = true;
+              // Více botů než kempů — jdi čekat u věže místo bloudění po mapě
+              if (waitPos) reassign(b, 'REGROUP', waitPos);
           } else {
               assignedCamps.add(bestCamp);
               reassign(b, 'FARM', bestCamp);
@@ -568,25 +574,27 @@ export const ArenaBrain = {
       // Všichni obléhají věž — capture first
       for (let b of [...unassigned]) reassign(b, 'ASSAULT', centerTower);
     } else { // HOLD_AND_FIGHT
-      // Tanky a fighteři drží věž (pokud je dostupná), slayeři huntují
-      // Pokud je věž zamčená, všichni farmují kemp a čekají
-      const towerLocked = centerTower && centerTower.isLocked;
-      
       for (let b of [...unassigned]) {
         if (['SLAYER', 'SPLITPUSHER'].includes(b.role) && enemies.length > 0) {
           const nearbyEnemy = enemies.filter(e => e.className && dist(e.pos, b.pos) < 1600)
             .sort((a, b) => a.hp - b.hp)[0];
           if (nearbyEnemy) { reassign(b, 'HUNT', nearbyEnemy); continue; }
         }
-        
-        // Pokud je věž zamčená, jdi do lesů farmit
-        if (towerLocked && aliveCamps.length > 0) {
-          const bestCamp = aliveCamps.reduce((best, camp) => 
-            getCampPref(b, camp) > getCampPref(b, best) ? camp : best
-          );
-          reassign(b, 'FARM', bestCamp);
+
+        if (towerIsLocked) {
+          // Věž zamčená — jdi do kempu pokud existuje, jinak čekej u věže
+          if (aliveCamps.length > 0) {
+            const bestCamp = aliveCamps.reduce((best, camp) =>
+              getCampPref(b, camp) > getCampPref(b, best) ? camp : best
+            );
+            reassign(b, 'FARM', bestCamp);
+          } else if (waitPos) {
+            // Kempy ještě nevznikly (úplný začátek) — stůj poblíž věže, ne přímo na ní
+            reassign(b, 'REGROUP', waitPos);
+          } else {
+            reassign(b, 'ASSAULT', centerTower);
+          }
         } else {
-          // Věž je dostupná — jdi ji obsadit
           reassign(b, 'ASSAULT', centerTower);
         }
       }

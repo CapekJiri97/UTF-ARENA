@@ -428,7 +428,7 @@ export class Minion{
             moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);
             return;
         }
-        if (this.targetPos) { if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; } else { this.pos.x += (this.targetPos.x - this.pos.x) * 15 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 15 * dt; } }
+        if (this.targetPos) { if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; } else { this.pos.x += (this.targetPos.x - this.pos.x) * 22 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 22 * dt; } }
         return; 
     }
     if(this.dead || game.gameOver) return; 
