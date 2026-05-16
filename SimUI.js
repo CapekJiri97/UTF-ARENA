@@ -141,6 +141,15 @@ function _buildPanel() {
 
   <!-- Config ─────────────────────────────────────────── -->
   <div class="sim-row">
+    <label>Game mode</label>
+    <select id="simGameMode">
+      <option value="arena">Arena (4v4)</option>
+      <option value="classic">Dominion (5v5)</option>
+      <option value="speed">Speed Dominion (5v5)</option>
+    </select>
+  </div>
+
+  <div class="sim-row">
     <label>Games</label>
     <input id="simNumGames" type="number" min="1" max="10000" value="200" style="width:80px">
   </div>
@@ -314,6 +323,7 @@ function _onStart() {
     const budgetMs      = Math.max(10, Math.min(200,  +$('simSpeed').value    || 50));
     const yieldMs       = Math.max(0,  Math.min(50,   +$('simYield').value    || 8));
     const difficulty    = _r1(+$('simDiff').value / 100);
+    const gameMode      = $('simGameMode').value || 'arena';
     const classMode     = $('simClassMode').value;
 
     let classFilter = null;
@@ -344,7 +354,7 @@ function _onStart() {
 
     _engine = new SimulationEngine();
     _engine.start(
-        { numGames, budgetMs, yieldMs, difficulty, classFilter },
+        { numGames, budgetMs, yieldMs, difficulty, classFilter, gameMode },
         {
             onProgress: ({ current, total, simTime }) => {
                 const pct  = total > 0 ? Math.round(current / total * 100) : 0;

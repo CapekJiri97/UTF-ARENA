@@ -1,0 +1,207 @@
+UTF ARENA — BALANCE ANALYSIS
+Datum: 2026-05-16
+Datová základna: ~1117 her, 25 postav, 8 merged sim_classes souborů (soubory 1-2 vyřazeny jako buggy)
+================================================================================
+
+SÍŤOVÉ OPRAVY (provedeno 2026-05-16)
+--------------------------------------
+Problém: Při spuštěné simulaci se i nadále volaly socket.emit() pro každý damage event,
+heal event, player_died, player_hp_update a periodický host_state sync (20x/s).
+To zaplavovalo server zbytečnými pakety a způsobovalo lag pro připojené hráče.
+
+Opraveno: Přidán guard `!simMode` na všechna socket.emit() volání v main.js:
+  - Síťová synchronizace pozice (syncTimer 20Hz)
+  - Host bot state sync (hostSyncTimer 20Hz + hostSlowSyncTimer 10Hz)
+  - host_event: show_heal, player_hp_update (v heal funkci)
+  - host_event: damage (minion damage)
+  - host_event: show_damage (visual damage number)
+  - host_event: player_hp_update (v damage funkci)
+  - host_event: player_died
+
+Simulační loop přepsán z setTimeout(fn,0) na time-budget přístup:
+  - 50ms práce → 8ms yield → browser a Node.js mají čas na dýchání
+  - Konfigurovatelné přes SimUI slidery "CPU budget" a "Yield"
+
+
+================================================================================
+TIER LIST (dle win rate, 1117 her)
+================================================================================
+
+S-TIER — OVERPOWERED (nutné nerfy)
+------------------------------------
+Oracle    | WR: 66.0% | KDA: 9.95 | DPS: 25.2  | Survival: 89% | Deaths: 3.18
+Doctor    | WR: 63.4% | KDA: 9.79 | DPS: 17.2  | Survival: 89% | HPS: 22.4
+Lynx      | WR: 61.6% | KDA: 8.37 | DPS: 32.2  | Survival: 87% | Burst3s: 930
+Fusilier  | WR: 60.0% | KDA: 8.76 | DPS: 34.9  | Survival: 86% | DmgEff: 2.07
+
+Problém Oracle: Nejlepší KDA + nejlepší survival zároveň. Prakticky nezabitelná.
+Problém Doctor: Healing příliš silný (6969 HP avg). Umožňuje týmu přežít cokoliv.
+Problém Lynx:   Žádná slabina — top 3 v DPS, Burst, KDA, Survival, GoldPerMin.
+Problém Fusilier: Nejlepší DmgEfficiency (2.07) + top DPS. Příliš efektivní.
+
+A-TIER — SILNÉ (monitorovat)
+------------------------------
+Jirina    | WR: 59.3% | KDA: 10.09 | DPS: 22.7  | Survival: 90.5% | HPHealed: 3560
+Reaper    | WR: 58.4% | KDA: 9.47  | DPS: 31.8  | Survival: 87%  | Burst3s: 926
+Wanderer  | WR: 57.7% | KDA: 8.66  | DPS: 35.0  | Survival: 87%  | Burst3s: 1119
+Kratoma   | WR: 55.5% | KDA: 8.05  | DPS: 26.0  | Survival: 86%
+
+B-TIER — BALANCED (zdravé)
+----------------------------
+Jailer    | WR: 54.8%
+Hana      | WR: 54.3%
+Tamer     | WR: 52.8%
+Quiller   | WR: 52.1%
+Cleric    | WR: 51.0%
+
+C-TIER — POD PRŮMĚREM (malé buffy)
+------------------------------------
+Healer    | WR: 47.8% | HPS: 19.3 (pure healer ale hra odměňuje KDA)
+Summoner  | WR: 47.0% | DPS: 16.0 (příliš nízký)
+Mage      | WR: 45.3%
+Ironclad  | WR: 45.7% | Nejvíce dmgTaken (10709) ale nulový healing output
+Bruiser   | WR: 42.9%
+Goliath   | WR: 42.9% | DPS: 18.5 (příliš nízký pro tank)
+
+D-TIER — SLABÉ (větší buffy)
+------------------------------
+Eggchanter| WR: 38.9% | DPS: 11.7 | Burst3s: 207 | ZeroKill rate: 52.3% (!)
+Vanguard  | WR: 39.7% | KDA: 6.29 | Healing: 116 HP (tank bez utility)
+Zephyr    | WR: 39.3% | DPS: 20.8 | Burst3s: 510
+Volstrov  | WR: 39.9% | DPS: 22.4 | Burst3s: 497 | MOŽNÝ AI BUG (nízký spell cast)
+
+F-TIER — KRITICKY BROKEN
+--------------------------
+Pyromancer| WR: 30.8% | KDA: 4.22 | DPS: 18.8  | Survival: 81% | Deaths: 5.38
+           31 bodový gap oproti Oracle. Slabý ve VŠECH metrikách.
+
+
+================================================================================
+DPS / BURST / TTK ANALÝZA
+================================================================================
+
+DPS Rankings (dpsToHeroes_avg):
+  1. Wanderer    35.0 DPS — Burst3s: 1119 — TTK 500HP: 14.2s
+  2. Fusilier    34.9 DPS — Burst3s: 714  — TTK 500HP: 14.3s
+  3. Lynx        32.2 DPS — Burst3s: 930  — TTK 500HP: 15.5s
+  4. Reaper      31.8 DPS — Burst3s: 926  — TTK 500HP: 15.7s
+  5. Tamer       29.9 DPS — Burst3s: 543  — TTK 500HP: 16.7s
+  6. Quiller     28.6 DPS — Burst3s: 560  — TTK 500HP: 17.5s
+  7. Kratoma     26.0 DPS — Burst3s: 556  — TTK 500HP: 19.2s
+  8. Mage        25.7 DPS — Burst3s: 677  — TTK 500HP: 19.5s
+  9. Oracle      25.2 DPS — Burst3s: 571  — TTK 500HP: 19.8s
+ 10. Jailer      25.1 DPS — Burst3s: 615  — TTK 500HP: 19.9s
+ 11. Jirina      22.7 DPS — Burst3s: 524  — TTK 500HP: 22.0s
+ 12. Volstrov    22.4 DPS — Burst3s: 497  — TTK 500HP: 22.3s
+ 13. Vanguard    21.9 DPS — Burst3s: 632  — TTK 500HP: 22.8s
+ 14. Bruiser     21.8 DPS — Burst3s: 557  — TTK 500HP: 22.9s
+ 15. Hana        24.0 DPS — Burst3s: 674  — TTK 500HP: 20.8s
+ 16. Zephyr      20.8 DPS — Burst3s: 510  — TTK 500HP: 24.0s
+ 17. Pyromancer  18.8 DPS — Burst3s: 570  — TTK 500HP: 26.6s
+ 18. Goliath     18.5 DPS — Burst3s: 442  — TTK 500HP: 27.0s
+ 19. Ironclad    17.6 DPS — Burst3s: 461  — TTK 500HP: 28.4s
+ 20. Doctor      17.2 DPS — Burst3s: 307  — TTK 500HP: 29.1s
+ 21. Cleric      17.1 DPS — Burst3s: 360  — TTK 500HP: 29.2s
+ 22. Healer      16.3 DPS — Burst3s: 211  — TTK 500HP: 30.7s
+ 23. Summoner    16.0 DPS — Burst3s: 256  — TTK 500HP: 31.3s
+ 24. Eggchanter  11.7 DPS — Burst3s: 207  — TTK 500HP: 42.7s  ← KRITICKÝ
+
+Healing Rankings (hpsHealed_avg):
+  1. Doctor      22.4 HPS — HPHealed avg: 6969
+  2. Cleric      17.1 HPS — HPHealed avg: 5611
+  3. Healer      19.3 HPS — HPHealed avg: 5810
+  4. Eggchanter  16.8 HPS — HPHealed avg: 4874
+  5. Tamer       12.0 HPS — HPHealed avg: 3335 (sub-healer)
+  6. Jirina      11.7 HPS — HPHealed avg: 3560 (off-support)
+
+Survivability (dmgTaken pod focus fire 1 útočníka, odhad):
+  1. Ironclad   ~305s (nejvíce tankuje)
+  2. Vanguard   ~250s
+  3. Goliath    ~240s
+  4. Healer     ~108s (nejkřehčí)
+
+
+================================================================================
+ITEM ANALÝZA
+================================================================================
+
+Item           | WR     | Oblíbenost | Hodnocení
+---------------|--------|------------|----------
+basic_as       | 56.4%  | Vysoká     | OP — synerguje s Lynx/Fusilier/Reaper
+basic_haste    | 51.8%  | Vysoká     | Balanced
+basic_mr       | 51.8%  | Velmi vysoká | Balanced
+basic_power    | 51.1%  | Velmi vysoká | Balanced
+special_lifesteal | 51.1% | Střední  | Balanced
+basic_hp       | 50.1%  | Nejvyšší   | Balanced
+basic_armor    | 49.9%  | Velmi vysoká | Slabý — fyzický dmg dominuje meta
+special_gw     | 49.3%  | Nízká      | Slabý anti-heal
+special_heal_power | 47.6% | Nejnižší | Zbytečný — bot ho nevyužívá efektivně
+
+Klíčové zjištění: Attack Speed je jediný item s výrazně nadprůměrným WR (+5.4pp).
+Armor underperformuje navzdory vysoké popularitě → fyzický damage dominuje.
+
+
+================================================================================
+PLAYER DATA — ANOMÁLIE
+================================================================================
+
+Zero-kill rate (hráči s 0 killy za celou hru):
+  Průměr:      15.5% her
+  Eggchanter:  52.3% — KRITICKÉ (bot pravděpodobně nefunguje správně)
+  Lynx:         <5%  — bot funguje výborně
+  Reaper:       <5%
+  Wanderer:     <5%
+  Pyromancer: ~25%   — výrazně nad průměrem
+
+Volstrov — podezřelý AI bug:
+  Spell casty: 28.3/hru (výrazně méně než ostatní třídy)
+  Možné: bot necastuje spelly správně → umělá slabost
+  → Zkontrolovat bot logiku pro Volstrov spelly
+
+goldPerMin distribuce — zdravá (450-740 rozsah), žádné outliers po opravě gameOver bugu.
+
+
+================================================================================
+DOPORUČENÉ BALANCE ZMĚNY
+================================================================================
+
+NERFY (S-Tier):
+  Oracle     — snížit obranu (armor/mr) o 15% NEBO damage o 12%  → cíl WR ~57%
+  Doctor     — snížit heal scaling o 12%                          → cíl WR ~57%
+  Lynx       — snížit burst/damage scaling o 15%                 → cíl WR ~54%
+  Fusilier   — snížit damage efficiency o 5%                     → cíl WR ~57%
+
+BUFFY (F/D-Tier):
+  Pyromancer — damage +25%, cooldowns -15%        → cíl WR ~40%
+  Eggchanter — damage +20% NEBO nová pasiva       → cíl WR ~47%
+  Vanguard   — CC duration +25%, armor +15%       → cíl WR ~47%
+  Zephyr     — damage +15%, cooldowns -12%        → cíl WR ~46%
+  Volstrov   — damage +12% (po vyřešení AI bugu)  → cíl WR ~46%
+
+Malé buffy (C-Tier):
+  Summoner   — damage +6%
+  Bruiser    — survivability +5%
+  Goliath    — damage +8%
+  Ironclad   — armor scaling +6%
+  Healer     — healing output +5%
+
+ITEM ZMĚNY:
+  basic_as        — hodnota -10%        (WR 56.4% → ~52%)
+  basic_armor     — hodnota +8%         (WR 49.9% → ~53%)
+  special_gw      — effectiveness +15%  (anti-heal příliš slabý)
+
+PRIORITA: Opravit Eggchanter AI (52% zero-kill rate) a Volstrov AI bug (nízký spell cast)
+před dalšími balance úpravami — jinak sim data nezobrazují reálný výkon těchto postav.
+
+
+================================================================================
+KORELACE
+================================================================================
+  DPS × WR:        Silná pozitivní korelace
+  Burst3s × WR:    Velmi silná — BURST je klíčový diferenciátor
+  Healing × WR:    Slabá/paradoxní — Doctor OP protože KDA+healing, ne jen healing
+  Survival × WR:   Středně silná — přežití + damage = OP kombinace
+  GoldPerMin × WR: Silná — top postavy farmí 20-25% lépe (efekt se kumuluje)
+
+Meta pozorování: Early-burst postavy dominují. Scaling/late-game postavy underperformují.
+Zvážit: game length balancing nebo late-game power spiky pro slabší postavy.

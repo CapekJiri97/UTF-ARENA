@@ -1,33 +1,28 @@
 /**
- * Simulation.js — Arena game runner for headless batch simulation.
+ * Simulation.js — Multi-mode headless batch simulator.
  *
  * Usage (from the browser console or SimUI):
  *
  *   import { SimulationEngine } from './Simulation.js';
  *   const engine = new SimulationEngine();
  *   const { aggregate, results } = await engine.start({
- *       numGames:      200,
- *       ticksPerFrame: 30,      // 30 × 1/60 s = 0.5 s per real frame → ~30× speed
- *       difficulty:    2.0,     // max bot difficulty (0.5 – 2.0)
- *       classFilter:   null,    // null = random smart draft;  ['Bruiser','Mage',...] = fixed pool
+ *       numGames:    200,
+ *       gameMode:    'arena',   // 'arena' | 'classic' | 'speed' | 'aram'
+ *       budgetMs:    50,        // ms of sim work per setTimeout burst
+ *       yieldMs:     8,         // ms yielded to browser between bursts
+ *       difficulty:  2.0,       // bot stat multiplier (0.5 – 2.0)
+ *       classFilter: null,      // null = random draft; ['Bruiser','Mage',...] = fixed pool
  *   }, {
  *       onProgress: ({ current, total, simTime, lastResult }) => { ... },
  *       onComplete:  (aggregate, results) => { ... },
  *   });
- *
- * How it works
- * ─────────────
- * • Calls startGame() with isSpectator=true → spawns 4v4 all-bot arena game.
- * • Replaces the normal rAF draw loop with a tight tick-burst loop.
- * • GameMode_Arena._triggerGameOver is monkey-patched to skip the DOM showEnd().
- * • Audio, particles, damage numbers are suppressed for performance.
- * • After every game, GameTracker.finalize() produces a GameRecord.
- * • After all games, computeAggregateStats() produces the balance report.
  */
 
-import { game }                    from './State.js';
-import { GameMode_Arena }          from './GameMode_Arena.js';
-import { CLASSES }                 from './classes.js';
+import { game }                                   from './State.js';
+import { GameMode_Arena }                         from './GameMode_Arena.js';
+import { GameMode_Classic }                       from './GameMode_Classic.js';
+import { GameMode_Speed }                         from './GameMode_Speed.js';
+import { CLASSES }                                from './classes.js';
 import {
     simMode, setSimMode,
     simUpdate, resetSpawnTimer,
@@ -124,32 +119,31 @@ export class SimulationEngine {
 
     // ── Internals ──────────────────────────────────────────────────────────────
 
-    /** Patches GameMode_Arena and Audio so the sim runs silently. */
+    /** Patches all supported game modes and Audio so the sim runs silently. */
     _installPatches() {
-        // ── GameMode_Arena._triggerGameOver — skip DOM showEnd() ──────────────
-        this._origTrigger = GameMode_Arena._triggerGameOver?.bind(GameMode_Arena);
-        GameMode_Arena._triggerGameOver = function _simTrigger(winner) {
+        // Patch _triggerGameOver on all supported modes to skip DOM showEnd()
+        const simTrigger = function(winner) {
             game.gameOver = true;
             game.winner   = winner;
-            // intentionally skip showEnd(winner)
         };
+        this._origTriggers = {};
+        for (const [key, mode] of Object.entries({ arena: GameMode_Arena, classic: GameMode_Classic, speed: GameMode_Speed })) {
+            this._origTriggers[key] = mode._triggerGameOver?.bind(mode);
+            mode._triggerGameOver   = simTrigger;
+        }
 
-        // ── Silence audio globally while simulating ───────────────────────────
-        // playSound is imported inside Player.js and called via the module's
-        // closure — we stub it on window so the Audio module check fails silently.
-        this._origSound           = window._simSoundMuted;
-        window._simSoundMuted     = true;
-
-        // ── Spell cast hook (populated per-game in _initNextGame) ─────────────
-        window._simCastHook       = null;
+        this._origSound       = window._simSoundMuted;
+        window._simSoundMuted = true;
+        window._simCastHook   = null;
     }
 
     /** Restores all patched functions. */
     _removePatches() {
-        if (this._origTrigger) {
-            GameMode_Arena._triggerGameOver = this._origTrigger;
-            this._origTrigger = null;
+        const modes = { arena: GameMode_Arena, classic: GameMode_Classic, speed: GameMode_Speed };
+        for (const [key, mode] of Object.entries(modes)) {
+            if (this._origTriggers?.[key]) mode._triggerGameOver = this._origTriggers[key];
         }
+        this._origTriggers    = null;
         window._simSoundMuted = this._origSound ?? false;
         window._simCastHook   = null;
     }
@@ -169,8 +163,9 @@ export class SimulationEngine {
         game.blueBotDifficulty = this.config.difficulty;
         game.redBotDifficulty  = this.config.difficulty;
 
-        // ── Boot a spectator-only arena game (isSpectator=true → 4v4 all bots) ─
-        setActiveMode('arena');
+        // ── Boot a spectator-only game (isSpectator=true → all bots, no human) ──
+        const gameMode = this.config.gameMode || 'arena';
+        setActiveMode(gameMode);
         startGame('Bruiser', 0, true); // isSpectator=true; no human player created
 
         // startGame() does NOT reset gameOver — must clear it manually between games

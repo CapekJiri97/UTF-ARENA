@@ -1,0 +1,11 @@
+itemId,appearances,wins,winRate
+basic_hp,799,400,50.1
+basic_armor,630,331,52.5
+basic_mr,694,369,53.2
+basic_power,736,377,51.2
+basic_as,359,198,55.2
+basic_haste,420,230,54.8
+special_lifesteal,385,191,49.6
+special_gw,123,60,48.8
+special_heal_power,12,6,50
+special_pen,1,0,0

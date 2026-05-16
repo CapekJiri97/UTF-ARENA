@@ -553,8 +553,8 @@ import { initAudio, playSound } from './Audio.js';
         if (actualHeal > 0) {
             if (target === player) game.screenHealFlash = Math.min(1.0, (game.screenHealFlash || 0) + actualHeal / 450);
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-15, '+' + actualHeal, '#00ff00'));
-            if (socket) socket.emit('host_event', { type: 'show_heal', targetId: target.id, amount: actualHeal });
-            if (socket && target instanceof Player) {
+            if (socket && !simMode) socket.emit('host_event', { type: 'show_heal', targetId: target.id, amount: actualHeal });
+            if (socket && !simMode && target instanceof Player) {
                 socket.emit('host_event', { type: 'player_hp_update', id: target.id, hp: target.hp, shield: target.shield });
             }
         }
@@ -599,7 +599,7 @@ import { initAudio, playSound } from './Audio.js';
     else if (type === 'true' || type === 'dot') multiplier = 1; // Pure damage (Fountain laser)
     
     // OPRAVA: Host posílá striktní zprávu o poškození minionů pouze proti lidským hráčům (Boti se posílají rovnou celí přes host_state prevence zdvojení).
-    if (socket && game.isHost && !isNetwork) {
+    if (socket && game.isHost && !isNetwork && !simMode) {
       let isMinion = game.minions.some(m => m.id === sourceId);
       if (isMinion && target instanceof Player && !(target instanceof BotPlayer)) {
          socket.emit('host_event', { type: 'damage', targetId: target.id, amount: amount, dmgType: type, sourceId: sourceId });
@@ -659,7 +659,7 @@ import { initAudio, playSound } from './Audio.js';
             else color = isLocal ? '#ffffff' : '#ffc83c'; // includes 'true' and 'dot'
             
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-6, actualDamage, color));
-            if (socket) socket.emit('host_event', { type: 'show_damage', targetId: target.id, amount: actualDamage, sourceId: sourceId, dmgType: type });
+            if (socket && !simMode) socket.emit('host_event', { type: 'show_damage', targetId: target.id, amount: actualDamage, sourceId: sourceId, dmgType: type });
         }
     }
 
@@ -685,7 +685,7 @@ import { initAudio, playSound } from './Audio.js';
         }
 
     // OPRAVA: Host je autorita a posílá všem informaci o změně HP hráče
-    if (socket && game.isHost && target instanceof Player && !isNetwork) {
+    if (socket && game.isHost && target instanceof Player && !isNetwork && !simMode) {
         socket.emit('host_event', { type: 'player_hp_update', id: target.id, hp: target.hp, shield: target.shield });
     }
     
@@ -744,7 +744,7 @@ import { initAudio, playSound } from './Audio.js';
         }
 
       // Oznámení všem klientům, že hráč zemřel (Pouze Host smí odeslat tento event)
-      if (socket && game.isHost) socket.emit('host_event', { type: 'player_died', id: victim.id, killerId: killerId });
+      if (socket && game.isHost && !simMode) socket.emit('host_event', { type: 'player_died', id: victim.id, killerId: killerId });
 
       let killerName = killer ? killer.className : (killerId === 'laser' ? 'Laser' : (killerId === 'tower' ? 'Tower' : 'Minion'));
       let killerTeam = killer ? killer.team : -1;
@@ -1312,8 +1312,8 @@ import { initAudio, playSound } from './Audio.js';
         camera.y = clamp(player.pos.y - viewH/2, 0, Math.max(0, activeGameMode.mapConfig.world.height - viewH));
     }
 
-    // SÍŤOVÁ SYNCHRONIZACE POZICE
-    if (socket && !game.gameOver) {
+    // SÍŤOVÁ SYNCHRONIZACE POZICE — přeskočit během simulace
+    if (socket && !game.gameOver && !simMode) {
         if (player) {
             game.syncTimer = (game.syncTimer || 0) + dt;
             if (game.syncTimer >= 0.05) {
@@ -1353,65 +1353,64 @@ import { initAudio, playSound } from './Audio.js';
             game.hostSyncTimer = (game.hostSyncTimer || 0) + dt;
             if (game.hostSyncTimer >= 0.05) {
                 game.hostSyncTimer = 0;
-                try { socket.emit('host_state', {
-                    bots: game.players.filter(p => p instanceof BotPlayer).map(b => {
-                        const base = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, stunT: b.stunTimer, shield: b.shield,
-                            invT: b.invulnerableTimer, defT: b.defBuffTimer,
-                            msBuffT: b.msBuffTimer, msBuffAmt: b.msBuffAmount,
-                            junglePwrT: b.junglePowerTimer, jungleAsAhT: b.jungleAsAhTimer, jungleTankT: b.jungleTankTimer,
-                            adAsBuffT: b.adAsBuffTimer, adAsBuffAmt: b.adAsBuffAmount,
-                            antiHealT: b.antiHealTimer, antiHealStr: b.antiHealStrength,
-                            regenBuffT: b.regenBuffTimer, regenBuffAmt: b.regenBuffAmount,
-                            hasPwrup: b.hasPowerup, pwrupT: b.powerupTimer,
-                            beamUberT: b.beamUberTimer };
-                        if (b.isDirty) {
-                            b.isDirty = false;
-                            return { ...base, isFullUpdate: true, className: b.className,
-                                slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, hanaT: b.hanaBuffTimer, beamT: b.beamTimer, beamId: b.beamTargetId, uberT: b.uberChargeTimer,
-                                level: b.level, maxHp: b.effectiveMaxHp, kills: b.kills, deaths: b.deaths, assists: b.assists, gold: b.totalGold, items: b.items.length,
-                                AD: b.AD, AP: b.AP, armor: b.armor, mr: b.mr, speed: b.speed, attackSpeed: b.attackSpeed, abilityHaste: b.abilityHaste,
-                                invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer, qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
-                                stats: b.stats ? { dmgDealt: b.stats.dmgDealt, dmgTaken: b.stats.dmgTaken, hpHealed: b.stats.hpHealed, dmgDealtToHeroes: b.stats.dmgDealtToHeroes || 0, dmgDealtToMinions: b.stats.dmgDealtToMinions || 0 } : null,
-                                sumSpell: b.summonerSpell,
-                                towerCaptures: b.towerCaptures || 0, towerDefends: b.towerDefends || 0, towerAssaultTime: b.towerAssaultTime || 0,
-                                objectivePresenceTime: b.objectivePresenceTime || 0, powerupsCollected: b.powerupsCollected || 0, powerupUptime: b.powerupUptime || 0,
-                                pcs: b.pcs || 0, pcsBreakdown: b.pcsBreakdown ? { ...b.pcsBreakdown } : null };
-                        }
-                        return base;
-                    }),
-                    minions: [], // Minioni přesunuty do slow ticku — fast packet je pouze pro PvP entity
-                }); } catch(netErr) { console.warn('[NET] host_state (fast) serialize error:', netErr.message); }
+                // Delta komprese — přeskočit boty kteří se nepohnuli a nejsou dirty
+                const botUpdates = [];
+                for (const b of game.players) {
+                    if (!(b instanceof BotPlayer)) continue;
+                    const dx = b.pos.x - (b._lastSyncX ?? b.pos.x + 999);
+                    const dy = b.pos.y - (b._lastSyncY ?? b.pos.y + 999);
+                    const moved = (dx*dx + dy*dy) > 1; // >1px pohyb
+                    if (!moved && !b.isDirty) continue; // nic nového → přeskočit
+                    b._lastSyncX = b.pos.x; b._lastSyncY = b.pos.y;
+                    const base = { id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle, stunT: b.stunTimer, shield: b.shield,
+                        invT: b.invulnerableTimer, defT: b.defBuffTimer,
+                        msBuffT: b.msBuffTimer, msBuffAmt: b.msBuffAmount,
+                        junglePwrT: b.junglePowerTimer, jungleAsAhT: b.jungleAsAhTimer, jungleTankT: b.jungleTankTimer,
+                        adAsBuffT: b.adAsBuffTimer, adAsBuffAmt: b.adAsBuffAmount,
+                        antiHealT: b.antiHealTimer, antiHealStr: b.antiHealStrength,
+                        regenBuffT: b.regenBuffTimer, regenBuffAmt: b.regenBuffAmount,
+                        hasPwrup: b.hasPowerup, pwrupT: b.powerupTimer,
+                        beamUberT: b.beamUberTimer };
+                    if (b.isDirty) {
+                        b.isDirty = false;
+                        botUpdates.push({ ...base, isFullUpdate: true, className: b.className,
+                            slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, hanaT: b.hanaBuffTimer, beamT: b.beamTimer, beamId: b.beamTargetId, uberT: b.uberChargeTimer,
+                            level: b.level, maxHp: b.effectiveMaxHp, kills: b.kills, deaths: b.deaths, assists: b.assists, gold: b.totalGold, items: b.items.length,
+                            AD: b.AD, AP: b.AP, armor: b.armor, mr: b.mr, speed: b.speed, attackSpeed: b.attackSpeed, abilityHaste: b.abilityHaste,
+                            invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer, qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
+                            sumSpell: b.summonerSpell,
+                            towerCaptures: b.towerCaptures || 0, pcs: b.pcs || 0 });
+                    } else {
+                        botUpdates.push(base);
+                    }
+                }
+                if (botUpdates.length > 0) {
+                    try { socket.emit('host_state', { bots: botUpdates, minions: [] });
+                    } catch(netErr) { console.warn('[NET] host_state (fast) serialize error:', netErr.message); }
+                }
             }
-            // Pomalý tick: stav mapy + humans stats 10x/s (věci co se nemění rychle)
+            // Pomalý tick: stav mapy + humans stats 8x/s (věci co se nemění rychle)
             game.hostSlowSyncTimer = (game.hostSlowSyncTimer || 0) + dt;
-            if (game.hostSlowSyncTimer >= 0.10) {
+            if (game.hostSlowSyncTimer >= 0.125) {
                 game.hostSlowSyncTimer = 0;
+                // Minionci — posílat jen dirty nebo mrtvé (žijící bez změny přeskočit)
+                const minionOut = [];
+                for (const m of game.minions) {
+                    if (m.dead) { minionOut.push({ id: m.id, dead: true }); continue; }
+                    if (m._syncDirty) { m._syncDirty = false; minionOut.push({ id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: false, maxHp: m.maxHp, team: m.team, targetIndex: m.targetIndex, isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId, isSc: m.isSmallChicken, isBc: m.isBigChicken }); }
+                    // non-dirty živý minion → přeskočit úplně
+                }
                 try { socket.emit('host_state', {
                     bots: [],
-                    minions: (function() {
-                        const out = [];
-                        for (const m of game.minions) {
-                            if (m.dead) { out.push({ id: m.id, dead: true }); continue; }
-                            if (m._syncDirty) { m._syncDirty = false; out.push({ id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: false, maxHp: m.maxHp, team: m.team, targetIndex: m.targetIndex, isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId, isSc: m.isSmallChicken, isBc: m.isBigChicken }); }
-                            else { out.push({ id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: false }); }
-                        }
-                        return out;
-                    })(),
+                    minions: minionOut,
                     humans: game.players.filter(p => !(p instanceof BotPlayer)).map(p => ({
-                        id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, stunT: p.stunTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
+                        id: p.id, hp: p.hp, shield: p.shield, silenceT: p.silenceTimer, stunT: p.stunTimer, slowT: p.slowTimer, boostT: p.boostTimer, hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp,
                         kills: p.kills, deaths: p.deaths, assists: p.assists,
-                        stats: p.stats ? { dmgDealt: p.stats.dmgDealt, dmgTaken: p.stats.dmgTaken, hpHealed: p.stats.hpHealed, dmgDealtToHeroes: p.stats.dmgDealtToHeroes || 0, dmgDealtToMinions: p.stats.dmgDealtToMinions || 0 } : null,
                         alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null, beamT: p.beamTimer, beamId: p.beamTargetId, uberT: p.uberChargeTimer,
-                        towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0, towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0,
-                        powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0, pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown ? { ...p.pcsBreakdown } : null,
+                        towerCaptures: p.towerCaptures || 0, pcs: p.pcs || 0,
                         invT: p.invulnerableTimer, defT: p.defBuffTimer,
                         msBuffT: p.msBuffTimer, msBuffAmt: p.msBuffAmount,
-                        junglePwrT: p.junglePowerTimer, jungleAsAhT: p.jungleAsAhTimer, jungleTankT: p.jungleTankTimer,
-                        adAsBuffT: p.adAsBuffTimer, adAsBuffAmt: p.adAsBuffAmount,
-                        antiHealT: p.antiHealTimer, antiHealStr: p.antiHealStrength,
-                        regenBuffT: p.regenBuffTimer, regenBuffAmt: p.regenBuffAmount,
-                        hasPwrup: p.hasPowerup, pwrupT: p.powerupTimer,
-                        beamUberT: p.beamUberTimer
+                        hasPwrup: p.hasPowerup, pwrupT: p.powerupTimer
                     })),
                     towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner, l: t.isLocked, u: t.unlockTimer})),
                     heals: game.heals.map(h => h.active),
