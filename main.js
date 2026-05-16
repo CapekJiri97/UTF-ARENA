@@ -30,6 +30,15 @@ export let activeGameMode = GameMode_Classic;
 export function setActiveMode(modeName) {
   activeGameMode = GAME_MODES[modeName] ?? GameMode_Classic;
 }
+
+// ── Simulation mode flag ──────────────────────────────────────────────────────
+// When true: draw() is skipped, audio is muted, particles are purged by the sim engine.
+export let simMode = false;
+export function setSimMode(v) { simMode = v; }
+// Wrapper so Simulation.js can call update() (which is not otherwise exported).
+export function simUpdate(dt) { update(dt); }
+// Resets the spawn timer between simulated games (it persists as a module-level var).
+export function resetSpawnTimer() { spawnTimer = 0; }
 import { initAudio, playSound } from './Audio.js';
 
   export const canvas = document.getElementById('gameCanvas');
@@ -1420,7 +1429,7 @@ import { initAudio, playSound } from './Audio.js';
       const now = performance.now(); const dtRaw = Math.min(0.05, (now-last)/1000); last = now; 
       const steps = game.isSpectator ? 1 : 1;
       for(let i=0; i<steps; i++) { update(dtRaw); }
-      draw(); 
+      if (!simMode) draw();
       requestAnimationFrame(loop); 
     } catch(err) {
       console.error('[FATAL ERROR] Game loop crashed!', err);

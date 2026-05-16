@@ -1172,7 +1172,8 @@ export class Player{
     if(!isNetwork && this.silenceTimer > 0) return; 
     if(!isNetwork && this.stunTimer > 0) return; 
     
-    playSound('shoot', this.pos, { pitch: 0.6 + (this.className.charCodeAt(this.className.length - 1) % 6) * 0.15 }); // Mírně odlišný tón pro spelly
+    if (window._simCastHook) window._simCastHook(this.id, spKey);
+    if (!window._simSoundMuted) playSound('shoot', this.pos, { pitch: 0.6 + (this.className.charCodeAt(this.className.length - 1) % 6) * 0.15 }); // Mírně odlišný tón pro spelly
 
     let tx = targetX, ty = targetY; 
     if(tx === undefined){ 
