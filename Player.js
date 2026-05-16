@@ -1177,7 +1177,8 @@ export class Player{
     let tx = targetX, ty = targetY; 
     if(tx === undefined){ 
         let useAim = true;
-        if (this === player && game.autoTarget && (sp.type === 'dash' || sp.type === 'dash_def')) {
+        const _isDashSpell = sp.type === 'dash' || sp.type === 'dash_def' || sp.type === 'dash_heal_silence' || sp.type === 'reaper_e' || sp.type === 'volstrov_e' || sp.type === 'omnislash';
+        if (this === player && game.autoTarget && _isDashSpell) {
             let mx = 0, my = 0;
             if(keys['w']) my -= 1; if(keys['s']) my += 1; if(keys['a']) mx -= 1; if(keys['d']) mx += 1;
             if(mx !== 0 || my !== 0) {

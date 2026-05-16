@@ -217,7 +217,8 @@ const computeItemPreview = (item, player, count = 1) => {
             const label = player.dmgType === 'magical' ? 'AP' : 'AD';
             const computed = Math.round(base * pctTotal) + flatTotal;
             const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
-            parts.push(`${pctStr}Power (+${computed} ${label})`);
+            const flatStr = flatTotal ? ` +${flatTotal} flat` : '';
+            parts.push(`${pctStr}Power (+${computed} ${label}${flatStr})`);
         } else {
             const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
             const flatStr = flatTotal ? `+${flatTotal} flat ` : '';
@@ -230,7 +231,8 @@ const computeItemPreview = (item, player, count = 1) => {
         if (player) {
             const computed = Math.round((player.baseMaxHp || 0) * pctTotal) + flatTotal;
             const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
-            parts.push(`${pctStr}HP (+${computed})`);
+            const flatStr = flatTotal ? ` +${flatTotal} flat` : '';
+            parts.push(`${pctStr}HP (+${computed}${flatStr})`);
         } else {
             const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
             const flatStr = flatTotal ? `+${flatTotal} flat ` : '';
@@ -243,7 +245,8 @@ const computeItemPreview = (item, player, count = 1) => {
         if (player) {
             const computed = Math.round((player.baseArmor_stat || 0) * pctTotal) + flatTotal;
             const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
-            parts.push(`${pctStr}Armor (+${computed})`);
+            const flatStr = flatTotal ? ` +${flatTotal} flat` : '';
+            parts.push(`${pctStr}Armor (+${computed}${flatStr})`);
         } else {
             const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
             const flatStr = flatTotal ? `+${flatTotal} flat ` : '';
@@ -256,7 +259,8 @@ const computeItemPreview = (item, player, count = 1) => {
         if (player) {
             const computed = Math.round((player.baseMR_stat || 0) * pctTotal) + flatTotal;
             const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
-            parts.push(`${pctStr}MR (+${computed})`);
+            const flatStr = flatTotal ? ` +${flatTotal} flat` : '';
+            parts.push(`${pctStr}MR (+${computed}${flatStr})`);
         } else {
             const pctStr = pctTotal ? `+${Math.round(pctTotal * 100)}% ` : '';
             const flatStr = flatTotal ? `+${flatTotal} flat ` : '';
