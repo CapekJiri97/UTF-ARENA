@@ -146,9 +146,14 @@ function _buildPanel() {
   </div>
 
   <div class="sim-row">
-    <label>Speed (ticks/frame)</label>
-    <input id="simSpeed" type="range" min="1" max="120" value="30">
-    <span class="val" id="simSpeedVal">30×</span>
+    <label>CPU budget (ms/burst)</label>
+    <input id="simSpeed" type="range" min="10" max="200" value="50">
+    <span class="val" id="simSpeedVal">50ms</span>
+  </div>
+  <div class="sim-row">
+    <label>Yield (ms pause)</label>
+    <input id="simYield" type="range" min="0" max="50" value="8">
+    <span class="val" id="simYieldVal">8ms</span>
   </div>
 
   <div class="sim-row">
@@ -229,9 +234,12 @@ function _buildPanel() {
     // ── Wire up controls ──────────────────────────────────────────────────────
     const $  = id => document.getElementById(id);
 
-    // Speed slider label
+    // Speed/yield slider labels
     $('simSpeed').addEventListener('input', () => {
-        $('simSpeedVal').textContent = $('simSpeed').value + '×';
+        $('simSpeedVal').textContent = $('simSpeed').value + 'ms';
+    });
+    $('simYield').addEventListener('input', () => {
+        $('simYieldVal').textContent = $('simYield').value + 'ms';
     });
 
     // Difficulty slider label
@@ -303,7 +311,8 @@ function _onStart() {
     const $ = id => document.getElementById(id);
 
     const numGames      = Math.max(1, Math.min(10000, +$('simNumGames').value || 100));
-    const ticksPerFrame = Math.max(1, Math.min(120,   +$('simSpeed').value    || 30));
+    const budgetMs      = Math.max(10, Math.min(200,  +$('simSpeed').value    || 50));
+    const yieldMs       = Math.max(0,  Math.min(50,   +$('simYield').value    || 8));
     const difficulty    = _r1(+$('simDiff').value / 100);
     const classMode     = $('simClassMode').value;
 
@@ -335,7 +344,7 @@ function _onStart() {
 
     _engine = new SimulationEngine();
     _engine.start(
-        { numGames, ticksPerFrame, difficulty, classFilter },
+        { numGames, budgetMs, yieldMs, difficulty, classFilter },
         {
             onProgress: ({ current, total, simTime }) => {
                 const pct  = total > 0 ? Math.round(current / total * 100) : 0;

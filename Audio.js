@@ -135,6 +135,7 @@ export function resetNexusWarnings() {
 // ── Hlavní funkce ─────────────────────────────────────────────────────────────
 
 export function playSound(type, pos = null, opts = {}) {
+    if (window._simSoundMuted) return;
     if (!audioCtx || audioCtx.state === 'suspended') return;
 
     const spatial = getSpatial(pos);

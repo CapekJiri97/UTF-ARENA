@@ -114,7 +114,7 @@ export class SimulationEngine {
         if (!this.running) return;
         this.running = false;
         if (this._rafId !== null) {
-            cancelAnimationFrame(this._rafId);
+            clearTimeout(this._rafId);
             this._rafId = null;
         }
         this._removePatches();
@@ -196,16 +196,21 @@ export class SimulationEngine {
         window._simCastHook = (id, key) => this._tracker.onSpellCast(id, key);
 
         // ── Schedule first tick burst ─────────────────────────────────────────
-        this._rafId = requestAnimationFrame(() => this._simLoop(gi));
+        this._rafId = setTimeout(() => this._simLoop(gi), 0);
     }
 
-    /** Main simulation loop — runs ticksPerFrame ticks then yields to the browser. */
+    /**
+     * Main simulation loop — runs ticks for `budgetMs` real milliseconds,
+     * then yields `yieldMs` to the browser so it can handle events/render.
+     * This prevents browser lag while maximising throughput.
+     */
     _simLoop(gameIndex) {
         if (!this.running || this.currentGame !== gameIndex) return;
 
-        const ticks = this.config.ticksPerFrame;
+        const budgetMs = this.config.budgetMs ?? 50;
+        const deadline = performance.now() + budgetMs;
 
-        for (let i = 0; i < ticks; i++) {
+        while (performance.now() < deadline) {
             simUpdate(SIM_DT);
             this._tracker.tick(game.players, SIM_DT);
 
@@ -225,7 +230,6 @@ export class SimulationEngine {
         }
 
         // ── Purge visual-only state to prevent memory bloat ───────────────────
-        // These arrays are only used for rendering and have no gameplay impact.
         if (game.particles.length    > 50)  game.particles    = [];
         if (game.damageNumbers.length > 0)  game.damageNumbers = [];
         if (game.effectTexts.length   > 0)  game.effectTexts   = [];
@@ -237,7 +241,9 @@ export class SimulationEngine {
             simTime:  this._tracker.simTime,
         });
 
-        this._rafId = requestAnimationFrame(() => this._simLoop(gameIndex));
+        // Yield to browser — guaranteed breathing room between bursts
+        const yieldMs = this.config.yieldMs ?? 8;
+        this._rafId = setTimeout(() => this._simLoop(gameIndex), yieldMs);
     }
 
     /** Collects the finished game record and starts the next game. */
