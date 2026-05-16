@@ -173,6 +173,10 @@ export class SimulationEngine {
         setActiveMode('arena');
         startGame('Bruiser', 0, true); // isSpectator=true; no human player created
 
+        // startGame() does NOT reset gameOver — must clear it manually between games
+        game.gameOver = false;
+        game.winner   = null;
+
         // Skip pre-game countdown so bots fight immediately
         game.startDelay = 0;
 
