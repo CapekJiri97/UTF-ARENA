@@ -23,6 +23,7 @@ import {
 let _engine    = null;
 let _aggregate = null;
 let _results   = [];
+let _startTs   = null;
 
 // ─── Bootstrap on DOMContentLoaded ───────────────────────────────────────────
 if (document.readyState === 'loading') {
@@ -329,7 +330,8 @@ function _onStart() {
     $('simStopBtn').disabled       = false;
     $('simClearBtn').disabled      = true;
 
-    const startTs = performance.now();
+    _startTs = performance.now();
+    const startTs = _startTs;
 
     _engine = new SimulationEngine();
     _engine.start(
@@ -358,11 +360,25 @@ function _onStart() {
 }
 
 function _onStop() {
-    if (_engine) { _engine.stop(); _engine = null; }
-    document.getElementById('simStartBtn').disabled = false;
-    document.getElementById('simStopBtn').disabled  = true;
-    document.getElementById('simClearBtn').disabled = _results.length === 0;
-    document.getElementById('simProgText').textContent = 'Stopped.';
+    const $ = id => document.getElementById(id);
+    if (_engine) {
+        // Grab whatever games finished before stopping
+        const partial = _engine.results.slice();
+        _engine.stop();
+        _engine = null;
+
+        if (partial.length > 0) {
+            _results   = partial;
+            _aggregate = computeAggregateStats(partial);
+            _onSimComplete(_aggregate, partial, performance.now() - _startTs);
+            $('simProgText').textContent = `Stopped — ${partial.length} games saved.`;
+            return;
+        }
+    }
+    $('simStartBtn').disabled = false;
+    $('simStopBtn').disabled  = true;
+    $('simClearBtn').disabled = _results.length === 0;
+    $('simProgText').textContent = 'Stopped.';
 }
 
 function _onClear() {
