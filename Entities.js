@@ -440,19 +440,22 @@ export class Minion{
             return;
         }
         if (this.targetPos) {
-            const d = dist(this.pos, this.targetPos);
-            if (d > 250) {
-                this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; this.netVel = null;
-            } else {
-                const vx = this.netVel ? this.netVel.x : 0;
-                const vy = this.netVel ? this.netVel.y : 0;
-                this.pos.x += vx * dt;
-                this.pos.y += vy * dt;
-                this.pos.x += (this.targetPos.x - this.pos.x) * 5 * dt;
-                this.pos.y += (this.targetPos.y - this.pos.y) * 5 * dt;
+            const dx = this.targetPos.x - this.pos.x;
+            const dy = this.targetPos.y - this.pos.y;
+            const d = Math.hypot(dx, dy);
+            if (d > 400) {
+                this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y;
+                this._interpT = 0; this._interpDuration = 0;
+            } else if (d > 0.5 && this._interpDuration > 0) {
+                this._interpT = (this._interpT || 0) + dt;
+                const t = Math.min(1, this._interpT / this._interpDuration);
+                if (this._interpStartX !== undefined) {
+                    this.pos.x = this._interpStartX + (this.targetPos.x - this._interpStartX) * t;
+                    this.pos.y = this._interpStartY + (this.targetPos.y - this._interpStartY) * t;
+                }
             }
         }
-        return; 
+        return;
     }
     if(this.dead || game.gameOver) return; 
     const towerTarget = game.towers[this.targetIndex]; if(!towerTarget) return;

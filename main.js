@@ -75,6 +75,30 @@ import { initAudio, playSound } from './Audio.js';
     socket.on('connect', () => {
       console.log(`[KLIENT] Připojeno k serveru! Moje ID: ${socket.id}`);
     });
+
+    // ── Ping měření (každé 2s) ────────────────────────────────────────────────
+    let _ping = 0;
+    setInterval(() => {
+      const t0 = performance.now();
+      socket.emit('ping_check', null, () => { _ping = Math.round(performance.now() - t0); });
+    }, 2000);
+
+    // ── Server perf overlay ──────────────────────────────────────────────────
+    const _perfEl = document.getElementById('perfOverlay');
+    socket.on('server_perf', (d) => {
+      if (!_perfEl) return;
+      _perfEl.style.display = 'block';
+      const slowColor = d.slowPct > 30 ? '#f55' : d.slowPct > 10 ? '#fa0' : '#4f8';
+      const memColor  = d.heapMB  > 350 ? '#f55' : d.heapMB  > 200 ? '#fa0' : '#4ef';
+      document.getElementById('perfPing').style.color = _ping > 150 ? '#f55' : _ping > 80 ? '#fa0' : '#4ef';
+      document.getElementById('perfPing').textContent = `Ping: ${_ping}ms`;
+      document.getElementById('perfTick').textContent = `Tick: ${d.avgMs}/${d.maxMs}ms`;
+      document.getElementById('perfSlow').style.color = slowColor;
+      document.getElementById('perfSlow').textContent = `Slow: ${d.slowPct}%`;
+      document.getElementById('perfMem').style.color  = memColor;
+      document.getElementById('perfMem').textContent  = `Mem: ${d.heapMB}/${d.rssMB}MB`;
+      document.getElementById('perfEnts').textContent = `Ents: ${d.players}p ${d.minions}m`;
+    });
     
     socket.on('room_list', (data) => { updateRoomListUI(data); });
     socket.on('lobby_update', (data) => { updateLobbyUI(data.players, data.roomName, data.settings); });
@@ -89,17 +113,29 @@ import { initAudio, playSound } from './Audio.js';
       }
       if(typeof startGameNetworked === 'function') startGameNetworked(data.players);
     });
+
+    // Nastaví deadline interpolaci na entitě — voláno při každém přijatém position packetu.
+    // Entita se bude lineárně pohybovat z aktuální pozice do (nx, ny) za dobu rovnou
+    // době od posledního packetu (adaptivní perioda). Žádný overshoot, žádný jitter.
+    function _setInterpTarget(ent, nx, ny) {
+      const now = performance.now();
+      const elapsed = ent._lastPosTime ? (now - ent._lastPosTime) / 1000 : 0.1;
+      ent._lastPosTime = now;
+      const snapDist = Math.hypot(nx - ent.pos.x, ny - ent.pos.y);
+      if (snapDist > 400) {
+        ent.pos.x = nx; ent.pos.y = ny;
+        ent._interpStartX = nx; ent._interpStartY = ny;
+      } else {
+        ent._interpStartX = ent.pos.x; ent._interpStartY = ent.pos.y;
+      }
+      ent._interpDuration = Math.min(0.25, Math.max(0.05, elapsed));
+      ent._interpT = 0;
+    }
+
     socket.on('network_player_update', (data) => {
       let netPlayer = game.playersById ? game.playersById.get(data.id) : game.players.find(p => p.id === data.id);
-      if (netPlayer && netPlayer !== player) { 
-        // Velocity extrapolace — spočítáme rychlost z rozdílu pozic, žádná extra data po síti
-        if (netPlayer.targetPos) {
-          const dx = data.x - netPlayer.targetPos.x;
-          const dy = data.y - netPlayer.targetPos.y;
-          const dt2 = netPlayer._lastPosTime ? Math.min(0.2, (performance.now() - netPlayer._lastPosTime) / 1000) : 0.05;
-          netPlayer.netVel = { x: dx / (dt2 || 0.05), y: dy / (dt2 || 0.05) };
-        }
-        netPlayer._lastPosTime = performance.now();
+      if (netPlayer && netPlayer !== player) {
+        _setInterpTarget(netPlayer, data.x, data.y);
         netPlayer.targetPos = { x: data.x, y: data.y };
         if (!netPlayer.alive && data.alive) netPlayer.revive(); // Pokud u nás byl mrtvý, ale už ožil
         //else if (netPlayer.alive && !data.alive) netPlayer.die(); // Nahrazeno autoritativním 'player_died' eventem
@@ -147,234 +183,154 @@ import { initAudio, playSound } from './Audio.js';
     
     // PŘIDÁNO: Přijímání dat od Hosta (pohyb botů, minionů a věží)
     socket.on('network_host_state', (data) => {
-      if (game && game.isHost) return; // Host ignoruje tyto zprávy, má svou vlastní pravdu
+      if (game && game.isHost) return;
 
-      // CLIENT-SIDE PREDICTION: rychlá korekce pozice u hráčů se serverem řízeným pohybem (knockback/stun)
+      // Knockback/stun korekce lokálního hráče
       (data.humanPosCorrections || []).forEach(cData => {
         if (!player || cData.id !== player.id) return;
-        const dx = cData.x - player.pos.x; const dy = cData.y - player.pos.y;
-        const dist2 = dx*dx + dy*dy;
-        if (dist2 > 4) { player.pos.x = cData.x; player.pos.y = cData.y; player._serverPosTarget = null; }
+        const dx = cData.x - player.pos.x, dy = cData.y - player.pos.y;
+        if (dx*dx + dy*dy > 4) { player.pos.x = cData.x; player.pos.y = cData.y; }
       });
 
-      (data.bots || []).forEach(bData => {
-        let bot = game.playersById ? game.playersById.get(bData.id) : game.players.find(p => p.id === bData.id);
-        if (bot) {
-          // PŘIDÁNO: Synchronizace třídy bota, pokud se při startovní randomizaci u Klienta a Hosta lišila
-          if (bot.className !== bData.className && bData.className) {
-              bot.className = bData.className;
-              const cData = CLASSES[bot.className];
-              bot.glyph = cData.glyph; bot.dmgType = cData.dmgType; bot.range = cData.range;
-              bot.spells = {
-                  Q: { ...cData.Q, cd: bot.spells.Q.cd, level: bData.qLvl || 1 },
-                  E: { ...cData.E, cd: bot.spells.E.cd, level: bData.eLvl || 1 }
-              };
-          }
-          if (bot.targetPos) {
-            const dx = bData.x - bot.targetPos.x;
-            const dy = bData.y - bot.targetPos.y;
-            const d2 = dx*dx + dy*dy;
-            if (d2 > 250*250) {
-              // Velký skok = respawn/dash, snap okamžitě a resetuj velocity
-              bot.pos.x = bData.x; bot.pos.y = bData.y;
-              bot.netVel = null;
-            } else {
-              // Odhadni velocity z předchozího packetu — clampni na rozumný max aby TCP burst nezpůsobil teleport
-              const dt2 = bot._lastPosTime ? Math.min(0.2, Math.max(0.016, (performance.now() - bot._lastPosTime) / 1000)) : 0.05;
-              const maxSpeed = bot.speed ? bot.speed * 3 : 1200;
-              bot.netVel = {
-                x: Math.max(-maxSpeed, Math.min(maxSpeed, dx / dt2)),
-                y: Math.max(-maxSpeed, Math.min(maxSpeed, dy / dt2)),
-              };
-            }
-          }
-          bot._lastPosTime = performance.now();
-          bot.targetPos = { x: bData.x, y: bData.y }; bot.hp = bData.hp; bot.alive = bData.alive; bot.aimAngle = bData.aimAngle;
-          if (bData.slowT !== undefined) bot.slowTimer = bData.slowT;
-          if (bData.boostT !== undefined) bot.boostTimer = bData.boostT;
-          if (bData.silenceT !== undefined) bot.silenceTimer = bData.silenceT;
-          bot.stunTimer = bData.stunT || 0;
-          bot.shield = bData.shield || 0;
-          if (bData.hanaT !== undefined) bot.hanaBuffTimer = bData.hanaT;
-          if (bData.beamT !== undefined) bot.beamTimer = bData.beamT;
-          if (bData.beamId !== undefined) bot.beamTargetId = bData.beamId;
-          if (bData.uberT !== undefined) bot.uberChargeTimer = bData.uberT;
-          if (bData.invT !== undefined) bot.invulnerableTimer = bData.invT;
-          if (bData.defT !== undefined) bot.defBuffTimer = bData.defT;
-          if (bData.msBuffT !== undefined) { bot.msBuffTimer = bData.msBuffT; bot.msBuffAmount = bData.msBuffAmt || 0; }
-          if (bData.junglePwrT !== undefined) bot.junglePowerTimer = bData.junglePwrT;
-          if (bData.jungleAsAhT !== undefined) bot.jungleAsAhTimer = bData.jungleAsAhT;
-          if (bData.jungleTankT !== undefined) bot.jungleTankTimer = bData.jungleTankT;
-          if (bData.adAsBuffT !== undefined) { bot.adAsBuffTimer = bData.adAsBuffT; bot.adAsBuffAmount = bData.adAsBuffAmt || 0; }
-          if (bData.antiHealT !== undefined) { bot.antiHealTimer = bData.antiHealT; bot.antiHealStrength = bData.antiHealStr || 0; }
-          if (bData.regenBuffT !== undefined) { bot.regenBuffTimer = bData.regenBuffT; bot.regenBuffAmount = bData.regenBuffAmt || 0; }
-          if (bData.hasPwrup !== undefined) { bot.hasPowerup = bData.hasPwrup; bot.powerupTimer = bData.pwrupT || 0; }
-          if (bData.beamUberT !== undefined) bot.beamUberTimer = bData.beamUberT;
-
-          if (bData.isFullUpdate) {
-            if (bData.level && bData.level > bot.level) { bot.levelUpTimer = 2.0; spawnParticles(bot.pos.x, bot.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
-            bot.level = bData.level || bot.level; bot.maxHp = bData.maxHp || bot.maxHp;
-            bot.kills = bData.kills || 0; bot.deaths = bData.deaths || 0; bot.assists = bData.assists || 0; bot.totalGold = bData.gold || 0;
-            bot.items.length = bData.items !== undefined ? bData.items : bot.items.length;
-            if (bData.stats) { bot.stats.dmgDealt = bData.stats.dmgDealt; bot.stats.dmgTaken = bData.stats.dmgTaken; bot.stats.hpHealed = bData.stats.hpHealed; }
-            bot.AD = bData.AD || bot.AD; bot.AP = bData.AP || bot.AP; bot.armor = bData.armor || bot.armor;
-            bot.mr = bData.mr || bot.mr; bot.speed = bData.speed || bot.speed; bot.attackSpeed = bData.attackSpeed || bot.attackSpeed; bot.abilityHaste = bData.abilityHaste || bot.abilityHaste;
-            bot.invulnerableTimer = bData.invTimer || 0; bot.defBuffTimer = bData.defTimer || 0;
-            bot.towerCaptures = bData.towerCaptures || 0; bot.towerDefends = bData.towerDefends || 0; bot.towerAssaultTime = bData.towerAssaultTime || 0;
-            bot.objectivePresenceTime = bData.objectivePresenceTime || 0; bot.powerupsCollected = bData.powerupsCollected || 0; bot.powerupUptime = bData.powerupUptime || 0; bot.pcs = bData.pcs || 0; bot.pcsBreakdown = bData.pcsBreakdown || bot.pcsBreakdown;
-            if (bot.spells) {
-                if (bData.qLvl) bot.spells.Q.level = bData.qLvl;
-                if (bData.eLvl) bot.spells.E.level = bData.eLvl;
-            }
-            bot.summonerSpell = bData.sumSpell || bot.summonerSpell;
-          }
+      // ── Boti ──
+      (data.bots || []).forEach(b => {
+        const bot = game.playersById ? game.playersById.get(b.id) : game.players.find(p => p.id === b.id);
+        if (!bot) return;
+        if (b.cls && bot.className !== b.cls) {
+          bot.className = b.cls;
+          const cd = CLASSES[b.cls];
+          if (cd) { bot.glyph = cd.glyph; bot.dmgType = cd.dmgType; bot.range = cd.range;
+            bot.spells = { Q: {...cd.Q, cd: bot.spells.Q.cd, level: b.qLv||1}, E: {...cd.E, cd: bot.spells.E.cd, level: b.eLv||1} }; }
+        }
+        _setInterpTarget(bot, b.x, b.y);
+        bot.targetPos = { x: b.x, y: b.y };
+        bot.hp = b.hp; bot.alive = !!b.alive; bot.aimAngle = b.aa ?? bot.aimAngle;
+        bot.stunTimer        = b.stun ?? 0;
+        bot.shield           = b.sh   ?? 0;
+        if (b.inv  !== undefined) bot.invulnerableTimer = b.inv;
+        if (b.def  !== undefined) bot.defBuffTimer      = b.def;
+        if (b.msT  !== undefined) { bot.msBuffTimer = b.msT; bot.msBuffAmount = b.msV ?? 0; }
+        if (b.adT  !== undefined) { bot.adAsBuffTimer = b.adT; bot.adAsBuffAmount = b.adV ?? 0; }
+        if (b.slw  !== undefined) bot.slowTimer        = b.slw;
+        if (b.ahT  !== undefined) { bot.antiHealTimer = b.ahT; bot.antiHealStrength = b.ahV ?? 0; }
+        if (b.pw   !== undefined) { bot.hasPowerup = !!b.pw; bot.powerupTimer = b.pwT ?? 0; }
+        if (b.bmT  !== undefined) { bot.beamTimer = b.bmT; bot.beamTargetId = b.bmId; }
+        if (b.ubT  !== undefined) bot.uberChargeTimer = b.ubT;
+        if (b.buT  !== undefined) bot.beamUberTimer   = b.buT;
+        if (b.full) {
+          if (b.lvl && b.lvl > bot.level) { bot.levelUpTimer = 2.0; spawnParticles(bot.pos.x, bot.pos.y, 25, '#ffcc00', {speed:120,life:1.0}); }
+          if (b.lvl)  bot.level  = b.lvl;
+          if (b.mhp)  bot.maxHp  = b.mhp;
+          if (b.kda)  { bot.kills = b.kda[0]; bot.deaths = b.kda[1]; bot.assists = b.kda[2]; }
+          if (b.gold) bot.totalGold = b.gold;
+          if (b.itms !== undefined) bot.items.length = b.itms;
+          if (b.AD)   bot.AD = b.AD;  if (b.AP)  bot.AP  = b.AP;
+          if (b.arm)  bot.armor = b.arm; if (b.mr) bot.mr = b.mr;
+          if (b.spd)  bot.speed = b.spd; if (b.as) bot.attackSpeed = b.as;
+          if (b.qLv && bot.spells) bot.spells.Q.level = b.qLv;
+          if (b.eLv && bot.spells) bot.spells.E.level = b.eLv;
+          if (b.ss)   bot.summonerSpell = b.ss;
+          if (b.slwT) bot.slowTimer    = b.slwT;
+          if (b.bst)  bot.boostTimer   = b.bst;
+          if (b.slnc) bot.silenceTimer = b.slnc;
+          if (b.han)  bot.hanaBuffTimer = b.han;
+          if (b.jpT)  bot.junglePowerTimer = b.jpT;
+          if (b.rgT)  { bot.regenBuffTimer = b.rgT; bot.regenBuffAmount = b.rgV ?? 0; }
         }
       });
-      
-      // OPRAVA: Odstranění mrtvých minionů ("duchů"), které už Host nesleduje
-      // Pouze pokud paket obsahuje miniony (rychlý tick) — pomalý tick posílá prázdné pole
-      if (!game.deadMinionIds) game.deadMinionIds = new Set();
-      if (data.minions && data.minions.length > 0) {
-        const hostMinionIds = new Set(data.minions.map(m => m.id));
-        game.minions.forEach(m => { if (!hostMinionIds.has(m.id)) m.dead = true; });
-      }
 
-      (data.minions || []).forEach(mData => {
-        let minion = game.minionsById ? game.minionsById.get(mData.id) : game.minions.find(m => m.id === mData.id);
-        if (!minion && !mData.dead && !game.deadMinionIds.has(mData.id)) { // Pokud u klienta chybí a nebyl lokálně zabit, vytvoříme ho
-           minion = new Minion(mData.x, mData.y, mData.team ?? 0, mData.targetIndex ?? 0);
-           minion.id = mData.id;
-           minion.isSummon = mData.isSummon ?? false;
-           minion.glyph = mData.glyph || 'm';
-           minion.maxHp = mData.maxHp || 250;
-           minion.targetPos = { x: mData.x, y: mData.y };
-           minion.targetHeroId = mData.tHeroId;
-           minion.isSmallChicken = mData.isSc ?? false;
-           minion.isBigChicken = mData.isBc ?? false;
-           game.minions.push(minion);
+      // ── Minioni ──
+      if (!game.deadMinionIds) game.deadMinionIds = new Set();
+      (data.minions || []).forEach(m => {
+        if (m.dead) { const mn = game.minionsById?.get(m.id); if (mn) mn.dead = true; return; }
+        let minion = game.minionsById?.get(m.id);
+        if (!minion && !game.deadMinionIds.has(m.id)) {
+          minion = new Minion(m.x, m.y, m.tm ?? 0, m.ti ?? 0);
+          minion.id = m.id;
+          minion.isSummon = !!m.sum; minion.glyph = m.gl || 'm';
+          minion.maxHp = m.mhp || 250; minion.targetHeroId = m.tH;
+          minion.isSmallChicken = !!m.sc; minion.isBigChicken = !!m.bc;
+          game.minions.push(minion);
         }
         if (minion) {
-          if (minion.targetPos) {
-            const dx = mData.x - minion.targetPos.x; const dy = mData.y - minion.targetPos.y;
-            const d2 = dx*dx + dy*dy;
-            if (d2 > 200*200) {
-              minion.pos.x = mData.x; minion.pos.y = mData.y; minion.netVel = null;
-            } else {
-              const dt2 = minion._lastPosTime ? Math.min(0.2, Math.max(0.016, (performance.now() - minion._lastPosTime) / 1000)) : 0.05;
-              const maxSpeed = 900;
-              minion.netVel = {
-                x: Math.max(-maxSpeed, Math.min(maxSpeed, dx / dt2)),
-                y: Math.max(-maxSpeed, Math.min(maxSpeed, dy / dt2)),
-              };
-            }
+          _setInterpTarget(minion, m.x, m.y);
+          minion.targetPos = { x: m.x, y: m.y };
+          minion.hp = m.hp;
+          // Spawn packet obsahuje statická data (spawn:1), rutinní packet jen x/y/hp
+          if (m.spawn) {
+            if (m.mhp !== undefined) minion.maxHp = m.mhp;
+            if (m.gl  !== undefined) minion.glyph = m.gl;
+            if (m.tH  !== undefined) minion.targetHeroId = m.tH;
+            if (m.sc  !== undefined) minion.isSmallChicken = !!m.sc;
+            if (m.bc  !== undefined) minion.isBigChicken = !!m.bc;
+            if (m.tm  !== undefined) minion.team = m.tm;
+            if (m.ti  !== undefined) minion.targetIndex = m.ti;
           }
-          minion._lastPosTime = performance.now();
-          minion.targetPos = { x: mData.x, y: mData.y }; minion.hp = mData.hp; minion.dead = mData.dead;
-          if (mData.maxHp !== undefined) minion.maxHp = mData.maxHp;
-          if (mData.glyph !== undefined) minion.glyph = mData.glyph;
-          if (mData.tHeroId !== undefined) minion.targetHeroId = mData.tHeroId;
-          if (mData.isSc !== undefined) minion.isSmallChicken = mData.isSc;
-          if (mData.isBc !== undefined) minion.isBigChicken = mData.isBc;
-          if (mData.team !== undefined) minion.team = mData.team;
-          if (mData.targetIndex !== undefined) minion.targetIndex = mData.targetIndex;
         }
       });
-      (data.towers || []).forEach(tData => {
-        let tower = game.towers.find(t => t.index === tData.i);
-        if (tower) { 
-            if (tower.owner !== tData.o && tData.o !== -1) game.shake = 0.3; // Zemětřesení pro klienty při zabrání
-            tower.control = tData.c; tower.owner = tData.o; 
-            if (tData.l !== undefined) tower.isLocked = tData.l;
-            if (tData.u !== undefined) tower.unlockTimer = tData.u;
-        }
+
+      // ── Věže, healy, nexus (1 Hz slow broadcast) ──
+      (data.towers || []).forEach(t => {
+        const tower = game.towers.find(x => x.index === t.i);
+        if (tower) { if (tower.owner !== t.o && t.o !== -1) game.shake = 0.3;
+          tower.control = t.c; tower.owner = t.o;
+          if (t.l !== undefined) tower.isLocked = t.l;
+          if (t.u !== undefined) tower.unlockTimer = t.u; }
       });
-      // Sdílení lékárniček, powerupů a životů základen z Hosta na Klienty
-      if (data.heals) data.heals.forEach((act, i) => { if(game.heals[i]) game.heals[i].active = act; });
+      if (data.heals) data.heals.forEach((act, i) => { if (game.heals[i]) game.heals[i].active = act; });
       if (data.powerup && game.powerup) { game.powerup.active = data.powerup.a; game.powerup.captureTimer = data.powerup.c; }
       if (data.nexus) {
         game.nexus[0] = data.nexus[0]; game.nexus[1] = data.nexus[1];
         if (activeGameMode.name === 'arena') { if (!game.score) game.score = {}; game.score[0] = data.nexus[0]; game.score[1] = data.nexus[1]; }
       }
-          if (data.humans) {
-              data.humans.forEach(hData => {
-                  let p = game.playersById ? game.playersById.get(hData.id) : game.players.find(x => x.id === hData.id);
-                  if (p) {
-                      if (p === player) {
-                          // LOKÁLNÍ HRÁČ: Stats a HP ze serveru jsou autorita, ale pozici NEUPRAVUJEME zde.
-                          // Pozice pochází od klienta (client-side prediction) — server ji jen echuje zpátky.
-                          // Korekce pozice pro knockback/stun přichází přes humanPosCorrections ve fast broadcast.
-                          let goldDiff = hData.gold - (p.totalGold || 0); if (goldDiff > 0) { p.gold += goldDiff; p.totalGold = hData.gold; }
-                          let expDiff = hData.totalExp - (p.totalExp || 0); if (expDiff > 0) { p.exp += expDiff; p.totalExp = hData.totalExp; }
-                          p.hp = hData.hp; p.kills = hData.kills; p.deaths = hData.deaths; p.assists = hData.assists;
-                      } else {
-                          // SÍŤOVÍ HRÁČI: Stats natvrdo, pozici interpolujeme přes targetPos (stejný systém jako boti)
-                          p.hp = hData.hp; p.gold = hData.currentGold; p.totalGold = hData.gold; p.exp = hData.exp; p.totalExp = hData.totalExp;
-                          p.kills = hData.kills; p.deaths = hData.deaths; p.assists = hData.assists;
-                          if (hData.x !== undefined && hData.y !== undefined) {
-                            if (p.targetPos) {
-                              const dx = hData.x - p.targetPos.x; const dy = hData.y - p.targetPos.y;
-                              const d2 = dx*dx + dy*dy;
-                              if (d2 > 250*250) {
-                                p.pos.x = hData.x; p.pos.y = hData.y; p.netVel = null;
-                              } else {
-                                const dt2 = p._lastPosTime ? Math.min(0.2, Math.max(0.016, (performance.now() - p._lastPosTime) / 1000)) : 0.05;
-                                const maxSpeed = p.speed ? p.speed * 3 : 1200;
-                                p.netVel = { x: Math.max(-maxSpeed, Math.min(maxSpeed, dx / dt2)), y: Math.max(-maxSpeed, Math.min(maxSpeed, dy / dt2)) };
-                              }
-                            }
-                            p._lastPosTime = performance.now();
-                            p.targetPos = { x: hData.x, y: hData.y };
-                          }
-                      }
-                      if (hData.shield !== undefined) p.shield = hData.shield;
-                      if (hData.silenceT !== undefined) p.silenceTimer = hData.silenceT;
-                      if (hData.stunT !== undefined) p.stunTimer = hData.stunT;
-                      if (hData.slowT !== undefined) p.slowTimer = hData.slowT;
-                      if (hData.boostT !== undefined) p.boostTimer = hData.boostT;
-                      if (hData.hanaT !== undefined) p.hanaBuffTimer = hData.hanaT;
-                      if (hData.beamT !== undefined) p.beamTimer = hData.beamT;
-                      p.beamTargetId = hData.beamId;
-                      if (hData.uberT !== undefined) p.uberChargeTimer = hData.uberT;
-                      if (hData.macro !== undefined) p.macroOrder = hData.macro ? { type: hData.macro } : null;
-                      if (hData.stats && p.stats) { p.stats.dmgDealt = hData.stats.dmgDealt; p.stats.dmgTaken = hData.stats.dmgTaken; p.stats.hpHealed = hData.stats.hpHealed; }
-                      if (hData.invT !== undefined) p.invulnerableTimer = hData.invT;
-                      if (hData.defT !== undefined) p.defBuffTimer = hData.defT;
-                      if (hData.msBuffT !== undefined) { p.msBuffTimer = hData.msBuffT; p.msBuffAmount = hData.msBuffAmt || 0; }
-                      if (hData.junglePwrT !== undefined) p.junglePowerTimer = hData.junglePwrT;
-                      if (hData.jungleAsAhT !== undefined) p.jungleAsAhTimer = hData.jungleAsAhT;
-                      if (hData.jungleTankT !== undefined) p.jungleTankTimer = hData.jungleTankT;
-                      if (hData.adAsBuffT !== undefined) { p.adAsBuffTimer = hData.adAsBuffT; p.adAsBuffAmount = hData.adAsBuffAmt || 0; }
-                      if (hData.rallyT !== undefined) p.rallyTimer = hData.rallyT;
-                      if (hData.antiHealT !== undefined) { p.antiHealTimer = hData.antiHealT; p.antiHealStrength = hData.antiHealStr || 0; }
-                      if (hData.regenBuffT !== undefined) { p.regenBuffTimer = hData.regenBuffT; p.regenBuffAmount = hData.regenBuffAmt || 0; }
-                      if (hData.hasPwrup !== undefined) { p.hasPowerup = hData.hasPwrup; p.powerupTimer = hData.pwrupT || 0; }
-                      if (hData.beamUberT !== undefined) p.beamUberTimer = hData.beamUberT;
-                        if (hData.towerCaptures !== undefined) p.towerCaptures = hData.towerCaptures;
-                      if (hData.towerDefends !== undefined) p.towerDefends = hData.towerDefends;
-                      if (hData.towerAssaultTime !== undefined) p.towerAssaultTime = hData.towerAssaultTime;
-                      if (hData.objectivePresenceTime !== undefined) p.objectivePresenceTime = hData.objectivePresenceTime;
-                      if (hData.powerupsCollected !== undefined) p.powerupsCollected = hData.powerupsCollected;
-                      if (hData.powerupUptime !== undefined) p.powerupUptime = hData.powerupUptime;
-                      if (hData.pcs !== undefined) p.pcs = hData.pcs;
-                      if (hData.pcsBreakdown) p.pcsBreakdown = hData.pcsBreakdown;
-                      // Level, maxHp, items a stats ze serveru pro správný scoreboard
-                      if (p !== player) {
-                        if (hData.level !== undefined && hData.level > p.level) { p.levelUpTimer = 2.0; spawnParticles(p.pos.x, p.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
-                        if (hData.level !== undefined) p.level = hData.level;
-                        if (hData.maxHp !== undefined) p.maxHp = hData.maxHp;
-                        if (hData.items !== undefined && Array.isArray(hData.items)) { p.items = hData.items; recalcPlayerItemStats(p); }
-                        if (hData.AD !== undefined) p.AD = hData.AD;
-                        if (hData.AP !== undefined) p.AP = hData.AP;
-                        if (hData.armor !== undefined) p.armor = hData.armor;
-                        if (hData.mr !== undefined) p.mr = hData.mr;
-                        if (hData.speed !== undefined) p.speed = hData.speed;
-                        if (hData.attackSpeed !== undefined) p.attackSpeed = hData.attackSpeed;
-                        if (hData.abilityHaste !== undefined) p.abilityHaste = hData.abilityHaste;
-                      }
-                      if (!p.alive && hData.alive) { if (p === player) p._serverPosTarget = null; if (typeof p.revive === 'function') p.revive(); } else if (p.alive && !hData.alive) { p.hp = 0; if (typeof p.die === 'function') p.die(); }
-                  }
-              });
-          }
+
+      // ── Human HP/shield/buffs (10 Hz) ──
+      (data.humans || []).forEach(h => {
+        const p = game.playersById?.get(h.id) ?? game.players.find(x => x.id === h.id);
+        if (!p) return;
+        p.hp = h.hp; p.alive = !!h.alive;
+        p.shield           = h.sh   ?? 0;
+        p.stunTimer        = h.stun ?? 0;
+        if (h.slw !== undefined) p.slowTimer        = h.slw;
+        if (h.inv !== undefined) p.invulnerableTimer = h.inv;
+        if (h.def !== undefined) p.defBuffTimer      = h.def;
+        if (h.msT !== undefined) { p.msBuffTimer = h.msT; p.msBuffAmount = h.msV ?? 0; }
+        if (h.adT !== undefined) { p.adAsBuffTimer = h.adT; p.adAsBuffAmount = h.adV ?? 0; }
+        if (h.pw  !== undefined) { p.hasPowerup = !!h.pw; p.powerupTimer = h.pwT ?? 0; }
+        if (h.bmT !== undefined) { p.beamTimer = h.bmT; p.beamTargetId = h.bmId; }
+        if (h.ubT !== undefined) p.uberChargeTimer = h.ubT;
+        if (h.rly !== undefined) p.rallyTimer = h.rly;
+        if (!p.alive && h.alive) { if (p === player) p._serverPosTarget = null; if (typeof p.revive === 'function') p.revive(); }
+        else if (p.alive && !h.alive) { p.hp = 0; if (typeof p.die === 'function') p.die(); }
+      });
+    });
+
+    // 2 Hz scoreboard — gold, exp, kills, items, stats
+    socket.on('network_score', (scoreData) => {
+      if (game && game.isHost) return;
+      (scoreData || []).forEach(s => {
+        const p = game.playersById?.get(s.id) ?? game.players.find(x => x.id === s.id);
+        if (!p) return;
+        if (p === player) {
+          const goldDiff = s.gold - (p.totalGold || 0); if (goldDiff > 0) { p.gold += goldDiff; p.totalGold = s.gold; }
+          const expDiff  = s.texp - (p.totalExp  || 0); if (expDiff  > 0) { p.exp  += expDiff;  p.totalExp  = s.texp; }
+        } else {
+          p.totalGold = s.gold; p.gold = s.cg; p.exp = s.exp; p.totalExp = s.texp;
+        }
+        p.kills = s.kills; p.deaths = s.deaths; p.assists = s.assists;
+        if (s.lvl && s.lvl > p.level) { p.levelUpTimer = 2.0; spawnParticles(p.pos.x, p.pos.y, 25, '#ffcc00', {speed:120,life:1.0}); }
+        if (s.lvl)  p.level = s.lvl;
+        if (s.mhp)  p.maxHp = s.mhp;
+        if (s.items && Array.isArray(s.items)) { p.items = s.items; recalcPlayerItemStats(p); }
+        if (s.AD)   p.AD = s.AD;   if (s.AP)  p.AP  = s.AP;
+        if (s.arm)  p.armor = s.arm; if (s.mr) p.mr = s.mr;
+        if (s.spd)  p.speed = s.spd; if (s.as) p.attackSpeed = s.as;
+        if (s.stats) { if (!p.stats) p.stats = {}; p.stats.dmgDealt = s.stats[0]; p.stats.dmgTaken = s.stats[1]; p.stats.hpHealed = s.stats[2]; }
+        if (s.tc !== undefined) p.towerCaptures = s.tc;
+        if (s.td !== undefined) p.towerDefends  = s.td;
+        if (s.pcs !== undefined) p.pcs = s.pcs;
+        if (s.pwrc !== undefined) p.powerupsCollected = s.pwrc;
+      });
     });
     
     // Přijímání jednorázových událostí od serveru (věže střílí, konec hry, efekty)
@@ -1355,7 +1311,7 @@ import { initAudio, playSound } from './Audio.js';
     if (socket && !game.gameOver && !simMode) {
         if (player) {
             game.syncTimer = (game.syncTimer || 0) + dt;
-            if (game.syncTimer >= 0.05) {
+            if (game.syncTimer >= 0.067) {
                 game.syncTimer = 0;
                 const minimalState = {
                     id: player.id, x: player.pos.x, y: player.pos.y, aimAngle: player.aimAngle,

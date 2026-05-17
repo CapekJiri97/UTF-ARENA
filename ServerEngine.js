@@ -30,6 +30,7 @@ const _GAME_STATE_KEYS = [
   'heals','powerup','speedPads','nexus','score','gameOver','winner','started','startDelay',
   'isHost','isSpectator','killFeed','passiveTimer','cleanupTimer','burstHits','deadMinionIds',
   'playersById','minionsById','blueBotDifficulty','redBotDifficulty',
+  '_botDtAcc','_minionCollTick',
 ];
 
 // Copy selected keys from src object into dst object
@@ -287,16 +288,35 @@ export function startServerGame(io, roomName, playersData, settings) {
   const spawnRef    = { val: 0 };
   const spawnInterval  = 16.0;
   const nexusDrainRate = 0.75;
-  let fastTimer = 0;
-  let slowTimer = 0;
+  let fastTimer  = 0;   // 10 Hz — bot/minion pozice + human HP/shield
+  let scoreTimer = 0;   // 2 Hz  — gold, exp, kills (scoreboard)
+  let slowTimer  = 0;   // 1 Hz  — towers, heals, nexus (málo se mění)
+  let perfTimer  = 0;   // 1 Hz  — server perf stats pro UI overlay
+  let tickWarnings = 0;
+  // Rolling perf metrics (reset každou sekundu při _broadcastPerf)
+  let _perfTickCount = 0, _perfSlowTicks = 0, _perfTickMsSum = 0, _perfTickMsMax = 0;
 
-  // ── Tick loop (20 FPS = 50 ms) ──────────────────────────
+  // ── Tick loop (15 FPS = 67 ms) ───────────────────────────
   roomEntry.interval = setInterval(() => {
     if (roomEntry.state.gameOver || !roomEntry.state.started) return;
 
     const now = Date.now();
-    const dt  = Math.min(0.1, (now - lastTick) / 1000);
+    const rawDt = (now - lastTick) / 1000;
+    const dt = Math.min(0.25, Math.max(0.001, rawDt));
     lastTick  = now;
+
+    const tickMs = rawDt * 1000;
+    _perfTickCount++;
+    _perfTickMsSum += tickMs;
+    if (tickMs > _perfTickMsMax) _perfTickMsMax = tickMs;
+
+    if (rawDt > 0.14) {
+      _perfSlowTicks++;
+      tickWarnings++;
+      if (tickWarnings % 30 === 1) console.warn(`[SERVER ENGINE] Slow tick in "${roomName}": ${Math.round(tickMs)}ms (target 67ms)`);
+    } else {
+      tickWarnings = 0;
+    }
 
     _withRoomContext(roomEntry, () => {
       try {
@@ -305,20 +325,44 @@ export function startServerGame(io, roomName, playersData, settings) {
         console.error('[SERVER ENGINE] Tick error:', err.message, err.stack);
       }
 
-      // Fast broadcast: bots + knockback corrections (20 Hz — every tick)
-      fastTimer += dt;
-      if (fastTimer >= 0.05) {
+      fastTimer  += dt;
+      scoreTimer += dt;
+      slowTimer  += dt;
+      perfTimer  += dt;
+
+      // 10 Hz — pozice botů/minionů (proximity culled) + human HP/shield
+      if (fastTimer >= 0.10) {
         fastTimer = 0;
         _broadcastFast(io, roomName);
       }
-      // Slow broadcast: full map state (8 Hz)
-      slowTimer += dt;
-      if (slowTimer >= 0.125) {
+      // 2 Hz — human scoreboard (gold, exp, kills, level)
+      if (scoreTimer >= 0.5) {
+        scoreTimer = 0;
+        _broadcastScore(io, roomName);
+      }
+      // 1 Hz — statické věci (towers, heals, nexus)
+      if (slowTimer >= 1.0) {
         slowTimer = 0;
         _broadcastSlow(io, roomName, activeMode);
       }
+      // 1 Hz — server perf overlay
+      if (perfTimer >= 1.0) {
+        perfTimer = 0;
+        const avgMs = _perfTickCount > 0 ? _perfTickMsSum / _perfTickCount : 0;
+        const mem   = process.memoryUsage();
+        io.to(roomName).emit('server_perf', {
+          avgMs:    Math.round(avgMs * 10) / 10,
+          maxMs:    Math.round(_perfTickMsMax * 10) / 10,
+          slowPct:  _perfTickCount > 0 ? Math.round(_perfSlowTicks / _perfTickCount * 100) : 0,
+          heapMB:   Math.round(mem.heapUsed / 1024 / 1024 * 10) / 10,
+          rssMB:    Math.round(mem.rss      / 1024 / 1024 * 10) / 10,
+          players:  game.players.length,
+          minions:  game.minions.filter(m => !m.dead).length,
+        });
+        _perfTickCount = 0; _perfSlowTicks = 0; _perfTickMsSum = 0; _perfTickMsMax = 0;
+      }
     });
-  }, 50);
+  }, 67);
 
   _rooms.set(roomName, roomEntry);
 }
@@ -417,10 +461,25 @@ function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vS
   // - Human players: p.update(dt) runs but movement branch is skipped (Player.js checks
   //   !_isBotPlayer && !targetPos → no-op). Knockback/dash still handled because those
   //   branches run before the movement check. Timers + ability effects tick normally.
+  // Bot AI throttle: accumulate dt and only run full update every 2 ticks (saves ~40% CPU on AI).
+  // Human players update every tick (timer ticks, knockback etc. must be precise).
+  // _botDtAcc lives on game (per-room state) to avoid cross-room contamination.
+  if (!game._botDtAcc) game._botDtAcc = new Map();
+  const _botAcc = game._botDtAcc;
+
   for (const p of game.players) {
-    const ox = p.pos.x, oy = p.pos.y;
-    p.update(dt);
-    if (dt > 0) p.vel = { x: (p.pos.x - ox) / dt, y: (p.pos.y - oy) / dt };
+    if (p._isBotPlayer) {
+      const acc = (_botAcc.get(p.id) || 0) + dt;
+      if (acc < 0.13) { _botAcc.set(p.id, acc); continue; } // skip this tick, accumulate
+      _botAcc.set(p.id, 0);
+      const ox = p.pos.x, oy = p.pos.y;
+      p.update(acc); // run with accumulated dt so physics stays correct
+      if (acc > 0) p.vel = { x: (p.pos.x - ox) / acc, y: (p.pos.y - oy) / acc };
+    } else {
+      const ox = p.pos.x, oy = p.pos.y;
+      p.update(dt);
+      if (dt > 0) p.vel = { x: (p.pos.x - ox) / dt, y: (p.pos.y - oy) / dt };
+    }
 
     // Burn DoT applies to all
     if (p.burnDotTimer > 0 && p.alive) {
@@ -471,30 +530,33 @@ function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vS
     }
   }
 
-  // Minion–minion collision (spatial grid)
-  const CELL = 50;
-  const grid = new Map();
-  for (const m of game.minions) {
-    if (m.dead) continue;
-    const key = `${Math.floor(m.pos.x / CELL)},${Math.floor(m.pos.y / CELL)}`;
-    if (!grid.has(key)) grid.set(key, []);
-    grid.get(key).push(m);
-  }
-  for (const m1 of game.minions) {
-    if (m1.dead) continue;
-    const cx = Math.floor(m1.pos.x / CELL), cy = Math.floor(m1.pos.y / CELL);
-    for (let nx = cx - 1; nx <= cx + 1; nx++) {
-      for (let ny = cy - 1; ny <= cy + 1; ny++) {
-        const cell = grid.get(`${nx},${ny}`);
-        if (!cell) continue;
-        for (const m2 of cell) {
-          if (m1.id >= m2.id || m2.dead) continue;
-          let dx = m2.pos.x - m1.pos.x, dy = m2.pos.y - m1.pos.y, d = Math.hypot(dx, dy);
-          const minD = m1.radius + m2.radius;
-          if (d < minD) {
-            if (d === 0) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d = Math.hypot(dx, dy); }
-            const push = (minD - d) / 2, px = (dx / d) * push, py = (dy / d) * push;
-            m1.pos.x -= px; m1.pos.y -= py; m2.pos.x += px; m2.pos.y += py;
+  // Minion–minion collision — only run every other tick to reduce CPU on free tier
+  game._minionCollTick = (game._minionCollTick || 0) + 1;
+  if (game._minionCollTick % 2 === 0 && game.minions.length > 1) {
+    const CELL = 60;
+    const grid = new Map();
+    for (const m of game.minions) {
+      if (m.dead) continue;
+      const key = (Math.floor(m.pos.x / CELL) * 10000 + Math.floor(m.pos.y / CELL));
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(m);
+    }
+    for (const m1 of game.minions) {
+      if (m1.dead) continue;
+      const cx = Math.floor(m1.pos.x / CELL), cy = Math.floor(m1.pos.y / CELL);
+      for (let nx = cx - 1; nx <= cx + 1; nx++) {
+        for (let ny = cy - 1; ny <= cy + 1; ny++) {
+          const cell = grid.get(nx * 10000 + ny);
+          if (!cell) continue;
+          for (const m2 of cell) {
+            if (m1.id >= m2.id || m2.dead) continue;
+            let dx = m2.pos.x - m1.pos.x, dy = m2.pos.y - m1.pos.y, d = Math.hypot(dx, dy);
+            const minD = m1.radius + m2.radius;
+            if (d < minD) {
+              if (d === 0) { dx = 0.5; dy = 0.5; d = Math.SQRT2 * 0.5; }
+              const push = (minD - d) / 2, px = (dx / d) * push, py = (dy / d) * push;
+              m1.pos.x -= px; m1.pos.y -= py; m2.pos.x += px; m2.pos.y += py;
+            }
           }
         }
       }
@@ -554,99 +616,165 @@ function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vS
 }
 
 // ── Broadcast helpers ─────────────────────────────────────────────────────────
+
+// Vrátí seznam pozic živých lidských hráčů pro proximity výpočty
+function _humanPositions() {
+  const positions = [];
+  for (const p of game.players) {
+    if (!p._isBotPlayer && p.alive) positions.push(p.pos);
+  }
+  return positions;
+}
+
+// Proximity tier: 0 = blízko (<500px) → 10Hz, 1 = střední (500-1200px) → 5Hz, 2 = daleko (>1200px) → 2Hz
+// Vrátí minimální vzdálenost entity od nejbližšího lidského hráče
+function _proximityTier(pos, humanPos) {
+  if (humanPos.length === 0) return 0; // žádní hráči → všechno posílej
+  let minD2 = Infinity;
+  for (const h of humanPos) {
+    const dx = pos.x - h.x, dy = pos.y - h.y;
+    const d2 = dx*dx + dy*dy;
+    if (d2 < minD2) minD2 = d2;
+  }
+  if (minD2 < 500*500)  return 0;
+  if (minD2 < 1200*1200) return 1;
+  return 2;
+}
+
+// 10 Hz — pozice botů (proximity culled) + minioni (proximity culled) + human HP/shield/buffy
 function _broadcastFast(io, roomName) {
+  const humanPos = _humanPositions();
   const botUpdates = [];
+
   for (const b of game.players) {
     if (!b._isBotPlayer) continue;
-    const dx = b.pos.x - (b._lastSyncX ?? b.pos.x + 999);
-    const dy = b.pos.y - (b._lastSyncY ?? b.pos.y + 999);
-    if (dx * dx + dy * dy <= 1 && !b.isDirty) continue;
+
+    // Proximity culling — boti daleko od hráčů se posílají méně často
+    const tier = _proximityTier(b.pos, humanPos);
+    b._proxSkip = (b._proxSkip || 0) + 1;
+    if (tier === 1 && b._proxSkip % 2 !== 0 && !b.isDirty) continue; // 5 Hz
+    if (tier === 2 && b._proxSkip % 5 !== 0 && !b.isDirty) continue; // 2 Hz
+
+    const moved2 = (b.pos.x - (b._lastSyncX ?? b.pos.x+999))**2 + (b.pos.y - (b._lastSyncY ?? b.pos.y+999))**2;
+    if (moved2 <= 1 && !b.isDirty) continue;
     b._lastSyncX = b.pos.x; b._lastSyncY = b.pos.y;
 
-    const base = {
-      id: b.id, x: b.pos.x, y: b.pos.y, hp: b.hp, alive: b.alive, aimAngle: b.aimAngle,
-      stunT:    b.stunTimer,    shield:      b.shield,
-      invT:     b.invulnerableTimer,  defT: b.defBuffTimer,
-      msBuffT:  b.msBuffTimer,  msBuffAmt:   b.msBuffAmount,
-      junglePwrT: b.junglePowerTimer, jungleAsAhT: b.jungleAsAhTimer, jungleTankT: b.jungleTankTimer,
-      adAsBuffT:  b.adAsBuffTimer,    adAsBuffAmt: b.adAsBuffAmount,
-      antiHealT:  b.antiHealTimer,    antiHealStr: b.antiHealStrength,
-      regenBuffT: b.regenBuffTimer,   regenBuffAmt: b.regenBuffAmount,
-      hasPwrup:   b.hasPowerup,       pwrupT:       b.powerupTimer,
-      beamUberT:  b.beamUberTimer,
-    };
+    // Kompaktní base — jen nenulové timery
+    const base = { id: b.id, x: Math.round(b.pos.x), y: Math.round(b.pos.y), hp: Math.round(b.hp), alive: b.alive, aa: Math.round(b.aimAngle * 100) / 100 };
+    if (b.stunTimer > 0.01)  base.stun = Math.round(b.stunTimer * 100) / 100;
+    if (b.shield > 0)        base.sh   = Math.round(b.shield);
+    if (b.invulnerableTimer > 0.01) base.inv = Math.round(b.invulnerableTimer * 10) / 10;
+    if (b.defBuffTimer > 0.01)      base.def = Math.round(b.defBuffTimer * 10) / 10;
+    if (b.msBuffTimer > 0.01)       { base.msT = Math.round(b.msBuffTimer * 10) / 10; base.msV = Math.round((b.msBuffAmount||0)*100)/100; }
+    if (b.adAsBuffTimer > 0.01)     { base.adT = Math.round(b.adAsBuffTimer*10)/10; base.adV = Math.round((b.adAsBuffAmount||0)*100)/100; }
+    if (b.slowTimer > 0.01)         base.slw  = Math.round(b.slowTimer * 10) / 10;
+    if (b.antiHealTimer > 0.01)     { base.ahT = Math.round(b.antiHealTimer*10)/10; base.ahV = Math.round((b.antiHealStrength||0)*100)/100; }
+    if (b.hasPowerup)               { base.pw  = 1; base.pwT = Math.round(b.powerupTimer*10)/10; }
+    if (b.beamTimer > 0.01)         { base.bmT = Math.round(b.beamTimer*10)/10; base.bmId = b.beamTargetId; }
+    if (b.uberChargeTimer > 0.01)   base.ubT  = Math.round(b.uberChargeTimer*10)/10;
+    if (b.beamUberTimer > 0.01)     base.buT  = Math.round(b.beamUberTimer*10)/10;
+
     if (b.isDirty) {
       b.isDirty = false;
-      botUpdates.push({
-        ...base, isFullUpdate: true, className: b.className,
-        slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer,
-        hanaT: b.hanaBuffTimer, beamT: b.beamTimer, beamId: b.beamTargetId, uberT: b.uberChargeTimer,
-        level: b.level, maxHp: b.effectiveMaxHp, kills: b.kills, deaths: b.deaths, assists: b.assists,
-        gold: b.totalGold, items: b.items.length,
-        AD: b.AD, AP: b.AP, armor: b.armor, mr: b.mr, speed: b.speed,
-        attackSpeed: b.attackSpeed, abilityHaste: b.abilityHaste,
-        invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer,
-        qLvl: b.spells?.Q?.level, eLvl: b.spells?.E?.level, sumSpell: b.summonerSpell,
-        towerCaptures: b.towerCaptures || 0, pcs: b.pcs || 0,
+      base.full = 1;
+      base.cls  = b.className;
+      base.lvl  = b.level;
+      base.mhp  = Math.round(b.effectiveMaxHp || b.maxHp);
+      base.kda  = [b.kills, b.deaths, b.assists];
+      base.gold = Math.round(b.totalGold);
+      base.itms = b.items.length;
+      base.AD   = Math.round(b.AD);   base.AP  = Math.round(b.AP);
+      base.arm  = Math.round(b.armor); base.mr = Math.round(b.mr);
+      base.spd  = Math.round(b.speed); base.as = Math.round(b.attackSpeed*100)/100;
+      base.qLv  = b.spells?.Q?.level;  base.eLv = b.spells?.E?.level;
+      base.ss   = b.summonerSpell;
+      if (b.slowTimer > 0.01)        base.slwT = Math.round(b.slowTimer*10)/10;
+      if (b.boostTimer > 0.01)       base.bst  = Math.round(b.boostTimer*10)/10;
+      if (b.silenceTimer > 0.01)     base.slnc = Math.round(b.silenceTimer*10)/10;
+      if (b.hanaBuffTimer > 0.01)    base.han  = Math.round(b.hanaBuffTimer*10)/10;
+      if (b.junglePowerTimer > 0.01) base.jpT  = Math.round(b.junglePowerTimer*10)/10;
+      if (b.regenBuffTimer > 0.01)   { base.rgT = Math.round(b.regenBuffTimer*10)/10; base.rgV = Math.round((b.regenBuffAmount||0)*100)/100; }
+    }
+    botUpdates.push(base);
+  }
+
+  // Human HP/shield/buffs — 10 Hz, kompaktní (pozice se NE posílá — klient ji má)
+  const humanUpdates = [];
+  for (const p of game.players) {
+    if (p._isBotPlayer) continue;
+    const h = { id: p.id, hp: Math.round(p.hp), alive: p.alive };
+    if (p.shield > 0)               h.sh   = Math.round(p.shield);
+    if (p.stunTimer > 0.01)         h.stun = Math.round(p.stunTimer*100)/100;
+    if (p.slowTimer > 0.01)         h.slw  = Math.round(p.slowTimer*10)/10;
+    if (p.invulnerableTimer > 0.01) h.inv  = Math.round(p.invulnerableTimer*10)/10;
+    if (p.defBuffTimer > 0.01)      h.def  = Math.round(p.defBuffTimer*10)/10;
+    if (p.msBuffTimer > 0.01)       { h.msT = Math.round(p.msBuffTimer*10)/10; h.msV = Math.round((p.msBuffAmount||0)*100)/100; }
+    if (p.hasPowerup)               { h.pw  = 1; h.pwT = Math.round(p.powerupTimer*10)/10; }
+    if (p.beamTimer > 0.01)         { h.bmT = Math.round(p.beamTimer*10)/10; h.bmId = p.beamTargetId; }
+    if (p.uberChargeTimer > 0.01)   h.ubT  = Math.round(p.uberChargeTimer*10)/10;
+    if (p.rallyTimer > 0.01)        h.rly  = Math.round(p.rallyTimer*10)/10;
+    if (p.adAsBuffTimer > 0.01)     { h.adT = Math.round(p.adAsBuffTimer*10)/10; h.adV = Math.round((p.adAsBuffAmount||0)*100)/100; }
+    humanUpdates.push(h);
+  }
+
+  // Minioni — proximity culled, jen x/y/hp (statické fieldy jdou jen při spawnu)
+  const minionUpdates = [];
+  for (const m of game.minions) {
+    if (m.dead) { minionUpdates.push({ id: m.id, dead: true }); continue; }
+    const tier = _proximityTier(m.pos, humanPos);
+    m._proxSkip = (m._proxSkip || 0) + 1;
+    if (tier === 1 && m._proxSkip % 2 !== 0) continue;
+    if (tier === 2 && m._proxSkip % 5 !== 0) continue;
+
+    if (m._syncDirty) {
+      // Spawn nebo targetIndex změna — pošli všechna statická data
+      m._syncDirty = false;
+      minionUpdates.push({
+        id: m.id, x: Math.round(m.pos.x), y: Math.round(m.pos.y), hp: Math.round(m.hp),
+        mhp: m.maxHp, tm: m.team, ti: m.targetIndex,
+        sum: m.isSummon || undefined, gl: m.glyph, tH: m.targetHeroId || undefined,
+        sc: m.isSmallChicken || undefined, bc: m.isBigChicken || undefined,
+        spawn: 1,
       });
     } else {
-      botUpdates.push(base);
+      // Rutinní update — jen pozice a HP
+      minionUpdates.push({ id: m.id, x: Math.round(m.pos.x), y: Math.round(m.pos.y), hp: Math.round(m.hp) });
     }
   }
-  // Lidští hráči se serverem řízenou pozicí (knockback/stun/dash) — rychlá korekce na klienty
+
+  // Knockback/stun korekce pro lidské hráče
   const humanPosCorrections = game.players
     .filter(p => !p._isBotPlayer && (p.knockbackTimer > 0 || p.stunTimer > 0 || p.dashTimer > 0))
     .map(p => ({ id: p.id, x: Math.round(p.pos.x), y: Math.round(p.pos.y), posCorrection: true }));
 
-  if (botUpdates.length > 0 || humanPosCorrections.length > 0) {
-    io.to(roomName).emit('network_host_state', { bots: botUpdates, minions: [], humanPosCorrections });
+  if (botUpdates.length > 0 || humanUpdates.length > 0 || minionUpdates.length > 0 || humanPosCorrections.length > 0) {
+    io.to(roomName).emit('network_host_state', { bots: botUpdates, minions: minionUpdates, humans: humanUpdates, humanPosCorrections });
   }
 }
 
-function _broadcastSlow(io, roomName, activeMode) {
-  const minionOut = [];
-  for (const m of game.minions) {
-    if (m.dead) { minionOut.push({ id: m.id, dead: true }); continue; }
-    // Always send all living minions — _syncDirty was only set on spawn/targetIndex change,
-    // so position updates were never reaching clients.
-    m._syncDirty = false;
-    minionOut.push({
-      id: m.id, x: Math.round(m.pos.x), y: Math.round(m.pos.y), hp: m.hp, dead: false,
-      maxHp: m.maxHp, team: m.team, targetIndex: m.targetIndex,
-      isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId,
-      isSc: m.isSmallChicken, isBc: m.isBigChicken,
-    });
-  }
-
-  const humans = game.players
+// 2 Hz — scoreboard data (gold, exp, kills, level, items) — méně urgentní
+function _broadcastScore(io, roomName) {
+  const score = game.players
     .filter(p => !p._isBotPlayer)
     .map(p => ({
-      id: p.id, x: Math.round(p.pos.x), y: Math.round(p.pos.y), hp: p.hp, shield: p.shield,
-      silenceT: p.silenceTimer, stunT: p.stunTimer, slowT: p.slowTimer, boostT: p.boostTimer,
-      hanaT: p.hanaBuffTimer, gold: p.totalGold, currentGold: p.gold, exp: p.exp,
-      kills: p.kills, deaths: p.deaths, assists: p.assists, alive: p.alive,
-      macro: p.macroOrder ? p.macroOrder.type : null,
-      beamT: p.beamTimer, beamId: p.beamTargetId, uberT: p.uberChargeTimer,
-      towerCaptures: p.towerCaptures || 0, towerDefends: p.towerDefends || 0,
-      towerAssaultTime: p.towerAssaultTime || 0, objectivePresenceTime: p.objectivePresenceTime || 0,
-      powerupsCollected: p.powerupsCollected || 0, powerupUptime: p.powerupUptime || 0,
-      pcs: p.pcs || 0, pcsBreakdown: p.pcsBreakdown || null,
-      invT: p.invulnerableTimer, defT: p.defBuffTimer,
-      msBuffT: p.msBuffTimer, msBuffAmt: p.msBuffAmount,
-      rallyT: p.rallyTimer || 0, adAsBuffT: p.adAsBuffTimer || 0, adAsBuffAmt: p.adAsBuffAmount || 0,
-      hasPwrup: p.hasPowerup, pwrupT: p.powerupTimer,
-      totalExp: p.totalExp || 0,
-      level: p.level, maxHp: p.effectiveMaxHp || p.maxHp,
+      id: p.id,
+      gold: p.totalGold, cg: p.gold, exp: p.exp, texp: p.totalExp || 0,
+      kills: p.kills, deaths: p.deaths, assists: p.assists,
+      lvl: p.level, mhp: p.effectiveMaxHp || p.maxHp,
       items: p.items ? p.items.slice() : [],
-      AD: p.AD, AP: p.AP, armor: p.armor, mr: p.mr,
-      speed: p.speed, attackSpeed: p.attackSpeed, abilityHaste: p.abilityHaste,
-      stats: p.stats ? { dmgDealt: p.stats.dmgDealt || 0, dmgTaken: p.stats.dmgTaken || 0, hpHealed: p.stats.hpHealed || 0 } : null,
+      AD: p.AD, AP: p.AP, arm: p.armor, mr: p.mr,
+      spd: p.speed, as: p.attackSpeed,
+      stats: p.stats ? [Math.round(p.stats.dmgDealt||0), Math.round(p.stats.dmgTaken||0), Math.round(p.stats.hpHealed||0)] : null,
+      tc: p.towerCaptures||0, td: p.towerDefends||0, pcs: p.pcs||0,
+      pwrc: p.powerupsCollected||0,
     }));
+  if (score.length > 0) io.to(roomName).emit('network_score', score);
+}
 
+// 1 Hz — towers, heals, nexus (málo se mění)
+function _broadcastSlow(io, roomName, activeMode) {
   io.to(roomName).emit('network_host_state', {
-    bots: [],
-    minions: minionOut,
-    humans,
+    bots: [], minions: [], humans: [],
     towers:  game.towers.map(t => ({ i: t.index, c: t.control, o: t.owner, l: t.isLocked, u: t.unlockTimer })),
     heals:   game.heals.map(h => h.active),
     powerup: game.powerup ? { a: game.powerup.active, c: game.powerup.captureTimer } : null,

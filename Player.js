@@ -790,22 +790,24 @@ export class Player{
             moveEntityWithCollision(this, this.vel.x, this.vel.y, dt);
         } else if (!this._isBotPlayer && !this.targetPos) {
             // Server-side human player: position comes from client via applyPlayerUpdate — do not move here
-        } else if (this.targetPos) { // Logika pro ostatní (síťové) hráče — interpolace na klientu
-            const d = dist(this.pos, this.targetPos);
-            if (d > 250) {
-                // Teleport (respawn, dash) — snap okamžitě
+        } else if (this.targetPos) { // Boti + síťoví hráči na klientu — deadline interpolace
+            const dx = this.targetPos.x - this.pos.x;
+            const dy = this.targetPos.y - this.pos.y;
+            const d = Math.hypot(dx, dy);
+            if (d > 400) {
+                // Respawn nebo velký teleport — snap okamžitě
                 this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y;
-                this.netVel = null;
-            } else {
-                // Extrapolace: posun podle odhadnuté velocity + korekce lerp k targetPos
-                const vx = (this.netVel ? this.netVel.x : 0);
-                const vy = (this.netVel ? this.netVel.y : 0);
-                this.pos.x += vx * dt;
-                this.pos.y += vy * dt;
-                // Korekce — táhne pozici zpět k server truth, slabší než pure lerp
-                const corrStrength = 5;
-                this.pos.x += (this.targetPos.x - this.pos.x) * corrStrength * dt;
-                this.pos.y += (this.targetPos.y - this.pos.y) * corrStrength * dt;
+                this._interpT = 0; this._interpDuration = 0;
+            } else if (d > 0.5) {
+                // Deadline interpolace: pohybuj se rovnoměrně z prevPos do targetPos za interpDuration.
+                // Pokud interpDuration <= 0 (první packet nebo timeout), přesuň rovnou.
+                const dur = this._interpDuration || 0.1;
+                this._interpT = (this._interpT || 0) + dt;
+                const t = Math.min(1, this._interpT / dur);
+                // Lineární interpolace od startPos k targetPos
+                if (this._interpStartX === undefined) { this._interpStartX = this.pos.x; this._interpStartY = this.pos.y; }
+                this.pos.x = this._interpStartX + (this.targetPos.x - this._interpStartX) * t;
+                this.pos.y = this._interpStartY + (this.targetPos.y - this._interpStartY) * t;
             }
         }
     }
@@ -3518,18 +3520,16 @@ export class BotPlayer extends Player {
               return;
           }
           if (this.targetPos) {
-              const d = dist(this.pos, this.targetPos);
-              if (d > 250) {
+              const dx = this.targetPos.x - this.pos.x;
+              const dy = this.targetPos.y - this.pos.y;
+              const d = Math.hypot(dx, dy);
+              if (d > 350) {
                   this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y;
                   this.netVel = null;
-              } else {
-                  const vx = (this.netVel ? this.netVel.x : 0);
-                  const vy = (this.netVel ? this.netVel.y : 0);
-                  this.pos.x += vx * dt;
-                  this.pos.y += vy * dt;
-                  const corrStrength = 5;
-                  this.pos.x += (this.targetPos.x - this.pos.x) * corrStrength * dt;
-                  this.pos.y += (this.targetPos.y - this.pos.y) * corrStrength * dt;
+              } else if (d > 1) {
+                  const s = Math.min(1, 12 * dt);
+                  this.pos.x += dx * s;
+                  this.pos.y += dy * s;
               }
           }
           return;
