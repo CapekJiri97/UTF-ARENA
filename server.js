@@ -10,7 +10,15 @@ const __dirname  = dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  // Enable per-message deflate compression — reduces bandwidth ~60-70% for game state packets
+  perMessageDeflate: {
+    threshold: 256, // compress messages larger than 256 bytes
+  },
+  // Increase ping timeout for slow free-tier server
+  pingTimeout: 10000,
+  pingInterval: 5000,
+});
 
 app.use(express.static(__dirname));
 
