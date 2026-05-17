@@ -67,6 +67,7 @@ function makeVirtualSocket(io, roomName) {
         case 'host_state':    io.to(roomName).emit('network_host_state',  data); break;
         case 'broadcast_kill':io.to(roomName).emit('network_kill_feed',   data); break;
         case 'player_action': io.to(roomName).emit('network_player_action', data); break;
+        case 'knockback':     io.to(roomName).emit('network_knockback',   data); break;
         // ping_check, player_update etc. are client→server only, ignore on server
       }
     },
@@ -288,7 +289,7 @@ export function startServerGame(io, roomName, playersData, settings) {
   const spawnRef    = { val: 0 };
   const spawnInterval  = 16.0;
   const nexusDrainRate = 0.75;
-  let pvpTimer    = 0;   // 20 Hz — human HP/shield/buffs (PvP kritické)
+  let pvpTimer    = 0;   // 30 Hz — human HP/shield/buffs (PvP kritické)
   let botTimer    = 0;   // 30 Hz — bot pozice (proximity culled)
   let minionTimer = 0;   //  6 Hz — minion pozice (proximity culled)
   let scoreTimer = 0;   // 2 Hz  — gold, exp, kills (scoreboard)
@@ -336,8 +337,8 @@ export function startServerGame(io, roomName, playersData, settings) {
       slowTimer   += dt;
       perfTimer   += dt;
 
-      // 20 Hz — human HP, shield, buffs, knockback korekce (PvP kritické)
-      if (pvpTimer >= 0.05) {
+      // 30 Hz — human HP, shield, buffs, knockback korekce (PvP kritické)
+      if (pvpTimer >= 0.033) {
         pvpTimer = 0;
         _broadcastPvp(io, roomName);
       }
@@ -490,6 +491,7 @@ function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vS
   const _botAcc = game._botDtAcc;
 
   for (const p of game.players) {
+    const prevKbt = p.knockbackTimer || 0;
     if (p._isBotPlayer) {
       const acc = (_botAcc.get(p.id) || 0) + dt;
       if (acc < 0.125) { _botAcc.set(p.id, acc); continue; } // AI tick ~125ms (8 Hz)
@@ -501,6 +503,10 @@ function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vS
       const ox = p.pos.x, oy = p.pos.y;
       p.update(dt);
       if (dt > 0) p.vel = { x: (p.pos.x - ox) / dt, y: (p.pos.y - oy) / dt };
+    }
+    // Human players only: pokud byl tento tick aplikován knockback, okamžitě emitovat korekci pozice
+    if (!p._isBotPlayer && (p.knockbackTimer || 0) > prevKbt && gc.socket) {
+      gc.socket.emit('knockback', { id: p.id, x: Math.round(p.pos.x), y: Math.round(p.pos.y), kbt: Math.round(p.knockbackTimer*100)/100, kbvx: Math.round(p.knockbackVel.x), kbvy: Math.round(p.knockbackVel.y) });
     }
 
     // Burn DoT applies to all
@@ -675,7 +681,7 @@ function _proximityTier(pos, humanPos) {
   return 2;
 }
 
-// 20 Hz — human pozice, HP, shield, buffs, knockback korekce (PvP kritické)
+// 30 Hz — human pozice, HP, shield, buffs, knockback korekce (PvP kritické)
 function _broadcastPvp(io, roomName) {
   const humanUpdates = [];
   for (const p of game.players) {
@@ -696,7 +702,12 @@ function _broadcastPvp(io, roomName) {
   }
   const humanPosCorrections = game.players
     .filter(p => !p._isBotPlayer && (p.knockbackTimer > 0 || p.stunTimer > 0 || p.dashTimer > 0))
-    .map(p => ({ id: p.id, x: Math.round(p.pos.x), y: Math.round(p.pos.y), posCorrection: true }));
+    .map(p => {
+      const c = { id: p.id, x: Math.round(p.pos.x), y: Math.round(p.pos.y), posCorrection: true };
+      if (p.knockbackTimer > 0) { c.kbt = Math.round(p.knockbackTimer*100)/100; c.kbvx = Math.round(p.knockbackVel.x); c.kbvy = Math.round(p.knockbackVel.y); }
+      if (p.stunTimer > 0)      c.stT = Math.round(p.stunTimer*100)/100;
+      return c;
+    });
   if (humanUpdates.length > 0 || humanPosCorrections.length > 0) {
     io.to(roomName).emit('network_host_state', { bots: [], minions: [], humans: humanUpdates, humanPosCorrections });
   }

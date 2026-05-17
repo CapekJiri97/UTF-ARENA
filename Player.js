@@ -791,20 +791,15 @@ export class Player{
         } else if (!this._isBotPlayer && !this.targetPos) {
             // Server-side human player: position comes from client via applyPlayerUpdate — do not move here
         } else if (this.targetPos) { // Boti + síťoví hráči na klientu — deadline interpolace
-            const dx = this.targetPos.x - this.pos.x;
-            const dy = this.targetPos.y - this.pos.y;
-            const d = Math.hypot(dx, dy);
-            if (d > 400) {
+            const snapDist = Math.hypot(this.targetPos.x - this.pos.x, this.targetPos.y - this.pos.y);
+            if (snapDist > 400) {
                 // Respawn nebo velký teleport — snap okamžitě
                 this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y;
                 this._interpT = 0; this._interpDuration = 0;
-            } else if (d > 0.5) {
-                // Deadline interpolace: pohybuj se rovnoměrně z prevPos do targetPos za interpDuration.
-                // Pokud interpDuration <= 0 (první packet nebo timeout), přesuň rovnou.
-                const dur = this._interpDuration || 0.1;
-                this._interpT = (this._interpT || 0) + dt;
-                const t = Math.min(1, this._interpT / dur);
-                // Lineární interpolace od startPos k targetPos
+            } else {
+                const dur = this._interpDuration || 0.033;
+                this._interpT = Math.min(dur, (this._interpT || 0) + dt);
+                const t = this._interpT / dur;
                 if (this._interpStartX === undefined) { this._interpStartX = this.pos.x; this._interpStartY = this.pos.y; }
                 this.pos.x = this._interpStartX + (this.targetPos.x - this._interpStartX) * t;
                 this.pos.y = this._interpStartY + (this.targetPos.y - this._interpStartY) * t;
@@ -3533,16 +3528,17 @@ export class BotPlayer extends Player {
               return;
           }
           if (this.targetPos) {
-              const dx = this.targetPos.x - this.pos.x;
-              const dy = this.targetPos.y - this.pos.y;
-              const d = Math.hypot(dx, dy);
-              if (d > 350) {
+              const snapDist = Math.hypot(this.targetPos.x - this.pos.x, this.targetPos.y - this.pos.y);
+              if (snapDist > 400) {
                   this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y;
-                  this.netVel = null;
-              } else if (d > 1) {
-                  const s = Math.min(1, 12 * dt);
-                  this.pos.x += dx * s;
-                  this.pos.y += dy * s;
+                  this._interpT = 0; this._interpDuration = 0;
+              } else {
+                  const dur = this._interpDuration || 0.033;
+                  this._interpT = Math.min(dur, (this._interpT || 0) + dt);
+                  const t = this._interpT / dur;
+                  if (this._interpStartX === undefined) { this._interpStartX = this.pos.x; this._interpStartY = this.pos.y; }
+                  this.pos.x = this._interpStartX + (this.targetPos.x - this._interpStartX) * t;
+                  this.pos.y = this._interpStartY + (this.targetPos.y - this._interpStartY) * t;
               }
           }
           return;

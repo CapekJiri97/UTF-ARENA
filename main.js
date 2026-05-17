@@ -122,20 +122,26 @@ import { initAudio, playSound } from './Audio.js';
     });
 
     // Nastaví deadline interpolaci na entitě — voláno při každém přijatém position packetu.
-    // Entita se bude lineárně pohybovat z aktuální pozice do (nx, ny) za dobu rovnou
-    // době od posledního packetu (adaptivní perioda). Žádný overshoot, žádný jitter.
-    function _setInterpTarget(ent, nx, ny, maxDur = 0.20) {
+    // Start = předchozí TARGET (ne aktuální vizuální pozice) aby nedocházelo k jitteru
+    // při resetování interpolace uprostřed pohybu.
+    function _setInterpTarget(ent, nx, ny, maxDur = 0.05) {
       const now = performance.now();
       const elapsed = ent._lastPosTime ? (now - ent._lastPosTime) / 1000 : 0.1;
       ent._lastPosTime = now;
       const snapDist = Math.hypot(nx - ent.pos.x, ny - ent.pos.y);
       if (snapDist > 400) {
+        // Velký skok (respawn, teleport) — snap okamžitě
         ent.pos.x = nx; ent.pos.y = ny;
         ent._interpStartX = nx; ent._interpStartY = ny;
       } else {
-        ent._interpStartX = ent.pos.x; ent._interpStartY = ent.pos.y;
+        // Začni od předchozího targetu (kde entita "má být"), ne od vizuální pozice.
+        // To eliminuje jitter při resetování interpolace uprostřed pohybu.
+        const prevTx = ent.targetPos ? ent.targetPos.x : ent.pos.x;
+        const prevTy = ent.targetPos ? ent.targetPos.y : ent.pos.y;
+        ent._interpStartX = prevTx;
+        ent._interpStartY = prevTy;
       }
-      ent._interpDuration = Math.min(maxDur, Math.max(0.03, elapsed));
+      ent._interpDuration = Math.min(maxDur, Math.max(0.033, elapsed));
       ent._interpT = 0;
     }
 
@@ -192,11 +198,14 @@ import { initAudio, playSound } from './Audio.js';
     socket.on('network_host_state', (data) => {
       if (game && game.isHost) return;
 
-      // Knockback/stun korekce lokálního hráče
+      // Knockback/stun korekce hráčů
       (data.humanPosCorrections || []).forEach(cData => {
-        if (!player || cData.id !== player.id) return;
-        const dx = cData.x - player.pos.x, dy = cData.y - player.pos.y;
-        if (dx*dx + dy*dy > 4) { player.pos.x = cData.x; player.pos.y = cData.y; }
+        const cp = game.playersById?.get(cData.id) ?? game.players.find(x => x.id === cData.id);
+        if (!cp) return;
+        const dx = cData.x - cp.pos.x, dy = cData.y - cp.pos.y;
+        if (dx*dx + dy*dy > 4) { cp.pos.x = cData.x; cp.pos.y = cData.y; }
+        if (cData.kbt !== undefined) { cp.knockbackTimer = cData.kbt; cp.knockbackVel = { x: cData.kbvx || 0, y: cData.kbvy || 0 }; }
+        if (cData.stT !== undefined) cp.stunTimer = cData.stT;
       });
 
       // ── Boti ──
@@ -429,6 +438,16 @@ import { initAudio, playSound } from './Audio.js';
         else if (data.type === 'summoner') netPlayer.castSummonerSpell(true);
         // buy_item / sell_item: server aplikuje a pošle aktualizaci přes _broadcastSlow — tady nic neděláme
       }
+    });
+
+    socket.on('network_knockback', (data) => {
+      if (game && game.isHost) return;
+      const p = game.playersById?.get(data.id) ?? game.players.find(x => x.id === data.id);
+      if (!p) return;
+      // Snap to authoritative position and apply knockback velocity locally
+      p.pos.x = data.x; p.pos.y = data.y;
+      p.knockbackTimer = data.kbt;
+      p.knockbackVel = { x: data.kbvx, y: data.kbvy };
     });
 
     socket.on('network_kill_feed', (data) => {
