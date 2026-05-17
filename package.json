@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Multiplayer MOBA in HTML/JS",
   "main": "server.js",
-  "type": "module",
   "scripts": {
     "start": "node server.js"
   },

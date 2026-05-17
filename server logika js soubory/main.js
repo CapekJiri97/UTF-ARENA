@@ -11,6 +11,7 @@ import { GameMode_Classic } from './GameMode_Classic.js';
 import { GameMode_Speed } from './GameMode_Speed.js';
 import { GameMode_ARAM } from './GameMode_ARAM.js';
 import { GameMode_Arena } from './GameMode_Arena.js';
+import { registerGameContext, gc } from './GameContext.js';
 
 export const GAME_MODES = {
   classic: GameMode_Classic,
@@ -29,6 +30,7 @@ export let activeGameMode = GameMode_Classic;
 
 export function setActiveMode(modeName) {
   activeGameMode = GAME_MODES[modeName] ?? GameMode_Classic;
+  gc.activeGameMode = activeGameMode;
 }
 
 // ── Simulation mode flag ──────────────────────────────────────────────────────
@@ -73,6 +75,37 @@ import { initAudio, playSound } from './Audio.js';
     socket.on('connect', () => {
       console.log(`[KLIENT] Připojeno k serveru! Moje ID: ${socket.id}`);
     });
+
+    // ── Ping měření (každé 2s) ────────────────────────────────────────────────
+    let _ping = 0;
+    setInterval(() => {
+      const t0 = performance.now();
+      socket.emit('ping_check', null, () => { _ping = Math.round(performance.now() - t0); });
+    }, 2000);
+
+    // ── Server perf overlay ──────────────────────────────────────────────────
+    const _perfEl = document.getElementById('perfOverlay');
+    let _perfLogCount = 0;
+    socket.on('server_perf', (d) => {
+      if (_perfEl) {
+        _perfEl.style.display = 'block';
+        const slowColor = d.slowPct > 30 ? '#f55' : d.slowPct > 10 ? '#fa0' : '#4f8';
+        const memColor  = d.heapMB  > 350 ? '#f55' : d.heapMB  > 200 ? '#fa0' : '#4ef';
+        document.getElementById('perfPing').style.color = _ping > 150 ? '#f55' : _ping > 80 ? '#fa0' : '#4ef';
+        document.getElementById('perfPing').textContent = `Ping: ${_ping}ms`;
+        document.getElementById('perfTick').textContent = `Tick: ${d.avgMs}/${d.maxMs}ms`;
+        document.getElementById('perfSlow').style.color = slowColor;
+        document.getElementById('perfSlow').textContent = `Slow: ${d.slowPct}%`;
+        document.getElementById('perfMem').style.color  = memColor;
+        document.getElementById('perfMem').textContent  = `Mem: ${d.heapMB}/${d.rssMB}MB`;
+        document.getElementById('perfEnts').textContent = `Ents: ${d.players}p ${d.minions}m`;
+      }
+      if (++_perfLogCount >= 3) {
+        _perfLogCount = 0;
+        const warn = d.slowPct > 20 ? ' ⚠ SLOW' : '';
+        console.log(`[PERF] ping=${_ping}ms  tick=${d.avgMs}/${d.maxMs}ms  slow=${d.slowPct}%${warn}  heap=${d.heapMB}MB rss=${d.rssMB}MB  ${d.players}p ${d.minions}m`);
+      }
+    });
     
     socket.on('room_list', (data) => { updateRoomListUI(data); });
     socket.on('lobby_update', (data) => { updateLobbyUI(data.players, data.roomName, data.settings); });
@@ -87,17 +120,22 @@ import { initAudio, playSound } from './Audio.js';
       }
       if(typeof startGameNetworked === 'function') startGameNetworked(data.players);
     });
+
+    // Nastaví deadline interpolaci na entitě — voláno při každém přijatém position packetu.
+    // Start = předchozí TARGET (ne aktuální vizuální pozice) aby nedocházelo k jitteru
+    // při resetování interpolace uprostřed pohybu.
+    // Nastaví target pozici pro smooth follow interpolaci (* 25 * dt lerp v Player.update)
+    function _setInterpTarget(ent, nx, ny) {
+      if (Math.hypot(nx - ent.pos.x, ny - ent.pos.y) > 400) {
+        ent.pos.x = nx; ent.pos.y = ny; // snap při respawnu/teleportu
+      }
+      ent.targetPos = { x: nx, y: ny };
+    }
+
     socket.on('network_player_update', (data) => {
       let netPlayer = game.playersById ? game.playersById.get(data.id) : game.players.find(p => p.id === data.id);
-      if (netPlayer && netPlayer !== player) { 
-        // Velocity extrapolace — spočítáme rychlost z rozdílu pozic, žádná extra data po síti
-        if (netPlayer.targetPos) {
-          const dx = data.x - netPlayer.targetPos.x;
-          const dy = data.y - netPlayer.targetPos.y;
-          const dt2 = netPlayer._lastPosTime ? Math.min(0.2, (performance.now() - netPlayer._lastPosTime) / 1000) : 0.05;
-          netPlayer.netVel = { x: dx / (dt2 || 0.05), y: dy / (dt2 || 0.05) };
-        }
-        netPlayer._lastPosTime = performance.now();
+      if (netPlayer && netPlayer !== player) {
+        _setInterpTarget(netPlayer, data.x, data.y);
         netPlayer.targetPos = { x: data.x, y: data.y };
         if (!netPlayer.alive && data.alive) netPlayer.revive(); // Pokud u nás byl mrtvý, ale už ožil
         //else if (netPlayer.alive && !data.alive) netPlayer.die(); // Nahrazeno autoritativním 'player_died' eventem
@@ -145,197 +183,185 @@ import { initAudio, playSound } from './Audio.js';
     
     // PŘIDÁNO: Přijímání dat od Hosta (pohyb botů, minionů a věží)
     socket.on('network_host_state', (data) => {
-      if (game && game.isHost) return; // Host ignoruje tyto zprávy, má svou vlastní pravdu
-      (data.bots || []).forEach(bData => {
-        let bot = game.playersById ? game.playersById.get(bData.id) : game.players.find(p => p.id === bData.id);
-        if (bot) {
-          // PŘIDÁNO: Synchronizace třídy bota, pokud se při startovní randomizaci u Klienta a Hosta lišila
-          if (bot.className !== bData.className && bData.className) {
-              bot.className = bData.className;
-              const cData = CLASSES[bot.className];
-              bot.glyph = cData.glyph; bot.dmgType = cData.dmgType; bot.range = cData.range;
-              bot.spells = {
-                  Q: { ...cData.Q, cd: bot.spells.Q.cd, level: bData.qLvl || 1 },
-                  E: { ...cData.E, cd: bot.spells.E.cd, level: bData.eLvl || 1 }
-              };
-          }
-          if (bot.targetPos) {
-            const dx = bData.x - bot.targetPos.x;
-            const dy = bData.y - bot.targetPos.y;
-            const dt2 = bot._lastPosTime ? Math.min(0.2, (performance.now() - bot._lastPosTime) / 1000) : 0.05;
-            bot.netVel = { x: dx / (dt2 || 0.05), y: dy / (dt2 || 0.05) };
-          }
-          bot._lastPosTime = performance.now();
-          bot.targetPos = { x: bData.x, y: bData.y }; bot.hp = bData.hp; bot.alive = bData.alive; bot.aimAngle = bData.aimAngle;
-          if (bData.slowT !== undefined) bot.slowTimer = bData.slowT;
-          if (bData.boostT !== undefined) bot.boostTimer = bData.boostT;
-          if (bData.silenceT !== undefined) bot.silenceTimer = bData.silenceT;
-          bot.stunTimer = bData.stunT || 0;
-          bot.shield = bData.shield || 0;
-          if (bData.hanaT !== undefined) bot.hanaBuffTimer = bData.hanaT;
-          if (bData.beamT !== undefined) bot.beamTimer = bData.beamT;
-          if (bData.beamId !== undefined) bot.beamTargetId = bData.beamId;
-          if (bData.uberT !== undefined) bot.uberChargeTimer = bData.uberT;
-          if (bData.invT !== undefined) bot.invulnerableTimer = bData.invT;
-          if (bData.defT !== undefined) bot.defBuffTimer = bData.defT;
-          if (bData.msBuffT !== undefined) { bot.msBuffTimer = bData.msBuffT; bot.msBuffAmount = bData.msBuffAmt || 0; }
-          if (bData.junglePwrT !== undefined) bot.junglePowerTimer = bData.junglePwrT;
-          if (bData.jungleAsAhT !== undefined) bot.jungleAsAhTimer = bData.jungleAsAhT;
-          if (bData.jungleTankT !== undefined) bot.jungleTankTimer = bData.jungleTankT;
-          if (bData.adAsBuffT !== undefined) { bot.adAsBuffTimer = bData.adAsBuffT; bot.adAsBuffAmount = bData.adAsBuffAmt || 0; }
-          if (bData.antiHealT !== undefined) { bot.antiHealTimer = bData.antiHealT; bot.antiHealStrength = bData.antiHealStr || 0; }
-          if (bData.regenBuffT !== undefined) { bot.regenBuffTimer = bData.regenBuffT; bot.regenBuffAmount = bData.regenBuffAmt || 0; }
-          if (bData.hasPwrup !== undefined) { bot.hasPowerup = bData.hasPwrup; bot.powerupTimer = bData.pwrupT || 0; }
-          if (bData.beamUberT !== undefined) bot.beamUberTimer = bData.beamUberT;
+      if (game && game.isHost) return;
 
-          if (bData.isFullUpdate) {
-            if (bData.level && bData.level > bot.level) { bot.levelUpTimer = 2.0; spawnParticles(bot.pos.x, bot.pos.y, 25, '#ffcc00', {speed: 120, life: 1.0}); }
-            bot.level = bData.level || bot.level; bot.maxHp = bData.maxHp || bot.maxHp;
-            bot.kills = bData.kills || 0; bot.deaths = bData.deaths || 0; bot.assists = bData.assists || 0; bot.totalGold = bData.gold || 0;
-            bot.items.length = bData.items !== undefined ? bData.items : bot.items.length;
-            if (bData.stats) { bot.stats.dmgDealt = bData.stats.dmgDealt; bot.stats.dmgTaken = bData.stats.dmgTaken; bot.stats.hpHealed = bData.stats.hpHealed; }
-            bot.AD = bData.AD || bot.AD; bot.AP = bData.AP || bot.AP; bot.armor = bData.armor || bot.armor;
-            bot.mr = bData.mr || bot.mr; bot.speed = bData.speed || bot.speed; bot.attackSpeed = bData.attackSpeed || bot.attackSpeed; bot.abilityHaste = bData.abilityHaste || bot.abilityHaste;
-            bot.invulnerableTimer = bData.invTimer || 0; bot.defBuffTimer = bData.defTimer || 0;
-            bot.towerCaptures = bData.towerCaptures || 0; bot.towerDefends = bData.towerDefends || 0; bot.towerAssaultTime = bData.towerAssaultTime || 0;
-            bot.objectivePresenceTime = bData.objectivePresenceTime || 0; bot.powerupsCollected = bData.powerupsCollected || 0; bot.powerupUptime = bData.powerupUptime || 0; bot.pcs = bData.pcs || 0; bot.pcsBreakdown = bData.pcsBreakdown || bot.pcsBreakdown;
-            if (bot.spells) {
-                if (bData.qLvl) bot.spells.Q.level = bData.qLvl;
-                if (bData.eLvl) bot.spells.E.level = bData.eLvl;
-            }
-            bot.summonerSpell = bData.sumSpell || bot.summonerSpell;
-          }
+      // Knockback/stun korekce hráčů
+      (data.humanPosCorrections || []).forEach(cData => {
+        const cp = game.playersById?.get(cData.id) ?? game.players.find(x => x.id === cData.id);
+        if (!cp) return;
+        const dx = cData.x - cp.pos.x, dy = cData.y - cp.pos.y;
+        if (dx*dx + dy*dy > 4) { cp.pos.x = cData.x; cp.pos.y = cData.y; }
+        if (cData.kbt !== undefined) { cp.knockbackTimer = cData.kbt; cp.knockbackVel = { x: cData.kbvx || 0, y: cData.kbvy || 0 }; }
+        if (cData.stT !== undefined) cp.stunTimer = cData.stT;
+      });
+
+      // ── Boti ──
+      (data.bots || []).forEach(b => {
+        const bot = game.playersById ? game.playersById.get(b.id) : game.players.find(p => p.id === b.id);
+        if (!bot) return;
+        if (b.cls && bot.className !== b.cls) {
+          bot.className = b.cls;
+          const cd = CLASSES[b.cls];
+          if (cd) { bot.glyph = cd.glyph; bot.dmgType = cd.dmgType; bot.range = cd.range;
+            bot.spells = { Q: {...cd.Q, cd: bot.spells.Q.cd, level: b.qLv||1}, E: {...cd.E, cd: bot.spells.E.cd, level: b.eLv||1} }; }
+        }
+        _setInterpTarget(bot, b.x, b.y);
+        bot.hp = b.hp; bot.alive = !!b.alive; bot.aimAngle = b.aa ?? bot.aimAngle;
+        bot.stunTimer        = b.stun ?? 0;
+        bot.shield           = b.sh   ?? 0;
+        if (b.inv  !== undefined) bot.invulnerableTimer = b.inv;
+        if (b.def  !== undefined) bot.defBuffTimer      = b.def;
+        if (b.msT  !== undefined) { bot.msBuffTimer = b.msT; bot.msBuffAmount = b.msV ?? 0; }
+        if (b.adT  !== undefined) { bot.adAsBuffTimer = b.adT; bot.adAsBuffAmount = b.adV ?? 0; }
+        if (b.slw  !== undefined) bot.slowTimer        = b.slw;
+        if (b.ahT  !== undefined) { bot.antiHealTimer = b.ahT; bot.antiHealStrength = b.ahV ?? 0; }
+        if (b.pw   !== undefined) { bot.hasPowerup = !!b.pw; bot.powerupTimer = b.pwT ?? 0; }
+        if (b.bmT  !== undefined) { bot.beamTimer = b.bmT; bot.beamTargetId = b.bmId; }
+        if (b.ubT  !== undefined) bot.uberChargeTimer = b.ubT;
+        if (b.buT  !== undefined) bot.beamUberTimer   = b.buT;
+        if (b.full) {
+          if (b.lvl && b.lvl > bot.level) { bot.levelUpTimer = 2.0; spawnParticles(bot.pos.x, bot.pos.y, 25, '#ffcc00', {speed:120,life:1.0}); }
+          if (b.lvl)  bot.level  = b.lvl;
+          if (b.mhp)  bot.maxHp  = b.mhp;
+          if (b.kda)  { bot.kills = b.kda[0]; bot.deaths = b.kda[1]; bot.assists = b.kda[2]; }
+          if (b.gold) bot.totalGold = b.gold;
+          if (b.itms !== undefined) bot.items.length = b.itms;
+          if (b.AD)   bot.AD = b.AD;  if (b.AP)  bot.AP  = b.AP;
+          if (b.arm)  bot.armor = b.arm; if (b.mr) bot.mr = b.mr;
+          if (b.spd)  bot.speed = b.spd; if (b.as) bot.attackSpeed = b.as;
+          if (b.qLv && bot.spells) bot.spells.Q.level = b.qLv;
+          if (b.eLv && bot.spells) bot.spells.E.level = b.eLv;
+          if (b.ss)   bot.summonerSpell = b.ss;
+          if (b.slwT) bot.slowTimer    = b.slwT;
+          if (b.bst)  bot.boostTimer   = b.bst;
+          if (b.slnc) bot.silenceTimer = b.slnc;
+          if (b.han)  bot.hanaBuffTimer = b.han;
+          if (b.jpT)  bot.junglePowerTimer = b.jpT;
+          if (b.rgT)  { bot.regenBuffTimer = b.rgT; bot.regenBuffAmount = b.rgV ?? 0; }
         }
       });
-      
-      // OPRAVA: Odstranění mrtvých minionů ("duchů"), které už Host nesleduje
-      // Pouze pokud paket obsahuje miniony (rychlý tick) — pomalý tick posílá prázdné pole
-      if (!game.deadMinionIds) game.deadMinionIds = new Set();
-      if (data.minions && data.minions.length > 0) {
-        const hostMinionIds = new Set(data.minions.map(m => m.id));
-        game.minions.forEach(m => { if (!hostMinionIds.has(m.id)) m.dead = true; });
-      }
 
-      (data.minions || []).forEach(mData => {
-        let minion = game.minionsById ? game.minionsById.get(mData.id) : game.minions.find(m => m.id === mData.id);
-        if (!minion && !mData.dead && !game.deadMinionIds.has(mData.id)) { // Pokud u klienta chybí a nebyl lokálně zabit, vytvoříme ho
-           minion = new Minion(mData.x, mData.y, mData.team ?? 0, mData.targetIndex ?? 0);
-           minion.id = mData.id;
-           minion.isSummon = mData.isSummon ?? false;
-           minion.glyph = mData.glyph || 'm';
-           minion.maxHp = mData.maxHp || 250;
-           minion.targetPos = { x: mData.x, y: mData.y };
-           minion.targetHeroId = mData.tHeroId;
-           minion.isSmallChicken = mData.isSc ?? false;
-           minion.isBigChicken = mData.isBc ?? false;
-           game.minions.push(minion);
+      // ── Minioni ──
+      if (!game.deadMinionIds) game.deadMinionIds = new Set();
+      (data.minions || []).forEach(m => {
+        if (m.dead) { const mn = game.minionsById?.get(m.id); if (mn) mn.dead = true; game.deadMinionIds.add(m.id); return; }
+        let minion = game.minionsById?.get(m.id);
+        if (!minion && !game.deadMinionIds.has(m.id)) {
+          minion = new Minion(m.x, m.y, m.tm ?? 0, m.ti ?? 0);
+          minion.id = m.id;
+          minion.isSummon = !!m.sum; minion.glyph = m.gl || 'm';
+          minion.maxHp = m.mhp || 250; minion.targetHeroId = m.tH;
+          minion.isSmallChicken = !!m.sc; minion.isBigChicken = !!m.bc;
+          game.minions.push(minion);
+          if (!game.minionsById) game.minionsById = new Map();
+          game.minionsById.set(minion.id, minion);
         }
         if (minion) {
-          if (minion.targetPos) {
-            const dx = mData.x - minion.targetPos.x; const dy = mData.y - minion.targetPos.y;
-            const dt2 = minion._lastPosTime ? Math.min(0.2, (performance.now() - minion._lastPosTime) / 1000) : 0.05;
-            minion.netVel = { x: dx / (dt2 || 0.05), y: dy / (dt2 || 0.05) };
+          _setInterpTarget(minion, m.x, m.y);
+          minion.hp = m.hp;
+          // Spawn packet obsahuje statická data (spawn:1), rutinní packet jen x/y/hp
+          if (m.spawn) {
+            if (m.mhp !== undefined) minion.maxHp = m.mhp;
+            if (m.gl  !== undefined) minion.glyph = m.gl;
+            if (m.tH  !== undefined) minion.targetHeroId = m.tH;
+            if (m.sc  !== undefined) minion.isSmallChicken = !!m.sc;
+            if (m.bc  !== undefined) minion.isBigChicken = !!m.bc;
+            if (m.tm  !== undefined) minion.team = m.tm;
+            if (m.ti  !== undefined) minion.targetIndex = m.ti;
           }
-          minion._lastPosTime = performance.now();
-          minion.targetPos = { x: mData.x, y: mData.y }; minion.hp = mData.hp; minion.dead = mData.dead;
-          if (mData.maxHp !== undefined) minion.maxHp = mData.maxHp;
-          if (mData.glyph !== undefined) minion.glyph = mData.glyph;
-          if (mData.tHeroId !== undefined) minion.targetHeroId = mData.tHeroId;
-          if (mData.isSc !== undefined) minion.isSmallChicken = mData.isSc;
-          if (mData.isBc !== undefined) minion.isBigChicken = mData.isBc;
-          if (mData.team !== undefined) minion.team = mData.team;
-          if (mData.targetIndex !== undefined) minion.targetIndex = mData.targetIndex;
         }
       });
-      (data.towers || []).forEach(tData => {
-        let tower = game.towers.find(t => t.index === tData.i);
-        if (tower) { 
-            if (tower.owner !== tData.o && tData.o !== -1) game.shake = 0.3; // Zemětřesení pro klienty při zabrání
-            tower.control = tData.c; tower.owner = tData.o; 
-            if (tData.l !== undefined) tower.isLocked = tData.l;
-            if (tData.u !== undefined) tower.unlockTimer = tData.u;
-        }
+
+      // ── Věže, healy, nexus (1 Hz slow broadcast) ──
+      (data.towers || []).forEach(t => {
+        const tower = game.towers.find(x => x.index === t.i);
+        if (tower) { if (tower.owner !== t.o && t.o !== -1) game.shake = 0.3;
+          tower.control = t.c; tower.owner = t.o;
+          if (t.l !== undefined) tower.isLocked = t.l;
+          if (t.u !== undefined) tower.unlockTimer = t.u; }
       });
-      // Sdílení lékárniček, powerupů a životů základen z Hosta na Klienty
-      if (data.heals) data.heals.forEach((act, i) => { if(game.heals[i]) game.heals[i].active = act; });
+      if (data.heals) data.heals.forEach((act, i) => { if (game.heals[i]) game.heals[i].active = act; });
       if (data.powerup && game.powerup) { game.powerup.active = data.powerup.a; game.powerup.captureTimer = data.powerup.c; }
       if (data.nexus) {
         game.nexus[0] = data.nexus[0]; game.nexus[1] = data.nexus[1];
         if (activeGameMode.name === 'arena') { if (!game.score) game.score = {}; game.score[0] = data.nexus[0]; game.score[1] = data.nexus[1]; }
       }
-          // PvP packet: HP/shield/buffs (20 Hz) — samostatný od score/humans
-          if (data.humans) {
-              data.humans.forEach(hData => {
-                  let p = game.playersById ? game.playersById.get(hData.id) : game.players.find(x => x.id === hData.id);
-                  if (!p) return;
-                  // HP a alive vždy aktualizujeme
-                  if (hData.hp !== undefined) p.hp = hData.hp;
-                  if (hData.alive !== undefined) {
-                      if (!p.alive && hData.alive) p.revive();
-                      else if (p.alive && !hData.alive) { p.hp = 0; p.die(); }
-                  }
-                  if (hData.shield !== undefined) p.shield = hData.shield;
-                  if (hData.stunT !== undefined) p.stunTimer = hData.stunT;
-                  if (hData.slowT !== undefined) p.slowTimer = hData.slowT;
-                  if (hData.invT !== undefined) p.invulnerableTimer = hData.invT;
-                  if (hData.defT !== undefined) p.defBuffTimer = hData.defT;
-                  if (hData.msBuffT !== undefined) { p.msBuffTimer = hData.msBuffT; p.msBuffAmount = hData.msBuffAmt || 0; }
-                  if (hData.hasPwrup !== undefined) { p.hasPowerup = !!hData.hasPwrup; p.powerupTimer = hData.pwrupT || 0; }
-                  if (hData.beamT !== undefined) { p.beamTimer = hData.beamT; p.beamTargetId = hData.beamId; }
-                  if (hData.uberT !== undefined) p.uberChargeTimer = hData.uberT;
-                  if (hData.beamUberT !== undefined) p.beamUberTimer = hData.beamUberT;
-                  if (hData.kbT !== undefined && hData.kbT > 0) { p.knockbackTimer = hData.kbT; p.knockbackVel = { x: hData.kbVx || 0, y: hData.kbVy || 0 }; }
-              });
-          }
 
-          // Score packet: gold, kills, level (2 Hz)
-          if (data.score) {
-              data.score.forEach(hData => {
-                  let p = game.playersById ? game.playersById.get(hData.id) : game.players.find(x => x.id === hData.id);
-                  if (!p) return;
-                  if (p === player) {
-                      // Lokální hráč: jen přírůstky goldů/expů (aby neblblo UI při nákupech)
-                      if (hData.gold !== undefined) { const diff = hData.gold - (p.totalGold || 0); if (diff > 0) { p.gold += diff; p.totalGold = hData.gold; } }
-                      if (hData.totalExp !== undefined) { const diff = hData.totalExp - (p.totalExp || 0); if (diff > 0) { p.exp += diff; p.totalExp = hData.totalExp; } }
-                  } else {
-                      if (hData.gold !== undefined) { p.gold = hData.currentGold ?? p.gold; p.totalGold = hData.gold; }
-                      if (hData.totalExp !== undefined) { p.totalExp = hData.totalExp; }
-                      if (hData.exp !== undefined) p.exp = hData.exp;
-                  }
-                  if (hData.kills !== undefined) p.kills = hData.kills;
-                  if (hData.deaths !== undefined) p.deaths = hData.deaths;
-                  if (hData.assists !== undefined) p.assists = hData.assists;
-                  if (hData.alive !== undefined) {
-                      if (!p.alive && hData.alive) p.revive();
-                      else if (p.alive && !hData.alive) { p.hp = 0; p.die(); }
-                  }
-                  if (hData.macro !== undefined) p.macroOrder = hData.macro ? { type: hData.macro } : null;
-                  if (hData.towerCaptures !== undefined) p.towerCaptures = hData.towerCaptures;
-                  if (hData.pcs !== undefined) p.pcs = hData.pcs;
-                  if (hData.silenceT !== undefined) p.silenceTimer = hData.silenceT;
-                  if (hData.hanaT !== undefined) p.hanaBuffTimer = hData.hanaT;
-                  if (hData.boostT !== undefined) p.boostTimer = hData.boostT;
-                  if (hData.junglePwrT !== undefined) p.junglePowerTimer = hData.junglePwrT;
-                  if (hData.jungleAsAhT !== undefined) p.jungleAsAhTimer = hData.jungleAsAhT;
-                  if (hData.jungleTankT !== undefined) p.jungleTankTimer = hData.jungleTankT;
-                  if (hData.adAsBuffT !== undefined) { p.adAsBuffTimer = hData.adAsBuffT; p.adAsBuffAmount = hData.adAsBuffAmt || 0; }
-                  if (hData.antiHealT !== undefined) { p.antiHealTimer = hData.antiHealT; p.antiHealStrength = hData.antiHealStr || 0; }
-                  if (hData.regenBuffT !== undefined) { p.regenBuffTimer = hData.regenBuffT; p.regenBuffAmount = hData.regenBuffAmt || 0; }
-              });
-          }
+      // ── Human HP/shield/buffs (10 Hz) ──
+      (data.humans || []).forEach(h => {
+        const p = game.playersById?.get(h.id) ?? game.players.find(x => x.id === h.id);
+        if (!p) return;
+        p.hp = h.hp; p.alive = !!h.alive;
+        p.shield           = h.sh   ?? 0;
+        p.stunTimer        = h.stun ?? 0;
+        if (h.slw !== undefined) p.slowTimer        = h.slw;
+        if (h.inv !== undefined) p.invulnerableTimer = h.inv;
+        if (h.def !== undefined) p.defBuffTimer      = h.def;
+        if (h.msT !== undefined) { p.msBuffTimer = h.msT; p.msBuffAmount = h.msV ?? 0; }
+        if (h.adT !== undefined) { p.adAsBuffTimer = h.adT; p.adAsBuffAmount = h.adV ?? 0; }
+        if (h.pw  !== undefined) { p.hasPowerup = !!h.pw; p.powerupTimer = h.pwT ?? 0; }
+        if (h.bmT !== undefined) { p.beamTimer = h.bmT; p.beamTargetId = h.bmId; }
+        if (h.ubT !== undefined) p.uberChargeTimer = h.ubT;
+        if (h.rly !== undefined) p.rallyTimer = h.rly;
+        if (!p.alive && h.alive) { if (p === player) p._serverPosTarget = null; if (typeof p.revive === 'function') p.revive(); }
+        else if (p.alive && !h.alive) { p.hp = 0; if (typeof p.die === 'function') p.die(); }
+      });
+    });
+
+    // 2 Hz scoreboard — gold, exp, kills, items, stats
+    socket.on('network_score', (scoreData) => {
+      if (game && game.isHost) return;
+      (scoreData || []).forEach(s => {
+        const p = game.playersById?.get(s.id) ?? game.players.find(x => x.id === s.id);
+        if (!p) return;
+        if (p === player) {
+          const goldDiff = s.gold - (p.totalGold || 0); if (goldDiff > 0) { p.gold += goldDiff; p.totalGold = s.gold; }
+          const expDiff  = s.texp - (p.totalExp  || 0); if (expDiff  > 0) { p.exp  += expDiff;  p.totalExp  = s.texp; }
+        } else {
+          p.totalGold = s.gold; p.gold = s.cg; p.exp = s.exp; p.totalExp = s.texp;
+        }
+        p.kills = s.kills; p.deaths = s.deaths; p.assists = s.assists;
+        if (s.lvl && s.lvl > p.level) { p.levelUpTimer = 2.0; spawnParticles(p.pos.x, p.pos.y, 25, '#ffcc00', {speed:120,life:1.0}); }
+        if (s.lvl)  p.level = s.lvl;
+        if (s.mhp)  p.maxHp = s.mhp;
+        if (s.items && Array.isArray(s.items)) { p.items = s.items; recalcPlayerItemStats(p); }
+        if (s.AD)   p.AD = s.AD;   if (s.AP)  p.AP  = s.AP;
+        if (s.arm)  p.armor = s.arm; if (s.mr) p.mr = s.mr;
+        if (s.spd)  p.speed = s.spd; if (s.as) p.attackSpeed = s.as;
+        if (s.stats) { if (!p.stats) p.stats = {}; p.stats.dmgDealt = s.stats[0]; p.stats.dmgTaken = s.stats[1]; p.stats.hpHealed = s.stats[2]; }
+        if (s.tc !== undefined) p.towerCaptures = s.tc;
+        if (s.td !== undefined) p.towerDefends  = s.td;
+        if (s.pcs !== undefined) p.pcs = s.pcs;
+        if (s.pwrc !== undefined) p.powerupsCollected = s.pwrc;
+      });
     });
     
-    // PŘIDÁNO: Přijímání jednorázových událostí od Hosta (Věže střílí, poškození prostředím, Konec hry)
+    // Přijímání jednorázových událostí od serveru (věže střílí, konec hry, efekty)
     socket.on('network_host_event', (data) => {
-      if (game && game.isHost) return; 
-      if (data.type === 'damage') {
-        let t = game.players.find(p => p.id === data.targetId);
-        if (t) applyDamage(t, data.amount, data.dmgType, data.sourceId, true); // true = isNetwork = ignore host check
-      } else if (data.type === 'tower_shoot') {
+      if (game && game.isHost) return;
+      if (data.type === 'tower_shoot') {
         game.projectiles.push(new Projectile(data.x, data.y, data.vx, data.vy, 'tower', data.owner, {damage: data.damage, dmgType: 'physical', glyph: '♦', life: data.life}));
+      } else if (data.type === 'pull_hit') {
+        spawnParticles(data.tx, data.ty, 8, '#800080', {speed: 120});
+        if (data.stun) game.effectTexts.push(new gc.EffectText(data.tx, data.ty - 20, "STUNNED", '#ffcc00'));
+      } else if (data.type === 'minion_shoot') {
+        // Visual-only minion projectile — cull if > 900px from local player
+        const viewX = player ? player.pos.x : data.x;
+        const viewY = player ? player.pos.y : data.y;
+        if ((data.x - viewX)**2 + (data.y - viewY)**2 < 900*900) {
+          const color = data.tm === 0 ? '#7af' : '#f87';
+          game.projectiles.push(new Projectile(data.x, data.y, data.vx, data.vy, 'minion', data.tm, {damage: 0, dmgType: 'physical', glyph: '•', life: data.life, radius: 5, noHit: true, color}));
+        }
       } else if (data.type === 'heal_pickup') {
         let p = game.players.find(x => x.id === data.playerId);
-        if (p) { p.hp = data.hp; spawnParticles(game.heals[data.healIndex].pos.x, game.heals[data.healIndex].pos.y, 25, '#0f0', {speed: 150}); if(p === player) { flashMessage("+33% HP!"); game.screenHealFlash = 0.5; } }
+        if (p) {
+          // HP comes authoritatively via _broadcastPvp — don't override it here
+          const heal = game.heals && game.heals[data.healIndex];
+          const px = heal ? heal.pos.x : (p.pos.x); const py = heal ? heal.pos.y : (p.pos.y);
+          spawnParticles(px, py, 25, '#0f0', {speed: 150});
+          playSound('heal_pickup', p.pos);
+          if (p === player) { flashMessage("+33% HP!"); game.screenHealFlash = 0.5; }
+        }
       } else if (data.type === 'powerup_pickup') {
         let p = game.players.find(x => x.id === data.playerId);
         if (p) { p.hasPowerup = true; p.powerupTimer = 120.0; if (p.powerupsCollected !== undefined) p.powerupsCollected += 1; if (typeof p.refreshDominionPCS === 'function') p.refreshDominionPCS(); spawnParticles(data.x, data.y, 40, '#ff0', {speed: 250}); if(p === player) flashMessage("POWER UP OBTAINED! (+20% STATS)"); }
@@ -352,8 +378,10 @@ import { initAudio, playSound } from './Audio.js';
       else if (data.type === 'player_hp_update') {
         let p = game.players.find(x => x.id === data.id); if (p) { p.hp = data.hp; if (data.shield !== undefined) p.shield = data.shield; }
       } else if (data.type === 'player_died') {
-        let p = game.players.find(x => x.id === data.id); if (p && p.alive) { handlePlayerKill(p, data.killerId); }
+        let p = game.players.find(x => x.id === data.id); if (p && p.alive) { if (p === player) p._serverPosTarget = null; handlePlayerKill(p, data.killerId); }
       } else if (data.type === 'show_damage') {
+        // Vlastní útoky zobrazujeme lokálně v applyDamage — přeskočit echo ze serveru
+        if (player && data.sourceId === player.id) { /* skip — already shown locally */ } else {
         let t = game.players.find(p => p.id === data.targetId) || game.minions.find(m => m.id === data.targetId);
         if (t) {
             let isLocal = (player && (data.sourceId === player.id || data.targetId === player.id));
@@ -361,11 +389,11 @@ import { initAudio, playSound } from './Audio.js';
             if (data.dmgType === 'physical') color = isLocal ? '#ffdddd' : '#ff8888';
             else if (data.dmgType === 'magical') color = isLocal ? '#ddddff' : '#88bbff';
             else color = isLocal ? '#ffffff' : '#ffc83c';
-            
             game.damageNumbers.push(new DamageNumber(t.pos.x, t.pos.y-6, data.amount, color));
             let pCount = Math.min(30, Math.max(3, Math.floor(data.amount / 10)));
             spawnParticles(t.pos.x, t.pos.y, pCount, '#f00', { speed: 100 + (data.amount / 2) });
-                    if (t === player) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + data.amount / 450);
+            if (t === player) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + data.amount / 450);
+        }
         }
       } else if (data.type === 'show_heal') {
         let t = game.players.find(p => p.id === data.targetId) || game.minions.find(m => m.id === data.targetId);
@@ -390,35 +418,27 @@ import { initAudio, playSound } from './Audio.js';
       }
     });
     
-    // PŘIDÁNO: Přijímání útoků a kouzel od ostatních hráčů (a botů)
+    // Přijímání útoků a kouzel od ostatních hráčů (vizuální efekty)
+    // buy_item / sell_item jsou nyní plně pod kontrolou serveru — stav přichází přes network_host_state
     socket.on('network_player_action', (data) => {
       let netPlayer = game.players.find(p => p.id === data.id);
       if (netPlayer && netPlayer !== player) {
         if (data.type === 'shoot') netPlayer.shoot(data.tx, data.ty, true);
         else if (data.type === 'cast') netPlayer.castSpell(data.spKey, data.tx, data.ty, true);
         else if (data.type === 'summoner') netPlayer.castSummonerSpell(true);
-        else if (data.type === 'buy_item') {
-          let it = getShopItem(data.itemId);
-          if (it && canBuyShopItem(netPlayer, it).ok) {
-            const cost = data.cost !== undefined ? data.cost : getItemBuyCost(netPlayer, it);
-            if (netPlayer.gold >= cost) {
-              netPlayer.gold -= cost;
-              netPlayer.items.push(data.itemId);
-              recalcPlayerItemStats(netPlayer);
-              netPlayer.isDirty = true;
-            }
-          }
-        }
-        else if (data.type === 'sell_item') {
-          const idx = netPlayer.items.indexOf(data.itemId);
-          if (idx !== -1) {
-            netPlayer.items.splice(idx, 1);
-            netPlayer.gold += data.refund;
-            recalcPlayerItemStats(netPlayer);
-            netPlayer.isDirty = true;
-          }
-        }
+        // buy_item / sell_item: server aplikuje a pošle aktualizaci přes _broadcastSlow — tady nic neděláme
       }
+    });
+
+    socket.on('network_knockback', (data) => {
+      if (game && game.isHost) return;
+      const p = game.playersById?.get(data.id) ?? game.players.find(x => x.id === data.id);
+      if (!p) return;
+      // Snap to authoritative position, clear targetPos so lerp doesn't fight knockback
+      p.pos.x = data.x; p.pos.y = data.y;
+      p.targetPos = null;
+      p.knockbackTimer = data.kbt;
+      p.knockbackVel = { x: data.kbvx, y: data.kbvy };
     });
 
     socket.on('network_kill_feed', (data) => {
@@ -426,8 +446,26 @@ import { initAudio, playSound } from './Audio.js';
       if (game.killFeed) game.killFeed.push(data);
     });
 
+    // Server pošle autoritativní seznam botů těsně po game_start
+    socket.on('bot_roster', (bots) => {
+      if (!game.started) return;
+      const spawnPoints = activeGameMode.mapConfig.spawnPoints;
+      for (const bData of bots) {
+        if (game.playersById && game.playersById.has(bData.id)) continue; // už existuje
+        if (game.players.find(p => p.id === bData.id)) continue;
+        const sp = spawnPoints[bData.team];
+        const bot = new BotPlayer(sp.x, sp.y, { team: bData.team, id: bData.id, className: bData.className, lane: bData.lane, summonerSpell: bData.summonerSpell });
+        bot._isBotPlayer = true;
+        game.players.push(bot);
+      }
+      game.playersById = new Map(game.players.map(p => [p.id, p]));
+    });
+
     socket.on('player_disconnected', (id) => {
-       if(game && game.players) game.players = game.players.filter(p => p.id !== id);
+       if(game && game.players) {
+         game.players = game.players.filter(p => p.id !== id);
+         game.playersById = new Map(game.players.map(p => [p.id, p]));
+       }
        if(game && game.hostId === id) {
            alert('Host disconnected. The match has ended.');
            window.location.reload();
@@ -565,10 +603,6 @@ import { initAudio, playSound } from './Audio.js';
         if (actualHeal > 0) {
             if (target === player) game.screenHealFlash = Math.min(1.0, (game.screenHealFlash || 0) + actualHeal / 450);
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-15, '+' + actualHeal, '#00ff00'));
-            if (socket && !simMode) socket.emit('host_event', { type: 'show_heal', targetId: target.id, amount: actualHeal });
-            if (socket && !simMode && target instanceof Player) {
-                socket.emit('host_event', { type: 'player_hp_update', id: target.id, hp: target.hp, shield: target.shield });
-            }
         }
         return actualHeal;
     }
@@ -610,14 +644,6 @@ import { initAudio, playSound } from './Audio.js';
     else if (type === 'magical') multiplier = 100 / (100 + mr);
     else if (type === 'true' || type === 'dot') multiplier = 1; // Pure damage (Fountain laser)
     
-    // OPRAVA: Host posílá striktní zprávu o poškození minionů pouze proti lidským hráčům (Boti se posílají rovnou celí přes host_state prevence zdvojení).
-    if (socket && game.isHost && !isNetwork && !simMode) {
-      let isMinion = game.minions.some(m => m.id === sourceId);
-      if (isMinion && target instanceof Player && !(target instanceof BotPlayer)) {
-         socket.emit('host_event', { type: 'damage', targetId: target.id, amount: amount, dmgType: type, sourceId: sourceId });
-      }
-    }
-
     const actualDamage = Math.round(amount * multiplier);
     let finalDamage = actualDamage;
     
@@ -656,22 +682,22 @@ import { initAudio, playSound } from './Audio.js';
             playSound('hit', target.pos);
         }
         if (target === player && (!socket || game.isHost || isNetwork)) game.screenDamageFlash = Math.min(1.0, (game.screenDamageFlash || 0) + finalDamage / 450);
-        
-        if (!socket || game.isHost || isNetwork) {
+
+        if (!socket || game.isHost || isNetwork || (player && sourceId === player.id)) {
             let pCount = Math.min(30, Math.max(3, Math.floor(finalDamage / 10)));
             spawnParticles(target.pos.x, target.pos.y, pCount, '#f00', { speed: 100 + (finalDamage / 2) });
         }
 
-        if (!socket || game.isHost) {
+        // V server módu zobrazit lokálně jen vlastní útoky (okamžitý feedback), server broadcastuje ostatním
+        const isMyAttack = player && sourceId === player.id;
+        if (!socket || game.isHost || isMyAttack) {
             let isLocal = (player && (sourceId === player.id || target.id === player.id));
             let color = '#ffffff';
             if (finalDamage < actualDamage) color = '#aaaaaa';
             else if (type === 'physical') color = isLocal ? '#ffdddd' : '#ff8888';
             else if (type === 'magical') color = isLocal ? '#ddddff' : '#88bbff';
-            else color = isLocal ? '#ffffff' : '#ffc83c'; // includes 'true' and 'dot'
-            
+            else color = isLocal ? '#ffffff' : '#ffc83c';
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y-6, actualDamage, color));
-            if (socket && !simMode) socket.emit('host_event', { type: 'show_damage', targetId: target.id, amount: actualDamage, sourceId: sourceId, dmgType: type });
         }
     }
 
@@ -696,11 +722,6 @@ import { initAudio, playSound } from './Audio.js';
           }
         }
 
-    // OPRAVA: Host je autorita a posílá všem informaci o změně HP hráče
-    if (socket && game.isHost && target instanceof Player && !isNetwork && !simMode) {
-        socket.emit('host_event', { type: 'player_hp_update', id: target.id, hp: target.hp, shield: target.shield });
-    }
-    
     // PŘIDÁNO: Centrální registrace mrtvých minionů pro prevenci "duchů" a falešných duplicitních zisků goldů
     if (target instanceof Minion && target.hp <= 0) {
         if (typeof target._handleJungleDeath === 'function') target._handleJungleDeath();
@@ -754,9 +775,6 @@ import { initAudio, playSound } from './Audio.js';
               killer = game.players.find(p => p.id === killerId);
           }
         }
-
-      // Oznámení všem klientům, že hráč zemřel (Pouze Host smí odeslat tento event)
-      if (socket && game.isHost && !simMode) socket.emit('host_event', { type: 'player_died', id: victim.id, killerId: killerId });
 
       let killerName = killer ? killer.className : (killerId === 'laser' ? 'Laser' : (killerId === 'tower' ? 'Tower' : 'Minion'));
       let killerTeam = killer ? killer.team : -1;
@@ -967,47 +985,21 @@ import { initAudio, playSound } from './Audio.js';
     }
     game.isSpectator = isSpectator;
 
-    let bluePicked = []; let redPicked = [];
-    const spellsArray = Object.keys(SUMMONER_SPELLS);
-    
-    let humansBlue = 0; let humansRed = 0;
-
     Object.values(playersData).forEach(pData => {
         if (pData.team === -1) return; // Skip spectators
         let p = new Player(spawnPoints[pData.team].x, spawnPoints[pData.team].y, { team: pData.team, id: pData.id, className: pData.className, summonerSpell: pData.summonerSpell });
         game.players.push(p);
-        if (pData.team === 0) { humansBlue++; bluePicked.push(pData.className); }
-        else { humansRed++; redPicked.push(pData.className); }
-        if (socket && pData.id === socket.id) { player = p; }
+        if (socket && pData.id === socket.id) { player = p; gc.localPlayer = p; }
     });
 
     if (isSpectator) {
-        player = null;
+        player = null; gc.localPlayer = null;
         camera.x = activeGameMode.mapConfig.world.width / 2;
         camera.y = activeGameMode.mapConfig.world.height / 2;
     }
 
-    const getBotLane = (idx) => activeGameMode.getBotLane(idx);
-
-    const teamSize = activeGameMode.mapConfig.teamSize || 5;
-    let blueBotCount = Math.max(0, teamSize - humansBlue);
-    let redBotCount  = Math.max(0, teamSize - humansRed);
-    let totalBots = Math.max(blueBotCount, redBotCount);
-
-    for (let i = 1; i <= totalBots; i++) {
-        if (i <= blueBotCount) {
-            const c = getSmartBotClass(bluePicked, redPicked);
-            bluePicked.push(c);
-            let bot = new BotPlayer(spawnPoints[0].x + Math.random()*50, spawnPoints[0].y + Math.random()*50, {team:0, id:'bot0_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
-            game.players.push(bot);
-        }
-        if (i <= redBotCount) {
-            const c = getSmartBotClass(redPicked, bluePicked);
-            redPicked.push(c);
-            let bot = new BotPlayer(spawnPoints[1].x + Math.random()*50, spawnPoints[1].y + Math.random()*50, {team:1, id:'bot1_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
-            game.players.push(bot);
-        }
-    }
+    // Boti jsou spawněni ze server bot_roster eventu — klient neví jejich třídy dopředu
+    // bot_roster přijde těsně po game_start, doplní je do game.players
 
     game.started = true; updateSpellLabels();
     const mc = document.getElementById('mobileControls'); if (mc) mc.style.display = 'block';
@@ -1133,17 +1125,24 @@ import { initAudio, playSound } from './Audio.js';
     const cost = getItemBuyCost(player, it);
     if (player.gold < cost) return flashMessage('Not enough gold');
 
-    player.gold -= cost;
-    player.items.push(it.id);
-    recalcPlayerItemStats(player);
-    player.isDirty = true;
+    if (socket && !game.isHost) {
+      // Server-authoritative: pošli akci a počkej na _broadcastSlow potvrzení
+      socket.emit('player_action', { type: 'buy_item', id: player.id, itemId: it.id, cost });
+      // Optimistická lokální aktualizace pro okamžitou odezvu UI
+      player.gold -= cost;
+      player.items.push(it.id);
+      recalcPlayerItemStats(player);
+      player.isDirty = true;
+    } else {
+      // Offline nebo host mód
+      player.gold -= cost;
+      player.items.push(it.id);
+      recalcPlayerItemStats(player);
+      player.isDirty = true;
+    }
     flashMessage('Bought ' + it.name);
     updateInventory();
     populateShop();
-
-    if (socket && !game.isHost) {
-      socket.emit('player_action', { type: 'buy_item', id: player.id, itemId: it.id, cost });
-    }
   }
   export function sellItem(id) {
     if (!player) return;
@@ -1154,16 +1153,23 @@ import { initAudio, playSound } from './Audio.js';
     const idx = player.items.indexOf(id);
     if (idx === -1) return flashMessage('Item not in inventory');
     const sellPrice = getItemSellPrice(player, it);
-    player.items.splice(idx, 1);
-    player.gold += sellPrice;
-    recalcPlayerItemStats(player);
-    player.isDirty = true;
+
+    if (socket && !game.isHost) {
+      // Server-authoritative: pošli akci a optimisticky aktualizuj lokálně
+      socket.emit('player_action', { type: 'sell_item', id: player.id, itemId: id, refund: sellPrice });
+      player.items.splice(idx, 1);
+      player.gold += sellPrice;
+      recalcPlayerItemStats(player);
+      player.isDirty = true;
+    } else {
+      player.items.splice(idx, 1);
+      player.gold += sellPrice;
+      recalcPlayerItemStats(player);
+      player.isDirty = true;
+    }
     flashMessage(`Sold ${it.name} for ${sellPrice}g`);
     updateInventory();
     populateShop();
-    if (socket && !game.isHost) {
-      socket.emit('player_action', { type: 'sell_item', id: player.id, itemId: id, refund: sellPrice });
-    }
   }
   export function flashMessage(txt){ const el = document.createElement('div'); el.style.position='fixed'; el.style.left='50%'; el.style.top='18px'; el.style.transform='translateX(-50%)'; el.style.background='rgba(255,255,255,0.06)'; el.style.padding='6px 10px'; el.style.borderRadius='6px'; el.style.zIndex=100000; el.textContent = txt; document.body.appendChild(el); setTimeout(()=>el.remove(),1200); }
 
@@ -1177,7 +1183,16 @@ import { initAudio, playSound } from './Audio.js';
         let ox = p.pos.x, oy = p.pos.y;
         p.update(dt);
         if (dt > 0) p.vel = { x: (p.pos.x - ox) / dt, y: (p.pos.y - oy) / dt };
-        
+
+        // CLIENT-SIDE PREDICTION: smooth korekce pozice lokálního hráče na serverovou pozici
+        if (socket && !game.isHost && p === player && p._serverPosTarget && p.alive && p.stunTimer <= 0 && p.knockbackTimer <= 0) {
+            const lerpRate = 1.0 - Math.pow(0.05, dt); // ~95% korekce za 1s, plynulé i při různém dt
+            p.pos.x += (p._serverPosTarget.x - p.pos.x) * lerpRate;
+            p.pos.y += (p._serverPosTarget.y - p.pos.y) * lerpRate;
+            const rem = (p._serverPosTarget.x - p.pos.x) ** 2 + (p._serverPosTarget.y - p.pos.y) ** 2;
+            if (rem < 4) p._serverPosTarget = null; // Dostatečně blízko — korekce hotova
+        }
+
         if (p.burnDotTimer > 0 && p.alive && (!socket || game.isHost)) {
             p.burnDotTimer -= dt;
             p.burnDotTick = (p.burnDotTick || 0) - dt;
@@ -1328,7 +1343,7 @@ import { initAudio, playSound } from './Audio.js';
     if (socket && !game.gameOver && !simMode) {
         if (player) {
             game.syncTimer = (game.syncTimer || 0) + dt;
-            if (game.syncTimer >= 0.05) {
+            if (game.syncTimer >= 0.067) {
                 game.syncTimer = 0;
                 const minimalState = {
                     id: player.id, x: player.pos.x, y: player.pos.y, aimAngle: player.aimAngle,
@@ -1358,186 +1373,20 @@ import { initAudio, playSound } from './Audio.js';
                 }
             }
         }
-        
-        // HOST SYNCHRONIZUJE STAV BOTŮ A MINIONŮ
-        // Diferencované Hz podle typu dat — stejný princip jako v ServerEngine.js
-        if (game.isHost) {
-            // ── Timery ─────────────────────────────────────────────────────────
-            game._tBot    = (game._tBot    || 0) + dt; // 20 Hz — pozice botů
-            game._tMinion = (game._tMinion || 0) + dt; // 6 Hz  — pozice minionů
-            game._tPvp    = (game._tPvp    || 0) + dt; // 20 Hz — HP/buffs lidí (PvP kritické)
-            game._tScore  = (game._tScore  || 0) + dt; // 2 Hz  — gold, kills, level
-            game._tTower  = (game._tTower  || 0) + dt; // 3 Hz  — věže
-            game._tSlow   = (game._tSlow   || 0) + dt; // 1 Hz  — heals, nexus
-
-            // ── Helper: pozice živých hráčů pro proximity culling ──────────────
-            const _humanPos = () => {
-                const out = [];
-                for (const p of game.players) { if (!(p instanceof BotPlayer) && p.alive) out.push(p.pos); }
-                return out;
-            };
-            // Proximity tier: 0=blízko(<500px)→100%, 1=střed(500-1200px)→50%, 2=daleko(>1200px)→25%
-            const _proxTier = (pos, hPos) => {
-                if (hPos.length === 0) return 0;
-                let minD2 = Infinity;
-                for (const h of hPos) { const dx = pos.x-h.x, dy = pos.y-h.y; const d2=dx*dx+dy*dy; if(d2<minD2) minD2=d2; }
-                if (minD2 < 500*500)  return 0;
-                if (minD2 < 1200*1200) return 1;
-                return 2;
-            };
-
-            // ── 20 Hz: pozice botů (proximity culled) ─────────────────────────
-            if (game._tBot >= 0.05) {
-                game._tBot = 0;
-                const hPos = _humanPos();
-                const botUpdates = [];
-                for (const b of game.players) {
-                    if (!(b instanceof BotPlayer)) continue;
-                    // Proximity culling
-                    const tier = _proxTier(b.pos, hPos);
-                    b._proxSkip = (b._proxSkip || 0) + 1;
-                    if (tier === 1 && b._proxSkip % 2 !== 0 && !b.isDirty) continue; // ~10 Hz
-                    if (tier === 2 && b._proxSkip % 4 !== 0 && !b.isDirty) continue; // ~5 Hz
-                    // Delta komprese
-                    const dx = b.pos.x - (b._lastSyncX ?? b.pos.x + 999);
-                    const dy = b.pos.y - (b._lastSyncY ?? b.pos.y + 999);
-                    if ((dx*dx + dy*dy) <= 1 && !b.isDirty) continue;
-                    b._lastSyncX = b.pos.x; b._lastSyncY = b.pos.y;
-                    const base = { id: b.id, x: Math.round(b.pos.x), y: Math.round(b.pos.y), hp: Math.round(b.hp), alive: b.alive, aimAngle: b.aimAngle, stunT: b.stunTimer, shield: b.shield,
-                        invT: b.invulnerableTimer, defT: b.defBuffTimer,
-                        msBuffT: b.msBuffTimer, msBuffAmt: b.msBuffAmount,
-                        adAsBuffT: b.adAsBuffTimer, adAsBuffAmt: b.adAsBuffAmount,
-                        antiHealT: b.antiHealTimer, antiHealStr: b.antiHealStrength,
-                        regenBuffT: b.regenBuffTimer, regenBuffAmt: b.regenBuffAmount,
-                        hasPwrup: b.hasPowerup, pwrupT: b.powerupTimer,
-                        beamUberT: b.beamUberTimer };
-                    if (b.isDirty) {
-                        b.isDirty = false;
-                        botUpdates.push({ ...base, isFullUpdate: true, className: b.className,
-                            slowT: b.slowTimer, boostT: b.boostTimer, silenceT: b.silenceTimer, hanaT: b.hanaBuffTimer, beamT: b.beamTimer, beamId: b.beamTargetId, uberT: b.uberChargeTimer,
-                            junglePwrT: b.junglePowerTimer, jungleAsAhT: b.jungleAsAhTimer, jungleTankT: b.jungleTankTimer,
-                            level: b.level, maxHp: b.effectiveMaxHp, kills: b.kills, deaths: b.deaths, assists: b.assists, gold: b.totalGold, items: b.items.length,
-                            AD: b.AD, AP: b.AP, armor: b.armor, mr: b.mr, speed: b.speed, attackSpeed: b.attackSpeed, abilityHaste: b.abilityHaste,
-                            invTimer: b.invulnerableTimer, defTimer: b.defBuffTimer, qLvl: b.spells.Q.level, eLvl: b.spells.E.level,
-                            sumSpell: b.summonerSpell, towerCaptures: b.towerCaptures || 0, pcs: b.pcs || 0 });
-                    } else {
-                        botUpdates.push(base);
-                    }
-                }
-                if (botUpdates.length > 0) {
-                    try { socket.emit('host_state', { bots: botUpdates, minions: [] });
-                    } catch(netErr) { console.warn('[NET] host_state (bots) error:', netErr.message); }
-                }
-            }
-
-            // ── 6 Hz: pozice minionů (proximity culled, silná interpolace na klientovi) ──
-            if (game._tMinion >= 0.167) {
-                game._tMinion = 0;
-                const hPos = _humanPos();
-                const minionOut = [];
-                // Pending deaths (minioni co zemřeli od posledního minion ticku)
-                if (game._pendingMinionDeaths && game._pendingMinionDeaths.size > 0) {
-                    for (const id of game._pendingMinionDeaths) minionOut.push({ id, dead: true });
-                    game._pendingMinionDeaths.clear();
-                }
-                for (const m of game.minions) {
-                    if (m.dead) continue; // dead handled via _pendingMinionDeaths
-                    // Proximity culling
-                    const tier = _proxTier(m.pos, hPos);
-                    m._proxSkip = (m._proxSkip || 0) + 1;
-                    if (tier === 1 && m._proxSkip % 2 !== 0) continue; // ~3 Hz
-                    if (tier === 2 && m._proxSkip % 3 !== 0) continue; // ~2 Hz
-                    if (m._syncDirty) {
-                        m._syncDirty = false;
-                        minionOut.push({ id: m.id, x: Math.round(m.pos.x), y: Math.round(m.pos.y), hp: Math.round(m.hp), dead: false, maxHp: m.maxHp, team: m.team, targetIndex: m.targetIndex, isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId, isSc: m.isSmallChicken, isBc: m.isBigChicken });
-                    } else {
-                        minionOut.push({ id: m.id, x: Math.round(m.pos.x), y: Math.round(m.pos.y), hp: Math.round(m.hp) });
-                    }
-                }
-                if (minionOut.length > 0) {
-                    try { socket.emit('host_state', { bots: [], minions: minionOut });
-                    } catch(netErr) { console.warn('[NET] host_state (minions) error:', netErr.message); }
-                }
-            }
-
-            // ── 20 Hz: HP/shield/buffs lidských hráčů (PvP kritické) ───────────
-            if (game._tPvp >= 0.05) {
-                game._tPvp = 0;
-                const humanUpdates = game.players
-                    .filter(p => !(p instanceof BotPlayer))
-                    .map(p => {
-                        const h = { id: p.id, hp: Math.round(p.hp), alive: p.alive };
-                        if (p.shield > 0)               h.shield    = Math.round(p.shield);
-                        if (p.stunTimer > 0.01)         h.stunT     = Math.round(p.stunTimer*100)/100;
-                        if (p.slowTimer > 0.01)         h.slowT     = Math.round(p.slowTimer*10)/10;
-                        if (p.invulnerableTimer > 0.01) h.invT      = Math.round(p.invulnerableTimer*10)/10;
-                        if (p.defBuffTimer > 0.01)      h.defT      = Math.round(p.defBuffTimer*10)/10;
-                        if (p.msBuffTimer > 0.01)       { h.msBuffT = Math.round(p.msBuffTimer*10)/10; h.msBuffAmt = Math.round((p.msBuffAmount||0)*100)/100; }
-                        if (p.hasPowerup)               { h.hasPwrup = 1; h.pwrupT = Math.round(p.powerupTimer*10)/10; }
-                        if (p.beamTimer > 0.01)         { h.beamT   = Math.round(p.beamTimer*10)/10; h.beamId = p.beamTargetId; }
-                        if (p.uberChargeTimer > 0.01)   h.uberT     = Math.round(p.uberChargeTimer*10)/10;
-                        if (p.beamUberTimer > 0.01)     h.beamUberT = Math.round(p.beamUberTimer*10)/10;
-                        if (p.knockbackTimer > 0)       { h.kbT = Math.round(p.knockbackTimer*100)/100; h.kbVx = Math.round(p.knockbackVel.x); h.kbVy = Math.round(p.knockbackVel.y); }
-                        return h;
-                    });
-                if (humanUpdates.length > 0) {
-                    try { socket.emit('host_state', { bots: [], minions: [], humans: humanUpdates });
-                    } catch(netErr) { console.warn('[NET] host_state (pvp) error:', netErr.message); }
-                }
-            }
-
-            // ── 2 Hz: scoreboard (gold, kills, level) ─────────────────────────
-            if (game._tScore >= 0.5) {
-                game._tScore = 0;
-                const scoreUpdates = game.players
-                    .filter(p => !(p instanceof BotPlayer))
-                    .map(p => ({
-                        id: p.id, gold: p.totalGold, currentGold: p.gold, exp: p.exp, totalExp: p.totalExp || 0,
-                        kills: p.kills, deaths: p.deaths, assists: p.assists,
-                        alive: p.alive, macro: p.macroOrder ? p.macroOrder.type : null,
-                        towerCaptures: p.towerCaptures || 0, pcs: p.pcs || 0,
-                        silenceT: p.silenceTimer, hanaT: p.hanaBuffTimer,
-                        junglePwrT: p.junglePowerTimer, jungleAsAhT: p.jungleAsAhTimer, jungleTankT: p.jungleTankTimer,
-                        adAsBuffT: p.adAsBuffTimer, adAsBuffAmt: p.adAsBuffAmount,
-                        antiHealT: p.antiHealTimer, antiHealStr: p.antiHealStrength,
-                        regenBuffT: p.regenBuffTimer, regenBuffAmt: p.regenBuffAmount,
-                        boostT: p.boostTimer
-                    }));
-                if (scoreUpdates.length > 0) {
-                    try { socket.emit('host_state', { bots: [], minions: [], score: scoreUpdates });
-                    } catch(netErr) { console.warn('[NET] host_state (score) error:', netErr.message); }
-                }
-            }
-
-            // ── 3 Hz: věže ────────────────────────────────────────────────────
-            if (game._tTower >= 0.333) {
-                game._tTower = 0;
-                try { socket.emit('host_state', { bots: [], minions: [],
-                    towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner, l: t.isLocked, u: t.unlockTimer}))
-                }); } catch(netErr) { console.warn('[NET] host_state (towers) error:', netErr.message); }
-            }
-
-            // ── 1 Hz: heals, nexus (málokdy se mění) ──────────────────────────
-            if (game._tSlow >= 1.0) {
-                game._tSlow = 0;
-                try { socket.emit('host_state', { bots: [], minions: [],
-                    heals: game.heals.map(h => h.active),
-                    powerup: game.powerup ? { a: game.powerup.active, c: game.powerup.captureTimer } : null,
-                    nexus: [game.nexus[0], game.nexus[1]]
-                }); } catch(netErr) { console.warn('[NET] host_state (slow) error:', netErr.message); }
-            }
-        }
     }
   }
 
+  const TARGET_FRAME_MS = 1000 / 50; // 50 FPS = 20ms
   let last = performance.now();
-  function loop(){ 
+  function loop(){
     try {
-      const now = performance.now(); const dtRaw = Math.min(0.05, (now-last)/1000); last = now; 
+      const now = performance.now();
+      if (now - last < TARGET_FRAME_MS) { requestAnimationFrame(loop); return; }
+      const dtRaw = Math.min(0.05, (now-last)/1000); last = now;
       const steps = game.isSpectator ? 1 : 1;
       for(let i=0; i<steps; i++) { update(dtRaw); }
       if (!simMode) draw();
-      requestAnimationFrame(loop); 
+      requestAnimationFrame(loop);
     } catch(err) {
       console.error('[FATAL ERROR] Game loop crashed!', err);
       try { console.table({ players: game.players.length, minions: game.minions.length, projectiles: game.projectiles.length, particles: game.particles.length, isHost: game.isHost }); } catch(_) {}
@@ -1551,3 +1400,13 @@ import { initAudio, playSound } from './Audio.js';
   buildMenu();
   populateShop();
   updateInventory();
+
+  // Zaregistruj client-side implementace do GameContext — od teď je mohou Player.js/Entities.js/GameMode používat
+  registerGameContext({
+    socket, localPlayer: player, keys, mouse, activeGameMode,
+    applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision,
+    drawHealthBar, flashMessage, grantRewards, grantMinionKillRewards,
+    recalcPlayerItemStats, buyItem,
+    Particle, EffectText, DamageNumber, spawnParticles,
+    updateSpellLabels, playSound, showEnd,
+  });

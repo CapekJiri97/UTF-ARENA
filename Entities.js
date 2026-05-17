@@ -1,31 +1,20 @@
 import { dist, isPointInPoly, distToPoly } from './Utils.js';
 import { game, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
-import { gc } from './GameContext.js';
-
 const _isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-// mapBoundary, spawnPoints, MINION_SPAWN_POINTS jsou čteny z gc.activeGameMode.mapConfig za běhu
-
-// Proxy wrappers — delegují přes gc; fungují na clientu i na serveru
-const applyDamage            = (...a) => gc.applyDamage(...a);
-const applyHeal              = (...a) => gc.applyHeal(...a);
-const handlePlayerKill       = (...a) => gc.handlePlayerKill(...a);
-const moveEntityWithCollision= (...a) => gc.moveEntityWithCollision(...a);
-const drawHealthBar          = (...a) => gc.drawHealthBar(...a);
-const flashMessage           = (...a) => gc.flashMessage(...a);
-const grantRewards           = (...a) => gc.grantRewards(...a);
-const grantMinionKillRewards = (...a) => gc.grantMinionKillRewards(...a);
-const playSound              = (...a) => gc.playSound(...a);
-const spawnParticles         = (...a) => gc.spawnParticles(...a);
+// mapBoundary, spawnPoints, MINION_SPAWN_POINTS jsou čteny z activeGameMode.mapConfig za běhu
+import { spawnParticles, EffectText, DamageNumber } from './Effects.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, grantRewards, grantMinionKillRewards, activeGameMode } from './main.js';
+import { playSound } from './Audio.js';
 
 export class Projectile{
   constructor(x,y,vx,vy,ownerId,ownerTeam,opts={}){ this.pos={x,y}; this.vel={x:vx,y:vy}; 
     this.radius=opts.radius||4; this.life=opts.life||2.0; this.ownerId = ownerId; this.ownerTeam = ownerTeam; this.damage = opts.damage||25; this.dmgType = opts.dmgType||'physical'; this.glyph = opts.glyph||'*'; this.dead = false;
-    this.color = opts.color || (ownerTeam === 0 ? '#486FED' : (ownerTeam === 1 ? '#FF4E4E' : '#fff'));
+    this.color = ownerTeam === 0 ? '#486FED' : (ownerTeam === 1 ? '#FF4E4E' : '#fff'); 
     this.opts = opts; }
   update(dt){ if(this.dead) return; this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; if(this.life<=0) this.dead = true;
     // Boundary check only every other frame (boundary is large, projectiles move slowly relative to it)
     this._boundaryTick = (this._boundaryTick || 0) + 1;
-    if(this._boundaryTick >= 2) { this._boundaryTick = 0; if(!isPointInPoly(this.pos.x, this.pos.y, gc.activeGameMode.mapConfig.mapBoundary)) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; } }
+    if(this._boundaryTick >= 2) { this._boundaryTick = 0; if(!isPointInPoly(this.pos.x, this.pos.y, activeGameMode.mapConfig.mapBoundary)) { this.dead = true; spawnParticles(this.pos.x, this.pos.y, 5, '#888'); return; } }
 
 
 
@@ -40,15 +29,13 @@ export class Projectile{
     const pierce = this.opts.pierce || false;
     if (!pierce) this._pierceHit = null; // non-pierce: reset not needed, but safe
 
-    if (this.opts.noHit) return; // visual-only projectile (e.g. client-side minion shoot)
-
     let hitTarget = null;
     for(let m of game.minions){
       if(!m.dead && m.team !== this.ownerTeam && dist(this.pos, m.pos) < this.radius + m.radius){
         if (pierce && this._pierceHit && this._pierceHit.has(m.id)) continue;
         hitTarget = m; applyDamage(m, this._scaleBurstDamage(m.id, this.damage), this.dmgType, this.ownerId, false, this.opts.isSpell || false);
         if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
-        if(m.hp<=0 && (!gc.socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantMinionKillRewards(owner, m.pos); } }
+        if(m.hp<=0 && (!socket || game.isHost)){ m.dead = true; const owner = game.players.find(x=>x.id===this.ownerId); if(owner){ grantMinionKillRewards(owner, m.pos); } }
         if (pierce) { if (!this._pierceHit) this._pierceHit = new Set(); this._pierceHit.add(m.id); this.processOnHit(m); hitTarget = null; continue; }
         break;
       }
@@ -56,7 +43,7 @@ export class Projectile{
     if (!pierce && hitTarget) { this.processOnHit(hitTarget); this.dead = true; return; }
 
     // Věže s HP (ARAM) — lze je zasáhnout projektily hráčů a minionů (ne jinými věžemi)
-    if (this.ownerId !== 'tower' && (!gc.socket || game.isHost)) {
+    if (this.ownerId !== 'tower' && (!socket || game.isHost)) {
       for (let t of game.towers) {
         if (!t.dead && t.maxHp !== null && t.owner !== this.ownerTeam && dist(this.pos, t.pos) < this.radius + t.radius + 12) {
           t.takeDamage(this.damage, this.ownerId);
@@ -71,7 +58,7 @@ export class Projectile{
         if (pierce && this._pierceHit && this._pierceHit.has(p.id)) continue;
         hitTarget = p; applyDamage(p, this._scaleBurstDamage(p.id, this.damage), this.dmgType, this.ownerId, false, this.opts.isSpell || false);
         if (!this.opts.noHitParticles) spawnParticles(this.pos.x, this.pos.y, 4, '#f00');
-        if(p.hp<=0 && (!gc.socket || game.isHost)){ handlePlayerKill(p, this.ownerId); }
+        if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.ownerId); }
         if (pierce) { if (!this._pierceHit) this._pierceHit = new Set(); this._pierceHit.add(p.id); this.processOnHit(p); hitTarget = null; continue; }
         break;
       }
@@ -85,16 +72,16 @@ export class Projectile{
               target.slowMod = Math.min(target.slowMod || 1, this.opts.slowMod);
           }
       }
-      if (this.opts.markPetTarget && (!gc.socket || game.isHost)) {
+      if (this.opts.markPetTarget && (!socket || game.isHost)) {
           const owner = game.players.find(p => p.id === this.ownerId);
           if (owner) {
               owner.petTargetId = target.id;
           }
       }
-      if (this.opts.bonusMaxHpDmg && target.maxHp && (!gc.socket || game.isHost)) {
+      if (this.opts.bonusMaxHpDmg && target.maxHp && (!socket || game.isHost)) {
           applyDamage(target, Math.round(target.maxHp * this.opts.bonusMaxHpDmg), 'magical', this.ownerId, false, true);
       }
-      if (this.opts.pullToCaster && (!gc.socket || game.isHost)) {
+      if (this.opts.pullToCaster && (!socket || game.isHost)) {
           const owner = game.players.find(p => p.id === this.ownerId);
           if (owner && target.knockbackTimer <= 0) { // Don't override existing knockback
               const angle = Math.atan2(owner.pos.y - target.pos.y, owner.pos.x - target.pos.x);
@@ -103,9 +90,9 @@ export class Projectile{
               target.knockbackVel = { x: Math.cos(angle) * pullSpeed, y: Math.sin(angle) * pullSpeed };
           }
       }
-      if (this.opts.stunDuration) { target.stunTimer = Math.max(target.stunTimer || 0, this.opts.stunDuration); if(target.className) game.effectTexts.push(new gc.EffectText(target.pos.x, target.pos.y-20, "STUNNED", '#ffcc00')); }
-      if (this.opts.silenceDuration) { target.silenceTimer = Math.max(target.silenceTimer || 0, this.opts.silenceDuration); if(target.className) game.effectTexts.push(new gc.EffectText(target.pos.x, target.pos.y-20, "SILENCED", '#fff')); }
-      if (this.opts.spawnMinion && (!gc.socket || game.isHost)) {
+      if (this.opts.stunDuration) { target.stunTimer = Math.max(target.stunTimer || 0, this.opts.stunDuration); if(target.className) game.effectTexts.push(new EffectText(target.pos.x, target.pos.y-20, "STUNNED", '#ffcc00')); }
+      if (this.opts.silenceDuration) { target.silenceTimer = Math.max(target.silenceTimer || 0, this.opts.silenceDuration); if(target.className) game.effectTexts.push(new EffectText(target.pos.x, target.pos.y-20, "SILENCED", '#fff')); }
+      if (this.opts.spawnMinion && (!socket || game.isHost)) {
           let bestTower = null, bd = Infinity;
           for (let t of game.towers) if (t.owner !== this.ownerTeam && dist(t.pos, this.pos) < bd) { bestTower = t; bd = dist(t.pos, this.pos); }
           const tIndex = bestTower ? bestTower.index : 0;
@@ -143,8 +130,8 @@ export class Projectile{
 export class Tower{
   constructor(x,y,index){
     this.pos={x,y}; this.index = index; this.radius=20;
-    const isAram = gc.activeGameMode && gc.activeGameMode.name === 'aram';
-    const isArena = gc.activeGameMode && gc.activeGameMode.name === 'arena';
+    const isAram = activeGameMode && activeGameMode.name === 'aram';
+    const isArena = activeGameMode && activeGameMode.name === 'arena';
     this.captureRadius = isArena ? 165 : 80;
     this.owner = -1; this.control = 0; this.attackCooldown = 0;
     this.attackRange  = isAram ? 420 : 320;
@@ -169,20 +156,20 @@ export class Tower{
         this.unlockTimer -= dt;
         if (this.unlockTimer <= 0) {
             this.isLocked = false;
-            if (!gc.socket || game.isHost) {
-                game.effectTexts.push(new gc.EffectText(this.pos.x, this.pos.y-40, "UNLOCKED!", '#0f0'));
+            if (!socket || game.isHost) {
+                game.effectTexts.push(new EffectText(this.pos.x, this.pos.y-40, "UNLOCKED!", '#0f0'));
             }
         }
         return; // Dokud je zamčeno, nelze obsadit ani věž nestřílí
     }
 
-    if (!gc.socket || game.isHost) {
+    if (!socket || game.isHost) {
       // Capture logika — jen v Classic (ARAM věže mají HP a ničí se)
       if (this.maxHp === null) {
       const counts = [0,0]; let rallyBonus = [0,0];
       for(let p of game.players){ if(p.alive && dist(p.pos, this.pos) <= this.captureRadius) { counts[p.team]++; if(p.rallyTimer > 0) rallyBonus[p.team] += 2; } } 
       const presenceDelta = (counts[0] + rallyBonus[0]) - (counts[1] + rallyBonus[1]);
-      const captureSpeedMult = (gc.activeGameMode && gc.activeGameMode.name === 'arena') ? 0.5 : 1.0;
+      const captureSpeedMult = (activeGameMode && activeGameMode.name === 'arena') ? 0.5 : 1.0;
       if(presenceDelta !== 0){
         const rate = Math.sign(presenceDelta) * (25 + (Math.abs(presenceDelta) - 1) * 5) * captureSpeedMult;
         this.control += rate * dt;
@@ -199,7 +186,7 @@ export class Tower{
           this.owner = 0; this.control = 100; game.shake = 0.3;
           playSound('capture_tower', this.pos, { team: 0 });
           if (prevOwner0 === 1) playSound('lose_tower', this.pos, { team: 1 });
-          if(!gc.socket || game.isHost) {
+          if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 0 && dist(p.pos, this.pos) <= this.captureRadius);
               let totalLvl = 0, pCount = 0;
               for (let p of game.players) { if (p.team >= 0) { totalLvl += p.level; pCount++; } }
@@ -214,7 +201,7 @@ export class Tower{
             }
               let kName = caps.length > 0 ? caps[0].className : 'Blue Team';
               let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 0, victimTeam: -1, isCapture: true };
-              if(gc.socket) gc.socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
+              if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
           }
       } 
       if (this.control <= -100 && this.owner !== 1){
@@ -222,7 +209,7 @@ export class Tower{
           this.owner = 1; this.control = -100; game.shake = 0.3;
           playSound('capture_tower', this.pos, { team: 1 });
           if (prevOwner1 === 0) playSound('lose_tower', this.pos, { team: 0 });
-          if(!gc.socket || game.isHost) {
+          if(!socket || game.isHost) {
               let caps = game.players.filter(p => p.alive && p.team === 1 && dist(p.pos, this.pos) <= this.captureRadius);
               let totalLvl = 0, pCount = 0;
               for (let p of game.players) { if (p.team >= 0) { totalLvl += p.level; pCount++; } }
@@ -237,7 +224,7 @@ export class Tower{
             }
               let kName = caps.length > 0 ? caps[0].className : 'Red Team';
               let ev = { killer: kName, victim: 'Tower '+(this.index+1), killerTeam: 1, victimTeam: -1, isCapture: true };
-              if(gc.socket) gc.socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
+              if(socket) socket.emit('broadcast_kill', ev); if(game.killFeed) game.killFeed.push({...ev, timer: 5.0});
           }
       }
       } // end if (this.maxHp === null) — capture blok
@@ -245,7 +232,7 @@ export class Tower{
 
     if (this.owner >= 0) {
       if (this.attackCooldown > 0) this.attackCooldown -= dt;
-      if (this.attackCooldown <= 0 && (!gc.socket || game.isHost)) {
+      if (this.attackCooldown <= 0 && (!socket || game.isHost)) {
         let isBeingCaptured = false;
         for (let p of game.players) { if (p.alive && p.team !== this.owner && dist(p.pos, this.pos) <= this.captureRadius) { isBeingCaptured = true; break; } }
         if (!isBeingCaptured) {
@@ -284,7 +271,7 @@ export class Tower{
             const dmgMult = isHero ? 2.0 : 2.5; // +100% vs heroes, +150% vs minions
             const shotDamage = Math.round(this.attackDamage * dmgMult);
             game.projectiles.push(new Projectile(this.pos.x, this.pos.y, Math.cos(angle)*speed, Math.sin(angle)*speed, 'tower', this.owner, {damage: shotDamage, dmgType: 'physical', glyph: '♦', life: this.attackRange/speed}));
-            if (gc.socket) gc.socket.emit('host_event', { type: 'tower_shoot', x: this.pos.x, y: this.pos.y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, owner: this.owner, damage: shotDamage, life: this.attackRange/speed });
+            if (socket) socket.emit('host_event', { type: 'tower_shoot', x: this.pos.x, y: this.pos.y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, owner: this.owner, damage: shotDamage, life: this.attackRange/speed });
           }
         }
       }
@@ -302,7 +289,7 @@ export class Tower{
       game.shake = 0.5;
       playSound('capture', this.pos);
       // Odměna za zničení věže — všichni živí útočníci v širokém okolí
-      if (!gc.socket || game.isHost) {
+      if (!socket || game.isHost) {
         const attackerTeam = killerId ? (game.players.find(p => p.id === killerId)?.team ?? -1) : -1;
         const attackers = attackerTeam >= 0
           ? game.players.filter(p => p.alive && p.team === attackerTeam && dist(p.pos, this.pos) < 900)
@@ -316,7 +303,7 @@ export class Tower{
         for (const p of attackers) grantRewards(p, gShare, eShare);
         const kName = attackers.length > 0 ? attackers[0].className : (attackerTeam === 0 ? 'Blue Team' : 'Red Team');
         const ev = { killer: kName, victim: 'Tower ' + (this.index + 1), killerTeam: attackerTeam, victimTeam: -1, isCapture: false };
-        if (gc.socket) gc.socket.emit('broadcast_kill', ev);
+        if (socket) socket.emit('broadcast_kill', ev);
         if (game.killFeed) game.killFeed.push({ ...ev, timer: 5.0 });
       }
     }
@@ -397,7 +384,7 @@ export class Minion{
     this.spawnDeathTimer = 0; this.deathDamagePercent = 0; this.deathStartTime = null;
   }
   think() {
-    const isArena = gc.activeGameMode && gc.activeGameMode.name === 'arena';
+    const isArena = activeGameMode && activeGameMode.name === 'arena';
     let giveUpRange = this.isSummon ? 800 : (this.isRanged ? 280 : 200);
     if (isArena && !this.isSummon) giveUpRange = 120;
     if (this.currentTarget && (this.currentTarget.dead || this.currentTarget.hp <= 0 || dist(this.pos, this.currentTarget.pos) > giveUpRange)) {
@@ -434,7 +421,7 @@ export class Minion{
     }
   }
   update(dt){ 
-    if (gc.socket && !game.isHost) {
+    if (socket && !game.isHost) {
         if(this.flashTimer > 0) this.flashTimer -= dt;
         if (this.knockbackTimer > 0) {
             this.knockbackTimer -= dt;
@@ -442,33 +429,30 @@ export class Minion{
             return;
         }
         if (this.targetPos) {
-            const dx = this.targetPos.x - this.pos.x;
-            const dy = this.targetPos.y - this.pos.y;
-            const d = Math.hypot(dx, dy);
-            if (d > 400) {
-                this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y;
-                this._interpT = 0; this._interpDuration = 0;
-            } else if (d > 0.5 && this._interpDuration > 0) {
-                this._interpT = (this._interpT || 0) + dt;
-                const t = Math.min(1, this._interpT / this._interpDuration);
-                if (this._interpStartX !== undefined) {
-                    this.pos.x = this._interpStartX + (this.targetPos.x - this._interpStartX) * t;
-                    this.pos.y = this._interpStartY + (this.targetPos.y - this._interpStartY) * t;
-                }
+            const d = dist(this.pos, this.targetPos);
+            if (d > 250) {
+                this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; this.netVel = null;
+            } else {
+                const vx = this.netVel ? this.netVel.x : 0;
+                const vy = this.netVel ? this.netVel.y : 0;
+                this.pos.x += vx * dt;
+                this.pos.y += vy * dt;
+                this.pos.x += (this.targetPos.x - this.pos.x) * 5 * dt;
+                this.pos.y += (this.targetPos.y - this.pos.y) * 5 * dt;
             }
         }
-        return;
+        return; 
     }
     if(this.dead || game.gameOver) return; 
     const towerTarget = game.towers[this.targetIndex]; if(!towerTarget) return;
     // ARAM retargeting na další žijící věž
-    if (towerTarget.dead && gc.activeGameMode && gc.activeGameMode.name === 'aram') {
-        if (this.team === 0 && this.targetIndex < 5) { this.targetIndex++; this._syncDirty = true; }
-        if (this.team === 1 && this.targetIndex < 2) { this.targetIndex++; this._syncDirty = true; }
+    if (towerTarget.dead && activeGameMode && activeGameMode.name === 'aram') {
+        if (this.team === 0 && this.targetIndex < 5) this.targetIndex++;
+        if (this.team === 1 && this.targetIndex < 2) this.targetIndex++;
     }
     
     // Handle summon death timer (e.g. Pheasant after 6s or Ghoul after 8s)
-    if (this.isSummon && this.spawnDeathTimer > 0 && (!gc.socket || game.isHost)) {
+    if (this.isSummon && this.spawnDeathTimer > 0 && (!socket || game.isHost)) {
         if (this.deathStartTime === null) this.deathStartTime = 0;
         this.deathStartTime += dt;
         if (this.deathStartTime >= this.spawnDeathTimer) {
@@ -484,19 +468,19 @@ export class Minion{
       this.dead = true;
       return;
     }
-    if(dist(this.pos, gc.activeGameMode.mapConfig.spawnPoints[1-this.team]) < 200 && (!gc.socket || game.isHost)) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) { this.dead=true; return; } }
+    if(dist(this.pos, activeGameMode.mapConfig.spawnPoints[1-this.team]) < 200 && (!socket || game.isHost)) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) { this.dead=true; return; } }
     if(this.flashTimer > 0) this.flashTimer -= dt;
     if(this.stunTimer > 0) this.stunTimer -= dt;
     if(this.attackCooldown>0) this.attackCooldown -= dt;
     
     if (this.knockbackTimer > 0) {
         this.knockbackTimer -= dt;
-        if (!gc.socket || game.isHost) moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt); // Pohyb minionů řídí Host
+        if (!socket || game.isHost) moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt); // Pohyb minionů řídí Host
         return;
     }
     if (this.regenBuffTimer > 0) {
         this.regenBuffTimer -= dt;
-        if (!gc.socket || game.isHost) { this.hp = Math.min(this.maxHp, this.hp + this.regenBuffAmount * dt); }
+        if (!socket || game.isHost) { this.hp = Math.min(this.maxHp, this.hp + this.regenBuffAmount * dt); }
         if (Math.random() < 0.1) spawnParticles(this.pos.x, this.pos.y, 1, '#0f0', {life: 0.3});
     }
     if(this.stunTimer > 0) return;
@@ -521,17 +505,16 @@ export class Minion{
                     this.id, this.team,
                     { damage: this.attackDamage, dmgType: 'physical', glyph: '•', life: projLife, radius: 5 }
                 ));
-                if (gc.socket) gc.socket.emit('host_event', { type: 'minion_shoot', x: this.pos.x, y: this.pos.y, vx: Math.cos(angle)*projSpeed, vy: Math.sin(angle)*projSpeed, tm: this.team, life: projLife });
             } else {
                 // Melee: instant damage + small swipe animation
-                if (!gc.socket || game.isHost) {
+                if (!socket || game.isHost) {
                     applyDamage(this.currentTarget, this.attackDamage, 'physical', this.id);
                 }
                 const ang = Math.atan2(this.currentTarget.pos.y - this.pos.y, this.currentTarget.pos.x - this.pos.x);
                 spawnParticles(this.pos.x + Math.cos(ang) * 12, this.pos.y + Math.sin(ang) * 12,
                     1, this.team === 0 ? '#7af' : '#f87',
                     { glyph: ')', angle: ang, speed: 120, life: 0.18, size: 60, rotate: true, stretchX: 0.35 });
-                if (!gc.socket || game.isHost) {
+                if (!socket || game.isHost) {
                     if (this.currentTarget.hp <= 0) {
                         if (this.currentTarget.className) handlePlayerKill(this.currentTarget, this.id);
                         else { if (this.currentTarget.die) this.currentTarget.die(); else this.currentTarget.dead = true; }
@@ -543,8 +526,8 @@ export class Minion{
         if (this.currentTarget && d > stopRange) { dx = this.currentTarget.pos.x - this.pos.x; dy = this.currentTarget.pos.y - this.pos.y; }
     } else {
         if (!this.atTarget) {
-            let destPos = gc.activeGameMode.mapConfig.MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos;
-            if (gc.activeGameMode && gc.activeGameMode.name === 'arena') {
+            let destPos = activeGameMode.mapConfig.MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos;
+            if (activeGameMode && activeGameMode.name === 'arena') {
                 if (towerTarget && towerTarget.owner === this.team) {
                     destPos = this.team === 0 ? {x: 2917, y: 682} : {x: 483, y: 682};
                 } else {
@@ -552,7 +535,7 @@ export class Minion{
                 }
             }
             let distToTarget = dist(this.pos, destPos);
-            if (gc.activeGameMode && gc.activeGameMode.minionPathMode === 'linear') {
+            if (activeGameMode && activeGameMode.minionPathMode === 'linear') {
                 // ARAM: přímá linka k cíli
                 dx = destPos.x - this.pos.x;
                 dy = destPos.y - this.pos.y;
@@ -564,11 +547,11 @@ export class Minion{
             }
             if (distToTarget <= 70) { 
                 this.atTarget = true; this.linger = 3.5; dx = 0; dy = 0; 
-                if (gc.activeGameMode && gc.activeGameMode.name === 'arena' && towerTarget && towerTarget.owner === this.team) {
+                if (activeGameMode && activeGameMode.name === 'arena' && towerTarget && towerTarget.owner === this.team) {
                     this.dead = true;
-                    if (!gc.socket || game.isHost) {
+                    if (!socket || game.isHost) {
                         game.score[this.team] = (game.score[this.team] || 0) + 2;
-                        game.damageNumbers.push(new gc.DamageNumber(this.pos.x, this.pos.y - 15, '+2', this.team === 0 ? '#486FED' : '#FF4E4E'));
+                        game.damageNumbers.push(new DamageNumber(this.pos.x, this.pos.y - 15, '+2', this.team === 0 ? '#486FED' : '#FF4E4E'));
                     }
                 }
             }
@@ -609,14 +592,14 @@ export class Minion{
 export class HealPickup {
   constructor(x, y) { this.pos = {x,y}; this.active = true; this.respawnTimer = 0; this.radius = 20; }
   update(dt) {
-    if(gc.socket && !game.isHost) return; 
+    if(socket && !game.isHost) return; 
     if(!this.active) { this.respawnTimer -= dt; if(this.respawnTimer <= 0) this.active = true; return; }
     for(let p of game.players) {
       if(p.alive && this.active && dist(p.pos, this.pos) < this.radius + p.radius) {
         applyHeal(p, p.effectiveMaxHp * 0.33); this.active = false; this.respawnTimer = 45.0;
-        spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); if (p === gc.localPlayer) flashMessage("+33% HP!");
+        spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); if (p === player) flashMessage("+33% HP!");
         playSound('heal_pickup', this.pos);
-        if (gc.socket && game.isHost) gc.socket.emit('host_event', { type: 'heal_pickup', playerId: p.id, hp: p.hp, healIndex: game.heals.indexOf(this) });
+        if (socket && game.isHost) socket.emit('host_event', { type: 'heal_pickup', playerId: p.id, hp: p.hp, healIndex: game.heals.indexOf(this) });
       }
     }
   }
@@ -626,15 +609,15 @@ export class HealPickup {
 export class PowerUp {
   constructor(x,y) { this.pos = {x,y}; this.radius = 80; this.captureTimer = 0; this.active = true; this.respawnTimer = 0; }
   update(dt) {
-    if(gc.socket && !game.isHost) return; 
+    if(socket && !game.isHost) return; 
     if(!this.active) { this.respawnTimer -= dt; if(this.respawnTimer <= 0) { this.active = true; this.captureTimer = 0; } return; }
     let capturingPlayer = null; for(let p of game.players) { if(p.alive && dist(p.pos, this.pos) < this.radius) { capturingPlayer = p; break; } }
     if(capturingPlayer) {
       this.captureTimer += dt;
       if(this.captureTimer >= 10.0) {
         capturingPlayer.hasPowerup = true; capturingPlayer.powerupTimer = 120.0; this.active = false; this.respawnTimer = 120.0;
-        spawnParticles(this.pos.x, this.pos.y, 40, '#ff0', {speed: 250}); if(capturingPlayer === gc.localPlayer) flashMessage("POWER UP OBTAINED! (+20% STATS)");
-        if(gc.socket && game.isHost) gc.socket.emit('host_event', { type: 'powerup_pickup', playerId: capturingPlayer.id, x: this.pos.x, y: this.pos.y });
+        spawnParticles(this.pos.x, this.pos.y, 40, '#ff0', {speed: 250}); if(capturingPlayer === player) flashMessage("POWER UP OBTAINED! (+20% STATS)");
+        if(socket && game.isHost) socket.emit('host_event', { type: 'powerup_pickup', playerId: capturingPlayer.id, x: this.pos.x, y: this.pos.y });
           if (capturingPlayer.powerupsCollected !== undefined) capturingPlayer.powerupsCollected += 1;
           if (typeof capturingPlayer.refreshDominionPCS === 'function') capturingPlayer.refreshDominionPCS();
       }
@@ -665,7 +648,7 @@ export class SpeedPad {
   constructor(x, y) { this.pos = {x, y}; this.radius = 60; }
   update(dt) {
     // Host zpracovává všechny hráče; klient jen svého lokálního hráče (boti jsou na Hostovi)
-    const targets = (gc.socket && !game.isHost) ? (gc.localPlayer ? [gc.localPlayer] : []) : game.players;
+    const targets = (socket && !game.isHost) ? (player ? [player] : []) : game.players;
     for (let p of targets) {
       if (p && p.alive && dist(p.pos, this.pos) < this.radius + p.radius) {
         p.msBuffTimer = Math.max(p.msBuffTimer || 0, 3.0);

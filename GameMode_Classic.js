@@ -1,8 +1,7 @@
 import { game, camera } from './State.js';
 import * as ClassicMap from './MapConfig.js';
 import { Minion } from './Entities.js';
-import { gc } from './GameContext.js';
-const showEnd = (...a) => gc.showEnd(...a);
+import { showEnd } from './UI.js';
 import { DominionBrain } from './BotBrain.js';
 
 // ── Classic / Dominion mode ───────────────────────────────────────────────────

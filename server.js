@@ -1,24 +1,10 @@
-import express from 'express';
-import http from 'http';
-import { Server } from 'socket.io';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import { startServerGame, stopServerGame, applyPlayerUpdate, removePlayerFromGame, handlePlayerAction } from './ServerEngine.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = dirname(__filename);
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  // Enable per-message deflate compression — reduces bandwidth ~60-70% for game state packets
-  perMessageDeflate: {
-    threshold: 256, // compress messages larger than 256 bytes
-  },
-  // Increase ping timeout for slow free-tier server
-  pingTimeout: 10000,
-  pingInterval: 5000,
-});
+const io = new Server(server);
 
 app.use(express.static(__dirname));
 
@@ -64,7 +50,6 @@ io.on('connection', (socket) => {
           io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: rooms[currentRoom].players, settings: rooms[currentRoom].settings });
           
           if (Object.keys(rooms[currentRoom].players).length === 0) {
-              stopServerGame(currentRoom);
               delete rooms[currentRoom];
           }
           currentRoom = null;
@@ -150,49 +135,33 @@ io.on('connection', (socket) => {
   // Někdo klikl na Start Game
   socket.on('start_game', () => {
     if (!currentRoom || !rooms[currentRoom]) return;
-    console.log(`[SERVER] Hra začíná v ${currentRoom}! Server je host.`);
+    console.log(`[SERVER] Hra začíná v ${currentRoom}! Host: ${socket.id}`);
     rooms[currentRoom].started = true;
-    // hostId: '__server__' — všichni klienti nastaví game.isHost = false
-    io.to(currentRoom).emit('game_start', { players: rooms[currentRoom].players, hostId: '__server__', settings: rooms[currentRoom].settings });
-    sendRoomList();
-    // Spustit server-side game loop
-    try {
-      startServerGame(io, currentRoom, rooms[currentRoom].players, rooms[currentRoom].settings);
-    } catch (err) {
-      console.error('[SERVER] Chyba při spouštění ServerEngine:', err);
-    }
+    io.to(currentRoom).emit('game_start', { players: rooms[currentRoom].players, hostId: socket.id, settings: rooms[currentRoom].settings }); 
+    sendRoomList(); // Updatne lidem venku v prohlížeči informaci "[IN GAME]"
   });
 
   // Během hry: Hráč posílá svou lokální pozici
   socket.on('player_update', (data) => {
     if(currentRoom && rooms[currentRoom] && rooms[currentRoom].players[socket.id]) {
-      // Nejprve aktualizuj autoritativní stav na serveru
-      if (rooms[currentRoom].started) applyPlayerUpdate(currentRoom, socket.id, data);
-      // Pak broadcastuj ostatním klientům pro interpolaci pohybu
       Object.assign(rooms[currentRoom].players[socket.id], data);
       socket.broadcast.to(currentRoom).emit('network_player_update', rooms[currentRoom].players[socket.id]);
     }
   });
 
-  // Zprostředkování útoků a kouzel (Aby to viděli ostatní) + server-side aplikace damage
-  socket.on('player_action', (data) => {
-    if (currentRoom) {
-      socket.broadcast.to(currentRoom).emit('network_player_action', data);
-      // Server applies damage/effects for human player actions
-      if (rooms[currentRoom]?.started) handlePlayerAction(currentRoom, socket.id, data);
-    }
-  });
+  // Zprostředkování útoků a kouzel (Aby to viděli ostatní)
+  socket.on('player_action', (data) => { if (currentRoom) socket.broadcast.to(currentRoom).emit('network_player_action', data); });
+  socket.on('host_state', (data) => { if (currentRoom) socket.broadcast.to(currentRoom).emit('network_host_state', data); });
+  socket.on('host_event', (data) => { if (currentRoom) socket.broadcast.to(currentRoom).emit('network_host_event', data); });
   socket.on('broadcast_kill', (data) => { if (currentRoom) socket.broadcast.to(currentRoom).emit('network_kill_feed', data); });
   socket.on('ping_check', (_, ack) => { if (typeof ack === 'function') ack(); });
 
   socket.on('disconnect', () => {
     console.log(`[SERVER] Hráč odpojen: ${socket.id}`);
     const tempRoom = currentRoom;
-    const wasStarted = tempRoom && rooms[tempRoom] && rooms[tempRoom].started;
     leaveCurrentRoom();
     if (tempRoom) {
         io.to(tempRoom).emit('player_disconnected', socket.id);
-        if (wasStarted) removePlayerFromGame(tempRoom, socket.id);
     }
   });
 });

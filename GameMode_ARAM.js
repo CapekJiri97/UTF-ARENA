@@ -1,7 +1,6 @@
 import { game, camera } from './State.js';
 import * as AramMap from './MapConfig_ARAM.js';
-import { gc } from './GameContext.js';
-const showEnd = (...a) => gc.showEnd(...a);
+import { showEnd } from './UI.js';
 import { AramBrain } from './BotBrain.js';
 import { Minion } from './Entities.js';
 
