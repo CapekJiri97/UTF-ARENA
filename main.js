@@ -345,9 +345,24 @@ import { initAudio, playSound } from './Audio.js';
       if (game && game.isHost) return;
       if (data.type === 'tower_shoot') {
         game.projectiles.push(new Projectile(data.x, data.y, data.vx, data.vy, 'tower', data.owner, {damage: data.damage, dmgType: 'physical', glyph: '♦', life: data.life}));
+      } else if (data.type === 'minion_shoot') {
+        // Visual-only minion projectile — cull if > 900px from local player
+        const viewX = player ? player.pos.x : data.x;
+        const viewY = player ? player.pos.y : data.y;
+        if ((data.x - viewX)**2 + (data.y - viewY)**2 < 900*900) {
+          const color = data.tm === 0 ? '#7af' : '#f87';
+          game.projectiles.push(new Projectile(data.x, data.y, data.vx, data.vy, 'minion', data.tm, {damage: 0, dmgType: 'physical', glyph: '•', life: data.life, radius: 5, noHit: true, color}));
+        }
       } else if (data.type === 'heal_pickup') {
         let p = game.players.find(x => x.id === data.playerId);
-        if (p) { p.hp = data.hp; spawnParticles(game.heals[data.healIndex].pos.x, game.heals[data.healIndex].pos.y, 25, '#0f0', {speed: 150}); if(p === player) { flashMessage("+33% HP!"); game.screenHealFlash = 0.5; } }
+        if (p) {
+          // HP comes authoritatively via _broadcastPvp — don't override it here
+          const heal = game.heals && game.heals[data.healIndex];
+          const px = heal ? heal.pos.x : (p.pos.x); const py = heal ? heal.pos.y : (p.pos.y);
+          spawnParticles(px, py, 25, '#0f0', {speed: 150});
+          playSound('heal_pickup', p.pos);
+          if (p === player) { flashMessage("+33% HP!"); game.screenHealFlash = 0.5; }
+        }
       } else if (data.type === 'powerup_pickup') {
         let p = game.players.find(x => x.id === data.playerId);
         if (p) { p.hasPowerup = true; p.powerupTimer = 120.0; if (p.powerupsCollected !== undefined) p.powerupsCollected += 1; if (typeof p.refreshDominionPCS === 'function') p.refreshDominionPCS(); spawnParticles(data.x, data.y, 40, '#ff0', {speed: 250}); if(p === player) flashMessage("POWER UP OBTAINED! (+20% STATS)"); }

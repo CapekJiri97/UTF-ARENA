@@ -292,7 +292,8 @@ export function startServerGame(io, roomName, playersData, settings) {
   let botTimer    = 0;   // 30 Hz — bot pozice (proximity culled)
   let minionTimer = 0;   //  6 Hz — minion pozice (proximity culled)
   let scoreTimer = 0;   // 2 Hz  — gold, exp, kills (scoreboard)
-  let slowTimer  = 0;   // 1 Hz  — towers, heals, nexus (málo se mění)
+  let towerTimer = 0;   //  3 Hz — towers (control mění se při capture)
+  let slowTimer  = 0;   //  1 Hz — heals, nexus (málo se mění)
   let perfTimer  = 0;   // 1 Hz  — server perf stats pro UI overlay
   let tickWarnings = 0;
   // Rolling perf metrics (reset každou sekundu při _broadcastPerf)
@@ -327,11 +328,11 @@ export function startServerGame(io, roomName, playersData, settings) {
         console.error('[SERVER ENGINE] Tick error:', err.message, err.stack);
       }
 
-      pvpTimer   += dt;
       pvpTimer    += dt;
       botTimer    += dt;
       minionTimer += dt;
       scoreTimer  += dt;
+      towerTimer  += dt;
       slowTimer   += dt;
       perfTimer   += dt;
 
@@ -355,7 +356,12 @@ export function startServerGame(io, roomName, playersData, settings) {
         scoreTimer = 0;
         _broadcastScore(io, roomName);
       }
-      // 1 Hz — statické věci (towers, heals, nexus)
+      // 3 Hz — věže (control se mění při capture)
+      if (towerTimer >= 0.333) {
+        towerTimer = 0;
+        _broadcastTowers(io, roomName);
+      }
+      // 1 Hz — healy, nexus (málokdy se mění)
       if (slowTimer >= 1.0) {
         slowTimer = 0;
         _broadcastSlow(io, roomName, activeMode);
@@ -810,11 +816,19 @@ function _broadcastScore(io, roomName) {
   if (score.length > 0) io.to(roomName).emit('network_score', score);
 }
 
-// 1 Hz — towers, heals, nexus (málo se mění)
+// 3 Hz — věže (control/owner se mění při capture)
+function _broadcastTowers(io, roomName) {
+  if (!game.towers || game.towers.length === 0) return;
+  io.to(roomName).emit('network_host_state', {
+    bots: [], minions: [], humans: [],
+    towers: game.towers.map(t => ({ i: t.index, c: t.control, o: t.owner, l: t.isLocked, u: t.unlockTimer })),
+  });
+}
+
+// 1 Hz — healy, nexus (málokdy se mění)
 function _broadcastSlow(io, roomName, activeMode) {
   io.to(roomName).emit('network_host_state', {
     bots: [], minions: [], humans: [],
-    towers:  game.towers.map(t => ({ i: t.index, c: t.control, o: t.owner, l: t.isLocked, u: t.unlockTimer })),
     heals:   game.heals.map(h => h.active),
     powerup: game.powerup ? { a: game.powerup.active, c: game.powerup.captureTimer } : null,
     nexus:   [game.nexus[0], game.nexus[1]],

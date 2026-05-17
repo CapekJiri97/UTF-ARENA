@@ -20,7 +20,7 @@ const spawnParticles         = (...a) => gc.spawnParticles(...a);
 export class Projectile{
   constructor(x,y,vx,vy,ownerId,ownerTeam,opts={}){ this.pos={x,y}; this.vel={x:vx,y:vy}; 
     this.radius=opts.radius||4; this.life=opts.life||2.0; this.ownerId = ownerId; this.ownerTeam = ownerTeam; this.damage = opts.damage||25; this.dmgType = opts.dmgType||'physical'; this.glyph = opts.glyph||'*'; this.dead = false;
-    this.color = ownerTeam === 0 ? '#486FED' : (ownerTeam === 1 ? '#FF4E4E' : '#fff'); 
+    this.color = opts.color || (ownerTeam === 0 ? '#486FED' : (ownerTeam === 1 ? '#FF4E4E' : '#fff'));
     this.opts = opts; }
   update(dt){ if(this.dead) return; this.pos.x += this.vel.x*dt; this.pos.y += this.vel.y*dt; this.life -= dt; if(this.life<=0) this.dead = true;
     // Boundary check only every other frame (boundary is large, projectiles move slowly relative to it)
@@ -39,6 +39,8 @@ export class Projectile{
     
     const pierce = this.opts.pierce || false;
     if (!pierce) this._pierceHit = null; // non-pierce: reset not needed, but safe
+
+    if (this.opts.noHit) return; // visual-only projectile (e.g. client-side minion shoot)
 
     let hitTarget = null;
     for(let m of game.minions){
@@ -519,6 +521,7 @@ export class Minion{
                     this.id, this.team,
                     { damage: this.attackDamage, dmgType: 'physical', glyph: '•', life: projLife, radius: 5 }
                 ));
+                if (gc.socket) gc.socket.emit('host_event', { type: 'minion_shoot', x: this.pos.x, y: this.pos.y, vx: Math.cos(angle)*projSpeed, vy: Math.sin(angle)*projSpeed, tm: this.team, life: projLife });
             } else {
                 // Melee: instant damage + small swipe animation
                 if (!gc.socket || game.isHost) {

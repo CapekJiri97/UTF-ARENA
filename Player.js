@@ -755,7 +755,7 @@ export class Player{
            game.particles.push(new gc.Particle(this.pos.x, this.pos.y, '#f80', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
            for(let m of game.minions){ if(!m.dead && m.team !== this.team && dist(this.pos, m.pos) <= range){ applyDamage(m, expl.damage * 0.75, expl.dmgType, expl.id, false, true, true); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; if (!gc.socket || game.isHost) grantMinionKillRewards(this, m.pos); } } }
            if (!gc.socket || game.isHost) { for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= range){ applyDamage(p, expl.damage, expl.dmgType, expl.id, false, true, true); if (expl.bonusCurrentHpDmg) { applyDamage(p, Math.round(p.hp * expl.bonusCurrentHpDmg), 'magical', expl.id, false, true, true); } if (expl.silenceDuration) { p.silenceTimer = Math.max(p.silenceTimer || 0, expl.silenceDuration); game.effectTexts.push(new gc.EffectText(p.pos.x, p.pos.y-20, "SILENCED", '#fff')); } if (expl.slowDuration) { p.slowTimer = Math.max(p.slowTimer || 0, expl.slowDuration); p.slowMod = expl.slowMod || 0.6; } spawnParticles(p.pos.x, p.pos.y, 4, '#fff'); if(p.hp<=0){ handlePlayerKill(p, expl.id); } } } }
-           if (expl.msBuff > 0 && (!gc.socket || game.isHost)) { this.msBuffTimer = Math.max(this.msBuffTimer || 0, expl.msBuffDuration); this.msBuffAmount = Math.max(this.msBuffAmount || 0, expl.msBuff); }
+           if (expl.msBuff > 0) { this.msBuffTimer = Math.max(this.msBuffTimer || 0, expl.msBuffDuration); if (!gc.socket || game.isHost) { this.msBuffAmount = Math.max(this.msBuffAmount || 0, expl.msBuff); } }
            spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
            this.dashEndExplosion = null;
         }
@@ -1258,10 +1258,12 @@ export class Player{
             spawnDeathTimer: sp.spawnDeathTimer || 0, spawnDeathPercent: 0.20
         }));
     } else if (sp.type === 'buff_ad_as') {
+        // Visual timers on all clients; stat recalc (actual AD/AS boost) runs server-side only
+        this.adAsBuffTimer = sp.duration;
+        this.adAsBuffAmount = sp.amount;
+        if (sp.shieldAmount) { this.shieldTimer = sp.duration; }
         if (!gc.socket || game.isHost) {
-            this.adAsBuffTimer = sp.duration;
-            this.adAsBuffAmount = sp.amount;
-            if (sp.shieldAmount) { this.shield = sp.shieldAmount + (pAD * 0.3) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 15); this.shieldTimer = sp.duration; }
+            if (sp.shieldAmount) { this.shield = sp.shieldAmount + (pAD * 0.3) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 15); }
         }
         spawnParticles(this.pos.x, this.pos.y, 15, '#f00', {speed: 150});
     } else if (sp.type === 'aoe') {
@@ -1374,11 +1376,14 @@ export class Player{
             }
         } } }
         if (sp.shieldAmount) {
-            if (!gc.socket || game.isHost) { this.shield = sp.shieldAmount + (pAP * 0.2); this.shieldTimer = sp.duration || 2.5; }
+            this.shieldTimer = sp.duration || 2.5;
+            if (!gc.socket || game.isHost) { this.shield = sp.shieldAmount + (pAP * 0.2); }
             spawnParticles(this.pos.x, this.pos.y, 8, '#7ff');
         }
     } else if (sp.type === 'hana_q') {
-        if (!gc.socket || game.isHost) { this.hanaBuffTimer = sp.duration || 5.0; this.regenBuffTimer = sp.duration || 5.0; this.regenBuffAmount = 5 + (pAP * 0.1) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 2); }
+        this.hanaBuffTimer = sp.duration || 5.0;
+        this.regenBuffTimer = sp.duration || 5.0;
+        if (!gc.socket || game.isHost) { this.regenBuffAmount = 5 + (pAP * 0.1) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 2); }
         spawnParticles(this.pos.x, this.pos.y, 15, '#f0f', {speed: 150});
     } else if (sp.type === 'dash' || sp.type === 'dash_def') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
@@ -1387,7 +1392,7 @@ export class Player{
         this.dashTimer = dashTime;
         this.dashVel = { x: Math.cos(angle)*(distToMove/dashTime), y: Math.sin(angle)*(distToMove/dashTime) };
         spawnParticles(this.pos.x, this.pos.y, 8, '#fff');
-        if (sp.type === 'dash_def') { if (!gc.socket || game.isHost) this.defBuffTimer = 4.0; spawnParticles(this.pos.x, this.pos.y, 10, '#88f', {speed: 100}); }
+        if (sp.type === 'dash_def') { this.defBuffTimer = 4.0; spawnParticles(this.pos.x, this.pos.y, 10, '#88f', {speed: 100}); }
         if (sp.radius && sp.baseDamage !== undefined) { 
             let aoeSlow = this.onSpellHitSlow ? this.onSpellHitSlow / 2 : 0;
             const _dSlowDur = aoeSlow ? Math.max(sp.slowDuration || 0, 1.5) : (sp.slowDuration || 0);
@@ -1395,22 +1400,21 @@ export class Player{
             this.dashEndExplosion = { radius: sp.radius, damage: damage, dmgType: this.dmgType, id: this.id, slowDuration: _dSlowDur, slowMod: _dSlowMod, silenceDuration: sp.silenceDuration, bonusCurrentHpDmg: sp.bonusCurrentHpDmg || 0, msBuff: sp.msBuff || 0, msBuffDuration: sp.msBuffDuration || 0 };
         }
     } else if (sp.type === 'shield_explode') {
+        this.shieldExplodeData = { timer: sp.duration, damage: damage, radius: sp.radius, dmgType: this.dmgType, bonusMaxHpDmg: sp.bonusMaxHpDmg || 0 };
         if (!gc.socket || game.isHost) {
             this.shield = (sp.amount || 0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 20);
-            this.shieldExplodeData = { timer: sp.duration, damage: damage, radius: sp.radius, dmgType: this.dmgType, bonusMaxHpDmg: sp.bonusMaxHpDmg || 0 };
         }
         spawnParticles(this.pos.x, this.pos.y, 15, '#ccc', {speed: 100});
     } else if (sp.type === 'flamethrower') {
         this.flamethrowerTimer = sp.duration || 2.5;
         this.flamethrowerTick = 0;
-        if (!gc.socket || game.isHost) {
-            let ticks = (sp.duration || 2.5) / (sp.tickRate || 0.10);
-            this.flamethrowerData = {
-                damage: damage / ticks, dmgType: this.dmgType, id: this.id,
-                range: sp.range || 160, cone: sp.cone || (40 * Math.PI / 180),
-                onSpellHitSlow: this.onSpellHitSlow ? this.onSpellHitSlow / 2 : 0
-            };
-        }
+        let ticks = (sp.duration || 2.5) / (sp.tickRate || 0.10);
+        this.flamethrowerData = {
+            damage: (!gc.socket || game.isHost) ? damage / ticks : 0,
+            dmgType: this.dmgType, id: this.id,
+            range: sp.range || 160, cone: sp.cone || (40 * Math.PI / 180),
+            onSpellHitSlow: this.onSpellHitSlow ? this.onSpellHitSlow / 2 : 0
+        };
     } else if (sp.type === 'dash_heal_silence') {
         let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10));
         if (!gc.socket || game.isHost) { let healed = applyHeal(this, healAmount); if(this.stats) this.stats.hpHealed += healed; }
@@ -1423,7 +1427,8 @@ export class Player{
         spawnParticles(this.pos.x, this.pos.y, 8, '#fff');
         this.dashEndExplosion = { radius: sp.radius, damage: damage, dmgType: this.dmgType, id: this.id, silenceDuration: sp.silenceDuration };
     } else if (sp.type === 'buff_ms') {
-        if (!gc.socket || game.isHost) { this.msBuffTimer = sp.duration; this.msBuffAmount = (sp.amount || 0) + (pAP * (sp.scaleAP || 0)) + (pAD * (sp.scaleAD || 0)); }
+        this.msBuffTimer = sp.duration;
+        if (!gc.socket || game.isHost) { this.msBuffAmount = (sp.amount || 0) + (pAP * (sp.scaleAP || 0)) + (pAD * (sp.scaleAD || 0)); }
         spawnParticles(this.pos.x, this.pos.y, 15, '#0ff', {speed: 150});
     } else if (sp.type === 'summon') {
         let bestTower = null, bd = Infinity;
@@ -1442,7 +1447,8 @@ export class Player{
         }
         spawnParticles(this.pos.x, this.pos.y, 10, '#a3c');
     } else if (sp.type === 'reaper_q') {
-        if (!gc.socket || game.isHost) { this.reaperCharge = sp.charges || 3; this.reaperTimer = 4.0; }
+        this.reaperCharge = sp.charges || 3;
+        this.reaperTimer = 4.0;
         spawnParticles(this.pos.x, this.pos.y, 20, '#800080', {speed: 150});
     } else if (sp.type === 'reaper_e') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
@@ -1450,10 +1456,11 @@ export class Player{
         const dashTime = sp.dashTime || 0.15;
         this.dashTimer = dashTime;
         this.dashVel = { x: Math.cos(angle)*(distToMove/dashTime), y: Math.sin(angle)*(distToMove/dashTime) };
+        this.msBuffTimer = sp.duration || 1.5;
+        this.shieldTimer = sp.duration || 1.5;
         if (!gc.socket || game.isHost) {
-            this.msBuffTimer = sp.duration || 1.5; this.msBuffAmount = 0.4;
+            this.msBuffAmount = 0.4;
             this.shield = (sp.amount || 0) + (pAP * (sp.scaleAP||0)) + sp.level * (sp.scaleLevel !== undefined ? sp.scaleLevel : 20);
-            this.shieldTimer = sp.duration || 1.5;
             this.spells.Q.cd = 0; // Okamžitý reset Q!
         }
         spawnParticles(this.pos.x, this.pos.y, 15, '#800080', {speed: 120});
@@ -1607,10 +1614,11 @@ export class Player{
     } else if (sp.type === 'spin_to_win') {
         this.spinTimer = sp.duration || 2.5;
         this.spinTick = 0;
+        // MS buff is visual-only on client (damage runs server-side only)
+        this.msBuffTimer = sp.duration || 2.5;
+        this.msBuffAmount = 0.05;
         if (!gc.socket || game.isHost) {
             this.spinData = { damage: damage, dmgType: this.dmgType, id: this.id, radius: sp.radius || 150, tickRate: sp.tickRate || 0.25 };
-            this.msBuffTimer = sp.duration || 2.5;
-            this.msBuffAmount = 0.05;
         }
         spawnParticles(this.pos.x, this.pos.y, 20, '#ccc', {speed: 150});
     } else if (sp.type === 'omnislash') {
@@ -1649,7 +1657,8 @@ export class Player{
         game.particles.push(new gc.Particle(this.pos.x, this.pos.y, '#0ff', {shape: 'ring', radius: range, life: 0.4, speed: 0, lineWidth: 4}));
         for(let p of game.players){
             if(p.team === this.team && p.alive && dist({x:tx, y:ty}, p.pos) <= range){
-                if (!gc.socket || game.isHost) { p.shield = Math.max(p.shield || 0, shieldAmt); p.shieldTimer = Math.max(p.shieldTimer || 0, sp.duration || 5.0); }
+                p.shieldTimer = Math.max(p.shieldTimer || 0, sp.duration || 5.0);
+                if (!gc.socket || game.isHost) { p.shield = Math.max(p.shield || 0, shieldAmt); }
                 spawnParticles(p.pos.x, p.pos.y, 10, '#0ff');
             }
         }
@@ -1683,14 +1692,16 @@ export class Player{
     } else if (sp.type === 'ubercharge') {
         if (this.uberChargeTimer >= 5.0 && this.beamTargetId) {
             this.uberChargeTimer = 0;
+            this.msBuffTimer = sp.duration || 3.0;
             if (!gc.socket || game.isHost) {
                 this.invulnerableTimer = sp.duration || 3.0;
-                this.msBuffTimer = sp.duration || 3.0; this.msBuffAmount = 0.3;
+                this.msBuffAmount = 0.3;
             }
             spawnParticles(this.pos.x, this.pos.y, 30, '#ffcc00', {speed: 200});
             let target = game.players.find(p => p.id === this.beamTargetId);
             if (target) {
-                if (!gc.socket || game.isHost) { target.invulnerableTimer = Math.max(target.invulnerableTimer || 0, sp.duration || 3.0); target.msBuffTimer = Math.max(target.msBuffTimer || 0, sp.duration || 3.0); target.msBuffAmount = 0.3; }
+                target.msBuffTimer = Math.max(target.msBuffTimer || 0, sp.duration || 3.0);
+                if (!gc.socket || game.isHost) { target.invulnerableTimer = Math.max(target.invulnerableTimer || 0, sp.duration || 3.0); target.msBuffAmount = 0.3; }
                 spawnParticles(target.pos.x, target.pos.y, 30, '#ffcc00', {speed: 200});
             }
         } else {
@@ -1699,7 +1710,9 @@ export class Player{
         }
     }
     if (sp.type === 'volstrov_q') {
-        if (!gc.socket || game.isHost) { this.volstrovQTimer = sp.duration || 3.0; this.volstrovQData = { bonusAsMult: sp.bonusAsMult || 1.6, bonusRange: sp.bonusRange || 80, msSlow: sp.msSlow || 0.5 }; }
+        // Timer needed on all clients for visual (slow aura, range indicator); damage runs server-side only
+        this.volstrovQTimer = sp.duration || 3.0;
+        this.volstrovQData = { bonusAsMult: sp.bonusAsMult || 1.6, bonusRange: sp.bonusRange || 80, msSlow: sp.msSlow || 0.5 };
         spawnParticles(this.pos.x, this.pos.y, 20, '#ffe066', {speed: 160});
     } else if (sp.type === 'volstrov_e') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
@@ -1707,9 +1720,9 @@ export class Player{
         const dashTime = sp.dashTime || 0.12;
         this.dashTimer = dashTime;
         this.dashVel = { x: Math.cos(angle)*(distToMove/dashTime), y: Math.sin(angle)*(distToMove/dashTime) };
+        this.shieldTimer = sp.duration || 1.5;
         if (!gc.socket || game.isHost) {
             this.shield = (sp.amount || 50) + (pAP * (sp.scaleAP || 0.30));
-            this.shieldTimer = sp.duration || 1.5;
             if (this.spells.Q.cd > 0) this.spells.Q.cd *= 0.5;
         }
         spawnParticles(this.pos.x, this.pos.y, 15, '#ffe066', {speed: 120});
