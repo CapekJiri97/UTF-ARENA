@@ -299,7 +299,7 @@ export function startServerGame(io, roomName, playersData, settings) {
 
   // ── Tick loop (20 FPS = 50 ms) ───────────────────────────
   roomEntry.interval = setInterval(() => {
-    if (roomEntry.state.gameOver || !roomEntry.state.started) return;
+    if (roomEntry.state.gameOver || !roomEntry.state.started) { console.log(`[PERF DEBUG] tick skipped — gameOver=${roomEntry.state.gameOver} started=${roomEntry.state.started}`); return; }
 
     const now = Date.now();
     const rawDt = (now - lastTick) / 1000;
@@ -349,6 +349,7 @@ export function startServerGame(io, roomName, playersData, settings) {
       // 1 Hz — server perf overlay
       if (perfTimer >= 1.0) {
         perfTimer = 0;
+        console.log(`[PERF DEBUG] perfTimer fired, _perfLogCounter=${_perfLogCounter}`);
         const avgMs  = _perfTickCount > 0 ? _perfTickMsSum / _perfTickCount : 0;
         const mem    = process.memoryUsage();
         const perfData = {
