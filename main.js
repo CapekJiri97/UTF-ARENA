@@ -124,7 +124,7 @@ import { initAudio, playSound } from './Audio.js';
     // Nastaví deadline interpolaci na entitě — voláno při každém přijatém position packetu.
     // Entita se bude lineárně pohybovat z aktuální pozice do (nx, ny) za dobu rovnou
     // době od posledního packetu (adaptivní perioda). Žádný overshoot, žádný jitter.
-    function _setInterpTarget(ent, nx, ny) {
+    function _setInterpTarget(ent, nx, ny, maxDur = 0.20) {
       const now = performance.now();
       const elapsed = ent._lastPosTime ? (now - ent._lastPosTime) / 1000 : 0.1;
       ent._lastPosTime = now;
@@ -135,7 +135,7 @@ import { initAudio, playSound } from './Audio.js';
       } else {
         ent._interpStartX = ent.pos.x; ent._interpStartY = ent.pos.y;
       }
-      ent._interpDuration = Math.min(0.20, Math.max(0.03, elapsed));
+      ent._interpDuration = Math.min(maxDur, Math.max(0.03, elapsed));
       ent._interpT = 0;
     }
 
@@ -260,7 +260,7 @@ import { initAudio, playSound } from './Audio.js';
           game.minions.push(minion);
         }
         if (minion) {
-          _setInterpTarget(minion, m.x, m.y);
+          _setInterpTarget(minion, m.x, m.y, 0.45);
           minion.targetPos = { x: m.x, y: m.y };
           minion.hp = m.hp;
           // Spawn packet obsahuje statická data (spawn:1), rutinní packet jen x/y/hp
