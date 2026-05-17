@@ -289,8 +289,8 @@ export function startServerGame(io, roomName, playersData, settings) {
   const spawnRef    = { val: 0 };
   const spawnInterval  = 16.0;
   const nexusDrainRate = 0.75;
-  let pvpTimer    = 0;   // 30 Hz — human HP/shield/buffs (PvP kritické)
-  let botTimer    = 0;   // 30 Hz — bot pozice (proximity culled)
+  let pvpTimer    = 0;   // 45 Hz — human HP/shield/buffs (PvP kritické)
+  let botTimer    = 0;   // 45 Hz — bot pozice (proximity culled)
   let minionTimer = 0;   //  6 Hz — minion pozice (proximity culled)
   let scoreTimer = 0;   // 2 Hz  — gold, exp, kills (scoreboard)
   let towerTimer = 0;   //  3 Hz — towers (control mění se při capture)
@@ -337,13 +337,13 @@ export function startServerGame(io, roomName, playersData, settings) {
       slowTimer   += dt;
       perfTimer   += dt;
 
-      // 30 Hz — human HP, shield, buffs, knockback korekce (PvP kritické)
-      if (pvpTimer >= 0.033) {
+      // 45 Hz — human HP, shield, buffs, knockback korekce (PvP kritické)
+      if (pvpTimer >= 0.022) {
         pvpTimer = 0;
         _broadcastPvp(io, roomName);
       }
-      // 30 Hz — boti (proximity culled)
-      if (botTimer >= 0.033) {
+      // 45 Hz — boti (proximity culled)
+      if (botTimer >= 0.022) {
         botTimer = 0;
         _broadcastBots(io, roomName);
       }

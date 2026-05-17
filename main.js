@@ -124,25 +124,26 @@ import { initAudio, playSound } from './Audio.js';
     // Nastaví deadline interpolaci na entitě — voláno při každém přijatém position packetu.
     // Start = předchozí TARGET (ne aktuální vizuální pozice) aby nedocházelo k jitteru
     // při resetování interpolace uprostřed pohybu.
-    function _setInterpTarget(ent, nx, ny, maxDur = 0.08) {
-      const now = performance.now();
-      const elapsed = ent._lastPosTime ? (now - ent._lastPosTime) / 1000 : 0.1;
-      ent._lastPosTime = now;
+    function _setInterpTarget(ent, nx, ny, maxDur = 0) {
       const snapDist = Math.hypot(nx - ent.pos.x, ny - ent.pos.y);
       if (snapDist > 400) {
         // Velký skok (respawn, teleport) — snap okamžitě
         ent.pos.x = nx; ent.pos.y = ny;
-        ent._interpStartX = nx; ent._interpStartY = ny;
-      } else {
-        // Začni od předchozího targetu (kde entita "má být"), ne od vizuální pozice.
-        // To eliminuje jitter při resetování interpolace uprostřed pohybu.
+      } else if (maxDur > 0) {
+        // Interpolace pro miniony (volá se s explicitním maxDur=0.45)
+        const now = performance.now();
+        const elapsed = ent._lastPosTime ? (now - ent._lastPosTime) / 1000 : 0.1;
+        ent._lastPosTime = now;
         const prevTx = ent.targetPos ? ent.targetPos.x : ent.pos.x;
         const prevTy = ent.targetPos ? ent.targetPos.y : ent.pos.y;
         ent._interpStartX = prevTx;
         ent._interpStartY = prevTy;
+        ent._interpDuration = Math.min(maxDur, Math.max(0.05, elapsed));
+        ent._interpT = 0;
+      } else {
+        // Boti a hráči — 45 Hz, přímý snap, žádná interpolace
+        ent.pos.x = nx; ent.pos.y = ny;
       }
-      ent._interpDuration = Math.min(maxDur, Math.max(0.05, elapsed));
-      ent._interpT = 0;
     }
 
     socket.on('network_player_update', (data) => {
@@ -1385,14 +1386,17 @@ import { initAudio, playSound } from './Audio.js';
     }
   }
 
+  const TARGET_FRAME_MS = 1000 / 50; // 50 FPS = 20ms
   let last = performance.now();
-  function loop(){ 
+  function loop(){
     try {
-      const now = performance.now(); const dtRaw = Math.min(0.05, (now-last)/1000); last = now; 
+      const now = performance.now();
+      if (now - last < TARGET_FRAME_MS) { requestAnimationFrame(loop); return; }
+      const dtRaw = Math.min(0.05, (now-last)/1000); last = now;
       const steps = game.isSpectator ? 1 : 1;
       for(let i=0; i<steps; i++) { update(dtRaw); }
       if (!simMode) draw();
-      requestAnimationFrame(loop); 
+      requestAnimationFrame(loop);
     } catch(err) {
       console.error('[FATAL ERROR] Game loop crashed!', err);
       try { console.table({ players: game.players.length, minions: game.minions.length, projectiles: game.projectiles.length, particles: game.particles.length, isHost: game.isHost }); } catch(_) {}
