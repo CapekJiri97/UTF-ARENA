@@ -1,0 +1,375 @@
+UTF Arena — Server-Authoritative Architecture: Dokumentace
+Co bylo uděláno
+Fáze 1 — Modulárnost & Node kompatibilita
+Cíl: Oddělit herní logiku od browser/UI závislostí, aby šla spustit na Node.js serveru.
+
+Nový soubor: GameContext.js
+Centrální dependency injection hub. Obsahuje gc objekt s no-op výchozími hodnotami a funkci registerGameContext(overrides).
+
+
+export const gc = {
+  socket: null,
+  localPlayer: null,
+  keys: null, mouse: null,
+  activeGameMode: null,
+  applyDamage: () => 0,
+  applyHeal: () => {},
+  handlePlayerKill: () => {},
+  moveEntityWithCollision: () => {},
+  grantRewards: () => {},
+  grantMinionKillRewards: () => {},
+  recalcPlayerItemStats: () => {},
+  // ... vizuální no-opy ...
+  Particle: class { constructor(){} update(){ return false; } draw(){} },
+  EffectText: class { ... },
+  DamageNumber: class { ... },
+};
+export function registerGameContext(overrides) { Object.assign(gc, overrides); }
+Upravené soubory:
+
+Player.js a Entities.js — odstraněny přímé importy z Effects.js, Audio.js, UI.js, main.js. Vše jde přes proxy:
+
+import { gc } from './GameContext.js';
+const applyDamage = (...a) => gc.applyDamage(...a);
+const applyHeal   = (...a) => gc.applyHeal(...a);
+// místo importovaného 'player':
+if (this === gc.localPlayer) { ... }
+// místo importovaného 'socket':
+gc.socket.emit(...)
+GameMode_Classic.js, GameMode_ARAM.js, GameMode_Arena.js — showEnd, flashMessage, atd. přes gc
+main.js — volá registerGameContext({ socket, localPlayer: player, keys, mouse, applyDamage, ... }) na konci modulu; udržuje gc.localPlayer a gc.socket aktuální
+package.json — přidáno "type": "module" (ES modules)
+server.js — přepsán z CommonJS (require) na ES modules (import)
+Fáze 2 — Server Game Loop
+Cíl: Node.js server plně řídí hru. Klienti jen renderují a posílají input.
+
+Nový soubor: ServerGameLogic.js
+
+Factory funkce createServerLogic(io, roomName, game, getActiveMode) vracející objekt se server-side implementacemi herní logiky. Tyto funkce jsou registrovány do gc při startu hry.
+
+Obsah (mirror main.js implementací):
+
+applyDamage(target, amount, type, sourceId, isNetwork, isSpell, isAoE) — armor/MR, penetrační bonus, štít, Titan Sigil, Strike Burn, lifesteal, anti-heal, stats tracking → broadcastuje show_damage a player_hp_update
+applyHeal(target, amount) — anti-heal, clamp na maxHp → broadcastuje player_hp_update
+handlePlayerKill(victim, killerId) — hledá killera v recentAttackers, granty, asistence → broadcastuje player_died + kill_feed
+moveEntityWithCollision(ent, vx, vy, dt) — wall grid kolize + map boundary polygon
+grantRewards(targetPlayer, baseGold, baseExp) — level-scaled gold/exp, bot auto-buy
+grantMinionKillRewards(killer, minionPos) — sdílení EXP s blízkými spoluhráči
+recalcPlayerItemStats(pl) — base stat reset + item aplikace + difficulty bonusy
+Broadcast: emit(event, data) = io.to(roomName).emit(event, data)
+
+Nový soubor: ServerEngine.js
+
+Hlavní server engine. Exportuje:
+
+startServerGame(io, roomName, playersData, settings)
+stopServerGame(roomName)
+applyPlayerUpdate(playerId, data)
+removePlayerFromGame(playerId)
+handlePlayerAction(playerId, data)
+Polyfilly (hned na začátku souboru, před importy):
+
+
+if (typeof window      === 'undefined') global.window = {};
+if (typeof performance === 'undefined') global.performance = { now: Date.now.bind(Date) };
+Virtual socket — překládá entity emit() volání do room broadcasts:
+
+
+function makeVirtualSocket(io, roomName) {
+  return {
+    emit(event, data) {
+      switch (event) {
+        case 'host_event':    io.to(roomName).emit('network_host_event', data); break;
+        case 'host_state':    io.to(roomName).emit('network_host_state', data); break;
+        case 'broadcast_kill':io.to(roomName).emit('network_kill_feed',  data); break;
+        case 'player_action': io.to(roomName).emit('network_player_action', data); break;
+      }
+    },
+    broadcast: { to: () => ({ emit: () => {} }) },
+  };
+}
+startServerGame dělá:
+
+Resetuje game singleton stav
+Nastaví game.isHost = true (server je host)
+Vytvoří vSocket a serverLogic, zaregistruje přes registerGameContext({ socket: vSocket, localPlayer: null, ...serverLogic })
+Zavolá initWalls(activeMode), vytvoří towers, activeMode.init()
+Vytvoří Player instance pro lidské hráče
+Vytvoří BotPlayer instance pro boty, nastaví bot._isBotPlayer = true
+Spustí setInterval(..., 50) — 20 FPS game loop
+Game loop (_serverTick):
+
+Update všech playerů (p.update(dt)) a minionů, projektilů, towers, healů, powerupů, speedpadů
+Burn DoT tick pro playery a miniony
+Player–player kolize (push), minion–minion kolize (spatial grid)
+Pasivní příjem goldů (1s tick)
+spawnRef.val = activeMode.tickSpawn(dt, spawnRef.val, spawnInterval) — DŮLEŽITÉ: zachycuje return value
+activeMode.tickObjective(dt, nexusDrainRate, vSocket)
+Čistí mrtvé entity + vizuální buffery (game.particles = [] každý tick)
+Broadcasts:
+
+Fast (každý tick, 20 Hz) — delta-komprimované bot pozice + stavy
+Slow (každých 125 ms, 8 Hz) — full state: minions, humans HP/gold/exp/status, towers, heals, powerup, nexus
+handlePlayerAction — klient posílá player_action event → server aplikuje:
+
+shoot → p.shoot(tx, ty)
+cast → p.castSpell(spKey, tx, ty)
+summoner → p.castSummonerSpell()
+buy_item / sell_item → shop logika
+Upravené soubory:
+
+server.js — přidány handlery:
+
+
+// start_game:
+rooms[currentRoom].started = true;
+io.to(currentRoom).emit('game_start', { players, hostId: '__server__', settings });
+startServerGame(io, currentRoom, rooms[currentRoom].players, rooms[currentRoom].settings);
+
+// player_update:
+if (rooms[currentRoom].started) applyPlayerUpdate(socket.id, data);
+
+// player_action:
+if (rooms[currentRoom]?.started) handlePlayerAction(socket.id, data);
+
+// leaveCurrentRoom():
+stopServerGame(currentRoom);
+
+// disconnect:
+if (wasStarted) removePlayerFromGame(socket.id);
+GameMode_Arena.js — opravena syntax chyba:
+
+
+// CHYBA (gc.socket není platný identifikátor parametru):
+tickObjective(dt, _drainRate, gc.socket) { ... }
+_triggerGameOver(winner, gc.socket) { ... }
+
+// OPRAVA:
+tickObjective(dt, _drainRate, _socket) { ... }
+_triggerGameOver(winner, _socket) { ... }
+// (tělo funkcí používá gc.socket přímo z module scope — parameter byl nepoužívaný)
+Jak to funguje end-to-end
+
+Klient klikne Start Game
+    → socket.emit('start_game')
+    → Server: startServerGame() spustí loop
+    → Server: io.emit('game_start', { hostId: '__server__' })
+    → Klienti: game.isHost = false (socket.id !== '__server__')
+    → Klienti: startGameNetworked() vytvoří lokální Player + bot placeholdery
+
+Každých 50 ms (server):
+    → _serverTick() — boti myslí, minioni bojují, towers střílí
+    → _broadcastFast() → 'network_host_state' (bot pozice)
+    → každých 125 ms: _broadcastSlow() → 'network_host_state' (full state)
+
+Klient pohybuje hráčem:
+    → socket.emit('player_update', { x, y, aimAngle })
+    → Server: applyPlayerUpdate() aktualizuje pozici
+
+Klient útočí / castuje spell:
+    → socket.emit('player_action', { type: 'shoot'/'cast', tx, ty })
+    → Server: handlePlayerAction() → p.shoot() / p.castSpell()
+    → gc.applyDamage() → serverLogic.applyDamage() → broadcastuje show_damage + hp_update
+
+Hráč umře:
+    → gc.handlePlayerKill() → broadcastuje 'player_died'
+    → Klienti: volají client-side handlePlayerKill() pro vizuální efekty (bez reward grantu)
+Limitace Fáze 2
+Jeden aktivní game per Node.js process — game singleton z State.js je globální. Multi-room podpora vyžaduje Worker Threads (Fáze 7).
+Lidský hráč — pozice — server důvěřuje pozici klienta (anti-cheat = Fáze 6). Server jen přijímá player_update a přepisuje pozici.
+Bez client-side prediction — při lagu se lokální hráč "trhá" zpět na serverovou pozici.
+Fáze 2.5 — Opravy a zpevnění server autority
+Co bylo uděláno
+
+Bot roster synchronizace
+ServerEngine.js — po spawnutí botů emituje io.to(roomName).emit('bot_roster', [...]) s autoritativním seznamem botů (id, team, className, lane, summonerSpell).
+main.js startGameNetworked — odstraněna lokální randomizace botů. Klienti nespawňují boty sami.
+main.js — přidán socket.on('bot_roster') handler, který spawňuje BotPlayer instance se správnými třídami ze serveru.
+
+buyItem / sellItem — server autorita
+Při server architektuře (!game.isHost): nejdříve emituj player_action na server, pak optimisticky aktualizuj lokálně pro okamžitou odezvu UI.
+Odstraněna duplicitní aplikace buy/sell od jiných síťových hráčů v network_player_action handleru — server pošle aktualizaci přes _broadcastSlow.
+
+_broadcastSlow humans — rozšíření
+Přidána pole: towerDefends, towerAssaultTime, objectivePresenceTime, powerupsCollected, powerupUptime, pcsBreakdown, level, maxHp, items (slice), AD, AP, armor, mr, speed, attackSpeed, abilityHaste.
+Klient v network_host_state zpracovává level-up animaci, items sync a stat sync pro ostatní síťové hráče.
+
+server.js player_update — pořadí
+applyPlayerUpdate() se volá před broadcast, aby server měl vždy nejnovější pozici před odesláním ostatním.
+
+Fáze 3 — Combat autorita + opravy integrity
+Co bylo uděláno
+
+network_host_event: damage odstraněno z klienta
+Klient (main.js) již nevykonává applyDamage při přijetí host_event type=damage.
+Server posílá show_damage (vizuální efekty) + player_hp_update (autoritativní HP) — double-apply je tím eliminován.
+Stará 'damage' větev v network_host_event handleru odstraněna.
+
+revive() / die() guard
+main.js: p.revive() a p.die() obaleny typeof guard (method existence check), aby klient nespadl pokud by server poslal alive/dead změnu dřív než je Player plně inicializován.
+
+_broadcastSlow humans — stats pole
+ServerEngine.js _broadcastSlow: přidáno stats: { dmgDealt, dmgTaken, hpHealed } pro každého lidského hráče.
+Klient tato data přijímal ale server je neodesílal — scoreboard nyní zobrazuje správné combat statistiky.
+
+Combat pipeline (verified):
+Boti a minioni: Minion.update() / BotPlayer.update() → gc.applyDamage() → serverLogic.applyDamage() → show_damage + player_hp_update broadcast
+Lidský hráč útočí: klient emituje player_action{type:'shoot'/'cast'} → server p.shoot()/p.castSpell() → gc.applyDamage() → broadcast
+Tower damage: Tower.update() → gc.applyDamage() přímo na serveru → broadcast (server architektura nepotřebuje host_event:damage)
+
+Fáze 4 — Vizuální feedback a cleanup klientské logiky
+Co bylo uděláno
+
+Lokální damage čísla pro vlastní útoky (klient)
+applyDamage v main.js: rozšířena podmínka pro zobrazení DamageNumber — nyní se zobrazují i v server módu pokud je hráč zdrojem útoku (sourceId === player.id).
+Díky tomu hráč vidí svá damage čísla okamžitě (bez čekání na síťové echo od serveru).
+Podmínka pro particle efekty rozšířena stejně — blast particles se spawňují lokálně při vlastním útoku.
+
+Odstraněn mrtvý host_event: damage emit
+V applyDamage: odstraněn blok `if (socket && game.isHost)` který posílal host_event type='damage' pro minion → player damage.
+V server architektuře server posílá player_hp_update přímo — tento kód byl nikdy nespuštěný remnant z host-client éry.
+
+player_disconnected — playersById rebuild
+socket.on('player_disconnected'): po odebrání hráče z game.players se přestaví game.playersById Map.
+Bez toho by O(1) lookup vrátil stale / undefined pro odpojeného hráče.
+
+Minion _syncDirty při HP změně
+ServerGameLogic.js applyDamage: při každém HP snížení miniona se nastaví m._syncDirty = true.
+Bez toho klient dostal HP update minionů pouze jednou (při spawnu) a pak zobrazoval vždy 100% HP.
+Entities.js Minion.update: při ARAM retargetingu (targetIndex změna) se nastaví _syncDirty = true, klient pak ví o novém cíli miniona.
+
+Fáze 5 — Spell/Combat server-authority audit
+Cíl: Opravit všechny situace, kde klientská logika nesprávně aplikovala herní stav (dvojí aplikace buffů, healu, poškození).
+
+Souhrn oprav v Player.js:
+
+Rally summoner spell — m.attackDamage += 10; m.speed += 20 chráněno if (!gc.socket || game.isHost)
+Ghost / Boost / Heal / Revive summoner spells — applyHeal a buff timery chráněny server guard
+processBeam (Doctor) — auto-uber trigger (invulnerableTimer na caster + target) chráněn server guard; klienti stav přijímají přes network_host_event: uber_buffs
+shield_aoe spell — p.shield / p.shieldTimer pro všechny spoluhráče chráněny server guard
+ubercharge spell — invulnerableTimer / msBuffTimer na caster + target chráněny server guard
+buff_ad_as spell — adAsBuffTimer, shield chráněny server guard
+heal_self spell — applyHeal chráněno server guard
+heal_aoe spell — celá smyčka applyHeal chráněna server guard
+aoe spell — smyčka applyDamage na hráče přesunuta do if (!gc.socket || game.isHost) (bylo bez guardu)
+cone_slow_shield spell — shieldAmount assignment chráněno server guard
+hana_q spell — hanaBuffTimer, regenBuffTimer chráněny server guard
+dash_def spell — defBuffTimer chráněno server guard
+shield_explode spell — shield, shieldExplodeData chráněny server guard; shieldExplode explosion loop na hráče přesunuta do server guard; BotPlayer client-only shieldExplode vizuální sekce odstraní applyDamage (jen vizuální efekty)
+flamethrower spell — flamethrowerData (obsahuje damage) nastaveno jen server-side; timer je klientsky jen pro animaci
+buff_ms spell — msBuffTimer, msBuffAmount chráněny server guard
+reaper_q spell — reaperCharge, reaperTimer chráněny server guard
+reaper_e spell — msBuffTimer, shield, spells.Q.cd = 0 chráněny server guard
+tamer_e spell — applyHeal(pet) chráněno server guard
+spin_to_win spell — spinData (damage) a msBuffTimer chráněny server guard; spinTimer klientsky pro animaci
+volstrov_q spell — volstrovQTimer, volstrovQData chráněny server guard
+volstrov_e spell — shield, shieldTimer, spells.Q.cd *= 0.5 chráněny server guard
+dashEndExplosion — smyčka applyDamage na hráče přesunuta do server guard (Player i BotPlayer větev)
+melee ring/cone shoot() — smyčky applyDamage na hráče přesunuty do server guard
+revive() — spawnTamerPet chráněno server guard
+omniPendingStrike — již správně chráněno (!gc.socket || game.isHost || this === gc.localPlayer) ✓
+spinTimer damage tick — již správně chráněno (!gc.socket || game.isHost || this === gc.localPlayer) ✓
+projectile_pull — již správně chráněno ✓
+aoe_knockback, cone_knockback, cone_slow_shield hráči — již správně chráněno ✓
+
+Opravy v ServerEngine.js:
+_broadcastSlow humans — přidána pole rallyT a adAsBuffT/adAsBuffAmt pro správné zobrazení statusů u cizích hráčů
+
+Opravy v main.js:
+network_host_state humans handler — přidáno p.rallyTimer = hData.rallyT
+
+Vzor pro guard:
+Server/offline: !gc.socket || game.isHost (vSocket je truthy, !game.isHost=true → server správně vykoná)
+Klient v server módu: gc.socket && !game.isHost (skip server-only kód)
+Vizuální efekty (particles, EffectText): bez guardu — spawnují se na obou stranách pro responsivitu
+
+Fáze 6 — Client-side prediction (lehká)
+Cíl: Lokální hráč se pohybuje okamžitě bez pocitu lagu. Server posílá autoritativní korekci pozice.
+
+Co bylo uděláno:
+
+ServerEngine.js — _broadcastSlow humans: přidáno x, y (Math.round) do human broadcast
+ServerEngine.js — applyPlayerUpdate: ignoruje klientovu pozici pokud server právě aplikuje knockback/stun/dash (server je autorita)
+ServerEngine.js — _broadcastFast: přidána sekce humanPosCorrections — rychlé korekce pozice pro hráče se serverem řízenou fyziku (knockback, stun, dash) — posílá se 20 Hz
+main.js — network_host_state: zpracování humanPosCorrections — okamžitý snap pozice hráče (bez lerp, protože jde o knockback)
+main.js — network_host_state humans: při přijetí serverové pozice lokálního hráče:
+  - rozdíl > 150px → okamžitý snap (teleport/respawn)
+  - rozdíl 30–150px → smooth lerp přes p._serverPosTarget
+  - rozdíl < 30px → ignorovat (lokální predikce je dostatečně přesná)
+main.js — game loop: každý frame aplikuje smooth lerp k p._serverPosTarget pokud je nastaven (lerpRate = 1 - 0.05^dt, konverguje za ~0.25s)
+  - Lerp se přeskočí pokud má hráč stunTimer > 0 nebo knockbackTimer > 0 (server posílá fast korekci přes humanPosCorrections)
+main.js — player_died + revive: vyčistí p._serverPosTarget aby nedošlo k lerpování na stale korekci
+
+Výsledek:
+Pohyb lokálního hráče je vždy okamžitý (nečeká na server).
+Knockback ze serveru je okamžitě snapped přes humanPosCorrections (20 Hz).
+Malé drift korekce jsou smooth (žádný "trhavý" pohyb).
+
+Fáze 7 — Cleanup & Multi-room
+Cíl: Odstranit mrtvý kód z host-client éry a umožnit paralelní běh více herních místností na jednom Node.js procesu.
+
+Part 1 — Cleanup (main.js):
+Odstraněny 3 mrtvé `if (socket && game.isHost)` bloky z main.js:
+  - applyDamage: emit show_damage → server broadcastuje sám přes network_host_event
+  - applyDamage: emit player_hp_update → server broadcastuje sám přes _broadcastSlow
+  - handlePlayerKill: emit player_died → server broadcastuje sám přes network_host_event
+Odstraněn celý blok "HOST SYNCHRONIZUJE STAV BOTŮ A MINIONŮ" (~70 řádků) z update() v main.js:
+  - `if (game.isHost)` blok s hostSyncTimer + hostSlowSyncTimer posílal host_state/host_state
+  - V server architektuře toto dělá ServerEngine._broadcastFast() + _broadcastSlow() přímo
+  - game.isHost je vždy false na klientech (hostId: '__server__') — celý blok byl dead code
+
+Part 2 — Multi-room (ServerEngine.js):
+Nahrazeny globální singletony `_activeRoom`, `_activeInterval`, `_activeMode` za `_rooms` Map:
+  - _rooms: roomName → { interval, mode, vSocket, serverLogic, state }
+  - Každá room má svůj vlastní game state objekt (state), izolovaný od ostatních rooms
+Context-swap vzor (_withRoomContext):
+  - Před každým tickem: zkopíruje room state do globálního `game` singletonu + swapne gc.socket/activeGameMode/serverLogic
+  - Po ticku: zkopíruje zpět z `game` do room state
+  - Důvod: Player.js, GameMode_*.js, Entities.js importují `game` přímo z State.js — bez refaktoru všech souborů nelze předat per-room stav jako parametr. Context swap je O(n_keys) na tick, prakticky nulová overhead.
+Signatury změněny (server.js aktualizován):
+  - handlePlayerAction(roomName, playerId, data)
+  - removePlayerFromGame(roomName, playerId)
+  - applyPlayerUpdate(roomName, playerId, data)
+Bot ID uniq: bot0_1_roomName (přidán roomName suffix) — zamezí kolizi ID botů across rooms
+
+Part 3 — Final dead-code cleanup:
+Odstraněny zbývající mrtvé kusy z host-client éry:
+  - main.js applyHeal(): 2 mrtvé emit řádky (`show_heal`, `player_hp_update`) — v server módu gc.applyHeal = serverLogic.applyHeal (jiná funkce), v offline módu socket === null
+  - server.js: 2 mrtvé passthrough handlery `socket.on('host_state', ...)` a `socket.on('host_event', ...)` — klienti tyto eventy nikdy neposílají v server-authoritative módu; ServerEngine broadcastuje přímo přes vSocket/io.to()
+
+Co ještě chybí (TODO)
+Jak spustit
+Node.js není aktuálně nainstalován na testovacím PC. Pro spuštění:
+
+
+# 1. Nainstalovat Node.js >= 18 (https://nodejs.org)
+# 2. V složce projektu:
+npm install
+node server.js
+
+# 3. Otevřít v browseru:
+http://localhost:3000
+
+# 4. Ověřit v konzoli serveru:
+# [SERVER ENGINE] Game started in room "..." mode=classic players=10
+Soubory projektu (relevantní)
+Soubor	Role
+server.js	HTTP server + Socket.IO, room management
+ServerEngine.js	Game loop, bot init, broadcasts, player action handling
+ServerGameLogic.js	Server-side applyDamage, applyHeal, handlePlayerKill, atd.
+GameContext.js	DI hub — gc objekt, registerGameContext()
+State.js	game singleton + konstanty
+Player.js	Player + BotPlayer třídy
+Entities.js	Tower, Minion, HealPickup, PowerUp, SpeedPad, Projectile
+GameMode_Classic.js	Dominion game mode
+GameMode_Arena.js	Arena game mode (4v4)
+GameMode_ARAM.js	ARAM game mode
+GameMode_Speed.js	Speed Dominion (spreads Classic)
+MapConfig.js	Classic mapa
+MapConfig_Arena.js	Arena mapa
+MapConfig_ARAM.js	ARAM mapa
+main.js	Klient — renderování, input, socket handlery
+BotBrain.js	Bot strategická AI (DominionBrain, ArenaBrain)
+items.js	Shop systém
+classes.js	Definice postav a summoner spells
+Utils.js	dist, clamp, smoothPolygon, isPointInPoly, atd.

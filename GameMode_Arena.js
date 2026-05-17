@@ -1,12 +1,16 @@
 import { game, camera } from './State.js';
 import * as ArenaMap from './MapConfig_Arena.js';
-import { showEnd } from './UI.js';
 import { ArenaBrain } from './BotBrain.js';
 import { Minion } from './Entities.js';
-import { player, flashMessage, applyDamage, drawHealthBar, socket } from './main.js';
-import { spawnParticles } from './Effects.js';
 import { dist } from './Utils.js';
-import { playSound } from './Audio.js';
+import { gc } from './GameContext.js';
+
+const showEnd        = (...a) => gc.showEnd(...a);
+const flashMessage   = (...a) => gc.flashMessage(...a);
+const applyDamage    = (...a) => gc.applyDamage(...a);
+const drawHealthBar  = (...a) => gc.drawHealthBar(...a);
+const spawnParticles = (...a) => gc.spawnParticles(...a);
+const playSound      = (...a) => gc.playSound(...a);
 
 // ── Arena game mode ───────────────────────────────────────────────────────────
 // 4v4, elipsová mapa, jedna neutrální věž uprostřed.
@@ -100,7 +104,7 @@ export const GameMode_Arena = {
                   if (this._jungleDeathHandled) return;
                   this._jungleDeathHandled = true;
                   if (this.camp) this.camp.respawnTimer = 150.0;
-                  if (!socket || game.isHost) {
+                  if (!gc.socket || game.isHost) {
                     let killer = game.players.find(p => p.id === this.lastAttackerId);
                     if (!killer) {
                         let kMinion = game.minions.find(m => m.id === this.lastAttackerId);
@@ -113,9 +117,9 @@ export const GameMode_Arena = {
                       else if (this.camp.buff === 'AS_AH') killer.jungleAsAhTimer = 120.0;
                       else if (this.camp.buff === 'TANK') killer.jungleTankTimer = 120.0;
 
-                      if (socket) socket.emit('host_event', {type: 'jungle_buff', playerId: killer.id, buff: this.camp.buff});
+                      if (gc.socket) gc.socket.emit('host_event', {type: 'jungle_buff', playerId: killer.id, buff: this.camp.buff});
                       spawnParticles(killer.pos.x, killer.pos.y, 30, '#fff', {speed: 150});
-                      if (killer === player) flashMessage("JUNGLE BUFF OBTAINED!");
+                      if (killer === gc.localPlayer) flashMessage("JUNGLE BUFF OBTAINED!");
                       playSound('heal_pickup', killer.pos);
                     }
                   }
@@ -160,7 +164,7 @@ export const GameMode_Arena = {
                         if (d <= 65) {
                             if (this.attackCooldown <= 0) {
                                 this.attackCooldown = 1.2;
-                                if (!socket || game.isHost) applyDamage(target, this.attackDamage, 'physical', this.id);
+                                if (!gc.socket || game.isHost) applyDamage(target, this.attackDamage, 'physical', this.id);
                                 const ang = Math.atan2(target.pos.y - this.pos.y, target.pos.x - this.pos.x);
                                 spawnParticles(this.pos.x + Math.cos(ang)*15, this.pos.y + Math.sin(ang)*15, 1, '#f00', {glyph: ')', angle: ang, speed: 60, life: 0.15, size: 40});
                                 playSound('hit', this.pos);
@@ -187,7 +191,7 @@ export const GameMode_Arena = {
     return newTimer;
   },
 
-  tickObjective(dt, _drainRate, socket) {
+  tickObjective(dt, _drainRate, _socket) {
     if (game.startDelay > 0 || game.gameOver) return;
 
     // Bodování za držení věže každých HOLD_INTERVAL sekund
@@ -205,8 +209,8 @@ export const GameMode_Arena = {
     game.nexus[1] = game.score[1] || 0;
 
     // Win condition
-    if ((game.score[0] || 0) >= SCORE_CAP && !game.gameOver) this._triggerGameOver(0, socket);
-    if ((game.score[1] || 0) >= SCORE_CAP && !game.gameOver) this._triggerGameOver(1, socket);
+    if ((game.score[0] || 0) >= SCORE_CAP && !game.gameOver) this._triggerGameOver(0, gc.socket);
+    if ((game.score[1] || 0) >= SCORE_CAP && !game.gameOver) this._triggerGameOver(1, gc.socket);
   },
 
   // Voláno z main.js handlePlayerKill — přidej bod zabíjejícímu týmu
@@ -215,12 +219,12 @@ export const GameMode_Arena = {
     game.score[killerTeam] = (game.score[killerTeam] || 0) + KILL_POINTS;
   },
 
-  _triggerGameOver(winner, socket) {
+  _triggerGameOver(winner, _socket) {
     game.gameOver = true;
     game.winner = winner;
     showEnd(winner);
-    if (socket) {
-      socket.emit('host_event', {
+    if (gc.socket) {
+      gc.socket.emit('host_event', {
         type: 'game_over',
         winner,
         finalStats: game.players.map(p => ({
