@@ -30,7 +30,7 @@ const _GAME_STATE_KEYS = [
   'heals','powerup','speedPads','nexus','score','gameOver','winner','started','startDelay',
   'isHost','isSpectator','killFeed','passiveTimer','cleanupTimer','burstHits','deadMinionIds',
   'playersById','minionsById','blueBotDifficulty','redBotDifficulty',
-  '_botDtAcc','_minionDtAcc','_minionCollTick','_pendingMinionDeaths',
+  '_botDtAcc','_minionDtAcc','_minionCollTick','_pendingMinionDeaths','_minionCollGrid',
 ];
 
 // Copy selected keys from src object into dst object
@@ -532,7 +532,7 @@ function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vS
       m.burnDotTick   = (m.burnDotTick || 0) - dt;
       if (m.burnDotTick <= 0) { m.burnDotTick = 0.5; gc.applyDamage(m, m.burnDotTickDmg, 'dot', m.burnDotSource, false, false, false); }
     }
-    if (acc < 0.15) { _minionAcc.set(m.id, acc); continue; }
+    if (acc < 0.20) { _minionAcc.set(m.id, acc); continue; }
     _minionAcc.set(m.id, 0);
     const ox = m.pos.x, oy = m.pos.y;
     m.update(acc);
@@ -560,16 +560,20 @@ function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vS
     }
   }
 
-  // Minion–minion collision — only run every other tick to reduce CPU on free tier
+  // Minion–minion collision — every other tick, reuse persistent Map to avoid GC pressure
   game._minionCollTick = (game._minionCollTick || 0) + 1;
-  if (game._minionCollTick % 2 === 0 && game.minions.length > 1) {
+  if (game._minionCollTick % 6 === 0 && game.minions.length > 1) {
     const CELL = 60;
-    const grid = new Map();
+    if (!game._minionCollGrid) game._minionCollGrid = new Map();
+    const grid = game._minionCollGrid;
+    // Reuse existing arrays — just truncate length instead of allocating new ones
+    for (const arr of grid.values()) arr.length = 0;
     for (const m of game.minions) {
       if (m.dead) continue;
       const key = (Math.floor(m.pos.x / CELL) * 10000 + Math.floor(m.pos.y / CELL));
-      if (!grid.has(key)) grid.set(key, []);
-      grid.get(key).push(m);
+      let cell = grid.get(key);
+      if (!cell) { cell = []; grid.set(key, cell); }
+      cell.push(m);
     }
     for (const m1 of game.minions) {
       if (m1.dead) continue;

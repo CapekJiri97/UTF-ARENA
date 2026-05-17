@@ -124,7 +124,7 @@ import { initAudio, playSound } from './Audio.js';
     // Nastaví deadline interpolaci na entitě — voláno při každém přijatém position packetu.
     // Start = předchozí TARGET (ne aktuální vizuální pozice) aby nedocházelo k jitteru
     // při resetování interpolace uprostřed pohybu.
-    function _setInterpTarget(ent, nx, ny, maxDur = 0.05) {
+    function _setInterpTarget(ent, nx, ny, maxDur = 0.08) {
       const now = performance.now();
       const elapsed = ent._lastPosTime ? (now - ent._lastPosTime) / 1000 : 0.1;
       ent._lastPosTime = now;
@@ -141,7 +141,7 @@ import { initAudio, playSound } from './Audio.js';
         ent._interpStartX = prevTx;
         ent._interpStartY = prevTy;
       }
-      ent._interpDuration = Math.min(maxDur, Math.max(0.033, elapsed));
+      ent._interpDuration = Math.min(maxDur, Math.max(0.05, elapsed));
       ent._interpT = 0;
     }
 
