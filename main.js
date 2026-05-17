@@ -173,8 +173,20 @@ import { initAudio, playSound } from './Audio.js';
           if (bot.targetPos) {
             const dx = bData.x - bot.targetPos.x;
             const dy = bData.y - bot.targetPos.y;
-            const dt2 = bot._lastPosTime ? Math.min(0.2, (performance.now() - bot._lastPosTime) / 1000) : 0.05;
-            bot.netVel = { x: dx / (dt2 || 0.05), y: dy / (dt2 || 0.05) };
+            const d2 = dx*dx + dy*dy;
+            if (d2 > 250*250) {
+              // Velký skok = respawn/dash, snap okamžitě a resetuj velocity
+              bot.pos.x = bData.x; bot.pos.y = bData.y;
+              bot.netVel = null;
+            } else {
+              // Odhadni velocity z předchozího packetu — clampni na rozumný max aby TCP burst nezpůsobil teleport
+              const dt2 = bot._lastPosTime ? Math.min(0.2, Math.max(0.016, (performance.now() - bot._lastPosTime) / 1000)) : 0.05;
+              const maxSpeed = bot.speed ? bot.speed * 3 : 1200;
+              bot.netVel = {
+                x: Math.max(-maxSpeed, Math.min(maxSpeed, dx / dt2)),
+                y: Math.max(-maxSpeed, Math.min(maxSpeed, dy / dt2)),
+              };
+            }
           }
           bot._lastPosTime = performance.now();
           bot.targetPos = { x: bData.x, y: bData.y }; bot.hp = bData.hp; bot.alive = bData.alive; bot.aimAngle = bData.aimAngle;
@@ -244,8 +256,17 @@ import { initAudio, playSound } from './Audio.js';
         if (minion) {
           if (minion.targetPos) {
             const dx = mData.x - minion.targetPos.x; const dy = mData.y - minion.targetPos.y;
-            const dt2 = minion._lastPosTime ? Math.min(0.2, (performance.now() - minion._lastPosTime) / 1000) : 0.05;
-            minion.netVel = { x: dx / (dt2 || 0.05), y: dy / (dt2 || 0.05) };
+            const d2 = dx*dx + dy*dy;
+            if (d2 > 200*200) {
+              minion.pos.x = mData.x; minion.pos.y = mData.y; minion.netVel = null;
+            } else {
+              const dt2 = minion._lastPosTime ? Math.min(0.2, Math.max(0.016, (performance.now() - minion._lastPosTime) / 1000)) : 0.05;
+              const maxSpeed = 900;
+              minion.netVel = {
+                x: Math.max(-maxSpeed, Math.min(maxSpeed, dx / dt2)),
+                y: Math.max(-maxSpeed, Math.min(maxSpeed, dy / dt2)),
+              };
+            }
           }
           minion._lastPosTime = performance.now();
           minion.targetPos = { x: mData.x, y: mData.y }; minion.hp = mData.hp; minion.dead = mData.dead;
@@ -279,27 +300,31 @@ import { initAudio, playSound } from './Audio.js';
                   let p = game.playersById ? game.playersById.get(hData.id) : game.players.find(x => x.id === hData.id);
                   if (p) {
                       if (p === player) {
-                          // LOKÁLNÍ HRÁČ: Počítáme jen přírůstky Goldů a EXPů z Hosta, abychom zamezili skákání UI při nákupech!
+                          // LOKÁLNÍ HRÁČ: Stats a HP ze serveru jsou autorita, ale pozici NEUPRAVUJEME zde.
+                          // Pozice pochází od klienta (client-side prediction) — server ji jen echuje zpátky.
+                          // Korekce pozice pro knockback/stun přichází přes humanPosCorrections ve fast broadcast.
                           let goldDiff = hData.gold - (p.totalGold || 0); if (goldDiff > 0) { p.gold += goldDiff; p.totalGold = hData.gold; }
                           let expDiff = hData.totalExp - (p.totalExp || 0); if (expDiff > 0) { p.exp += expDiff; p.totalExp = hData.totalExp; }
                           p.hp = hData.hp; p.kills = hData.kills; p.deaths = hData.deaths; p.assists = hData.assists;
-                          // CLIENT-SIDE PREDICTION KOREKCE — server posílá autoritativní pozici
-                          if (hData.x !== undefined && hData.y !== undefined && p.alive) {
-                              const dx = hData.x - p.pos.x; const dy = hData.y - p.pos.y;
-                              const dist2 = dx*dx + dy*dy;
-                              if (dist2 > 150*150) {
-                                  // Velký rozdíl (teleport/knockback) — snap okamžitě
-                                  p.pos.x = hData.x; p.pos.y = hData.y;
-                              } else if (dist2 > 30*30) {
-                                  // Malý drift — smooth korekce (přiblíží o 20% každý frame → konverguje za ~0.25s)
-                                  p._serverPosTarget = { x: hData.x, y: hData.y };
-                              }
-                              // Rozdíl < 30px — ignorujeme, lokální predikce je dost přesná
-                          }
                       } else {
-                          // SÍŤOVÍ HRÁČI: Rovnou natvrdo přepisujeme vše, včetně zlata a expů
+                          // SÍŤOVÍ HRÁČI: Stats natvrdo, pozici interpolujeme přes targetPos (stejný systém jako boti)
                           p.hp = hData.hp; p.gold = hData.currentGold; p.totalGold = hData.gold; p.exp = hData.exp; p.totalExp = hData.totalExp;
                           p.kills = hData.kills; p.deaths = hData.deaths; p.assists = hData.assists;
+                          if (hData.x !== undefined && hData.y !== undefined) {
+                            if (p.targetPos) {
+                              const dx = hData.x - p.targetPos.x; const dy = hData.y - p.targetPos.y;
+                              const d2 = dx*dx + dy*dy;
+                              if (d2 > 250*250) {
+                                p.pos.x = hData.x; p.pos.y = hData.y; p.netVel = null;
+                              } else {
+                                const dt2 = p._lastPosTime ? Math.min(0.2, Math.max(0.016, (performance.now() - p._lastPosTime) / 1000)) : 0.05;
+                                const maxSpeed = p.speed ? p.speed * 3 : 1200;
+                                p.netVel = { x: Math.max(-maxSpeed, Math.min(maxSpeed, dx / dt2)), y: Math.max(-maxSpeed, Math.min(maxSpeed, dy / dt2)) };
+                              }
+                            }
+                            p._lastPosTime = performance.now();
+                            p.targetPos = { x: hData.x, y: hData.y };
+                          }
                       }
                       if (hData.shield !== undefined) p.shield = hData.shield;
                       if (hData.silenceT !== undefined) p.silenceTimer = hData.silenceT;

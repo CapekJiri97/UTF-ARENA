@@ -412,13 +412,17 @@ export function applyPlayerUpdate(roomName, playerId, data) {
 function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vSocket) {
   if (game.startDelay > 0) game.startDelay -= dt;
 
-  // Update all players (bots run AI; human players are updated from client position events)
+  // Update players:
+  // - Bots: full p.update(dt) runs AI + movement
+  // - Human players: p.update(dt) runs but movement branch is skipped (Player.js checks
+  //   !_isBotPlayer && !targetPos → no-op). Knockback/dash still handled because those
+  //   branches run before the movement check. Timers + ability effects tick normally.
   for (const p of game.players) {
     const ox = p.pos.x, oy = p.pos.y;
     p.update(dt);
     if (dt > 0) p.vel = { x: (p.pos.x - ox) / dt, y: (p.pos.y - oy) / dt };
 
-    // Burn DoT
+    // Burn DoT applies to all
     if (p.burnDotTimer > 0 && p.alive) {
       p.burnDotTimer -= dt;
       p.burnDotTick   = (p.burnDotTick || 0) - dt;
@@ -603,15 +607,15 @@ function _broadcastSlow(io, roomName, activeMode) {
   const minionOut = [];
   for (const m of game.minions) {
     if (m.dead) { minionOut.push({ id: m.id, dead: true }); continue; }
-    if (m._syncDirty) {
-      m._syncDirty = false;
-      minionOut.push({
-        id: m.id, x: m.pos.x, y: m.pos.y, hp: m.hp, dead: false,
-        maxHp: m.maxHp, team: m.team, targetIndex: m.targetIndex,
-        isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId,
-        isSc: m.isSmallChicken, isBc: m.isBigChicken,
-      });
-    }
+    // Always send all living minions — _syncDirty was only set on spawn/targetIndex change,
+    // so position updates were never reaching clients.
+    m._syncDirty = false;
+    minionOut.push({
+      id: m.id, x: Math.round(m.pos.x), y: Math.round(m.pos.y), hp: m.hp, dead: false,
+      maxHp: m.maxHp, team: m.team, targetIndex: m.targetIndex,
+      isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId,
+      isSc: m.isSmallChicken, isBc: m.isBigChicken,
+    });
   }
 
   const humans = game.players

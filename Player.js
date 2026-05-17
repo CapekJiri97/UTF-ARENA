@@ -779,7 +779,7 @@ export class Player{
     } else if (this.omnislashCount > 0) {
         // Během omnislash nemůžeš ovládat pohyb
     } else {
-        if (this === gc.localPlayer) { // PŘIDÁNO: Zabráníme aplikaci lokálních WASD na cizí hráče
+        if (this === gc.localPlayer) { // Zabráníme aplikaci lokálních WASD na cizí hráče
             if(gc.keys['w']) dy-=1; if(gc.keys['s']) dy+=1; if(gc.keys['a']) dx-=1; if(gc.keys['d']) dx+=1; l = Math.hypot(dx,dy);
             let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? (this.slowMod || 0.6) : 1.0);
             if(this.volstrovQTimer > 0 && this.volstrovQData) moveSpeed *= (1.0 - (this.volstrovQData.msSlow || 0.5));
@@ -788,7 +788,9 @@ export class Player{
             if(this.stunTimer > 0) moveSpeed = 0;
             if(l>0){ dx/=l; dy/=l; this.vel.x = dx*moveSpeed; this.vel.y = dy*moveSpeed; } else { this.vel.x = 0; this.vel.y = 0; }
             moveEntityWithCollision(this, this.vel.x, this.vel.y, dt);
-        } else if (this.targetPos) { // Logika pro ostatní (síťové) hráče
+        } else if (!this._isBotPlayer && !this.targetPos) {
+            // Server-side human player: position comes from client via applyPlayerUpdate — do not move here
+        } else if (this.targetPos) { // Logika pro ostatní (síťové) hráče — interpolace na klientu
             const d = dist(this.pos, this.targetPos);
             if (d > 250) {
                 // Teleport (respawn, dash) — snap okamžitě
