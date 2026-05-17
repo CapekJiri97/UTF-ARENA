@@ -124,25 +124,10 @@ import { initAudio, playSound } from './Audio.js';
     // Nastaví deadline interpolaci na entitě — voláno při každém přijatém position packetu.
     // Start = předchozí TARGET (ne aktuální vizuální pozice) aby nedocházelo k jitteru
     // při resetování interpolace uprostřed pohybu.
-    function _setInterpTarget(ent, nx, ny, maxDur = 0) {
-      const snapDist = Math.hypot(nx - ent.pos.x, ny - ent.pos.y);
-      if (snapDist > 400) {
-        // Velký skok (respawn, teleport) — snap okamžitě
-        ent.pos.x = nx; ent.pos.y = ny;
-      } else if (maxDur > 0) {
-        // Interpolace pro miniony (volá se s explicitním maxDur=0.45)
-        const now = performance.now();
-        const elapsed = ent._lastPosTime ? (now - ent._lastPosTime) / 1000 : 0.1;
-        ent._lastPosTime = now;
-        const prevTx = ent.targetPos ? ent.targetPos.x : ent.pos.x;
-        const prevTy = ent.targetPos ? ent.targetPos.y : ent.pos.y;
-        ent._interpStartX = prevTx;
-        ent._interpStartY = prevTy;
-        ent._interpDuration = Math.min(maxDur, Math.max(0.05, elapsed));
-        ent._interpT = 0;
-      } else {
-        // Boti a hráči — 45 Hz, přímý snap, žádná interpolace
-        ent.pos.x = nx; ent.pos.y = ny;
+    // Nastaví target pozici pro smooth follow interpolaci (15 * dt lerp v Player.update)
+    function _setInterpTarget(ent, nx, ny) {
+      if (Math.hypot(nx - ent.pos.x, ny - ent.pos.y) > 400) {
+        ent.pos.x = nx; ent.pos.y = ny; // snap při respawnu/teleportu
       }
     }
 
@@ -355,6 +340,9 @@ import { initAudio, playSound } from './Audio.js';
       if (game && game.isHost) return;
       if (data.type === 'tower_shoot') {
         game.projectiles.push(new Projectile(data.x, data.y, data.vx, data.vy, 'tower', data.owner, {damage: data.damage, dmgType: 'physical', glyph: '♦', life: data.life}));
+      } else if (data.type === 'pull_hit') {
+        spawnParticles(data.tx, data.ty, 8, '#800080', {speed: 120});
+        if (data.stun) game.effectTexts.push(new gc.EffectText(data.tx, data.ty - 20, "STUNNED", '#ffcc00'));
       } else if (data.type === 'minion_shoot') {
         // Visual-only minion projectile — cull if > 900px from local player
         const viewX = player ? player.pos.x : data.x;

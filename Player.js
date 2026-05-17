@@ -790,20 +790,9 @@ export class Player{
             moveEntityWithCollision(this, this.vel.x, this.vel.y, dt);
         } else if (!this._isBotPlayer && !this.targetPos) {
             // Server-side human player: position comes from client via applyPlayerUpdate — do not move here
-        } else if (this.targetPos) { // Boti + síťoví hráči na klientu — deadline interpolace
-            const snapDist = Math.hypot(this.targetPos.x - this.pos.x, this.targetPos.y - this.pos.y);
-            if (snapDist > 400) {
-                // Respawn nebo velký teleport — snap okamžitě
-                this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y;
-                this._interpT = 0; this._interpDuration = 0;
-            } else {
-                const dur = this._interpDuration || 0.033;
-                this._interpT = Math.min(dur, (this._interpT || 0) + dt);
-                const t = this._interpT / dur;
-                if (this._interpStartX === undefined) { this._interpStartX = this.pos.x; this._interpStartY = this.pos.y; }
-                this.pos.x = this._interpStartX + (this.targetPos.x - this._interpStartX) * t;
-                this.pos.y = this._interpStartY + (this.targetPos.y - this._interpStartY) * t;
-            }
+        } else if (this.targetPos) { // Boti + síťoví hráči na klientu — smooth follow
+            if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; }
+            else { this.pos.x += (this.targetPos.x - this.pos.x) * 15 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 15 * dt; }
         }
     }
 
@@ -1637,11 +1626,24 @@ export class Player{
         p.update = function(dt) {
             let wasDead = this.dead; origUpdate(dt);
             if (this.dead && !wasDead) {
+                // Vizuální explozi vidí všichni klienti
                 game.particles.push(new gc.Particle(this.pos.x, this.pos.y, '#800080', {shape: 'ring', radius: pullRadius, life: 0.4, speed: 0, lineWidth: 5}));
                 spawnParticles(this.pos.x, this.pos.y, 20, '#800080', {speed: 100, life: 0.5});
+                // Damage, knockback a stun pouze na serveru
                 if (!gc.socket || game.isHost) {
                     for(let m of game.minions){ if(!m.dead && m.team !== oTeam && dist(this.pos, m.pos) <= pullRadius){ applyDamage(m, damage * 0.75, dmgType, casterId, false, true, true); let a = Math.atan2(this.pos.y - m.pos.y, this.pos.x - m.pos.x); m.knockbackTimer = 0.3; m.knockbackVel = { x: Math.cos(a)*550, y: Math.sin(a)*550 }; if (stunDur > 0) m.stunTimer = Math.max(m.stunTimer || 0, stunDur); spawnParticles(m.pos.x, m.pos.y, 4, '#fff'); if(m.hp<=0){ m.dead = true; let owner = game.players.find(x=>x.id===casterId); if(owner) grantRewards(owner, 8, 11); } } }
-                    for(let ep of game.players){ if(ep.id !== casterId && ep.team !== oTeam && ep.alive && dist(this.pos, ep.pos) <= pullRadius){ applyDamage(ep, damage, dmgType, casterId, false, true, true); let a = Math.atan2(this.pos.y - ep.pos.y, this.pos.x - ep.pos.x); ep.knockbackTimer = 0.3; ep.knockbackVel = { x: Math.cos(a)*550, y: Math.sin(a)*550 }; if (stunDur > 0) { ep.stunTimer = Math.max(ep.stunTimer || 0, stunDur); game.effectTexts.push(new gc.EffectText(ep.pos.x, ep.pos.y-20, "STUNNED", '#ffcc00')); } spawnParticles(ep.pos.x, ep.pos.y, 4, '#fff'); if(ep.hp<=0) handlePlayerKill(ep, casterId); } }
+                    for(let ep of game.players){
+                        if(ep.id !== casterId && ep.team !== oTeam && ep.alive && dist(this.pos, ep.pos) <= pullRadius){
+                            applyDamage(ep, damage, dmgType, casterId, false, true, true);
+                            let a = Math.atan2(this.pos.y - ep.pos.y, this.pos.x - ep.pos.x);
+                            ep.knockbackTimer = 0.3; ep.knockbackVel = { x: Math.cos(a)*550, y: Math.sin(a)*550 };
+                            if (stunDur > 0) { ep.stunTimer = Math.max(ep.stunTimer || 0, stunDur); }
+                            // Emituj okamžitý knockback event + vizuální efekt pro všechny klienty
+                            if (gc.socket) gc.socket.emit('host_event', { type: 'pull_hit', tx: Math.round(ep.pos.x), ty: Math.round(ep.pos.y), stun: stunDur > 0 });
+                            spawnParticles(ep.pos.x, ep.pos.y, 4, '#fff');
+                            if(ep.hp<=0) handlePlayerKill(ep, casterId);
+                        }
+                    }
                 }
             }
         };
@@ -3528,18 +3530,8 @@ export class BotPlayer extends Player {
               return;
           }
           if (this.targetPos) {
-              const snapDist = Math.hypot(this.targetPos.x - this.pos.x, this.targetPos.y - this.pos.y);
-              if (snapDist > 400) {
-                  this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y;
-                  this._interpT = 0; this._interpDuration = 0;
-              } else {
-                  const dur = this._interpDuration || 0.033;
-                  this._interpT = Math.min(dur, (this._interpT || 0) + dt);
-                  const t = this._interpT / dur;
-                  if (this._interpStartX === undefined) { this._interpStartX = this.pos.x; this._interpStartY = this.pos.y; }
-                  this.pos.x = this._interpStartX + (this.targetPos.x - this._interpStartX) * t;
-                  this.pos.y = this._interpStartY + (this.targetPos.y - this._interpStartY) * t;
-              }
+              if (dist(this.pos, this.targetPos) > 200) { this.pos.x = this.targetPos.x; this.pos.y = this.targetPos.y; }
+              else { this.pos.x += (this.targetPos.x - this.pos.x) * 15 * dt; this.pos.y += (this.targetPos.y - this.pos.y) * 15 * dt; }
           }
           return;
       }
