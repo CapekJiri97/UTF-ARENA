@@ -289,7 +289,7 @@ export function startServerGame(io, roomName, playersData, settings) {
   const spawnInterval  = 16.0;
   const nexusDrainRate = 0.75;
   let pvpTimer    = 0;   // 20 Hz — human HP/shield/buffs (PvP kritické)
-  let botTimer    = 0;   // 20 Hz — bot pozice (proximity culled)
+  let botTimer    = 0;   // 30 Hz — bot pozice (proximity culled)
   let minionTimer = 0;   //  6 Hz — minion pozice (proximity culled)
   let scoreTimer = 0;   // 2 Hz  — gold, exp, kills (scoreboard)
   let slowTimer  = 0;   // 1 Hz  — towers, heals, nexus (málo se mění)
@@ -298,7 +298,7 @@ export function startServerGame(io, roomName, playersData, settings) {
   // Rolling perf metrics (reset každou sekundu při _broadcastPerf)
   let _perfTickCount = 0, _perfSlowTicks = 0, _perfTickMsSum = 0, _perfTickMsMax = 0;
 
-  // ── Tick loop (20 FPS = 50 ms) ───────────────────────────
+  // ── Tick loop (30 FPS = 33 ms) ───────────────────────────
   roomEntry.interval = setInterval(() => {
     if (roomEntry.state.gameOver || !roomEntry.state.started) return;
 
@@ -312,7 +312,7 @@ export function startServerGame(io, roomName, playersData, settings) {
     _perfTickMsSum += tickMs;
     if (tickMs > _perfTickMsMax) _perfTickMsMax = tickMs;
 
-    if (rawDt > 0.10) {
+    if (rawDt > 0.066) {
       _perfSlowTicks++;
       tickWarnings++;
       if (tickWarnings % 30 === 1) console.warn(`[SERVER ENGINE] Slow tick in "${roomName}": ${Math.round(tickMs)}ms (target 67ms)`);
@@ -340,8 +340,8 @@ export function startServerGame(io, roomName, playersData, settings) {
         pvpTimer = 0;
         _broadcastPvp(io, roomName);
       }
-      // 20 Hz — boti (proximity culled)
-      if (botTimer >= 0.05) {
+      // 30 Hz — boti (proximity culled)
+      if (botTimer >= 0.033) {
         botTimer = 0;
         _broadcastBots(io, roomName);
       }
@@ -378,7 +378,7 @@ export function startServerGame(io, roomName, playersData, settings) {
         _perfTickCount = 0; _perfSlowTicks = 0; _perfTickMsSum = 0; _perfTickMsMax = 0;
       }
     });
-  }, 50);
+  }, 33);
 
   _rooms.set(roomName, roomEntry);
 }
@@ -486,12 +486,11 @@ function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vS
   for (const p of game.players) {
     if (p._isBotPlayer) {
       const acc = (_botAcc.get(p.id) || 0) + dt;
-      if (acc < 0.20) { _botAcc.set(p.id, acc); p._aiUpdatedThisTick = false; continue; }
+      if (acc < 0.125) { _botAcc.set(p.id, acc); continue; } // AI tick ~125ms (8 Hz)
       _botAcc.set(p.id, 0);
       const ox = p.pos.x, oy = p.pos.y;
       p.update(acc);
       if (acc > 0) p.vel = { x: (p.pos.x - ox) / acc, y: (p.pos.y - oy) / acc };
-      p._aiUpdatedThisTick = true;
     } else {
       const ox = p.pos.x, oy = p.pos.y;
       p.update(dt);
@@ -697,7 +696,7 @@ function _broadcastPvp(io, roomName) {
   }
 }
 
-// 20 Hz — pozice botů (proximity culled)
+// 30 Hz — pozice botů (proximity culled)
 function _broadcastBots(io, roomName) {
   const humanPos = _humanPositions();
   const botUpdates = [];
@@ -710,8 +709,6 @@ function _broadcastBots(io, roomName) {
     if (tier === 1 && b._proxSkip % 2 !== 0 && !b.isDirty) continue; // ~7 Hz
     if (tier === 2 && b._proxSkip % 4 !== 0 && !b.isDirty) continue; // ~3 Hz
 
-    // Pošli jen pokud AI běželo tento tick nebo je dirty (stat změna) — jinak stejná data zbytečně
-    if (!b._aiUpdatedThisTick && !b.isDirty) continue;
     const moved2 = (b.pos.x - (b._lastSyncX ?? b.pos.x+999))**2 + (b.pos.y - (b._lastSyncY ?? b.pos.y+999))**2;
     if (moved2 <= 1 && !b.isDirty) continue;
     b._lastSyncX = b.pos.x; b._lastSyncY = b.pos.y;
