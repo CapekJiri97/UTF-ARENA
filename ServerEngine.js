@@ -30,7 +30,7 @@ const _GAME_STATE_KEYS = [
   'heals','powerup','speedPads','nexus','score','gameOver','winner','started','startDelay',
   'isHost','isSpectator','killFeed','passiveTimer','cleanupTimer','burstHits','deadMinionIds',
   'playersById','minionsById','blueBotDifficulty','redBotDifficulty',
-  '_botDtAcc','_minionCollTick',
+  '_botDtAcc','_minionCollTick','_pendingMinionDeaths',
 ];
 
 // Copy selected keys from src object into dst object
@@ -295,8 +295,9 @@ export function startServerGame(io, roomName, playersData, settings) {
   let tickWarnings = 0;
   // Rolling perf metrics (reset každou sekundu při _broadcastPerf)
   let _perfTickCount = 0, _perfSlowTicks = 0, _perfTickMsSum = 0, _perfTickMsMax = 0;
+  let _perfLogCounter = 0; // console log každé 3s
 
-  // ── Tick loop (15 FPS = 67 ms) ───────────────────────────
+  // ── Tick loop (20 FPS = 50 ms) ───────────────────────────
   roomEntry.interval = setInterval(() => {
     if (roomEntry.state.gameOver || !roomEntry.state.started) return;
 
@@ -310,7 +311,7 @@ export function startServerGame(io, roomName, playersData, settings) {
     _perfTickMsSum += tickMs;
     if (tickMs > _perfTickMsMax) _perfTickMsMax = tickMs;
 
-    if (rawDt > 0.14) {
+    if (rawDt > 0.10) {
       _perfSlowTicks++;
       tickWarnings++;
       if (tickWarnings % 30 === 1) console.warn(`[SERVER ENGINE] Slow tick in "${roomName}": ${Math.round(tickMs)}ms (target 67ms)`);
@@ -348,21 +349,29 @@ export function startServerGame(io, roomName, playersData, settings) {
       // 1 Hz — server perf overlay
       if (perfTimer >= 1.0) {
         perfTimer = 0;
-        const avgMs = _perfTickCount > 0 ? _perfTickMsSum / _perfTickCount : 0;
-        const mem   = process.memoryUsage();
-        io.to(roomName).emit('server_perf', {
+        const avgMs  = _perfTickCount > 0 ? _perfTickMsSum / _perfTickCount : 0;
+        const mem    = process.memoryUsage();
+        const perfData = {
           avgMs:    Math.round(avgMs * 10) / 10,
           maxMs:    Math.round(_perfTickMsMax * 10) / 10,
           slowPct:  _perfTickCount > 0 ? Math.round(_perfSlowTicks / _perfTickCount * 100) : 0,
           heapMB:   Math.round(mem.heapUsed / 1024 / 1024 * 10) / 10,
           rssMB:    Math.round(mem.rss      / 1024 / 1024 * 10) / 10,
           players:  game.players.length,
-          minions:  game.minions.filter(m => !m.dead).length,
-        });
+          minions:  game.minions.length,
+        };
+        io.to(roomName).emit('server_perf', perfData);
         _perfTickCount = 0; _perfSlowTicks = 0; _perfTickMsSum = 0; _perfTickMsMax = 0;
+
+        _perfLogCounter++;
+        if (_perfLogCounter >= 3) {
+          _perfLogCounter = 0;
+          const slowWarn = perfData.slowPct > 20 ? ' ⚠' : '';
+          console.log(`[PERF "${roomName}"] tick ${perfData.avgMs}/${perfData.maxMs}ms  slow ${perfData.slowPct}%${slowWarn}  heap ${perfData.heapMB}MB  rss ${perfData.rssMB}MB  ${perfData.players}p ${perfData.minions}m`);
+        }
       }
     });
-  }, 67);
+  }, 50);
 
   _rooms.set(roomName, roomEntry);
 }
@@ -470,7 +479,7 @@ function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vS
   for (const p of game.players) {
     if (p._isBotPlayer) {
       const acc = (_botAcc.get(p.id) || 0) + dt;
-      if (acc < 0.13) { _botAcc.set(p.id, acc); continue; } // skip this tick, accumulate
+      if (acc < 0.15) { _botAcc.set(p.id, acc); continue; } // skip this tick, accumulate (~3 ticks at 20 Hz)
       _botAcc.set(p.id, 0);
       const ox = p.pos.x, oy = p.pos.y;
       p.update(acc); // run with accumulated dt so physics stays correct
@@ -593,6 +602,12 @@ function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vS
   if (game.killFeed) {
     game.killFeed.forEach(k => k.timer -= dt);
     game.killFeed = game.killFeed.filter(k => k.timer > 0);
+  }
+
+  // Collect dead minions before filtering — _broadcastFast needs to notify clients
+  if (!game._pendingMinionDeaths) game._pendingMinionDeaths = new Set();
+  for (const m of game.minions) {
+    if (m.dead) { game._pendingMinionDeaths.add(m.id); if (game.deadMinionIds) game.deadMinionIds.add(m.id); }
   }
 
   // Filter dead entities
@@ -719,8 +734,12 @@ function _broadcastFast(io, roomName) {
 
   // Minioni — proximity culled, jen x/y/hp (statické fieldy jdou jen při spawnu)
   const minionUpdates = [];
+  // Notify clients about minions that died this tick (collected before filter in _serverTick)
+  if (game._pendingMinionDeaths && game._pendingMinionDeaths.size > 0) {
+    for (const id of game._pendingMinionDeaths) minionUpdates.push({ id, dead: true });
+    game._pendingMinionDeaths.clear();
+  }
   for (const m of game.minions) {
-    if (m.dead) { minionUpdates.push({ id: m.id, dead: true }); continue; }
     const tier = _proximityTier(m.pos, humanPos);
     m._proxSkip = (m._proxSkip || 0) + 1;
     if (tier === 1 && m._proxSkip % 2 !== 0) continue;

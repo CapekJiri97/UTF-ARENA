@@ -128,7 +128,7 @@ import { initAudio, playSound } from './Audio.js';
       } else {
         ent._interpStartX = ent.pos.x; ent._interpStartY = ent.pos.y;
       }
-      ent._interpDuration = Math.min(0.25, Math.max(0.05, elapsed));
+      ent._interpDuration = Math.min(0.20, Math.max(0.03, elapsed));
       ent._interpT = 0;
     }
 
