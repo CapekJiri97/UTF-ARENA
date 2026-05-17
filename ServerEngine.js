@@ -295,11 +295,10 @@ export function startServerGame(io, roomName, playersData, settings) {
   let tickWarnings = 0;
   // Rolling perf metrics (reset každou sekundu při _broadcastPerf)
   let _perfTickCount = 0, _perfSlowTicks = 0, _perfTickMsSum = 0, _perfTickMsMax = 0;
-  let _perfLogCounter = 0; // console log každé 3s
 
   // ── Tick loop (20 FPS = 50 ms) ───────────────────────────
   roomEntry.interval = setInterval(() => {
-    if (roomEntry.state.gameOver || !roomEntry.state.started) { console.log(`[PERF DEBUG] tick skipped — gameOver=${roomEntry.state.gameOver} started=${roomEntry.state.started}`); return; }
+    if (roomEntry.state.gameOver || !roomEntry.state.started) return;
 
     const now = Date.now();
     const rawDt = (now - lastTick) / 1000;
@@ -349,7 +348,6 @@ export function startServerGame(io, roomName, playersData, settings) {
       // 1 Hz — server perf overlay
       if (perfTimer >= 1.0) {
         perfTimer = 0;
-        console.log(`[PERF DEBUG] perfTimer fired, _perfLogCounter=${_perfLogCounter}`);
         const avgMs  = _perfTickCount > 0 ? _perfTickMsSum / _perfTickCount : 0;
         const mem    = process.memoryUsage();
         const perfData = {
@@ -363,13 +361,6 @@ export function startServerGame(io, roomName, playersData, settings) {
         };
         io.to(roomName).emit('server_perf', perfData);
         _perfTickCount = 0; _perfSlowTicks = 0; _perfTickMsSum = 0; _perfTickMsMax = 0;
-
-        _perfLogCounter++;
-        if (_perfLogCounter >= 3) {
-          _perfLogCounter = 0;
-          const slowWarn = perfData.slowPct > 20 ? ' ⚠' : '';
-          console.log(`[PERF "${roomName}"] tick ${perfData.avgMs}/${perfData.maxMs}ms  slow ${perfData.slowPct}%${slowWarn}  heap ${perfData.heapMB}MB  rss ${perfData.rssMB}MB  ${perfData.players}p ${perfData.minions}m`);
-        }
       }
     });
   }, 50);

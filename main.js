@@ -85,19 +85,26 @@ import { initAudio, playSound } from './Audio.js';
 
     // ── Server perf overlay ──────────────────────────────────────────────────
     const _perfEl = document.getElementById('perfOverlay');
+    let _perfLogCount = 0;
     socket.on('server_perf', (d) => {
-      if (!_perfEl) return;
-      _perfEl.style.display = 'block';
-      const slowColor = d.slowPct > 30 ? '#f55' : d.slowPct > 10 ? '#fa0' : '#4f8';
-      const memColor  = d.heapMB  > 350 ? '#f55' : d.heapMB  > 200 ? '#fa0' : '#4ef';
-      document.getElementById('perfPing').style.color = _ping > 150 ? '#f55' : _ping > 80 ? '#fa0' : '#4ef';
-      document.getElementById('perfPing').textContent = `Ping: ${_ping}ms`;
-      document.getElementById('perfTick').textContent = `Tick: ${d.avgMs}/${d.maxMs}ms`;
-      document.getElementById('perfSlow').style.color = slowColor;
-      document.getElementById('perfSlow').textContent = `Slow: ${d.slowPct}%`;
-      document.getElementById('perfMem').style.color  = memColor;
-      document.getElementById('perfMem').textContent  = `Mem: ${d.heapMB}/${d.rssMB}MB`;
-      document.getElementById('perfEnts').textContent = `Ents: ${d.players}p ${d.minions}m`;
+      if (_perfEl) {
+        _perfEl.style.display = 'block';
+        const slowColor = d.slowPct > 30 ? '#f55' : d.slowPct > 10 ? '#fa0' : '#4f8';
+        const memColor  = d.heapMB  > 350 ? '#f55' : d.heapMB  > 200 ? '#fa0' : '#4ef';
+        document.getElementById('perfPing').style.color = _ping > 150 ? '#f55' : _ping > 80 ? '#fa0' : '#4ef';
+        document.getElementById('perfPing').textContent = `Ping: ${_ping}ms`;
+        document.getElementById('perfTick').textContent = `Tick: ${d.avgMs}/${d.maxMs}ms`;
+        document.getElementById('perfSlow').style.color = slowColor;
+        document.getElementById('perfSlow').textContent = `Slow: ${d.slowPct}%`;
+        document.getElementById('perfMem').style.color  = memColor;
+        document.getElementById('perfMem').textContent  = `Mem: ${d.heapMB}/${d.rssMB}MB`;
+        document.getElementById('perfEnts').textContent = `Ents: ${d.players}p ${d.minions}m`;
+      }
+      if (++_perfLogCount >= 3) {
+        _perfLogCount = 0;
+        const warn = d.slowPct > 20 ? ' ⚠ SLOW' : '';
+        console.log(`[PERF] ping=${_ping}ms  tick=${d.avgMs}/${d.maxMs}ms  slow=${d.slowPct}%${warn}  heap=${d.heapMB}MB rss=${d.rssMB}MB  ${d.players}p ${d.minions}m`);
+      }
     });
     
     socket.on('room_list', (data) => { updateRoomListUI(data); });
