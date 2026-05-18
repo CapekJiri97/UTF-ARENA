@@ -3762,7 +3762,7 @@ export class BotPlayer extends Player {
       }
 
       this.tacticTimer -= dt;
-      if (this.tacticTimer <= 0) { this.tacticTimer = 0.25 + Math.random()*0.1; this.evaluateTactic(); }
+      if (this.tacticTimer <= 0) { this.tacticTimer = 0.2 + Math.random()*0.05; this.evaluateTactic(); }
 
       // Spuštění Operativy
       this.executeOperative(dt);

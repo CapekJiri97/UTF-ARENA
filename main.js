@@ -1173,42 +1173,17 @@ import { initAudio, playSound } from './Audio.js';
     // update mouse world
     const mw = screenToWorld(mouse.sx, mouse.sy); mouse.wx = mw.x; mouse.wy = mw.y;
 
-    // Bot AI throttle: akumulujeme dt a spouštíme AI jen každých ~125ms (8 Hz).
-    // Hráči a timery jedou každý frame. Stejný princip jako v ServerEngine.js.
-    if (!game._botDtAcc) game._botDtAcc = new Map();
-    const _botAcc = game._botDtAcc;
     for(let p of game.players) {
-        if (p instanceof BotPlayer && (!socket || game.isHost)) {
-            // Bot: akumuluj dt, spusť update jen při překročení prahu
-            const acc = (_botAcc.get(p.id) || 0) + dt;
-            // BurnDot tick i bez plného update
-            if (p.burnDotTimer > 0 && p.alive) {
-                p.burnDotTimer -= dt;
-                p.burnDotTick = (p.burnDotTick || 0) - dt;
-                if (p.burnDotTick <= 0) {
-                    p.burnDotTick = 0.5;
-                    applyDamage(p, p.burnDotTickDmg, 'dot', p.burnDotSource, false, false, false);
-                    spawnParticles(p.pos.x, p.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
-                }
-            }
-            if (acc < 0.125) { _botAcc.set(p.id, acc); continue; }
-            _botAcc.set(p.id, 0);
-            const ox = p.pos.x, oy = p.pos.y;
-            p.update(acc);
-            if (acc > 0) p.vel = { x: (p.pos.x - ox) / acc, y: (p.pos.y - oy) / acc };
-        } else {
-            // Hráč nebo bot na klientovi: full update každý frame
-            const ox = p.pos.x, oy = p.pos.y;
-            p.update(dt);
-            if (dt > 0) p.vel = { x: (p.pos.x - ox) / dt, y: (p.pos.y - oy) / dt };
-            if (p.burnDotTimer > 0 && p.alive && (!socket || game.isHost)) {
-                p.burnDotTimer -= dt;
-                p.burnDotTick = (p.burnDotTick || 0) - dt;
-                if (p.burnDotTick <= 0) {
-                    p.burnDotTick = 0.5;
-                    applyDamage(p, p.burnDotTickDmg, 'dot', p.burnDotSource, false, false, false);
-                    spawnParticles(p.pos.x, p.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
-                }
+        const ox = p.pos.x, oy = p.pos.y;
+        p.update(dt);
+        if (dt > 0) p.vel = { x: (p.pos.x - ox) / dt, y: (p.pos.y - oy) / dt };
+        if (p.burnDotTimer > 0 && p.alive && (!socket || game.isHost)) {
+            p.burnDotTimer -= dt;
+            p.burnDotTick = (p.burnDotTick || 0) - dt;
+            if (p.burnDotTick <= 0) {
+                p.burnDotTick = 0.5;
+                applyDamage(p, p.burnDotTickDmg, 'dot', p.burnDotSource, false, false, false);
+                spawnParticles(p.pos.x, p.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
             }
         }
     }
@@ -1311,11 +1286,6 @@ import { initAudio, playSound } from './Audio.js';
       game.cleanupTimer = 0;
       if (game.burstHits) { const now = performance.now(); game.burstHits.forEach((v, k) => { if (now - (v.time || 0) > 10000) game.burstHits.delete(k); }); }
       if (game.deadMinionIds && game.deadMinionIds.size > 200) game.deadMinionIds.clear();
-      // Cleanup bot acc map pro boty co už neexistují
-      if (game._botDtAcc && game._botDtAcc.size > 20) {
-        const liveIds = new Set(game.players.map(p => p.id));
-        game._botDtAcc.forEach((_, id) => { if (!liveIds.has(id)) game._botDtAcc.delete(id); });
-      }
     }
 
     if (game.killFeed) {
