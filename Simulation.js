@@ -38,8 +38,8 @@ import {
 /** Maximum simulated seconds before a game is force-ended as a draw. */
 const MAX_SIM_SECONDS = 20 * 60; // 20 minutes
 
-/** Fixed dt per tick — mirrors the real game's 60 fps expectation. */
-const SIM_DT = 1 / 60;
+/** Fixed dt per tick — 20 fps is sufficient for bot AI (tacticTimer=0.2s, thinkTimer=0.4s). */
+const SIM_DT = 1 / 20;
 
 /** All available class names, derived at import time. */
 export const ALL_CLASSES = Object.keys(CLASSES);
@@ -83,6 +83,7 @@ export class SimulationEngine {
         this.config      = {
             numGames:      Math.max(1, Math.min(10000, config.numGames || 100)),
             ticksPerFrame: Math.max(1, Math.min(120,   config.ticksPerFrame || 30)),
+            budgetMs:      Math.max(10, Math.min(200,  config.budgetMs  || 80)),
             difficulty:    Math.max(0.5, Math.min(2.0, config.difficulty   || 2.0)),
             classFilter:   Array.isArray(config.classFilter) ? config.classFilter : null,
         };

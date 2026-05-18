@@ -72,14 +72,14 @@ export const CLASSES = {
   Bruiser: {
     glyph: 'B', role: 'FIGHTER', range: false, dmgType: 'physical', aaScale: 0.60,
     hp: 760, speed: 120, attackDelay: 1.1,
-    baseAtk: 43, baseAD: 48, baseAP: 0,
+    baseAtk: 47, baseAD: 48, baseAP: 0,
     baseArmor: 33, baseMR: 28,
-    lvlHP: 28, lvlArmor: 0.8, lvlMR: 0.6, lvlPower: 2.2, lvlAtk: 1.0,
+    lvlHP: 35, lvlArmor: 1.0, lvlMR: 0.75, lvlPower: 2.2, lvlAtk: 1.0,
     Q: {
       baseCooldown: 6.0, castTime: 0.1,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.40,
-      type: 'projectile', pGlyph: 'D', pSpeed: 600, life: 0.4, slowDuration: 1.0, slowMod: 0.25,
-      desc: 'Throw weapon — damage + slow first enemy hit (25%, 1s).'
+      type: 'projectile', pGlyph: 'D', pSpeed: 600, life: 0.4, slowDuration: 1.0, slowMod: 0.25, piercing: true,
+      desc: 'Throw weapon — damage + slow all enemies in path (25%, 1s). Pierces through targets.'
     },
     E: {
       baseCooldown: 9.0, castTime: 0.05,
@@ -202,7 +202,7 @@ export const CLASSES = {
   Zephyr: {
     glyph: 'Z', role: 'SPLITPUSHER', range: false, dmgType: 'magical', aaScale: 0.35,
     hp: 750, speed: 135, attackDelay: 0.9,
-    baseAtk: 40, baseAD: 0, baseAP: 55,
+    baseAtk: 44, baseAD: 0, baseAP: 61,
     baseArmor: 31, baseMR: 31,
     lvlHP: 11, lvlArmor: 0.3, lvlMR: 0.3, lvlPower: 1.4, lvlAtk: 0.5,
     Q: {
@@ -222,7 +222,7 @@ export const CLASSES = {
   Volstrov: {
     glyph: 'B', role: 'MAGE', range: true, attackRange: 180, dmgType: 'magical', aaScale: 0.60,
     hp: 720, speed: 118, attackDelay: 1.0,
-    baseAtk: 30, baseAD: 0, baseAP: 72,
+    baseAtk: 30, baseAD: 0, baseAP: 79,
     baseArmor: 32, baseMR: 34,
     lvlHP: 11, lvlArmor: 0.3, lvlMR: 0.4, lvlPower: 1.5, lvlAtk: 0.5,
     Q: {
@@ -368,7 +368,7 @@ export const CLASSES = {
   Summoner: {
     glyph: 'S', role: 'MAGE', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 710, speed: 108, attackDelay: 1.3,
-    baseAtk: 30, baseAD: 0, baseAP: 75,
+    baseAtk: 30, baseAD: 0, baseAP: 83,
     baseArmor: 31, baseMR: 28,
     lvlHP: 11, lvlArmor: 0.3, lvlMR: 0.3, lvlPower: 1.5, lvlAtk: 0.4,
     Q: {
@@ -388,12 +388,12 @@ export const CLASSES = {
   Pyromancer: {
     glyph: 'P', role: 'SLAYER', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 660, speed: 115, attackDelay: 1.3,
-    baseAtk: 30, baseAD: 0, baseAP: 75,
+    baseAtk: 34, baseAD: 0, baseAP: 84,
     baseArmor: 28, baseMR: 31,
     lvlHP: 10, lvlArmor: 0.3, lvlMR: 0.3, lvlPower: 1.5, lvlAtk: 0.4,
     Q: {
       baseCooldown: 8.0, castTime: 0.0,
-      baseDamage: 250, scaleAP: 0.95, scaleAD: 0, scaleLevel: 20,
+      baseDamage: 250, scaleAP: 1.07, scaleAD: 0, scaleLevel: 20,
       type: 'flamethrower', duration: 3.0, range: 160, cone: 40 * Math.PI / 180, tickRate: 0.10,
       desc: '3s cone flamethrower. Move freely while channeling.'
     },
@@ -408,7 +408,7 @@ export const CLASSES = {
   Tamer: {
     glyph: 'T', role: 'MAGE', range: true, attackRange: 205, dmgType: 'magical', aaScale: 0.2,
     hp: 600, speed: 110, attackDelay: 1.1,
-    baseAtk: 25, baseAD: 0, baseAP: 65,
+    baseAtk: 25, baseAD: 0, baseAP: 72,
     baseArmor: 21, baseMR: 26,
     lvlHP: 10, lvlArmor: 0.2, lvlMR: 0.3, lvlPower: 1.4, lvlAtk: 0.4,
     Q: {
@@ -473,18 +473,18 @@ export const CLASSES = {
   Eggchanter: {
     glyph: 'E', role: 'SUPPORT', range: true, dmgType: 'magical', aaScale: 0.20,
     hp: 690, speed: 105, attackDelay: 1.3,
-    baseAtk: 25, baseAD: 0, baseAP: 60,
+    baseAtk: 27, baseAD: 0, baseAP: 66,
     baseArmor: 27, baseMR: 30,
     lvlHP: 12, lvlArmor: 0.5, lvlMR: 0.5, lvlPower: 1.2, lvlAtk: 0.3,
     Q: {
       baseCooldown: 8.0, castTime: 0.3,
-      baseDamage: 30, scaleAP: 0.75, scaleAD: 0, amount: 6,
+      baseDamage: 30, scaleAP: 0.83, scaleAD: 0, amount: 6.6,
       type: 'projectile_egg', pSpeed: 400, life: 0.625, healInterval: 1.0, slowDuration: 0.5, slowMod: 0.20,
       desc: 'Throw egg — damage + slow target. On impact: Hen hatches, heals + damages nearby enemies.'
     },
     E: {
       baseCooldown: 18.0, castTime: 0.4,
-      baseDamage: 0, amount: 6, scaleAP: 0.42, scaleAD: 0,
+      baseDamage: 0, amount: 6.6, scaleAP: 0.46, scaleAD: 0,
       type: 'summon_healers', healInterval: 2,
       desc: 'Summon 3 Chicks — follow allies, heal them + damage nearby enemies.'
     }
