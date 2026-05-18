@@ -1416,8 +1416,8 @@ import { initAudio, playSound } from './Audio.js';
                 if (hPos.length === 0) return 0;
                 let minD2 = Infinity;
                 for (const h of hPos) { const dx = pos.x-h.x, dy = pos.y-h.y; const d2=dx*dx+dy*dy; if(d2<minD2) minD2=d2; }
-                if (minD2 < 500*500)  return 0;
-                if (minD2 < 1200*1200) return 1;
+                if (minD2 < 1500*1500) return 0;
+                if (minD2 < 3600*3600) return 1;
                 return 2;
             };
 
@@ -1428,11 +1428,7 @@ import { initAudio, playSound } from './Audio.js';
                 const botUpdates = [];
                 for (const b of game.players) {
                     if (!(b instanceof BotPlayer)) continue;
-                    // Proximity culling
-                    const tier = _proxTier(b.pos, hPos);
-                    b._proxSkip = (b._proxSkip || 0) + 1;
-                    if (tier === 1 && b._proxSkip % 2 !== 0 && !b.isDirty) continue; // ~10 Hz
-                    if (tier === 2 && b._proxSkip % 4 !== 0 && !b.isDirty) continue; // ~5 Hz
+                    // Boti: bez proximity cullingu — sekaný pohyb při přeskakování paketů
                     // Delta komprese
                     const dx = b.pos.x - (b._lastSyncX ?? b.pos.x + 999);
                     const dy = b.pos.y - (b._lastSyncY ?? b.pos.y + 999);
