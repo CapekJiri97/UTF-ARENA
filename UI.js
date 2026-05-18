@@ -1183,7 +1183,7 @@ export function draw(){
   }
 
     const fpsEl = document.getElementById('fpsDisplay');
-    if (fpsEl) fpsEl.textContent = `FPS: ${game._fpsValue || 0}`;
+    if (fpsEl) fpsEl.textContent = `FPS: ${game._perfSnapshot ? game._perfSnapshot.fps : (game._fpsValue || 0)}`;
   
   drawMinimap();
   if(game.startDelay > 0 && game.started) { ctx.font = '40px monospace'; ctx.fillStyle = '#ffcc00'; ctx.textAlign='center'; ctx.fillText(`MATCH STARTS IN ${Math.ceil(game.startDelay)}`, cw/2, 100); }
@@ -2969,21 +2969,29 @@ function initPcUI() {
     bar.appendChild(createAutoBtn('l', 'LVL', 'pcBtnLvl'));
     document.body.appendChild(bar);
 
-    // Ping + server status display above the button bar
+    // Ping + perf overlay vedle ping ukazatele
     const pingEl = document.createElement('div');
     pingEl.id = 'pingDisplay';
-    pingEl.style.cssText = 'position:fixed;left:10px;bottom:52px;font-size:10px;font-family:monospace;color:#555;z-index:4000;pointer-events:none;line-height:1.4;';
+    pingEl.style.cssText = 'position:fixed;left:10px;bottom:52px;font-size:10px;font-family:monospace;color:#555;z-index:4000;pointer-events:none;line-height:1.6;';
     pingEl.textContent = 'PING: --';
-    const fpsEl = document.createElement('span');
-    fpsEl.id = 'fpsDisplay';
-    fpsEl.style.marginLeft = '10px';
-    fpsEl.style.color = '#7aa';
-    fpsEl.textContent = 'FPS: --';
-    pingEl.appendChild(fpsEl);
     document.body.appendChild(pingEl);
 
     let lastHostState = 0;
-    const origNetHostState = window.__onNetHostState;
+
+    function _perfLine() {
+        const p = game && game._perfSnapshot;
+        if (!p) return '';
+        const slowColor = p.slowPct > 30 ? '#a44' : p.slowPct > 10 ? '#aa4' : '#4a4';
+        const msColor   = p.avgMs   > 50  ? '#a44' : p.avgMs   > 25  ? '#aa4' : '#4a4';
+        const fpsColor  = p.fps     < 30  ? '#a44' : p.fps     < 50  ? '#aa4' : '#4a4';
+        const role = game.isHost ? 'HOST' : 'CLIENT';
+        const slowWarn = p.slowPct > 20 ? ' ⚠' : '';
+        return `<br><span style="color:#7aa">${role}</span>`
+             + ` <span style="color:${fpsColor}">${p.fps}fps</span>`
+             + ` <span style="color:${msColor}">${p.avgMs}/${p.maxMs}ms</span>`
+             + ` <span style="color:${slowColor}">slow:${p.slowPct}%${slowWarn}</span>`
+             + ` <span style="color:#888">${p.players}p ${p.minions}m ${p.projs || 0}proj</span>`;
+    }
 
     function updatePingDisplay(ms) {
         const pingEl = document.getElementById('pingDisplay');
@@ -2995,12 +3003,17 @@ function initPcUI() {
         const pingStr = ms === null ? '--' : ms + 'ms';
         const serverStr = serverOk ? '<span style="color:#4a4">●</span> online' : '<span style="color:#a44">●</span> offline';
         const gameStr = gameRunning ? '<span style="color:#4a4">● game OK</span>' : '<span style="color:#555">● no game</span>';
-        pingEl.innerHTML = `PING: <span style="color:${pingColor}">${pingStr}</span>  ${serverStr}  ${gameStr}`;
+        pingEl.innerHTML = `PING: <span style="color:${pingColor}">${pingStr}</span>  ${serverStr}  ${gameStr}${_perfLine()}`;
     }
+
+    // Refresh perf řádku každou sekundu i bez ping triggeru
+    setInterval(() => {
+        const pingEl = document.getElementById('pingDisplay');
+        if (pingEl) pingEl.innerHTML = pingEl.innerHTML.replace(/<br>.*$/s, '') + _perfLine();
+    }, 1000);
 
     // Defer socket access until after all modules are initialized
     setTimeout(() => {
-        // Re-import lazily by reading the live exported value via the module's own binding
         const sock = socket;
         if (sock) {
             sock.on('network_host_state', () => { lastHostState = Date.now(); });
@@ -3018,7 +3031,7 @@ function initPcUI() {
                 if (!pingEl) return;
                 const gameRunning = game && game.players && game.players.length > 0;
                 const gameStr = gameRunning ? '<span style="color:#4a4">● game OK</span>' : '<span style="color:#555">● no game</span>';
-                pingEl.innerHTML = `LOCAL  ${gameStr}`;
+                pingEl.innerHTML = `LOCAL  ${gameStr}${_perfLine()}`;
             }, 2000);
         }
     }, 0);

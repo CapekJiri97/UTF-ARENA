@@ -1173,27 +1173,53 @@ import { initAudio, playSound } from './Audio.js';
     // update mouse world
     const mw = screenToWorld(mouse.sx, mouse.sy); mouse.wx = mw.x; mouse.wy = mw.y;
 
+    // Bot AI throttle: akumulujeme dt a spouštíme AI jen každých ~125ms (8 Hz).
+    // Hráči a timery jedou každý frame. Stejný princip jako v ServerEngine.js.
+    if (!game._botDtAcc) game._botDtAcc = new Map();
+    const _botAcc = game._botDtAcc;
     for(let p of game.players) {
-        let ox = p.pos.x, oy = p.pos.y;
-        p.update(dt);
-        if (dt > 0) p.vel = { x: (p.pos.x - ox) / dt, y: (p.pos.y - oy) / dt };
-        
-        if (p.burnDotTimer > 0 && p.alive && (!socket || game.isHost)) {
-            p.burnDotTimer -= dt;
-            p.burnDotTick = (p.burnDotTick || 0) - dt;
-            if (p.burnDotTick <= 0) {
-                p.burnDotTick = 0.5;
-                applyDamage(p, p.burnDotTickDmg, 'dot', p.burnDotSource, false, false, false);
-                spawnParticles(p.pos.x, p.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
+        if (p instanceof BotPlayer && (!socket || game.isHost)) {
+            // Bot: akumuluj dt, spusť update jen při překročení prahu
+            const acc = (_botAcc.get(p.id) || 0) + dt;
+            // BurnDot tick i bez plného update
+            if (p.burnDotTimer > 0 && p.alive) {
+                p.burnDotTimer -= dt;
+                p.burnDotTick = (p.burnDotTick || 0) - dt;
+                if (p.burnDotTick <= 0) {
+                    p.burnDotTick = 0.5;
+                    applyDamage(p, p.burnDotTickDmg, 'dot', p.burnDotSource, false, false, false);
+                    spawnParticles(p.pos.x, p.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
+                }
+            }
+            if (acc < 0.125) { _botAcc.set(p.id, acc); continue; }
+            _botAcc.set(p.id, 0);
+            const ox = p.pos.x, oy = p.pos.y;
+            p.update(acc);
+            if (acc > 0) p.vel = { x: (p.pos.x - ox) / acc, y: (p.pos.y - oy) / acc };
+        } else {
+            // Hráč nebo bot na klientovi: full update každý frame
+            const ox = p.pos.x, oy = p.pos.y;
+            p.update(dt);
+            if (dt > 0) p.vel = { x: (p.pos.x - ox) / dt, y: (p.pos.y - oy) / dt };
+            if (p.burnDotTimer > 0 && p.alive && (!socket || game.isHost)) {
+                p.burnDotTimer -= dt;
+                p.burnDotTick = (p.burnDotTick || 0) - dt;
+                if (p.burnDotTick <= 0) {
+                    p.burnDotTick = 0.5;
+                    applyDamage(p, p.burnDotTickDmg, 'dot', p.burnDotSource, false, false, false);
+                    spawnParticles(p.pos.x, p.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
+                }
             }
         }
     }
     for(let p of game.projectiles) p.update(dt);
+    // Minion update + pending death tracking pro 6Hz broadcast
+    if (!game._pendingMinionDeaths) game._pendingMinionDeaths = new Set();
     for(let m of game.minions) {
-        let ox = m.pos.x, oy = m.pos.y;
+        const ox = m.pos.x, oy = m.pos.y;
         m.update(dt);
         if (dt > 0) m.vel = { x: (m.pos.x - ox) / dt, y: (m.pos.y - oy) / dt };
-        
+        if (m.dead) { game._pendingMinionDeaths.add(m.id); if (game.deadMinionIds) game.deadMinionIds.add(m.id); }
         if (m.burnDotTimer > 0 && !m.dead && (!socket || game.isHost)) {
             m.burnDotTimer -= dt;
             m.burnDotTick = (m.burnDotTick || 0) - dt;
@@ -1228,40 +1254,44 @@ import { initAudio, playSound } from './Audio.js';
       }
     }
 
-    // Minion collision resolution (anti-stacking) — pouze na Hostu, Klient interpoluje
+    // Minion collision resolution (anti-stacking) — pouze na Hostu, Klient interpoluje.
+    // Throttle: jen každých 6 ticků (~6x za sekundu při 60fps), persistent grid bez GC.
     if (!socket || game.isHost) {
-      const CELL_SIZE = 50;
-      const grid = new Map();
-      for(let i=0; i<game.minions.length; i++){
-        let m = game.minions[i];
-        if(m.dead) continue;
-        let key = `${Math.floor(m.pos.x / CELL_SIZE)},${Math.floor(m.pos.y / CELL_SIZE)}`;
-        if(!grid.has(key)) grid.set(key, []);
-        grid.get(key).push(m);
-      }
-      for(let i=0; i<game.minions.length; i++){
-        let m1 = game.minions[i];
-        if(m1.dead) continue;
-        let cx = Math.floor(m1.pos.x / CELL_SIZE);
-        let cy = Math.floor(m1.pos.y / CELL_SIZE);
-        for(let nx = cx - 1; nx <= cx + 1; nx++) {
-          for(let ny = cy - 1; ny <= cy + 1; ny++) {
-            let cell = grid.get(`${nx},${ny}`);
-            if(cell) {
-              for(let m2 of cell) {
-                if(m1.id >= m2.id || m2.dead) continue; // Pár řešíme jen jednou
-                let dx = m2.pos.x - m1.pos.x, dy = m2.pos.y - m1.pos.y, d = Math.hypot(dx,dy);
-                let minDist = m1.radius + m2.radius;
-                if(d < minDist) {
-                  if (d === 0) { dx = Math.random()-0.5; dy = Math.random()-0.5; d = Math.hypot(dx, dy); }
-                  let push = (minDist - d) / 2; let px = (dx/d)*push, py = (dy/d)*push;
+      game._minionCollTick = (game._minionCollTick || 0) + 1;
+      if (game._minionCollTick % 6 === 0 && game.minions.length > 1) {
+        const CELL = 60;
+        if (!game._minionCollGrid) game._minionCollGrid = new Map();
+        const grid = game._minionCollGrid;
+        // Reuse existujících polí — jen zkrátíme délku místo alokace nových
+        for (const arr of grid.values()) arr.length = 0;
+        for (const m of game.minions) {
+          if (m.dead) continue;
+          const key = Math.floor(m.pos.x / CELL) * 10000 + Math.floor(m.pos.y / CELL);
+          let cell = grid.get(key);
+          if (!cell) { cell = []; grid.set(key, cell); }
+          cell.push(m);
+        }
+        for (const m1 of game.minions) {
+          if (m1.dead) continue;
+          const cx = Math.floor(m1.pos.x / CELL), cy = Math.floor(m1.pos.y / CELL);
+          for (let nx = cx - 1; nx <= cx + 1; nx++) {
+            for (let ny = cy - 1; ny <= cy + 1; ny++) {
+              const cell = grid.get(nx * 10000 + ny);
+              if (!cell) continue;
+              for (const m2 of cell) {
+                if (m1.id >= m2.id || m2.dead) continue;
+                let dx = m2.pos.x - m1.pos.x, dy = m2.pos.y - m1.pos.y, d = Math.hypot(dx, dy);
+                const minD = m1.radius + m2.radius;
+                if (d < minD) {
+                  if (d === 0) { dx = 0.5; dy = 0.5; d = Math.SQRT2 * 0.5; }
+                  const push = (minD - d) / 2, px = (dx/d)*push, py = (dy/d)*push;
                   m1.pos.x -= px; m1.pos.y -= py; m2.pos.x += px; m2.pos.y += py;
                 }
               }
             }
           }
+        }
       }
-    }
     }
 
     if (game.shake > 0) game.shake -= dt;
@@ -1281,6 +1311,11 @@ import { initAudio, playSound } from './Audio.js';
       game.cleanupTimer = 0;
       if (game.burstHits) { const now = performance.now(); game.burstHits.forEach((v, k) => { if (now - (v.time || 0) > 10000) game.burstHits.delete(k); }); }
       if (game.deadMinionIds && game.deadMinionIds.size > 200) game.deadMinionIds.clear();
+      // Cleanup bot acc map pro boty co už neexistují
+      if (game._botDtAcc && game._botDtAcc.size > 20) {
+        const liveIds = new Set(game.players.map(p => p.id));
+        game._botDtAcc.forEach((_, id) => { if (!liveIds.has(id)) game._botDtAcc.delete(id); });
+      }
     }
 
     if (game.killFeed) {
@@ -1530,20 +1565,62 @@ import { initAudio, playSound } from './Audio.js';
     }
   }
 
+  // ── Perf tracking pro overlay ──────────────────────────────────────────────
+  // Accumulate frame stats každou sekundu → zobrazí se v pingDisplay
+  game._perf = { tickCount: 0, slowTicks: 0, tickMsSum: 0, tickMsMax: 0, lastFlush: performance.now() };
+
   let last = performance.now();
-  function loop(){ 
+  function loop(){
     try {
-      const now = performance.now(); const dtRaw = Math.min(0.05, (now-last)/1000); last = now; 
-      const steps = game.isSpectator ? 1 : 1;
-      for(let i=0; i<steps; i++) { update(dtRaw); }
+      const now = performance.now();
+      const frameMs = now - last;
+      const dtRaw = Math.min(0.05, frameMs / 1000);
+      last = now;
+
+      // Perf accounting
+      if (game._perf) {
+        game._perf.tickCount++;
+        game._perf.tickMsSum += frameMs;
+        if (frameMs > game._perf.tickMsMax) game._perf.tickMsMax = frameMs;
+        if (frameMs > 50) game._perf.slowTicks++; // >50ms = slow frame (sub-20fps)
+        // Flush každou sekundu
+        if (now - game._perf.lastFlush >= 1000) {
+          const n = game._perf.tickCount || 1;
+          const elapsed = now - game._perf.lastFlush;
+          game._perfSnapshot = {
+            avgMs:   Math.round(game._perf.tickMsSum / n * 10) / 10,
+            maxMs:   Math.round(game._perf.tickMsMax * 10) / 10,
+            slowPct: Math.round(game._perf.slowTicks / n * 100),
+            fps:     Math.round(n * 1000 / elapsed),
+            players: game.players ? game.players.length : 0,
+            minions: game.minions ? game.minions.length : 0,
+            projs:   game.projectiles ? game.projectiles.length : 0,
+          };
+          game._perf.tickCount = 0; game._perf.slowTicks = 0;
+          game._perf.tickMsSum = 0; game._perf.tickMsMax = 0;
+          game._perf.lastFlush = now;
+
+          // Console log stavu každé 3 sekundy
+          game._perf._logTimer = (game._perf._logTimer || 0) + 1;
+          if (game._perf._logTimer >= 3) {
+            game._perf._logTimer = 0;
+            const s = game._perfSnapshot;
+            const role = game.isHost ? 'HOST' : 'CLIENT';
+            const warn = s.slowPct > 20 ? ' ⚠ SLOW' : '';
+            console.log(`[PERF ${role}] ${s.fps}fps  frame=${s.avgMs}/${s.maxMs}ms  slow=${s.slowPct}%${warn}  ${s.players}p ${s.minions}m ${s.projs}proj`);
+          }
+        }
+      }
+
+      update(dtRaw);
       if (!simMode) draw();
-      requestAnimationFrame(loop); 
+      requestAnimationFrame(loop);
     } catch(err) {
       console.error('[FATAL ERROR] Game loop crashed!', err);
       try { console.table({ players: game.players.length, minions: game.minions.length, projectiles: game.projectiles.length, particles: game.particles.length, isHost: game.isHost }); } catch(_) {}
       console.error('[FATAL STACK]', err.stack);
       alert('Game crashed! Press F12 and send the log (Console tab).\n\nError: ' + err.message);
-      return; // nezaplanovat další frame — hra se zastavila
+      return;
     }
   }
   requestAnimationFrame(loop);
