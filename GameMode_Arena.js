@@ -35,22 +35,17 @@ export const GameMode_Arena = {
     camera.scale = 1.52;
 
     this.camps = [
-        { x: 2350, y: 160, buff: 'AS_AH', glyph: 'Sp', color: '#8fd04a', respawnTimer: 0, m: null }, // Nahoře Vpravo
-        { x: 1700, y: 120, buff: 'POWER', glyph: 'Pw', color: '#f98101', respawnTimer: 0, m: null }, // Nahoře Střed
-        { x: 1050, y: 160, buff: 'TANK', glyph: 'Ta', color: '#0da20d', respawnTimer: 0, m: null },  // Nahoře Vlevo
-        { x: 2350, y: 1180, buff: 'TANK', glyph: 'Ta', color: '#0da20d', respawnTimer: 0, m: null }, // Dole Vpravo
-        { x: 1700, y: 1220, buff: 'POWER', glyph: 'Pw', color: '#f98101', respawnTimer: 0, m: null },// Dole Střed
-        { x: 1050, y: 1180, buff: 'AS_AH', glyph: 'Sp', color: '#8fd04a', respawnTimer: 0, m: null } // Dole Vlevo
+        { x: 2350, y: 160, buff: 'AS_AH', glyph: 'Sp', color: '#8fd04a', respawnTimer: 60, m: null }, // Nahoře Vpravo
+        { x: 1700, y: 120, buff: 'POWER', glyph: 'Pw', color: '#f98101', respawnTimer: 60, m: null }, // Nahoře Střed
+        { x: 1050, y: 160, buff: 'TANK', glyph: 'Ta', color: '#0da20d', respawnTimer: 60, m: null },  // Nahoře Vlevo
+        { x: 2350, y: 1180, buff: 'TANK', glyph: 'Ta', color: '#0da20d', respawnTimer: 60, m: null }, // Dole Vpravo
+        { x: 1700, y: 1220, buff: 'POWER', glyph: 'Pw', color: '#f98101', respawnTimer: 60, m: null },// Dole Střed
+        { x: 1050, y: 1180, buff: 'AS_AH', glyph: 'Sp', color: '#8fd04a', respawnTimer: 60, m: null } // Dole Vlevo
     ];
 
-    // Věž začíná neutrální
-    setTimeout(() => {
-      for (const t of game.towers) {
-        t.owner = -1; t.control = 0;
-        t.isLocked = true;
-        t.unlockTimer = 35.0;
-      }
-    }, 0);
+    // Věž začíná neutrální, odemkne se po 20s — nastavíme synchronně přes _towerInitPending
+    // (game.towers se plní po init(), proto tickObjective aplikuje lock při první příležitosti)
+    this._towerLockPending = true;
   },
 
   tickSpawn(_dt, spawnTimer, _interval) {
@@ -82,15 +77,16 @@ export const GameMode_Arena = {
       }
     }
 
-    // Spawnování a udržování Jungle kempů
+    // Spawnování a udržování Jungle kempů — neodpočítáváme během startDelay
     for (let camp of this.camps) {
         if (!camp.m || camp.m.dead) {
+            if (game.startDelay > 0) continue; // nespawnuj před startem hry
             camp.respawnTimer -= _dt;
             if (camp.respawnTimer <= 0) {
                 let m = new Minion(camp.x, camp.y, -1, 0); 
                 m.isJungleMonster = true;
-                m.maxHp = 1250; m.hp = m.maxHp;
-                m.attackDamage = 35;
+                m.maxHp = 1000; m.hp = m.maxHp;
+                m.attackDamage = 42;
                 m.glyph = camp.glyph;
                 m.speed = 100;
                 m.camp = camp;
@@ -188,6 +184,16 @@ export const GameMode_Arena = {
   },
 
   tickObjective(dt, _drainRate, socket) {
+    // Aplikuj věž lock synchronně při první příležitosti kdy jsou towers k dispozici
+    if (this._towerLockPending && game.towers && game.towers.length > 0) {
+      for (const t of game.towers) {
+        t.owner = -1; t.control = 0;
+        t.isLocked = true;
+        t.unlockTimer = 20.0;
+      }
+      this._towerLockPending = false;
+    }
+
     if (game.startDelay > 0 || game.gameOver) return;
 
     // Bodování za držení věže každých HOLD_INTERVAL sekund
@@ -267,25 +273,12 @@ export const GameMode_Arena = {
       const hColor = holder === 0 ? '#486FED' : '#FF4E4E';
       const hName  = holder === 0 ? 'BLUE' : 'RED';
       ctx.fillStyle = hColor;
-      ctx.fillText(`${hName} holds (+${HOLD_POINTS}pts/10s)`, cxTop, isMobile ? 44 : 64);
+      ctx.fillText(`${hName} holds (+${HOLD_POINTS}pts/${HOLD_INTERVAL}s)`, cxTop, isMobile ? 44 : 64);
     } else {
       ctx.fillStyle = '#888';
       ctx.fillText('NEUTRAL', cxTop, isMobile ? 44 : 64);
     }
 
-    // Progressbary
-    const barW = isMobile ? 80 : 120;
-    const barH = isMobile ? 8  : 12;
-    const barY = isMobile ? 55 : 80;
-
-    const drawBar = (score, bx, color) => {
-      const pct = Math.min(1, score / SCORE_CAP);
-      ctx.fillStyle = '#111'; ctx.fillRect(bx, barY, barW, barH);
-      ctx.fillStyle = color;  ctx.fillRect(bx, barY, barW * pct, barH);
-      ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(bx, barY, barW, barH);
-    };
-    drawBar(s0, cxTop - barW - 8, '#486FED');
-    drawBar(s1, cxTop + 8,        '#FF4E4E');
   },
 
   getBotLane(_idx) {
