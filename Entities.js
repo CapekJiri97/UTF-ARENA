@@ -564,8 +564,8 @@ export class Minion{
         if (dx !== 0 || dy !== 0) {
             let currentL = Math.hypot(dx, dy); if (currentL > 0) { dx /= currentL; dy /= currentL; }
             // Per-minion noise: slow-rotating angle seeded from id, spreads minions naturally
-            if (this._noiseAngle === undefined) this._noiseAngle = (parseInt(this.id, 36) * 2.399) % (Math.PI * 2);
-            this._noiseAngle += dt * (0.8 + (this.id % 7) * 0.06);
+            if (this._noiseAngle === undefined) { const seed = parseInt(this.id, 36) || 0; this._noiseAngle = (seed * 2.399) % (Math.PI * 2); this._noiseSpeed = 0.8 + (seed % 7) * 0.06; }
+            this._noiseAngle += dt * this._noiseSpeed;
             dx += Math.cos(this._noiseAngle) * 0.28;
             dy += Math.sin(this._noiseAngle) * 0.28;
             let pcx = Math.floor(this.pos.x / 200), pcy = Math.floor(this.pos.y / 200);
