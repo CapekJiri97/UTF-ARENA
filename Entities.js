@@ -563,6 +563,11 @@ export class Minion{
     } else {
         if (dx !== 0 || dy !== 0) {
             let currentL = Math.hypot(dx, dy); if (currentL > 0) { dx /= currentL; dy /= currentL; }
+            // Per-minion noise: slow-rotating angle seeded from id, spreads minions naturally
+            if (!this._noiseAngle) this._noiseAngle = (this.id * 2.399) % (Math.PI * 2);
+            this._noiseAngle += dt * (0.8 + (this.id % 7) * 0.06);
+            dx += Math.cos(this._noiseAngle) * 0.28;
+            dy += Math.sin(this._noiseAngle) * 0.28;
             let pcx = Math.floor(this.pos.x / 200), pcy = Math.floor(this.pos.y / 200);
             let nearbyWalls = game.wallGrid ? (game.wallGrid.get(pcx * 10000 + pcy) || []) : game.walls;
             for(let w of nearbyWalls) { let info = distToPoly(this.pos.x, this.pos.y, w.pts); if (info.minDist < w.r + 30 && !info.inside) { dx += info.closestNorm.x * 2.5; dy += info.closestNorm.y * 2.5; let tx = -info.closestNorm.y; let ty = info.closestNorm.x; if (dx * tx + dy * ty < 0) { tx = -tx; ty = -ty; } dx += tx * 3.5 + (Math.random() - 0.5) * 0.5; dy += ty * 3.5 + (Math.random() - 0.5) * 0.5; } }

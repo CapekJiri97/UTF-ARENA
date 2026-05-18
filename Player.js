@@ -810,6 +810,19 @@ export class Player{
     }
 
     // --- Aim Assist (Auto-Targeting with Player Priority) ---
+    // Fog of war visibility check (pouze pro hráče, boti fog nepoužívají)
+    const _isVisible = this === player && game._fogCanvas ? (() => {
+        const _vR = Math.min(window.innerWidth, window.innerHeight) * 0.676 / camera.scale;
+        const _sR = 380;
+        const _sp = activeGameMode.mapConfig.spawnPoints[this.team];
+        return (pos) => {
+            for (const ally of game.players) {
+                if (ally.team !== this.team || !ally.alive) continue;
+                if (dist(pos, ally.pos) <= _vR) return true;
+            }
+            return dist(pos, _sp) <= _sR;
+        };
+    })() : () => true;
     if (this === player && !game.mouseTarget) {
       let bestTarget = null;
             let maxD = this.attackRange + 100;
@@ -828,8 +841,8 @@ export class Player{
 
       let bestScore = Infinity;
       const potentialTargets = [
-          ...game.players.filter(p => p.team !== this.team && p.alive),
-          ...game.minions.filter(m => m.team !== this.team && !m.dead)
+          ...game.players.filter(p => p.team !== this.team && p.alive && _isVisible(p.pos)),
+          ...game.minions.filter(m => m.team !== this.team && !m.dead && _isVisible(m.pos))
       ];
       
       for (const t of potentialTargets) {
@@ -865,7 +878,7 @@ export class Player{
     } else if (this === player && game.mouseTarget) {
       let hoverTarget = null;
       let minDist = 80; // Zóna okolo kurzoru myši pro zachycení cíle
-      const potentialTargets = [...game.players.filter(p => p.team !== this.team && p.alive), ...game.minions.filter(m => m.team !== this.team && !m.dead)];
+      const potentialTargets = [...game.players.filter(p => p.team !== this.team && p.alive && _isVisible(p.pos)), ...game.minions.filter(m => m.team !== this.team && !m.dead && _isVisible(m.pos))];
       for (const t of potentialTargets) {
           const d = dist({x: mouse.wx, y: mouse.wy}, t.pos);
           if (d < minDist) { minDist = d; hoverTarget = t; }
@@ -2724,6 +2737,123 @@ export class BotPlayer extends Player {
             bot.macroOrder = { type, target };
         };
 
+        // ══════════════════════════════════════════════════════════════════
+        // TEAMFIGHT DETECTION + FOCUS TARGET (běží každý tick centrálního mozku)
+        // ══════════════════════════════════════════════════════════════════
+        if (!game.teamfightState) game.teamfightState = { 0: null, 1: null };
+
+        const aliveTeam    = teamPlayers.filter(p => p.alive);
+        const aliveEnemies = enemies; // enemies je už definováno výše
+
+        // Hledáme největší clump: pro každého živého spojence spočítáme kolik
+        // spojenců + nepřátel je v TEAMFIGHT_RADIUS — clump bez vazby na věž.
+        const TEAMFIGHT_RADIUS = 900;
+        const TEAMFIGHT_MIN_COMBATANTS = 5; // celkem hráčů (obou stran) aby to byl "teamfight"
+
+        let bestClumpCenter = null;
+        let bestClumpAllies = 0;
+        let bestClumpEnemies = 0;
+        let bestClumpTotal = 0;
+
+        for (let anchor of aliveTeam) {
+            const nearAllies  = aliveTeam.filter(p => dist(p.pos, anchor.pos) <= TEAMFIGHT_RADIUS).length;
+            const nearEnemies = aliveEnemies.filter(e => dist(e.pos, anchor.pos) <= TEAMFIGHT_RADIUS).length;
+            const total = nearAllies + nearEnemies;
+            if (total > bestClumpTotal) {
+                bestClumpTotal   = total;
+                bestClumpAllies  = nearAllies;
+                bestClumpEnemies = nearEnemies;
+                bestClumpCenter  = anchor.pos;
+            }
+        }
+
+        const isTeamfight = bestClumpTotal >= TEAMFIGHT_MIN_COMBATANTS && bestClumpEnemies >= 2 && bestClumpAllies >= 2;
+
+        // Výběr focus targetu (1x za tick mozku — sdílený pro celý tým)
+        // Priorita: 1. healer/support, 2. low-HP carry (SLAYER/FIGHTER), 3. největší DPS hrozba
+        let focusTarget = null;
+        let focusRole   = null; // pro ladění a rolové chování
+        if (isTeamfight && bestClumpCenter) {
+            const clumpEnemies = aliveEnemies.filter(e => dist(e.pos, bestClumpCenter) <= TEAMFIGHT_RADIUS + 300);
+
+            // Prio 1: Support/Healer — nejcennější kill v teamfightu
+            const supports = clumpEnemies.filter(e => e.role === 'SUPPORT');
+            if (supports.length > 0) {
+                // Z supportů vyber nejdosažitelnějšího (nejblíže k našemu centru a nejméně HP)
+                focusTarget = supports.sort((a, b) => {
+                    const scoreA = (a.hp / (a.effectiveMaxHp || a.maxHp)) * 3000 + dist(a.pos, bestClumpCenter) * 0.5;
+                    const scoreB = (b.hp / (b.effectiveMaxHp || b.maxHp)) * 3000 + dist(b.pos, bestClumpCenter) * 0.5;
+                    return scoreA - scoreB;
+                })[0];
+                focusRole = 'SUPPORT_SNIPE';
+            }
+
+            // Prio 2: Pokud není support, hledáme low-HP DPS carry
+            if (!focusTarget) {
+                const carries = clumpEnemies.filter(e => ['SLAYER', 'FIGHTER', 'SPLITPUSHER'].includes(e.role));
+                const lowHpCarry = carries.filter(e => e.hp / (e.effectiveMaxHp || e.maxHp) < 0.55)
+                    .sort((a, b) => (a.hp / (a.effectiveMaxHp || a.maxHp)) - (b.hp / (b.effectiveMaxHp || b.maxHp)))[0];
+                if (lowHpCarry) { focusTarget = lowHpCarry; focusRole = 'CARRY_EXECUTE'; }
+            }
+
+            // Prio 3: Největší DPS hrozba (kdo nám nejrychleji zabíjí tým)
+            if (!focusTarget && clumpEnemies.length > 0) {
+                const estimateThreat = (e) => {
+                    const aaScale = CLASSES[e.className]?.aaScale || 0.3;
+                    const baseAtk = CLASSES[e.className]?.baseAtk || 0;
+                    const stat    = e.dmgType === 'magical' ? (e.AP || 0) : (e.AD || 0);
+                    let dps = (baseAtk + stat * aaScale) * ((e.attackSpeed || 1) / Math.max(0.1, e.attackDelay || 1));
+                    for (const key of ['Q', 'E']) {
+                        const sp = e.spells?.[key];
+                        if (sp) dps += ((sp.baseDamage || 0) + (e.AP || 0) * (sp.scaleAP || 0) + (e.AD || 0) * (sp.scaleAD || 0)) / Math.max(1, sp.baseCooldown || 8);
+                    }
+                    // Snižujeme hrozbu pokud má moc HP (těžko ho zabít) nebo je daleko
+                    return dps / (1 + (e.hp / (e.effectiveMaxHp || e.maxHp)) * 1.5) - dist(e.pos, bestClumpCenter) * 0.05;
+                };
+                focusTarget = clumpEnemies.sort((a, b) => estimateThreat(b) - estimateThreat(a))[0];
+                focusRole = 'DPS_FOCUS';
+            }
+        }
+
+        // Zapíšeme teamfight stav — přístupný pro evaluateTactic každého bota
+        game.teamfightState[team] = isTeamfight ? {
+            active:      true,
+            focusTarget, // reference na hráče (živá nebo null pokud zemřel)
+            focusRole,
+            clumpCenter: bestClumpCenter,
+            allyCount:   bestClumpAllies,
+            enemyCount:  bestClumpEnemies,
+        } : { active: false, focusTarget: null, focusRole: null, clumpCenter: null, allyCount: 0, enemyCount: 0 };
+
+        // Přiřazení rolových macro rozkazů pro teamfight
+        // (přepisuje standardní brain assignment jen pro boty aktivně v clumpu)
+        if (isTeamfight && focusTarget) {
+            for (const bot of teamBots.filter(b => b.alive && dist(b.pos, bestClumpCenter) <= TEAMFIGHT_RADIUS + 400)) {
+                if (bot.role === 'TANK') {
+                    // Tank: najdi náš nejcennější carry (SLAYER nebo FIGHTER s nejméně HP) a buď mezi ním a focusem
+                    const carryToGuard = aliveTeam
+                        .filter(p => ['SLAYER', 'FIGHTER'].includes(p.role) && p.id !== bot.id)
+                        .sort((a, b) => (a.hp / (a.effectiveMaxHp || a.maxHp)) - (b.hp / (b.effectiveMaxHp || b.maxHp)))[0];
+                    if (carryToGuard) assign(bot, 'GUARD_CARRY', carryToGuard);
+                    // Pokud žádný carry není, tank prostě zůstane na focus targetu
+                    else assign(bot, 'HUNT', focusTarget);
+                } else if (bot.role === 'SUPPORT') {
+                    // Support: vždy jdi k nejzraněnějšímu spojenci (peel / ochrana)
+                    const mostHurt = aliveTeam
+                        .filter(p => p.id !== bot.id)
+                        .sort((a, b) => (a.hp / (a.effectiveMaxHp || a.maxHp)) - (b.hp / (b.effectiveMaxHp || b.maxHp)))[0];
+                    if (mostHurt && (mostHurt.hp / (mostHurt.effectiveMaxHp || mostHurt.maxHp)) < 0.7) {
+                        assign(bot, 'PEEL', mostHurt);
+                    } else {
+                        assign(bot, 'HUNT', focusTarget);
+                    }
+                } else {
+                    // SLAYER / FIGHTER / SPLITPUSHER: jdi na focus target
+                    assign(bot, 'HUNT', focusTarget);
+                }
+            }
+        }
+
         // Sestavení kontextu pro brain a delegace assignment logiky (1–6)
         const ownedTowers   = game.towers.filter(t => t.owner === team);
         const unownedTowers = game.towers.filter(t => t.owner !== team);
@@ -3096,14 +3226,51 @@ export class BotPlayer extends Player {
                   let allyFocus = 0;
                   for (let id in game.teamIntents[this.team]) { if (id !== this.id && game.teamIntents[this.team][id].target === e) allyFocus++; }
                   if (allyFocus > 0) score += allyFocus * 3500; // Boti si pomáhají a sdružují poškození na jeden cíl
-                  
+
+                  // ── TEAMFIGHT FOCUS TARGET BONUS ──────────────────────────────
+                  const tfState = game.teamfightState && game.teamfightState[this.team];
+                  if (tfState && tfState.active && tfState.focusTarget && tfState.focusTarget === e) {
+                      if (tfState.focusRole === 'SUPPORT_SNIPE') {
+                          // Support kill = nejvyšší priorita — přebije všechno kromě HUNT
+                          score += 28000;
+                          // Slayer a Splitpusher jsou nejlepší assassini — extra bonus
+                          if (['SLAYER', 'SPLITPUSHER'].includes(this.role)) score += 8000;
+                      } else if (tfState.focusRole === 'CARRY_EXECUTE') {
+                          // Dorazit zraněného carry — velká priorita
+                          score += 20000;
+                          if (this.role === 'SLAYER') score += 6000; // Slayer je Born to execute
+                      } else {
+                          // DPS_FOCUS — koordinovaný focus na největší hrozbu
+                          score += 15000;
+                      }
+                      // Pokud už na focus cíli máme výhodu počtu, přidej hysterezi (nedovolí přemazat)
+                      if (allyFocus >= 2) score += 5000;
+                  }
+
+                  // Teamfight: penalties pro špatné targety (nenechej boty fightovat rozdělení)
+                  if (tfState && tfState.active && tfState.focusTarget && tfState.focusTarget !== e) {
+                      // Existuje focus target a tento nepřítel není on — trochu snižuj prioritu ostatních
+                      // (jen mírně, ať boti stále reagují na přímý útok nebo low-HP dofinish)
+                      const focusDist = dist(e.pos, tfState.focusTarget.pos);
+                      if (focusDist > 600 && !isBloodlust) score -= 6000; // Nestíhej vzdálené cíle když máme focus
+                  }
+                  // ──────────────────────────────────────────────────────────────
+
                   // PEELING & TANK PROTECT
                   let chasingTerrified = aliveAllies.some(ally => ally.id !== this.id && ally.terrified && dist(e.pos, ally.pos) < 350);
                   if (chasingTerrified) score += 2500;
-                  
+
                   if (this.role === 'TANK') {
                       let attackingCarry = aliveAllies.some(ally => ['SLAYER', 'SUPPORT'].includes(ally.role) && ally.recentAttackers && ally.recentAttackers.has(e.id));
                       if (attackingCarry) score += 8000; // Tanci agresivně brání střelce a supporty ve svém týmu
+
+                      // Teamfight: tank preferuje toho kdo útočí na carry (peel) nad focus targetem
+                      if (tfState && tfState.active) {
+                          const guardedCarry = this.macroOrder?.type === 'GUARD_CARRY' ? this.macroOrder.target : null;
+                          if (guardedCarry && guardedCarry.recentAttackers && guardedCarry.recentAttackers.has(e.id)) {
+                              score += 18000; // Tank zastaví toho kdo útočí na jeho chráněnce — nejvyšší priorita
+                          }
+                      }
                   }
               } else {
                   if (farmUrge) {
@@ -3336,6 +3503,12 @@ export class BotPlayer extends Player {
           this.objective = bestObjective;
           this.target = null;
           this.currentScore = bestObjScore;
+      } else if (this.macroOrder && (this.macroOrder.type === 'GUARD_CARRY' || this.macroOrder.type === 'PEEL') && this.macroOrder.target && this.macroOrder.target.alive !== false) {
+          // Teamfight rolové rozkazy — bez jiného cíle zůstaň ve svém stavu
+          this.state = this.macroOrder.type;
+          this.objective = this.macroOrder.target;
+          this.target = null;
+          this.currentScore = 1;
       } else if (this.macroOrder && this.macroOrder.target && this.macroOrder.target.pos) {
           // Fallback pro módy bez věží (ARAM): macroOrder má pseudo-cíl s .pos — pohybujeme se k němu
           this.state = 'CAPTURE';
@@ -3774,8 +3947,42 @@ export class BotPlayer extends Player {
       }
     }
 
+    // Najde nejlepší pozici pro AOE spell: střed největšího shluku živých nepřátel v dosahu.
+    // Pokud na té pozici hituje méně než minHits nepřátel, vrátí null (nečas).
+    // Zohledňuje teamAoeHint — pokud spojenec právě hodil AoE na konkrétní místo,
+    // tento bot castuje tam taky pokud jsou tam alespoň 2 nepřátelé (combo bonus).
+    bestAoePos(radius, minHits = 2) {
+        if (!game.teamAoeHint) game.teamAoeHint = { 0: null, 1: null };
+        const enemies = game.players.filter(p => p.team !== this.team && p.alive);
+
+        // Spojenecký AoE hint: pokud je čerstvý (<0.8s) a v range od nás, prioritně castu tam
+        const hint = game.teamAoeHint[this.team];
+        if (hint && hint.pos && (performance.now() - hint.time) < 800) {
+            const hintInRange = dist(this.pos, hint.pos) <= radius + 200; // Musíme se tam nějak dostat
+            if (hintInRange) {
+                const hitsAtHint = enemies.filter(e => dist(e.pos, hint.pos) <= radius).length;
+                if (hitsAtHint >= 1) return { pos: hint.pos, hits: hitsAtHint, isCombo: true };
+            }
+        }
+
+        // Jinak hledáme vlastní nejlepší bod: každý živý nepřítel jako kandidátní střed
+        let bestPos = null, bestHits = minHits - 1;
+        for (const anchor of enemies) {
+            const hits = enemies.filter(e => dist(e.pos, anchor.pos) <= radius).length;
+            if (hits > bestHits) { bestHits = hits; bestPos = anchor.pos; }
+        }
+        return bestPos ? { pos: bestPos, hits: bestHits, isCombo: false } : null;
+    }
+
+    // Zapíše do blackboardu že tento bot právě hodil AoE na danou pozici.
+    // Ostatní boti se stejným týmem to uvidí a mohou combovat.
+    _notifyAoeHint(pos) {
+        if (!game.teamAoeHint) game.teamAoeHint = { 0: null, 1: null };
+        game.teamAoeHint[this.team] = { pos: { x: pos.x, y: pos.y }, time: performance.now() };
+    }
+
     executeOperative(dt) {
-      
+
       if (this.stunTimer > 0 || this.omnislashCount > 0) return;
 
       // --- ANTI-STUCK MECHANISMUS ---
@@ -3821,7 +4028,11 @@ export class BotPlayer extends Player {
       this.waveClearTimer = (this.waveClearTimer || 0) - dt;
       if (this.castingTimeRemaining <= 0 && this.waveClearTimer <= 0) {
           this.waveClearTimer = 1.0 + Math.random() * 1.5; // Zkusí to vyhodnotit jen jednou za 1 až 2.5 vteřiny
-          if (Math.random() < 0.65) { // 65% šance, že plošné kouzlo na miniony vůbec vyplýtvá
+          // Pokud probíhá teamfight v blízkosti, neplýtvej AoE CD na minionky — šetři na hráče
+          const tfNearby = game.teamfightState?.[this.team]?.active &&
+              game.teamfightState[this.team].clumpCenter &&
+              dist(this.pos, game.teamfightState[this.team].clumpCenter) < 1000;
+          if (!tfNearby && Math.random() < 0.65) { // 65% šance, že plošné kouzlo na miniony vůbec vyplýtvá
               for (let key of ['Q', 'E']) {
                   let sp = this.spells[key];
                   if (sp && sp.cd <= 0 && (sp.type === 'aoe' || sp.type === 'aoe_knockback' || sp.type === 'cone_knockback' || sp.type === 'cone_slow_shield')) {
@@ -3948,12 +4159,32 @@ export class BotPlayer extends Player {
                       else if (this.range) { if (d < 250) { castQ = true; qtx = this.pos.x + (this.pos.x - tx); qty = this.pos.y + (this.pos.y - ty); } }
                       else { if (d > 150 && d < 400) castQ = true; }
                   } else if (this.spells.Q.type === 'buff_ms') castQ = (d < 600);
-                  else if (this.spells.Q.type === 'aoe' || this.spells.Q.type === 'aoe_knockback' || this.spells.Q.type === 'cone_knockback' || this.spells.Q.type === 'cone_slow_shield') castQ = (d < (this.spells.Q.radius || 200));
+                  else if (this.spells.Q.type === 'aoe' || this.spells.Q.type === 'aoe_knockback' || this.spells.Q.type === 'cone_knockback' || this.spells.Q.type === 'cone_slow_shield') {
+                      const _aR = this.spells.Q.radius || 200;
+                      const _ap = this.bestAoePos(_aR, 2);
+                      if (_ap && dist(this.pos, _ap.pos) <= _aR + (_ap.isCombo ? 350 : 80)) {
+                          castQ = true; qtx = _ap.pos.x; qty = _ap.pos.y;
+                          if (!_ap.isCombo) this._notifyAoeHint(_ap.pos);
+                      }
+                  }
                   else if (this.spells.Q.type === 'projectile_egg') castQ = (d < 260);
                   else if (this.spells.Q.type === 'reaper_q') castQ = (d < 350 && this.reaperCharge === 0);
-                  else if (this.spells.Q.type === 'flamethrower') castQ = (d < (this.spells.Q.range || 300));
+                  else if (this.spells.Q.type === 'flamethrower') {
+                      const _fR = this.spells.Q.range || 300;
+                      const _fp = this.bestAoePos(_fR * 0.6, 2); // Cone — efektivní radius menší
+                      if (_fp && dist(this.pos, _fp.pos) <= _fR) {
+                          castQ = true; qtx = _fp.pos.x; qty = _fp.pos.y;
+                          if (!_fp.isCombo) this._notifyAoeHint(_fp.pos);
+                      } else castQ = (d < _fR);
+                  }
                   else if (this.spells.Q.type === 'tamer_q') castQ = (d < 350);
-                  else if (this.spells.Q.type === 'spin_to_win') castQ = (d < (this.spells.Q.radius || 150));
+                  else if (this.spells.Q.type === 'spin_to_win') {
+                      const _sR = this.spells.Q.radius || 150;
+                      const _sp = this.bestAoePos(_sR, 2);
+                      // Spin je self-cast — bot musí sám být v shluku, proto neměníme cílový bod ale podmínku
+                      const _selfHits = game.players.filter(p => p.team !== this.team && p.alive && dist(p.pos, this.pos) <= _sR).length;
+                      castQ = (_selfHits >= 2) || (_sp && _sp.isCombo && dist(this.pos, _sp.pos) <= _sR);
+                  }
                   else if (this.spells.Q.type === 'projectile_pull') castQ = (d < (this.spells.Q.pSpeed * this.spells.Q.life || 390));
                   else if (this.spells.Q.type === 'heal_beam') {
                       if (this.beamTimer <= 0) {
@@ -3984,21 +4215,42 @@ export class BotPlayer extends Player {
                       } else if (this.range) { if (d < 250) { castE = true; etx = this.pos.x + (this.pos.x - tx); ety = this.pos.y + (this.pos.y - ty); } }
                       else if (isMeleeVsRanged) { if (d > this.attackRange && d < this.attackRange + 250) castE = true; }
                       else { if (d > 150 && d < 400) castE = true; }
-                  } else if (this.spells.E.type === 'aoe' || this.spells.E.type === 'aoe_knockback' || this.spells.E.type === 'cone_knockback' || this.spells.E.type === 'cone_slow_shield') castE = (d < (this.spells.E.radius || 200));
+                  } else if (this.spells.E.type === 'aoe' || this.spells.E.type === 'aoe_knockback' || this.spells.E.type === 'cone_knockback' || this.spells.E.type === 'cone_slow_shield') {
+                      const _eaR = this.spells.E.radius || 200;
+                      const _eap = this.bestAoePos(_eaR, 2);
+                      if (_eap && dist(this.pos, _eap.pos) <= _eaR + (_eap.isCombo ? 350 : 80)) {
+                          castE = true; etx = _eap.pos.x; ety = _eap.pos.y;
+                          if (!_eap.isCombo) this._notifyAoeHint(_eap.pos);
+                      }
+                  }
                   else if (this.spells.E.type === 'reaper_e') castE = (d > 100 && d < 350) || (this.spells.Q.cd > 2.0 && d < 200);
                   else if (this.spells.E.type === 'volstrov_e') {
                       const qCdHigh = this.spells.Q.cd > (this.spells.Q.baseCooldown || 12) * 0.35;
                       castE = (qCdHigh && d < 350) || (this.hp < this.effectiveMaxHp * 0.55);
                       if (castE && d < 200) { etx = this.pos.x + (this.pos.x - tx); ety = this.pos.y + (this.pos.y - ty); }
                   }
-                  else if (this.spells.E.type === 'flamethrower') castE = (d < (this.spells.E.range || 300));
+                  else if (this.spells.E.type === 'flamethrower') {
+                      const _efR = this.spells.E.range || 300;
+                      const _efp = this.bestAoePos(_efR * 0.6, 2);
+                      if (_efp && dist(this.pos, _efp.pos) <= _efR) {
+                          castE = true; etx = _efp.pos.x; ety = _efp.pos.y;
+                          if (!_efp.isCombo) this._notifyAoeHint(_efp.pos);
+                      } else castE = (d < _efR);
+                  }
                   else if (this.spells.E.type === 'tamer_e') {
                       let pet = game.minions.find(m => m.ownerId === this.id && m.isTamerPet && !m.dead);
                       if (pet) { castE = (pet.hp < pet.maxHp * 0.5); } 
                       else { let enemiesNear = game.players.filter(p => p.team !== this.team && p.alive && dist(p.pos, this.pos) < 500).length; castE = (enemiesNear === 0 || this.hp / this.effectiveMaxHp > 0.5); }
                   }
                   else if (this.spells.E.type === 'omnislash') castE = (d < (this.spells.E.distance || 180));
-                  else if (this.spells.E.type === 'shield_aoe') { castE = (this.hp < this.effectiveMaxHp * 0.8 || d < 400); etx = this.pos.x; ety = this.pos.y; } // Plácne pod sebe
+                  else if (this.spells.E.type === 'shield_aoe') {
+                      const _saR = this.spells.E.radius || 200;
+                      const _nearEn = game.players.filter(p => p.team !== this.team && p.alive && dist(p.pos, this.pos) <= _saR).length;
+                      // Castuj pod sebe — ale jen pokud je v dosahu aspoň 1 nepřítel, nebo máme málo HP
+                      castE = (_nearEn >= 1 || this.hp < this.effectiveMaxHp * 0.8);
+                      etx = this.pos.x; ety = this.pos.y;
+                      if (castE && _nearEn >= 2) this._notifyAoeHint(this.pos); // Oznám combo partnerům
+                  }
                   else if (this.spells.E.type === 'ubercharge') {
                       if (this.uberChargeTimer >= 5.0 && this.beamTargetId) {
                           let needUber = false;
@@ -4015,7 +4267,75 @@ export class BotPlayer extends Player {
               this.state = 'SEARCHING';
           }
       } 
+      else if (this.state === 'GUARD_CARRY' && this.objective && this.objective.alive !== false) {
+          // Tank pozicování: stůj mezi chráněncem a nejbližším nepřítelem
+          const carry = this.objective;
+          const dToCarry = dist(this.pos, carry.pos);
+          const nearEnemy = game.players
+              .filter(p => p.team !== this.team && p.alive)
+              .sort((a, b) => dist(a.pos, carry.pos) - dist(b.pos, carry.pos))[0];
+
+          if (nearEnemy) {
+              // Cílová pozice: mezi carry a nepřítelem, 120px od carry
+              const ang = Math.atan2(nearEnemy.pos.y - carry.pos.y, nearEnemy.pos.x - carry.pos.x);
+              const guardX = carry.pos.x + Math.cos(ang) * 120;
+              const guardY = carry.pos.y + Math.sin(ang) * 120;
+              const dToGuard = dist(this.pos, { x: guardX, y: guardY });
+              if (dToGuard > 40) { dx = guardX - this.pos.x; dy = guardY - this.pos.y; }
+
+              // Tank útočí na toho kdo útočí na carry — to řeší evaluateTactic scoring (+18000)
+              // Ale pokud je nepřítel ve střelné vzdálenosti a tank ještě nemá target, zaútočí
+              const dToEnemy = dist(this.pos, nearEnemy.pos);
+              const atkRange = this.range ? this.attackRange : this.attackRange + 20;
+              if (dToEnemy <= atkRange + 60 && this.attackCooldown <= 0 && this.castingTimeRemaining <= 0 && this.canBasicAttack()) {
+                  this.shoot(nearEnemy.pos.x, nearEnemy.pos.y);
+                  const effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0);
+                  this.attackCooldown = this.attackDelay / effAS;
+              }
+          } else {
+              // Žádný nepřítel — drž se u carry
+              if (dToCarry > 180) { dx = carry.pos.x - this.pos.x; dy = carry.pos.y - this.pos.y; }
+          }
+      }
+      else if (this.state === 'PEEL' && this.objective && this.objective.alive !== false) {
+          // Support: pohyb k nejzraněnějšímu spojenci — heal spelly použijeme zde
+          const ward = this.objective;
+          const dToWard = dist(this.pos, ward.pos);
+          if (dToWard > 100) { dx = ward.pos.x - this.pos.x; dy = ward.pos.y - this.pos.y; }
+
+          // Heal/buff spelly aktivně castuj na chráněnce pokud je v dosahu
+          if (this.castingTimeRemaining <= 0) {
+              for (const key of ['Q', 'E']) {
+                  const sp = this.spells[key];
+                  if (!sp || sp.cd > 0) continue;
+                  const isHeal = sp.type === 'heal_self' || sp.type === 'heal_aoe' || sp.type === 'heal_beam' || sp.type === 'dash_heal_silence' || sp.type === 'hana_q';
+                  const isShield = sp.type === 'shield_aoe';
+                  const isBuff = sp.type === 'buff_ad_as' || sp.type === 'buff_ms';
+                  if ((isHeal || isShield || isBuff) && dToWard < (sp.radius || sp.range || 300)) {
+                      this.castSpell(key, ward.pos.x, ward.pos.y);
+                      break;
+                  }
+              }
+          }
+
+          // Útok na toho kdo útočí na chráněnce (peeling)
+          const peelTarget = game.players.find(p =>
+              p.team !== this.team && p.alive &&
+              ward.recentAttackers && ward.recentAttackers.has(p.id) &&
+              dist(p.pos, this.pos) < this.attackRange + 80
+          );
+          if (peelTarget && this.attackCooldown <= 0 && this.castingTimeRemaining <= 0 && this.canBasicAttack()) {
+              this.shoot(peelTarget.pos.x, peelTarget.pos.y);
+              const effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0);
+              this.attackCooldown = this.attackDelay / effAS;
+          }
+      }
       else if ((this.state === 'CAPTURE' || this.state === 'PUSH' || this.state === 'PICKUP') && this.objective) {
+          // Heal pickup byl sebrán — zahoď objective okamžitě, neumrzni na místě
+          if (this.objective.type === 'heal') {
+              const liveHeal = game.heals.find(h => h.active && dist(h.pos, this.objective.pos) < 10);
+              if (!liveHeal) { this.state = 'SEARCHING'; this.objective = null; }
+          }
           let dToObj = dist(this.pos, this.objective.pos);
           let stopRadius = this.objective.captureRadius !== undefined ? this.objective.captureRadius - 10 : 80;
           if (dToObj > stopRadius) { // Zastavíme u cíle (u věže nebo u minionů)
