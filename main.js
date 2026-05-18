@@ -1381,24 +1381,34 @@ import { initAudio, playSound } from './Audio.js';
                 for (const p of game.players) { if (!(p instanceof BotPlayer) && p.alive) out.push(p.pos); }
                 return out;
             };
-            // Proximity tier: 0=blízko(<500px)→100%, 1=střed(500-1200px)→50%, 2=daleko(>1200px)→25%
+            // Viewport-based proximity tier — thresholdy odvozeny od skutečné velikosti viewportu (~550px radius).
+            // Tier 0: viewport +15% → 100% rate
+            // Tier 1: viewport +60% → 50% rate
+            // Tier 2: viewport +150% → 25% rate
+            // Tier 3: za tím       → 10% rate
             const _proxTier = (pos, hPos) => {
                 if (hPos.length === 0) return 0;
                 let minD2 = Infinity;
                 for (const h of hPos) { const dx = pos.x-h.x, dy = pos.y-h.y; const d2=dx*dx+dy*dy; if(d2<minD2) minD2=d2; }
-                if (minD2 < 1500*1500) return 0;
-                if (minD2 < 3600*3600) return 1;
-                return 2;
+                if (minD2 < 700*700)  return 0;
+                if (minD2 < 1400*1400) return 1;
+                if (minD2 < 2800*2800) return 2;
+                return 3;
             };
 
-            // ── 20 Hz: pozice botů (proximity culled) ─────────────────────────
+            // ── 20 Hz: pozice botů (viewport-based culling) ───────────────────
             if (game._tBot >= 0.05) {
                 game._tBot = 0;
                 const hPos = _humanPos();
                 const botUpdates = [];
                 for (const b of game.players) {
                     if (!(b instanceof BotPlayer)) continue;
-                    // Boti: bez proximity cullingu — sekaný pohyb při přeskakování paketů
+                    // Viewport culling: tier 0=100%, tier 1=50% (každý 2.), tier 2=25% (každý 4.), tier 3=10% (každý 10.)
+                    const tier = _proxTier(b.pos, hPos);
+                    b._proxSkip = (b._proxSkip || 0) + 1;
+                    if (tier === 1 && b._proxSkip % 2 !== 0) continue;
+                    if (tier === 2 && b._proxSkip % 4 !== 0) continue;
+                    if (tier === 3 && b._proxSkip % 10 !== 0) continue;
                     // Delta komprese
                     const dx = b.pos.x - (b._lastSyncX ?? b.pos.x + 999);
                     const dy = b.pos.y - (b._lastSyncY ?? b.pos.y + 999);
@@ -1443,11 +1453,12 @@ import { initAudio, playSound } from './Audio.js';
                 }
                 for (const m of game.minions) {
                     if (m.dead) continue; // dead handled via _pendingMinionDeaths
-                    // Proximity culling
+                    // Viewport culling: tier 0=6Hz, tier 1=3Hz, tier 2=1.5Hz, tier 3=0.6Hz
                     const tier = _proxTier(m.pos, hPos);
                     m._proxSkip = (m._proxSkip || 0) + 1;
                     if (tier === 1 && m._proxSkip % 2 !== 0) continue; // ~3 Hz
-                    if (tier === 2 && m._proxSkip % 3 !== 0) continue; // ~2 Hz
+                    if (tier === 2 && m._proxSkip % 4 !== 0) continue; // ~1.5 Hz
+                    if (tier === 3 && m._proxSkip % 10 !== 0) continue; // ~0.6 Hz
                     if (m._syncDirty) {
                         m._syncDirty = false;
                         minionOut.push({ id: m.id, x: Math.round(m.pos.x), y: Math.round(m.pos.y), hp: Math.round(m.hp), dead: false, maxHp: m.maxHp, team: m.team, targetIndex: m.targetIndex, isSummon: m.isSummon, glyph: m.glyph, tHeroId: m.targetHeroId, isSc: m.isSmallChicken, isBc: m.isBigChicken });
@@ -1510,12 +1521,27 @@ import { initAudio, playSound } from './Audio.js';
                 }
             }
 
-            // ── 3 Hz: věže ────────────────────────────────────────────────────
+            // ── 3 Hz: věže — proximity-tiered + dirty-only ────────────────────
             if (game._tTower >= 0.333) {
                 game._tTower = 0;
-                try { socket.emit('host_state', { bots: [], minions: [],
-                    towers: game.towers.map(t => ({i: t.index, c: t.control, o: t.owner, l: t.isLocked, u: t.unlockTimer}))
-                }); } catch(netErr) { console.warn('[NET] host_state (towers) error:', netErr.message); }
+                const hPos = _humanPos();
+                const towerOut = [];
+                for (const t of game.towers) {
+                    const tier = _proxTier(t.pos, hPos);
+                    t._towerSkip = (t._towerSkip || 0) + 1;
+                    if (tier === 1 && t._towerSkip % 2 !== 0) continue; // ~1.5 Hz
+                    if (tier === 2 && t._towerSkip % 3 !== 0) continue; // ~1 Hz
+                    if (tier === 3 && t._towerSkip % 6 !== 0) continue; // ~0.5 Hz
+                    // Dirty check: posílej jen věže kde se něco změnilo
+                    const cc = t.control, co = t.owner, cl = t.isLocked;
+                    if (t._lastC === cc && t._lastO === co && t._lastL === cl && tier > 0) continue;
+                    t._lastC = cc; t._lastO = co; t._lastL = cl;
+                    towerOut.push({i: t.index, c: cc, o: co, l: cl, u: t.unlockTimer});
+                }
+                if (towerOut.length > 0) {
+                    try { socket.emit('host_state', { bots: [], minions: [], towers: towerOut });
+                    } catch(netErr) { console.warn('[NET] host_state (towers) error:', netErr.message); }
+                }
             }
 
             // ── 1 Hz: heals, nexus (málokdy se mění) ──────────────────────────
