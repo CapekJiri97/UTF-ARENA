@@ -15,6 +15,7 @@ import {
     exportPlayerCSV,
     exportClassCSV,
     exportItemCSV,
+    exportBuildCSV,
     exportJSON,
     downloadFile,
 } from './SimStats.js';
@@ -232,6 +233,7 @@ function _buildPanel() {
       <button id="simExportPlayers" class="sim-btn sim-btn-export">↓ Player CSV</button>
       <button id="simExportClass"   class="sim-btn sim-btn-export">↓ Class CSV</button>
       <button id="simExportItems"   class="sim-btn sim-btn-export">↓ Item CSV</button>
+      <button id="simExportBuilds"  class="sim-btn sim-btn-export">↓ Build CSV</button>
       <button id="simExportJSON"    class="sim-btn sim-btn-json">↓ Full JSON</button>
     </div>
   </div>
@@ -285,6 +287,9 @@ function _buildPanel() {
     });
     $('simExportItems').addEventListener('click', () => {
         downloadFile(`sim_items_${Date.now()}.csv`, exportItemCSV(_aggregate));
+    });
+    $('simExportBuilds').addEventListener('click', () => {
+        downloadFile(`sim_builds_${Date.now()}.csv`, exportBuildCSV(_aggregate));
     });
     $('simExportJSON').addEventListener('click', () => {
         downloadFile(`sim_full_${Date.now()}.json`, exportJSON(_aggregate, _results), 'application/json');

@@ -23,11 +23,12 @@ const NUMERIC_KEYS = [
 // ─── PlayerTracker ─────────────────────────────────────────────────────────────
 class PlayerTracker {
     constructor(player) {
-        this.id          = player.id;
-        this.className   = player.className;
-        this.team        = player.team;
-        this.dmgType     = player.dmgType || 'physical';
-        this.role        = player.role    || 'FIGHTER';
+        this.id             = player.id;
+        this.className      = player.className;
+        this.team           = player.team;
+        this.dmgType        = player.dmgType      || 'physical';
+        this.role           = player.role         || 'FIGHTER';
+        this.buildArchetype = player.buildArchetype || 'unknown';
 
         // Rolling burst window — stores {time, amount} for damage dealt to heroes
         this._dmgEvents  = [];
@@ -103,11 +104,12 @@ class PlayerTracker {
             : (player.kills + player.assists) / player.deaths;
 
         return {
-            id:          this.id,
-            className:   this.className,
-            team:        this.team,
-            role:        this.role,
-            dmgType:     this.dmgType,
+            id:             this.id,
+            className:      this.className,
+            team:           this.team,
+            role:           this.role,
+            dmgType:        this.dmgType,
+            buildArchetype: this.buildArchetype,
 
             kills:       player.kills,
             deaths:      player.deaths,
@@ -201,6 +203,8 @@ export class GameTracker {
 export function computeAggregateStats(gameRecords) {
     const byClass = {}; // className → { entries: PlayerResult[], wins: 0, losses: 0 }
     const byItem  = {}; // itemId   → { appearances: 0, wins: 0 }
+    // className → archetype → { wins, losses }
+    const byClassArchetype = {};
 
     let team0Wins = 0, team1Wins = 0, draws = 0;
 
@@ -218,6 +222,13 @@ export function computeAggregateStats(gameRecords) {
             byClass[p.className].entries.push(p);
             if (won) byClass[p.className].wins++;
             else     byClass[p.className].losses++;
+
+            // ── Per class × archetype ──────────────────────────────────────
+            const arch = p.buildArchetype || 'unknown';
+            if (!byClassArchetype[p.className]) byClassArchetype[p.className] = {};
+            if (!byClassArchetype[p.className][arch]) byClassArchetype[p.className][arch] = { wins: 0, losses: 0 };
+            if (won) byClassArchetype[p.className][arch].wins++;
+            else     byClassArchetype[p.className][arch].losses++;
 
             // ── Per item ───────────────────────────────────────────────────
             for (const itemId of new Set(p.items)) {
@@ -247,12 +258,26 @@ export function computeAggregateStats(gameRecords) {
                 p75:    vals[Math.floor(n * 0.75)],
             };
         }
+        // Per-archetype winrate pro tuto třídu
+        const archData = byClassArchetype[cls] || {};
+        const buildStats = {};
+        let bestBuild = null, bestBuildWr = -1;
+        for (const [archName, ad] of Object.entries(archData)) {
+            const total = ad.wins + ad.losses;
+            const wr = _r1(ad.wins / total * 100);
+            buildStats[archName] = { wins: ad.wins, losses: ad.losses, gamesPlayed: total, winRate: wr };
+            if (wr > bestBuildWr) { bestBuildWr = wr; bestBuild = archName; }
+        }
+
         classStats[cls] = {
             gamesPlayed: n,
             wins:        data.wins,
             losses:      data.losses,
             winRate:     _r1(data.wins / n * 100),
             stats,
+            buildStats,
+            bestBuild,
+            bestBuildWinRate: bestBuildWr >= 0 ? bestBuildWr : null,
         };
     }
 
@@ -292,7 +317,7 @@ export function computeAggregateStats(gameRecords) {
 export function exportPlayerCSV(gameRecords) {
     const cols = [
         'gameIndex', 'winner', 'gameDuration', 'score0', 'score1',
-        'id', 'className', 'team', 'role', 'dmgType',
+        'id', 'className', 'team', 'role', 'dmgType', 'buildArchetype',
         ...NUMERIC_KEYS,
         'items',
     ];
@@ -323,21 +348,37 @@ export function exportPlayerCSV(gameRecords) {
  */
 export function exportClassCSV(aggregate) {
     const statCols = NUMERIC_KEYS.map(k => [`${k}_avg`, `${k}_median`, `${k}_max`]).flat();
-    const cols = ['className', 'gamesPlayed', 'wins', 'losses', 'winRate', ...statCols];
+    const cols = ['className', 'gamesPlayed', 'wins', 'losses', 'winRate', 'bestBuild', 'bestBuildWinRate', ...statCols];
     const rows = [cols.join(',')];
 
     for (const [cls, data] of Object.entries(aggregate.classStats)) {
         const row = cols.map(c => {
-            if (c === 'className')   return cls;
-            if (c === 'gamesPlayed') return data.gamesPlayed;
-            if (c === 'wins')        return data.wins;
-            if (c === 'losses')      return data.losses;
-            if (c === 'winRate')     return data.winRate;
+            if (c === 'className')        return cls;
+            if (c === 'gamesPlayed')      return data.gamesPlayed;
+            if (c === 'wins')             return data.wins;
+            if (c === 'losses')           return data.losses;
+            if (c === 'winRate')          return data.winRate;
+            if (c === 'bestBuild')        return data.bestBuild ?? '';
+            if (c === 'bestBuildWinRate') return data.bestBuildWinRate ?? '';
 
             const [key, stat] = c.split('_');
             return data.stats[key]?.[stat] ?? '';
         });
         rows.push(row.join(','));
+    }
+    return rows.join('\n');
+}
+
+/**
+ * Exports per-class × per-archetype winrate CSV.
+ * Each row = one class × one archetype.
+ */
+export function exportBuildCSV(aggregate) {
+    const rows = ['className,buildArchetype,gamesPlayed,wins,losses,winRate'];
+    for (const [cls, data] of Object.entries(aggregate.classStats)) {
+        for (const [arch, bd] of Object.entries(data.buildStats || {})) {
+            rows.push(`${cls},${arch},${bd.gamesPlayed},${bd.wins},${bd.losses},${bd.winRate}`);
+        }
     }
     return rows.join('\n');
 }
