@@ -1,7 +1,7 @@
 import { dist, distToPoly, expForLevel } from './Utils.js';
 import { CLASSES, SUMMONER_SPELLS } from './classes.js';
 import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost } from './items.js';
-import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
+import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
 import { Particle, spawnParticles, EffectText } from './Effects.js';
 import { Projectile, Minion } from './Entities.js';
 import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards, grantMinionKillRewards, recalcPlayerItemStats, activeGameMode } from './main.js';
