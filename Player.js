@@ -1185,6 +1185,7 @@ export class Player{
     if(!isNetwork && this.silenceTimer > 0) return; 
     if(!isNetwork && this.stunTimer > 0) return; 
     
+    this._lastSpellCastAt = performance.now(); // CD tracking — boti vidí kdy enemy castoval
     if (window._simCastHook) window._simCastHook(this.id, spKey);
     if (!window._simSoundMuted) playSound('shoot', this.pos, { pitch: 0.6 + (this.className.charCodeAt(this.className.length - 1) % 6) * 0.15 }); // Mírně odlišný tón pro spelly
 
@@ -3937,6 +3938,36 @@ export class BotPlayer extends Player {
       this.tacticTimer -= dt;
       if (this.tacticTimer <= 0) { this.tacticTimer = 0.2 + Math.random()*0.05; this.evaluateTactic(); }
 
+      // --- TRADE AWARENESS: sleduj HP delta za posledních 3s ---
+      if (!this._tradeHpPrev) this._tradeHpPrev = this.hp;
+      const _hpDelta = this._tradeHpPrev - this.hp; // kladné = ztratili jsme HP
+      this._tradeHpPrev = this.hp;
+      if (this.state === 'ATTACK' && this.target) {
+          if (!this._tradeLost) this._tradeLost = 0;
+          if (!this._tradeDealt) this._tradeDealt = 0;
+          if (!this._tradeTimer) this._tradeTimer = 0;
+          this._tradeTimer += dt;
+          this._tradeLost += Math.max(0, _hpDelta);
+          // dealt: sledujeme target HP drop (clampujeme aby nešlo záporně při healech)
+          if (!this._tradeTargetHpPrev) this._tradeTargetHpPrev = this.target.hp;
+          const _targetDelta = this._tradeTargetHpPrev - this.target.hp;
+          this._tradeTargetHpPrev = this.target.hp;
+          this._tradeDealt += Math.max(0, _targetDelta);
+          // Reset okna každé 3s
+          if (this._tradeTimer >= 3.0) {
+              this._tradeLost = 0; this._tradeDealt = 0; this._tradeTimer = 0;
+          }
+          // Špatný trade: ztratili jsme výrazně víc než jsme způsobili → backoff flag
+          const _tradeRatio = this._tradeDealt > 0 ? (this._tradeLost / this._tradeDealt) : (this._tradeLost > 0 ? 99 : 0);
+          const _tradeLostPct = this._tradeLost / this.effectiveMaxHp;
+          this._badTrade = (_tradeRatio > 2.2 && _tradeLostPct > 0.33);
+      } else {
+          this._tradeHpPrev = this.hp;
+          this._tradeTargetHpPrev = null;
+          this._tradeLost = 0; this._tradeDealt = 0; this._tradeTimer = 0;
+          this._badTrade = false;
+      }
+
       // Spuštění Operativy
       this.executeOperative(dt);
       
@@ -4100,21 +4131,62 @@ export class BotPlayer extends Player {
               }
 
               let atkRange = this.range ? Math.max(100, this.attackRange - 50) : Math.max(40, this.attackRange - 30);
-              if (this.reaperCharge > 0) atkRange += 70; // Bot ví, že má s Q mnohem delší dosah
-              
+              if (this.reaperCharge > 0) atkRange += 70;
+
+              // --- BOD 2: CD WINDOW — enemy právě castoval spell, safe window ~1.8s ---
+              const _now = performance.now();
+              const _enemyCastAgo = this.target._lastSpellCastAt ? (_now - this.target._lastSpellCastAt) / 1000 : 99;
+              const _inSafeWindow = _enemyCastAgo < 1.8;
+
+              // --- BOD 1: BAD TRADE KITING / GOOD TRADE AGGRESSION ---
+              const _aaReady = this.attackCooldown <= 0;
+              const _anySpellReady = (this.spells.Q && this.spells.Q.cd <= 0) || (this.spells.E && this.spells.E.cd <= 0);
+              const _allOnCd = !_aaReady && !_anySpellReady;
+              const _doBackoff = this._badTrade && !_inSafeWindow && (this.hp / this.effectiveMaxHp > 0.25)
+                  && (this.range ? true : _allOnCd);
+              // Dobrý trade: ratio < 0.8 a způsobili jsme aspoň něco — jdi na ně agresivněji
+              const _tradeRatioCur = (this._tradeDealt > 0 && this._tradeLost >= 0)
+                  ? (this._tradeLost / this._tradeDealt) : 1.0;
+              const _goodTrade = _tradeRatioCur < 0.8 && this._tradeDealt > 30;
+
               if (d > atkRange + 20) {
                   this.chaseTimer = (this.chaseTimer || 0) + dt;
               } else {
-                  this.chaseTimer = 0; // Jsem u cíle, timer se nuluje
+                  this.chaseTimer = 0;
               }
 
               // Movement Logic
-              if (d > atkRange) { dx = tx - this.pos.x; dy = ty - this.pos.y; } // Chasing
-              else if (this.range && d < atkRange - 150) { dx = this.pos.x - tx; dy = this.pos.y - ty; } // Kiting pro střelce
-              else { 
-                  let strafeDir = (parseInt(this.id.split('_')[1] || '0') % 2 === 0) ? 1 : -1;
-                  dx = -(ty - this.pos.y) * strafeDir; dy = (tx - this.pos.x) * strafeDir; 
-              } // Strafeování (každý bot krouží na jinou stranu)
+              if (_doBackoff) {
+                  if (this.range) {
+                      // Ranged kiting: drž se na hraně attack range — ne plný útěk, ale max distance
+                      const kitDist = atkRange - 20;
+                      if (d < kitDist) {
+                          // Jsme blíž než chceme — ustup + strafe
+                          const strafeDir = (parseInt(this.id.split('_')[1] || '0') % 2 === 0) ? 1 : -1;
+                          dx = (this.pos.x - tx) + (-(ty - this.pos.y) * strafeDir * 0.5);
+                          dy = (this.pos.y - ty) + ((tx - this.pos.x) * strafeDir * 0.5);
+                      } else {
+                          // Jsme na dobré vzdálenosti — jen strafe
+                          const strafeDir = (parseInt(this.id.split('_')[1] || '0') % 2 === 0) ? 1 : -1;
+                          dx = -(ty - this.pos.y) * strafeDir; dy = (tx - this.pos.x) * strafeDir;
+                      }
+                  } else {
+                      // Melee: krátký krok zpět, čeká na AA reset — pak se vrátí
+                      dx = this.pos.x - tx; dy = this.pos.y - ty;
+                  }
+              } else if (d > atkRange) {
+                  // Good trade nebo safe window: agresivnější chase, ignoruj kiting vzdálenost
+                  const chaseRange = (_inSafeWindow || _goodTrade) ? atkRange * 1.25 : atkRange;
+                  if (d > chaseRange) { dx = tx - this.pos.x; dy = ty - this.pos.y; }
+              } else if (this.range && d < atkRange - 150 && !_goodTrade) {
+                  // Ranged kiting — ale při dobrém tradu netlačí brake, zůstane blíž
+                  dx = this.pos.x - tx; dy = this.pos.y - ty;
+              } else {
+                  const strafeDir = (parseInt(this.id.split('_')[1] || '0') % 2 === 0) ? 1 : -1;
+                  // Good trade nebo safe window: agresivnější strafe (tlačí blíž)
+                  const strafeMult = (_inSafeWindow || _goodTrade) ? 1.4 : 1.0;
+                  dx = -(ty - this.pos.y) * strafeDir * strafeMult; dy = (tx - this.pos.x) * strafeDir * strafeMult;
+              }
               
               // PRIORITIZACE VĚŽE BĚHEM SOUBOJE:
               let fightObjective = this.objective || [...game.towers].sort((a,b)=>dist(a.pos,this.pos)-dist(b.pos,this.pos))[0];
