@@ -2940,7 +2940,7 @@ export class BotPlayer extends Player {
           if (score > bestObjScore) { bestObjScore = score; bestObjective = { pos: mySpawn, type: 'recall', captureRadius: 200 }; bestState = 'PICKUP'; }
       }
 
-      if (this.macroOrder && this.macroOrder.type === 'REGROUP') {
+      if (this.macroOrder && this.macroOrder.type === 'REGROUP' && this.macroOrder.target && this.macroOrder.target.pos) {
           let score = 55000 - dToSpawn;
           if (dToSpawn < 250) score = 70000; // Čekáme ve fontáně na zbytek týmu
           if (score > bestObjScore) { bestObjScore = score; bestObjective = { pos: this.macroOrder.target.pos, type: 'regroup', captureRadius: 250 }; bestState = 'PICKUP'; }
@@ -4336,6 +4336,8 @@ export class BotPlayer extends Player {
               const liveHeal = game.heals.find(h => h.active && dist(h.pos, this.objective.pos) < 10);
               if (!liveHeal) { this.state = 'SEARCHING'; this.objective = null; }
           }
+          if (!this.objective) { dx = 0; dy = 0; }
+          else {
           let dToObj = dist(this.pos, this.objective.pos);
           let stopRadius = this.objective.captureRadius !== undefined ? this.objective.captureRadius - 10 : 80;
           if (dToObj > stopRadius) { // Zastavíme u cíle (u věže nebo u minionů)
@@ -4353,6 +4355,7 @@ export class BotPlayer extends Player {
                   }
               }
           }
+          } // end else (objective still valid)
       }
 
       // --- KITING BĚHEM ÚTĚKU / PŘESUNU ---
