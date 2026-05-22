@@ -1235,7 +1235,7 @@ export class Player{
         for(let i=0; i<count; i++) {
             const a = count === 1 ? angle : angle - (spread*(count-1))/2 + i*spread;
             const vx = Math.cos(a)*speed; const vy = Math.sin(a)*speed;
-            game.projectiles.push(new Projectile(this.pos.x + Math.cos(a)*(this.radius+6), this.pos.y + Math.sin(a)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:sp.pGlyph, life: life, slowDuration: slowDur, slowMod: slowMod, silenceDuration: sp.silenceDuration || 0, stunDuration: sp.stunDuration || 0, pullToCaster: sp.pullToCaster, bonusMaxHpDmg: sp.bonusMaxHpDmg || 0, isSpell: true}));
+            game.projectiles.push(new Projectile(this.pos.x + Math.cos(a)*(this.radius+6), this.pos.y + Math.sin(a)*(this.radius+6), vx, vy, this.id, this.team, {damage:damage, dmgType: this.dmgType, glyph:sp.pGlyph, life: life, slowDuration: slowDur, slowMod: slowMod, silenceDuration: sp.silenceDuration || 0, stunDuration: sp.stunDuration || 0, pullToCaster: sp.pullToCaster, bonusMaxHpDmg: sp.bonusMaxHpDmg || 0, pierce: sp.piercing || false, isSpell: true}));
         }
     } else if (sp.type === 'projectile_summon') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x); const speed = sp.pSpeed || 900; const life = sp.life || (700 / speed);
@@ -1593,6 +1593,91 @@ export class Player{
             this.revivingPet = true;
             spawnParticles(this.pos.x, this.pos.y, 25, '#a3c', {speed: 50, life: 3.0});
         }
+    } else if (sp.type === 'sticky_bomb') {
+        const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
+        const speed = sp.pSpeed || 700;
+        const life = sp.life || 0.55;
+        const caster = this;
+        const bombData = { damage, dmgType: this.dmgType, casterId: this.id, casterTeam: this.team, fuseTime: sp.fuseTime || 2.0, radius: sp.radius || 130, slowDuration: sp.slowDuration || 1.2, slowMod: sp.slowMod || 0.45 };
+        let proj = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), Math.cos(angle)*speed, Math.sin(angle)*speed, this.id, this.team, { damage: 0, dmgType: this.dmgType, glyph: sp.pGlyph || '*', life, radius: 10, isSpell: true, noHitParticles: true });
+        const origUpdate = proj.update.bind(proj);
+        proj._stickyTarget = null;
+        proj._stickyFuse = 0;
+        proj._bombData = bombData;
+        proj.update = function(dt) {
+            if (this._stickyTarget) {
+                // Stuck to target — follow it
+                if (this._stickyTarget.dead || this._stickyTarget.hp <= 0) { this.dead = true; return; }
+                this.pos.x = this._stickyTarget.pos.x;
+                this.pos.y = this._stickyTarget.pos.y - 18;
+                this._stickyFuse -= dt;
+                // Countdown particles
+                if (Math.random() < 0.3) spawnParticles(this.pos.x, this.pos.y, 1, '#ff8800', { speed: 30, life: 0.4 });
+                if (this._stickyFuse <= 0) {
+                    // Explode
+                    const bd = this._bombData;
+                    game.particles.push(new Particle(this.pos.x, this.pos.y, '#ff6600', { shape: 'ring', radius: bd.radius, life: 0.4, speed: 0, lineWidth: 4 }));
+                    spawnParticles(this.pos.x, this.pos.y, 20, '#ff6600', { speed: 180 });
+                    if (!socket || game.isHost) {
+                        for (let p of game.players) {
+                            if (p.team === bd.casterTeam || !p.alive) continue;
+                            if (dist(this.pos, p.pos) <= bd.radius) {
+                                applyDamage(p, bd.damage, bd.dmgType, bd.casterId, false, true);
+                                p.slowTimer = Math.max(p.slowTimer || 0, bd.slowDuration);
+                                p.slowMod = Math.min(p.slowMod !== undefined ? p.slowMod : 1, bd.slowMod);
+                                if (p.hp <= 0) handlePlayerKill(p, bd.casterId);
+                            }
+                        }
+                        for (let m of game.minions) {
+                            if (m.dead || m.team === bd.casterTeam) continue;
+                            if (dist(this.pos, m.pos) <= bd.radius) {
+                                applyDamage(m, bd.damage * 0.6, bd.dmgType, bd.casterId, false, true);
+                                if (m.hp <= 0) { m.dead = true; grantMinionKillRewards(game.players.find(p => p.id === bd.casterId), m.pos); }
+                            }
+                        }
+                    }
+                    playSound('explosion', this.pos);
+                    this.dead = true;
+                }
+                return;
+            }
+            // Still flying — check for first enemy hit
+            origUpdate(dt);
+            if (!this._stickyTarget) {
+                for (let p of game.players) {
+                    if (!p.alive || p.team === this._bombData.casterTeam) continue;
+                    if (dist(this.pos, p.pos) < 14 + p.radius) {
+                        this._stickyTarget = p;
+                        this._stickyFuse = this._bombData.fuseTime;
+                        this.vx = 0; this.vy = 0;
+                        spawnParticles(p.pos.x, p.pos.y, 6, '#ff8800');
+                        break;
+                    }
+                }
+            }
+        };
+        game.projectiles.push(proj);
+        spawnParticles(this.pos.x, this.pos.y, 8, '#ff8800', { speed: 120 });
+    } else if (sp.type === 'smoke_bomb') {
+        const healPerTick = Math.round((sp.healPerTick || 10) + (pAP * (sp.scaleHealAP || 0)) + (pAD * (sp.scaleHealAD || 0)));
+        const defBuff = sp.defBuffPct || 0.08;
+        const debuffPct = sp.statDebuffPct || 0.08;
+        const effect = {
+            pos: { x: this.pos.x, y: this.pos.y },
+            casterId: this.id, casterTeam: this.team,
+            radius: sp.radius || 140,
+            timer: sp.duration || 2.0,
+            tickRate: sp.tickRate || 0.25,
+            tickTimer: 0,
+            healPerTick, defBuff, debuffPct,
+            slowMod: sp.slowMod || 0.75,
+            finalDamage: damage,
+            dmgType: this.dmgType,
+            slowDuration: sp.slowDuration || 0.35,
+            _afflicted: new Set(),
+        };
+        game.groundEffects.push(effect);
+        spawnParticles(this.pos.x, this.pos.y, 15, '#aaffaa', { speed: 80, life: 0.6 });
     } else if (sp.type === 'spin_to_win') {
         this.spinTimer = sp.duration || 2.5;
         this.spinTick = 0;
@@ -4270,6 +4355,7 @@ export class BotPlayer extends Player {
                       }
                   }
                   else if (this.spells.Q.type === 'volstrov_q') castQ = (d < 400 && this.volstrovQTimer <= 0); // Volstrov Q — aktivuje buff jen když není aktivní
+                  else if (this.spells.Q.type === 'sticky_bomb') castQ = (d < (this.spells.Q.pSpeed || 700) * (this.spells.Q.life || 0.55) + 20);
                   else castQ = (d < 450);
                   if (castQ) this.castSpell('Q', qtx, qty);
               }
@@ -4331,6 +4417,11 @@ export class BotPlayer extends Player {
                           if (bt && bt.hp / bt.effectiveMaxHp < 0.5 && bt.recentAttackers && bt.recentAttackers.size > 0) needUber = true;
                           castE = needUber;
                       }
+                  }
+                  else if (this.spells.E.type === 'smoke_bomb') {
+                      // Cast under self when in melee range or low HP
+                      castE = (d < (this.spells.E.radius || 140) + 30 || this.hp < this.effectiveMaxHp * 0.65);
+                      etx = this.pos.x; ety = this.pos.y;
                   }
                   else castE = (d < (this.spells.E.radius || 250));
                   if (castE) this.castSpell('E', etx, ety);

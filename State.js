@@ -1,7 +1,7 @@
 const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 export const game = {
   autoTarget: true, autoAttack: false, autoBuy: false, autoLevelUp: false, showDebug: false, debugMapTools: false, showMapOverlay: false, started: false,
-  players: [], projectiles: [], minions: [], towers: [], damageNumbers: [], particles: [], effectTexts: [], walls: [],
+  players: [], projectiles: [], minions: [], towers: [], damageNumbers: [], particles: [], effectTexts: [], walls: [], groundEffects: [],
   shake: 0, screenDamageFlash: 0, screenHealFlash: 0, nexus: {0:500, 1:500}, gameOver: false, winner: null, startDelay: 10.0,
   heals: [], powerup: null, speedPads: [], isHost: false, isSpectator: false,
   killFeed: [],

@@ -605,7 +605,7 @@ import { initAudio, playSound } from './Audio.js';
     if(target.hasPowerup) { arm *= 1.2; mr *= 1.2; }
     if(target.boostTimer > 0) { arm *= 1.1; mr *= 1.1; }
     if(target.jungleTankTimer > 0) { arm *= 1.1; mr *= 1.1; }
-    if(target.defBuffTimer > 0) { arm += 50; mr += 50; }
+    if(target.defBuffTimer > 0) { const defBonus = target.defBuffAmount ? (target.defBuffAmount) : 0.15; arm = Math.round(arm * (1 + defBonus)); mr = Math.round(mr * (1 + defBonus)); }
     if (sourceEntity) {
       const pen = sourceEntity.adaptivePen || 0;
       if (type === 'physical') arm = Math.round(arm * (1 - pen));
@@ -878,7 +878,14 @@ import { initAudio, playSound } from './Audio.js';
   }
 
   export function startGame(playerClass, playerTeam = 0, isSpectator = false, summonerSpell = 'Heal') {
-    game.players = []; game.minions = []; game.projectiles = [];
+    const _endOverlay = document.getElementById('endOverlay');
+    if (_endOverlay) _endOverlay.classList.add('hidden');
+    const _endStats = document.getElementById('endStats');
+    if (_endStats) _endStats.remove();
+    const _endScrollBtns = document.getElementById('endScrollBtns');
+    if (_endScrollBtns) _endScrollBtns.remove();
+
+    game.players = []; game.minions = []; game.projectiles = []; game.groundEffects = [];
     game.isSpectator = isSpectator;
     game.isHost = true; // Důležité: Aby boti a hra nečekali na síťové příkazy!
 
@@ -1302,6 +1309,60 @@ import { initAudio, playSound } from './Audio.js';
     game.projectiles = game.projectiles.filter(p=>!p.dead);
     game.minions = game.minions.filter(m=>!m.dead);
     game.damageNumbers = game.damageNumbers.filter(d=>d.life>0);
+
+    if (game.groundEffects && game.groundEffects.length > 0) {
+        for (let i = game.groundEffects.length - 1; i >= 0; i--) {
+            const ge = game.groundEffects[i];
+            ge.timer -= dt;
+            ge.tickTimer -= dt;
+            const r = ge.radius;
+            if (ge.tickTimer <= 0) {
+                ge.tickTimer = ge.tickRate;
+                spawnParticles(ge.pos.x, ge.pos.y, 4, '#88ffaa', { speed: 60, life: 0.5 });
+                if (!socket || game.isHost) {
+                    for (const p of game.players) {
+                        if (!p.alive) continue;
+                        if (dist(p.pos, ge.pos) > r) continue;
+                        if (p.team === ge.casterTeam) {
+                            // Ally: heal + def buff
+                            applyHeal(p, ge.healPerTick, null);
+                            p.defBuffTimer = Math.max(p.defBuffTimer || 0, ge.tickRate * 2);
+                            p.defBuffAmount = ge.defBuff;
+                        } else {
+                            // Enemy: stat debuff + slow + small dps
+                            p.statDebuffTimer = Math.max(p.statDebuffTimer || 0, ge.tickRate * 2);
+                            p.statDebuffAmount = ge.debuffPct;
+                            p.slowTimer = Math.max(p.slowTimer || 0, ge.tickRate * 1.5);
+                            p.slowMod = Math.min(p.slowMod !== undefined ? p.slowMod : 1, ge.slowMod);
+                        }
+                    }
+                }
+            }
+            if (ge.timer <= 0) {
+                // Final explosion
+                game.particles.push(new Particle(ge.pos.x, ge.pos.y, '#88ff88', { shape: 'ring', radius: r, life: 0.4, speed: 0, lineWidth: 3 }));
+                spawnParticles(ge.pos.x, ge.pos.y, 18, '#88ff88', { speed: 160 });
+                if (!socket || game.isHost) {
+                    for (const p of game.players) {
+                        if (!p.alive || dist(p.pos, ge.pos) > r) continue;
+                        if (p.team === ge.casterTeam) {
+                            applyHeal(p, ge.healPerTick * 2, null);
+                        } else {
+                            applyDamage(p, ge.finalDamage, ge.dmgType, ge.casterId, false, true);
+                            if (p.hp <= 0) handlePlayerKill(p, ge.casterId);
+                        }
+                    }
+                    for (const m of game.minions) {
+                        if (m.dead || m.team === ge.casterTeam || dist(m.pos, ge.pos) > r) continue;
+                        applyDamage(m, ge.finalDamage * 0.5, ge.dmgType, ge.casterId, false, true);
+                        if (m.hp <= 0) { m.dead = true; grantMinionKillRewards(game.players.find(p => p.id === ge.casterId), m.pos); }
+                    }
+                }
+                playSound('explosion', ge.pos);
+                game.groundEffects.splice(i, 1);
+            }
+        }
+    }
     if (game.particles.length > 800) game.particles = game.particles.filter(p=>p.life>0);
     else game.particles = game.particles.filter(p=>p.life>0);
     game.effectTexts = game.effectTexts.filter(et=>et.life>0);

@@ -96,6 +96,31 @@ export const CLASSES = {
     }
   },
 
+  Arson: {
+    glyph: 'A', role: 'FIGHTER', range: false, dmgType: 'magical', aaScale: 0.35,
+    hp: 730, speed: 118, attackDelay: 1.15,
+    baseAtk: 38, baseAD: 0, baseAP: 52,
+    baseArmor: 32, baseMR: 30,
+    lvlHP: 30, lvlArmor: 0.9, lvlMR: 0.9, lvlPower: 2.0, lvlAtk: 0.8,
+    playStyle: { engageRange: 90, preferredCombatDist: 55, backoffAggression: 0.65, strafeIntensity: 0.55, diveThreshold: 0.85, panicHpMod: 0.90, spellCombo: 'burst', retreatSpeedMod: 0.90 },
+    Q: {
+      baseCooldown: 8.0, castTime: 0.15,
+      baseDamage: 70, scaleAP: 0.65, scaleAD: 0,
+      type: 'sticky_bomb', pGlyph: '*', pSpeed: 700, life: 0.55,
+      fuseTime: 2.0, radius: 130, slowDuration: 1.2, slowMod: 0.45,
+      desc: 'Throw sticky bomb — sticks to first enemy hit, explodes after 2s: AoE damage + slow.'
+    },
+    E: {
+      baseCooldown: 14.0, castTime: 0.1,
+      baseDamage: 45, scaleAP: 0.40, scaleAD: 0,
+      type: 'smoke_bomb',
+      duration: 2.0, tickRate: 0.25, radius: 140,
+      healPerTick: 10, scaleHealAP: 0.07,
+      defBuffPct: 0.08, statDebuffPct: 0.08, slowMod: 0.75,
+      desc: 'Drop smoke bomb — 2s cloud: heals allies, debuffs + slows enemies each tick. Final burst damages enemies.'
+    }
+  },
+
   // ==========================================
   // TANK
   // ==========================================
@@ -110,7 +135,7 @@ export const CLASSES = {
     Q: {
       baseCooldown: 9.5, castTime: 0.1,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.25, bonusMaxHpDmg: 0.08,
-      type: 'shield_explode', amount: 125, duration: 4.0, radius: 144,
+      type: 'shield_explode', amount: 100, duration: 4.0, radius: 144,
       desc: 'Shield (4s). When it breaks or expires: AoE explosion around self.'
     },
     E: {
@@ -181,7 +206,7 @@ export const CLASSES = {
     E: {
       baseCooldown: 11.0, castTime: 0.1,
       baseDamage: 50, scaleAP: 0, scaleAD: 0, dashTime: 0.15,
-      type: 'dash_heal_silence', amount: 80, distance: 50, radius: 120, silenceDuration: 1.5,
+      type: 'dash_heal_silence', amount: 64, distance: 50, radius: 120, silenceDuration: 1.5,
       desc: 'Short dash, heal self, silence nearby enemies on landing (1.5s).'
     }
   },
@@ -481,7 +506,7 @@ export const CLASSES = {
     },
     E: {
       baseCooldown: 8.0, castTime: 0.3,
-      baseDamage: 0, amount: 150, scaleAP: 0.80, scaleAD: 0,
+      baseDamage: 0, amount: 120, scaleAP: 0.80, scaleAD: 0,
       type: 'heal_aoe', radius: 200,
       desc: 'Healing wave — heals all nearby allies.'
     }
@@ -497,7 +522,7 @@ export const CLASSES = {
     playStyle: { engageRange: 120, preferredCombatDist: 130, backoffAggression: 0.20, strafeIntensity: 0.65, diveThreshold: 0.40, panicHpMod: 1.25, spellCombo: 'sustain', retreatSpeedMod: 1.25 },
     Q: {
       baseCooldown: 6.0, castTime: 0.3,
-      baseDamage: 0, amount: 80, scaleAP: 0.65, scaleAD: 0,
+      baseDamage: 0, amount: 64, scaleAP: 0.65, scaleAD: 0,
       type: 'heal_aoe', radius: 120, selfHealPenalty: 0.7,
       desc: 'Healing pulse — heals nearby allies.'
     },
@@ -520,13 +545,13 @@ export const CLASSES = {
     playStyle: { engageRange: 110, preferredCombatDist: 120, backoffAggression: 0.20, strafeIntensity: 0.65, diveThreshold: 0.40, panicHpMod: 1.25, spellCombo: 'sustain', retreatSpeedMod: 1.20 },
     Q: {
       baseCooldown: 8.0, castTime: 0.3,
-      baseDamage: 30, scaleAP: 0.83, scaleAD: 0, amount: 6.6,
+      baseDamage: 30, scaleAP: 0.83, scaleAD: 0, amount: 5.3,
       type: 'projectile_egg', pSpeed: 400, life: 0.625, healInterval: 1.0, slowDuration: 0.5, slowMod: 0.20,
       desc: 'Throw egg — damage + slow target. On impact: Hen hatches, heals + damages nearby enemies.'
     },
     E: {
       baseCooldown: 18.0, castTime: 0.4,
-      baseDamage: 0, amount: 6.6, scaleAP: 0.46, scaleAD: 0,
+      baseDamage: 0, amount: 5.3, scaleAP: 0.46, scaleAD: 0,
       type: 'summon_healers', healInterval: 2,
       desc: 'Summon 3 Chicks — follow allies, heal them + damage nearby enemies.'
     }
@@ -548,7 +573,7 @@ export const CLASSES = {
     },
     E: {
       baseCooldown: 14.0, castTime: 0.2,
-      baseDamage: 0, scaleAP: 0, scaleAD: 0.50, amount: 80, scaleLevel: 12, duration: 5.0,
+      baseDamage: 0, scaleAP: 0, scaleAD: 0.50, amount: 64, scaleLevel: 12, duration: 5.0,
       type: 'shield_aoe', radius: 250,
       desc: 'Shield self + all nearby allies (5s).'
     }
@@ -564,14 +589,14 @@ export const CLASSES = {
     playStyle: { engageRange: 60, preferredCombatDist: 80, backoffAggression: 0.30, strafeIntensity: 0.55, diveThreshold: 0.45, panicHpMod: 1.20, spellCombo: 'sustain', retreatSpeedMod: 1.20 },
     Q: {
       baseCooldown: 6.2, castTime: 0.0,
-      baseDamage: 0, scaleAP: 0, scaleAD: 0.065, amount: 2.6, scaleLevel: 0.65, range: 200, tickRate: 0.1,
+      baseDamage: 0, scaleAP: 0.052, scaleAD: 0.065, amount: 2.1, scaleLevel: 0.52, range: 200, tickRate: 0.1,
       type: 'heal_beam',
       desc: 'Toggle: continuous heal beam to nearest ally (range 200). Auto Uber after 5s.'
     },
     E: {
       baseCooldown: 12.0, castTime: 0.15,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.2, scaleLevel: 8,
-      type: 'cone_slow_shield', radius: 120, cone: 90 * Math.PI / 180, slowDuration: 1.5, slowMod: 0.6, shieldAmount: 90, duration: 2.5,
+      type: 'cone_slow_shield', radius: 120, cone: 90 * Math.PI / 180, slowDuration: 1.5, slowMod: 0.6, shieldAmount: 72, duration: 2.5,
       desc: 'Slash forward — damage + slow enemies. Gain a shield.'
     }
   }

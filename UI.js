@@ -1131,7 +1131,24 @@ export function draw(){
   ec.clearRect(0, 0, pw, ph);
   ec.setTransform(camera.scale*dpr, 0, 0, camera.scale*dpr, -camera.x*camera.scale*dpr, -camera.y*camera.scale*dpr);
   if (game.shake > 0) { const mag = game.shake * 20; ec.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag); }
-  for(let t of game.towers) t.draw(ec); for(let m of game.minions) m.draw(ec); for(let p of game.projectiles) p.draw(ec); for(let pl of game.players) pl.draw(ec); for(let d of game.damageNumbers) d.draw(ec); for(let pt of game.particles) pt.draw(ec);
+  for(let t of game.towers) t.draw(ec); for(let m of game.minions) m.draw(ec); for(let p of game.projectiles) p.draw(ec);
+  if (game.groundEffects) for (const ge of game.groundEffects) {
+    const pulse = 0.55 + 0.45 * Math.abs(Math.sin(performance.now() * 0.004));
+    ec.save();
+    ec.globalAlpha = 0.22 * pulse;
+    ec.beginPath(); ec.arc(ge.pos.x, ge.pos.y, ge.radius, 0, Math.PI*2);
+    ec.fillStyle = '#88ffaa'; ec.fill();
+    ec.globalAlpha = 0.55 * pulse;
+    ec.beginPath(); ec.arc(ge.pos.x, ge.pos.y, ge.radius, 0, Math.PI*2);
+    ec.strokeStyle = '#44ff88'; ec.lineWidth = 2; ec.stroke();
+    ec.globalAlpha = 1;
+    ec.font = '18px monospace'; ec.textAlign = 'center'; ec.textBaseline = 'middle';
+    ec.fillStyle = '#44ff88'; ec.fillText('☁', ge.pos.x, ge.pos.y);
+    const timeLeft = Math.ceil(ge.timer * 10) / 10;
+    ec.font = '11px monospace'; ec.fillStyle = '#fff'; ec.fillText(timeLeft.toFixed(1) + 's', ge.pos.x, ge.pos.y + 18);
+    ec.restore();
+  }
+  for(let pl of game.players) pl.draw(ec); for(let d of game.damageNumbers) d.draw(ec); for(let pt of game.particles) pt.draw(ec);
   if (game._fogCanvas) {
     ec.setTransform(1, 0, 0, 1, 0, 0);
     ec.globalCompositeOperation = 'destination-out';
