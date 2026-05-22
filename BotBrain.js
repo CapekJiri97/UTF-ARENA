@@ -509,7 +509,37 @@ export const ArenaBrain = {
 
     if (isJunglePhase && myCamps.length > 0) {
       // Jungle phase: boti jdou do svých kempů — přebije jakoukoliv strategii
-      // Seřaď: AD/melee přednost, mágové a supporti na konec
+      // Ale část botů může jít pushovat miniony pro +2 body — záleží na počtu botů a kempů
+
+      // Živé přátelské miniony na cestě k enemy base — kandidáti na eskortu
+      const pushableMinions = game.minions.filter(m =>
+          !m.dead && m.team === team && !m.isJungleMonster &&
+          dist(m.pos, { x: team === 0 ? 3180 : 220, y: 670 }) > 400 // Ještě nejsou u enemy base
+      );
+
+      // Přiřaď push eskortu: 1 bot pokud máme 3+ kempů nebo 4+ botů, jinak 0
+      // Preferuj FIGHTER/TANK pro eskortu (tanky miniony kryji), nechej SLAYER na jungle
+      let pushSlots = 0;
+      if (unassigned.length >= 4 && myCamps.length >= 3 && pushableMinions.length > 0) pushSlots = 1;
+      else if (unassigned.length >= 3 && myCamps.length >= 2 && pushableMinions.length >= 2) pushSlots = 1;
+
+      if (pushSlots > 0 && pushableMinions.length > 0) {
+          const pushers = [...unassigned]
+              .sort((a, b) => {
+                  // Přednost: FIGHTER > TANK > ostatní; SLAYER/MAGE na konec (ti jdou do kempu)
+                  const pA = (['FIGHTER'].includes(a.role) ? 3 : 0) + (['TANK'].includes(a.role) ? 2 : 0) - (['SLAYER','MAGE'].includes(a.role) ? 1 : 0);
+                  const pB = (['FIGHTER'].includes(b.role) ? 3 : 0) + (['TANK'].includes(b.role) ? 2 : 0) - (['SLAYER','MAGE'].includes(b.role) ? 1 : 0);
+                  return pB - pA;
+              });
+          // Najdi nejpokročilejšího miniona (nejblíže enemy base)
+          const enemyBase = { x: team === 0 ? 3180 : 220, y: 670 };
+          const leadMinion = pushableMinions.sort((a, b) => dist(a.pos, enemyBase) - dist(b.pos, enemyBase))[0];
+          for (let i = 0; i < pushSlots && i < pushers.length; i++) {
+              reassign(pushers[i], 'PUSH_MINIONS', leadMinion);
+          }
+      }
+
+      // Seřaď zbývající pro jungle: AD/melee přednost, mágové a supporti na konec
       const candidates = [...unassigned].sort((a, b) => {
           const prefA = (['SLAYER','FIGHTER','SPLITPUSHER'].includes(a.role) ? 2 : 0)
                       + (a.dmgType === 'physical' ? 1 : 0)
@@ -539,24 +569,36 @@ export const ArenaBrain = {
           }
       }
     } else if (!isJunglePhase) {
-      // Po jungle phase — max 1 bot farmí, zbytek drží věž
+      // Po jungle phase — rozdělení: 1 bot farmí kemp nebo pushuje miniony, zbytek drží věž
       const weOwnTower = centerTower && centerTower.owner === team;
       const enemyThreats = enemies.filter(e => e.alive && dist(e.pos, centerTower.pos) < centerTower.captureRadius + 600).length;
 
-      if (weOwnTower && enemyThreats === 0 && aliveCamps.length > 0 && unassigned.length > 1) {
-        const farmerCount = Math.min(1, unassigned.length - 1);
-        const farmers = [...unassigned]
-            .sort((a, b) => dist(b.pos, centerTower.pos) - dist(a.pos, centerTower.pos))
-            .slice(0, farmerCount);
-        const assignedCamps2 = new Set();
-        for (let b of farmers) {
-            let bestCamp = null, bestScore = -Infinity;
-            for (let c of aliveCamps) {
-                if (assignedCamps2.has(c)) continue;
-                let s = getCampPref(b, c);
-                if (s > bestScore) { bestScore = s; bestCamp = c; }
-            }
-            if (bestCamp) { assignedCamps2.add(bestCamp); reassign(b, 'FARM', bestCamp); }
+      if (unassigned.length > 1) {
+        // Vyber 1 bota na off-tower aktivitu (kemp nebo minion push)
+        const offTowerBot = [...unassigned]
+            .sort((a, b) => dist(b.pos, centerTower.pos) - dist(a.pos, centerTower.pos))[0];
+
+        if (offTowerBot) {
+          // Priorita: pushovat miniony pro body > farmit kemp
+          const enemyBase = { x: team === 0 ? 3180 : 220, y: 670 };
+          const pushableMinions = game.minions.filter(m =>
+              !m.dead && m.team === team && !m.isJungleMonster &&
+              dist(m.pos, enemyBase) > 350
+          );
+          const leadMinion = pushableMinions.length > 0
+              ? pushableMinions.sort((a, b) => dist(a.pos, enemyBase) - dist(b.pos, enemyBase))[0]
+              : null;
+
+          if (leadMinion && (enemyThreats === 0 || weOwnTower)) {
+              reassign(offTowerBot, 'PUSH_MINIONS', leadMinion);
+          } else if (aliveCamps.length > 0 && enemyThreats === 0) {
+              let bestCamp = null, bestScore = -Infinity;
+              for (let c of aliveCamps) {
+                  let s = getCampPref(offTowerBot, c);
+                  if (s > bestScore) { bestScore = s; bestCamp = c; }
+              }
+              if (bestCamp) reassign(offTowerBot, 'FARM', bestCamp);
+          }
         }
       }
     }

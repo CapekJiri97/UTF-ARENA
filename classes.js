@@ -35,6 +35,11 @@ export const CLASSES = {
     baseAtk: 35, baseAD: 45, baseAP: 0,
     baseArmor: 35, baseMR: 30,
     lvlHP: 30, lvlArmor: 1.0, lvlMR: 0.7, lvlPower: 2.0, lvlAtk: 1.0,
+    // engageRange: px nad atkRange kde bot zahájí útok | preferredCombatDist: ideální dist v souboji
+    // backoffAggression: 0=hodně kite, 1=nikdy nekite | strafeIntensity: 0=ne, 1=plně
+    // diveThreshold: min HP% cíle pro dive-in | panicHpMod: násobič panicThreshold
+    // spellCombo: 'burst'=vše hned, 'sustain'=šetři, 'poke'=z dálky | retreatSpeedMod: ochota ustoupit
+    playStyle: { engageRange: 80, preferredCombatDist: 50, backoffAggression: 0.70, strafeIntensity: 0.5, diveThreshold: 0.9, panicHpMod: 0.85, spellCombo: 'burst', retreatSpeedMod: 0.8 },
     Q: {
       baseCooldown: 6.0, castTime: 0.05,
       baseDamage: 75, scaleAP: 0, scaleAD: 0.20, dashTime: 0.2,
@@ -55,6 +60,7 @@ export const CLASSES = {
     baseAtk: 45, baseAD: 0, baseAP: 50,
     baseArmor: 38, baseMR: 38,
     lvlHP: 28, lvlArmor: 1.0, lvlMR: 0.8, lvlPower: 1.8, lvlAtk: 1.0,
+    playStyle: { engageRange: 60, preferredCombatDist: 55, backoffAggression: 0.65, strafeIntensity: 0.6, diveThreshold: 0.85, panicHpMod: 0.90, spellCombo: 'burst', retreatSpeedMod: 0.85 },
     Q: {
       baseCooldown: 5.5, castTime: 0.1,
       baseDamage: 65, scaleAP: 0.60, scaleAD: 0,
@@ -75,6 +81,7 @@ export const CLASSES = {
     baseAtk: 47, baseAD: 48, baseAP: 0,
     baseArmor: 33, baseMR: 28,
     lvlHP: 35, lvlArmor: 1.0, lvlMR: 0.75, lvlPower: 2.2, lvlAtk: 1.0,
+    playStyle: { engageRange: 100, preferredCombatDist: 45, backoffAggression: 0.75, strafeIntensity: 0.45, diveThreshold: 0.95, panicHpMod: 0.90, spellCombo: 'burst', retreatSpeedMod: 0.75 },
     Q: {
       baseCooldown: 6.0, castTime: 0.1,
       baseDamage: 60, scaleAP: 0, scaleAD: 0.40,
@@ -99,6 +106,7 @@ export const CLASSES = {
     baseAtk: 45, baseAD: 35, baseAP: 0,
     baseArmor: 36, baseMR: 32,
     lvlHP: 38, lvlArmor: 0.9, lvlMR: 1.3, lvlPower: 2.2, lvlAtk: 0.8,
+    playStyle: { engageRange: 50, preferredCombatDist: 40, backoffAggression: 0.92, strafeIntensity: 0.25, diveThreshold: 1.0, panicHpMod: 0.45, spellCombo: 'sustain', retreatSpeedMod: 0.40 },
     Q: {
       baseCooldown: 9.5, castTime: 0.1,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.25, bonusMaxHpDmg: 0.08,
@@ -119,6 +127,7 @@ export const CLASSES = {
     baseAtk: 35, baseAD: 0, baseAP: 55,
     baseArmor: 29, baseMR: 29,
     lvlHP: 35, lvlArmor: 1.4, lvlMR: 1.5, lvlPower: 2.0, lvlAtk: 0.8,
+    playStyle: { engageRange: 60, preferredCombatDist: 40, backoffAggression: 0.88, strafeIntensity: 0.30, diveThreshold: 1.0, panicHpMod: 0.50, spellCombo: 'sustain', retreatSpeedMod: 0.45 },
     Q: {
       baseCooldown: 12.0, castTime: 0.15,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
@@ -139,6 +148,8 @@ export const CLASSES = {
     baseAtk: 50, baseAD: 0, baseAP: 55,
     baseArmor: 34, baseMR: 34,
     lvlHP: 40, lvlArmor: 1.0, lvlMR: 1.7, lvlPower: 2.0, lvlAtk: 0.8,
+    // Jailer má hook — chce zapojit na max range Q, pak přitáhnout a bit
+    playStyle: { engageRange: 160, preferredCombatDist: 45, backoffAggression: 0.85, strafeIntensity: 0.30, diveThreshold: 1.0, panicHpMod: 0.45, spellCombo: 'sustain', retreatSpeedMod: 0.40 },
     Q: {
       baseCooldown: 10.0, castTime: 0.3,
       baseDamage: 55, scaleAP: 0.5, scaleAD: 0,
@@ -160,6 +171,7 @@ export const CLASSES = {
     baseAtk: 45, baseAD: 45, baseAP: 0,
     baseArmor: 34, baseMR: 36,
     lvlHP: 42, lvlArmor: 1.0, lvlMR: 1.6, lvlPower: 2.3, lvlAtk: 0.8,
+    playStyle: { engageRange: 50, preferredCombatDist: 40, backoffAggression: 0.95, strafeIntensity: 0.20, diveThreshold: 1.0, panicHpMod: 0.40, spellCombo: 'sustain', retreatSpeedMod: 0.35 },
     Q: {
       baseCooldown: 7.5, castTime: 0.15,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.35, bonusCurrentHpDmg: 0.0375, dashTime: 0.2,
@@ -184,6 +196,8 @@ export const CLASSES = {
     baseAtk: 55, baseAD: 58, baseAP: 0,
     baseArmor: 28, baseMR: 28,
     lvlHP: 10, lvlArmor: 0.3, lvlMR: 0.2, lvlPower: 1.5, lvlAtk: 0.5,
+    // Lynx: rychlý melee assassin — dive-in na low HP cíle, pak okamžitě pryč
+    playStyle: { engageRange: 70, preferredCombatDist: 35, backoffAggression: 0.55, strafeIntensity: 0.70, diveThreshold: 0.65, panicHpMod: 1.10, spellCombo: 'burst', retreatSpeedMod: 1.20 },
     Q: {
       baseCooldown: 5.0, castTime: 0.05,
       baseDamage: 45, scaleAP: 0, scaleAD: 0.2,
@@ -205,6 +219,8 @@ export const CLASSES = {
     baseAtk: 44, baseAD: 0, baseAP: 61,
     baseArmor: 31, baseMR: 31,
     lvlHP: 11, lvlArmor: 0.3, lvlMR: 0.3, lvlPower: 1.4, lvlAtk: 0.5,
+    // Zephyr: mobilní splitpusher — uteče z každé situace, bojuje jen pokud má výhodu
+    playStyle: { engageRange: 80, preferredCombatDist: 55, backoffAggression: 0.40, strafeIntensity: 0.75, diveThreshold: 0.60, panicHpMod: 1.20, spellCombo: 'burst', retreatSpeedMod: 1.40 },
     Q: {
       baseCooldown: 10.0, castTime: 0.0,
       baseDamage: 0, scaleAP: 0.001, scaleAD: 0,
@@ -225,6 +241,8 @@ export const CLASSES = {
     baseAtk: 30, baseAD: 0, baseAP: 79,
     baseArmor: 32, baseMR: 34,
     lvlHP: 11, lvlArmor: 0.3, lvlMR: 0.4, lvlPower: 1.5, lvlAtk: 0.5,
+    // Volstrov: ranged auto-attak mage — při Q buffu STŮJ a maxuj DPS, jinak kite
+    playStyle: { engageRange: 130, preferredCombatDist: 130, backoffAggression: 0.35, strafeIntensity: 0.80, diveThreshold: 0.55, panicHpMod: 1.25, spellCombo: 'sustain', retreatSpeedMod: 1.10 },
     Q: {
       baseCooldown: 13.0, castTime: 0.0,
       baseDamage: 0, scaleAP: 0, scaleAD: 0,
@@ -245,6 +263,8 @@ export const CLASSES = {
     baseAtk: 45, baseAD: 0, baseAP: 58,
     baseArmor: 28, baseMR: 30,
     lvlHP: 10, lvlArmor: 0.2, lvlMR: 0.3, lvlPower: 1.5, lvlAtk: 0.5,
+    // Reaper: melee burstový assassin — Q buff rozhoduje, E je reset Q takže ho neplýtvá
+    playStyle: { engageRange: 75, preferredCombatDist: 45, backoffAggression: 0.50, strafeIntensity: 0.65, diveThreshold: 0.70, panicHpMod: 1.15, spellCombo: 'burst', retreatSpeedMod: 1.25 },
     Q: {
       baseCooldown: 10.0, castTime: 0.15,
       baseDamage: 20, scaleAP: 0.50, scaleAD: 0,
@@ -265,6 +285,8 @@ export const CLASSES = {
     baseAtk: 40, baseAD: 68, baseAP: 0,
     baseArmor: 31, baseMR: 31,
     lvlHP: 10, lvlArmor: 0.3, lvlMR: 0.2, lvlPower: 1.5, lvlAtk: 0.5,
+    // Wanderer: spin dive-in, omnislash — engaguje skupiny, neopouští souboj dokud nespotřebuje spelly
+    playStyle: { engageRange: 65, preferredCombatDist: 40, backoffAggression: 0.60, strafeIntensity: 0.55, diveThreshold: 0.80, panicHpMod: 1.10, spellCombo: 'burst', retreatSpeedMod: 1.10 },
     Q: {
       baseCooldown: 9.0, castTime: 0.0,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.3, scaleLevel: 3,
@@ -285,6 +307,8 @@ export const CLASSES = {
     baseAtk: 30, baseAD: 65, baseAP: 0,
     baseArmor: 28, baseMR: 28,
     lvlHP: 10, lvlArmor: 0.3, lvlMR: 0.2, lvlPower: 1.5, lvlAtk: 0.5,
+    // Kratoma: ranged carry s phoeasant pet — drží střední vzdálenost, kite + Q z dálky
+    playStyle: { engageRange: 120, preferredCombatDist: 120, backoffAggression: 0.30, strafeIntensity: 0.75, diveThreshold: 0.65, panicHpMod: 1.20, spellCombo: 'poke', retreatSpeedMod: 1.15 },
     projCount: 3, projSpread: 0.3,
     Q: {
       baseCooldown: 13.0, castTime: 0.7,
@@ -307,6 +331,8 @@ export const CLASSES = {
     baseAtk: 30, baseAD: 75, baseAP: 0,
     baseArmor: 25, baseMR: 27,
     lvlHP: 10, lvlArmor: 0.2, lvlMR: 0.2, lvlPower: 1.5, lvlAtk: 0.5,
+    // Quiller: čistý AA carry, nejvyšší aaScale (0.75) — maximální kiting, nikdy nechce melee fight
+    playStyle: { engageRange: 150, preferredCombatDist: 150, backoffAggression: 0.15, strafeIntensity: 0.90, diveThreshold: 0.45, panicHpMod: 1.40, spellCombo: 'poke', retreatSpeedMod: 1.35 },
     Q: {
       baseCooldown: 6.5, castTime: 0.4,
       baseDamage: 40, scaleAP: 0, scaleAD: 0.40,
@@ -327,6 +353,8 @@ export const CLASSES = {
     baseAtk: 30, baseAD: 72, baseAP: 0,
     baseArmor: 27, baseMR: 28,
     lvlHP: 10, lvlArmor: 0.3, lvlMR: 0.2, lvlPower: 1.5, lvlAtk: 0.5,
+    // Fusilier: shotgun — chce kratší dist než jiní ranged, E knockback jako self-peel
+    playStyle: { engageRange: 110, preferredCombatDist: 100, backoffAggression: 0.25, strafeIntensity: 0.80, diveThreshold: 0.55, panicHpMod: 1.30, spellCombo: 'burst', retreatSpeedMod: 1.25 },
     Q: {
       baseCooldown: 6.0, castTime: 0.25,
       baseDamage: 25, scaleAP: 0, scaleAD: 0.20,
@@ -351,6 +379,8 @@ export const CLASSES = {
     baseAtk: 30, baseAD: 0, baseAP: 78,
     baseArmor: 34, baseMR: 36,
     lvlHP: 11, lvlArmor: 0.4, lvlMR: 0.4, lvlPower: 1.6, lvlAtk: 0.4,
+    // Mage: čistý burst mage — maximální vzdálenost, Q+E combo, žádný melee fight
+    playStyle: { engageRange: 160, preferredCombatDist: 160, backoffAggression: 0.10, strafeIntensity: 0.85, diveThreshold: 0.40, panicHpMod: 1.50, spellCombo: 'burst', retreatSpeedMod: 1.40 },
     Q: {
       baseCooldown: 3.9, castTime: 0.3,
       baseDamage: 95, scaleAP: 0.65, scaleAD: 0,
@@ -371,6 +401,8 @@ export const CLASSES = {
     baseAtk: 30, baseAD: 0, baseAP: 83,
     baseArmor: 31, baseMR: 28,
     lvlHP: 11, lvlArmor: 0.3, lvlMR: 0.3, lvlPower: 1.5, lvlAtk: 0.4,
+    // Summoner: mage s summons — poke + sustain z ghouls, rád drží střední-velkou distanci
+    playStyle: { engageRange: 150, preferredCombatDist: 145, backoffAggression: 0.15, strafeIntensity: 0.80, diveThreshold: 0.45, panicHpMod: 1.40, spellCombo: 'poke', retreatSpeedMod: 1.30 },
     Q: {
       baseCooldown: 6.0, castTime: 0.3,
       baseDamage: 55, scaleAP: 0.80, scaleAD: 0,
@@ -391,6 +423,8 @@ export const CLASSES = {
     baseAtk: 34, baseAD: 0, baseAP: 84,
     baseArmor: 28, baseMR: 31,
     lvlHP: 10, lvlArmor: 0.3, lvlMR: 0.3, lvlPower: 1.5, lvlAtk: 0.4,
+    // Pyromancer: flamethrower range 160 — musí jít blíž než jiní mágové, pak pryč po castnutí
+    playStyle: { engageRange: 120, preferredCombatDist: 110, backoffAggression: 0.20, strafeIntensity: 0.75, diveThreshold: 0.50, panicHpMod: 1.35, spellCombo: 'burst', retreatSpeedMod: 1.30 },
     Q: {
       baseCooldown: 8.0, castTime: 0.0,
       baseDamage: 250, scaleAP: 1.07, scaleAD: 0, scaleLevel: 20,
@@ -411,6 +445,8 @@ export const CLASSES = {
     baseAtk: 25, baseAD: 0, baseAP: 72,
     baseArmor: 21, baseMR: 26,
     lvlHP: 10, lvlArmor: 0.2, lvlMR: 0.3, lvlPower: 1.4, lvlAtk: 0.4,
+    // Tamer: nejmenší HP — nejdelší range (205px), maximálně defenzivní, vlk kryje frontlinu
+    playStyle: { engageRange: 170, preferredCombatDist: 170, backoffAggression: 0.10, strafeIntensity: 0.85, diveThreshold: 0.35, panicHpMod: 1.60, spellCombo: 'poke', retreatSpeedMod: 1.50 },
     Q: {
       baseCooldown: 7.0, castTime: 0.15,
       baseDamage: 76, scaleAP: 0.45, scaleAD: 0,
@@ -435,6 +471,8 @@ export const CLASSES = {
     baseAtk: 25, baseAD: 0, baseAP: 65,
     baseArmor: 40, baseMR: 35,
     lvlHP: 12, lvlArmor: 0.7, lvlMR: 0.6, lvlPower: 1.2, lvlAtk: 0.3,
+    // Healer: support ranged — drží se za frontlinou, priorita heal a Q slow na útočníky
+    playStyle: { engageRange: 140, preferredCombatDist: 150, backoffAggression: 0.15, strafeIntensity: 0.70, diveThreshold: 0.35, panicHpMod: 1.30, spellCombo: 'poke', retreatSpeedMod: 1.35 },
     Q: {
       baseCooldown: 5.5, castTime: 0.3,
       baseDamage: 65, scaleAP: 0.6, scaleAD: 0,
@@ -455,6 +493,8 @@ export const CLASSES = {
     baseAtk: 25, baseAD: 0, baseAP: 70,
     baseArmor: 27, baseMR: 30,
     lvlHP: 12, lvlArmor: 0.5, lvlMR: 0.5, lvlPower: 1.2, lvlAtk: 0.3,
+    // Cleric: support s AoE healem z blízka — drží se u týmu, trochu bližší než Healer
+    playStyle: { engageRange: 120, preferredCombatDist: 130, backoffAggression: 0.20, strafeIntensity: 0.65, diveThreshold: 0.40, panicHpMod: 1.25, spellCombo: 'sustain', retreatSpeedMod: 1.25 },
     Q: {
       baseCooldown: 6.0, castTime: 0.3,
       baseDamage: 0, amount: 80, scaleAP: 0.65, scaleAD: 0,
@@ -476,6 +516,8 @@ export const CLASSES = {
     baseAtk: 27, baseAD: 0, baseAP: 66,
     baseArmor: 27, baseMR: 30,
     lvlHP: 12, lvlArmor: 0.5, lvlMR: 0.5, lvlPower: 1.2, lvlAtk: 0.3,
+    // Eggchanter: pomalé Q vajíčko — trochu bližší dist aby Q dolétlo, E summons kryjí
+    playStyle: { engageRange: 110, preferredCombatDist: 120, backoffAggression: 0.20, strafeIntensity: 0.65, diveThreshold: 0.40, panicHpMod: 1.25, spellCombo: 'sustain', retreatSpeedMod: 1.20 },
     Q: {
       baseCooldown: 8.0, castTime: 0.3,
       baseDamage: 30, scaleAP: 0.83, scaleAD: 0, amount: 6.6,
@@ -496,6 +538,8 @@ export const CLASSES = {
     baseAtk: 25, baseAD: 70, baseAP: 0,
     baseArmor: 28, baseMR: 31,
     lvlHP: 11, lvlArmor: 0.3, lvlMR: 0.3, lvlPower: 1.4, lvlAtk: 0.5,
+    // Oracle: ranged CC support — Q pull+stun na skupiny, E shield — trochu agresivnější než healeri
+    playStyle: { engageRange: 130, preferredCombatDist: 130, backoffAggression: 0.25, strafeIntensity: 0.70, diveThreshold: 0.50, panicHpMod: 1.20, spellCombo: 'burst', retreatSpeedMod: 1.15 },
     Q: {
       baseCooldown: 13.0, castTime: 0.25,
       baseDamage: 90, scaleAP: 0, scaleAD: 0.30, scaleLevel: 10,
@@ -516,6 +560,8 @@ export const CLASSES = {
     baseAtk: 30, baseAD: 55, baseAP: 0,
     baseArmor: 27, baseMR: 27,
     lvlHP: 12, lvlArmor: 0.5, lvlMR: 0.5, lvlPower: 1.2, lvlAtk: 0.3,
+    // Doctor: melee healer — musí stát u spojence (range 200), bližší dist, E shield na sebeobranu
+    playStyle: { engageRange: 60, preferredCombatDist: 80, backoffAggression: 0.30, strafeIntensity: 0.55, diveThreshold: 0.45, panicHpMod: 1.20, spellCombo: 'sustain', retreatSpeedMod: 1.20 },
     Q: {
       baseCooldown: 6.2, castTime: 0.0,
       baseDamage: 0, scaleAP: 0, scaleAD: 0.065, amount: 2.6, scaleLevel: 0.65, range: 200, tickRate: 0.1,

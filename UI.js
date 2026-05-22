@@ -946,7 +946,7 @@ export function populateShop() {
         const basicIds = shopItems.filter(it => it.group === 'basic').map(it => it.id);
         const specialIds = shopItems.filter(it => it.group === 'special').map(it => it.id);
         renderShopSection(treeMount, 'BASIC ITEMS (250g +25g per stack)', basicIds, player);
-        renderShopSection(treeMount, 'SPECIAL ITEMS (525g +50g per stack)', specialIds, player);
+        renderShopSection(treeMount, 'SPECIAL ITEMS (500g +40g per stack)', specialIds, player);
   }
 }
 

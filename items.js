@@ -14,8 +14,8 @@ export const shopItems = [
 
 const BASIC_COST = 250;
 const BASIC_STEP = 25;
-const SPECIAL_COST = 525;
-const SPECIAL_STEP = 50;
+const SPECIAL_COST = 500;
+const SPECIAL_STEP = 40;
 
 const capAdd = (current, add, cap) => {
   if (cap === undefined || cap === null) return current + add;
@@ -76,11 +76,11 @@ export const shopItems = [
     id: 'basic_as', name: 'Basic Attack Speed', group: 'basic',
     costBase: BASIC_COST, costStep: BASIC_STEP,
     // Pure flat — class-agnostic (everyone starts at 1.0 base)
-    stats: { asFlat: 0.15 },
-    apply: (pl) => { pl.attackSpeed += 0.15; }
+    stats: { asFlat: 0.12 },
+    apply: (pl) => { pl.attackSpeed += 0.12; }
   },
 
-  // ── SPECIAL EFFECTS (525gs, +50g per same item) ───────────────────────
+  // ── SPECIAL EFFECTS (500g, +40g per same item) ───────────────────────
   {
     id: 'special_lifesteal', name: 'Special Lifesteal', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,

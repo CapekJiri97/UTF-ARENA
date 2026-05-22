@@ -68,5 +68,3 @@ Pohyb lokálního hráče je okamžitý. Server posílá korekci:
 ## Co NEČÍST při hledání serverové logiky
 `Audio.js`, `UI.js`, `Effects.js` — čistě klientské, server je ignoruje (jsou mockované přes `gc`).
 
-## Stav projektu (2026-05)
-Fáze 7 dokončena — čistý codebase, žádný zbytkový host-client kód.

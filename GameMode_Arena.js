@@ -176,6 +176,7 @@ export const GameMode_Arena = {
                 };
                 
                 m.draw = function(ctx) { ctx.font='bold 24px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = this.flashTimer > 0 ? '#fff' : this.camp.color; ctx.fillText(this.glyph, this.pos.x, this.pos.y); drawHealthBar(ctx, this.hp, this.maxHp, this.pos.x, this.pos.y+16, this.team); };
+                camp.respawnTimer = 999; // Resetuj timer — monster je živý, znovu spawn až po smrti
                 camp.m = m; game.minions.push(m);
             }
         }
