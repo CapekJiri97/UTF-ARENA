@@ -1606,8 +1606,7 @@ import { initAudio, playSound } from './Audio.js';
         }
       }
 
-      update(dtRaw);
-      if (!simMode) draw();
+      if (!simMode) { update(dtRaw); draw(); }
       requestAnimationFrame(loop);
     } catch(err) {
       console.error('[FATAL ERROR] Game loop crashed!', err);

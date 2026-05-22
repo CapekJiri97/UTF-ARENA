@@ -78,8 +78,9 @@ export class SimulationEngine {
         this.results     = [];
         this.running     = true;
 
-        this._onProgress = onProgress || (() => {});
-        this._onComplete = onComplete || (() => {});
+        this._onProgress     = onProgress || (() => {});
+        this._onComplete     = onComplete || (() => {});
+        this._lastProgressTs = 0;
 
         this._installPatches();
         setSimMode(true);
@@ -186,9 +187,13 @@ export class SimulationEngine {
         if (game.damageNumbers.length > 0)  game.damageNumbers = [];
         if (game.effectTexts.length   > 0)  game.effectTexts   = [];
 
-        this._onProgress({ current: this.currentGame, total: this.totalGames, simTime: this._tracker.simTime });
+        const now = performance.now();
+        if (now - this._lastProgressTs >= 250) {
+            this._lastProgressTs = now;
+            this._onProgress({ current: this.currentGame, total: this.totalGames, simTime: this._tracker.simTime });
+        }
 
-        const yieldMs = this.config.yieldMs ?? 8;
+        const yieldMs = this.config.yieldMs ?? 1;
         this._rafId = setTimeout(() => this._simLoop(gameIndex), yieldMs);
     }
 
