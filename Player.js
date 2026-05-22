@@ -1598,7 +1598,7 @@ export class Player{
         const speed = sp.pSpeed || 700;
         const life = sp.life || 0.55;
         const caster = this;
-        const bombData = { damage, dmgType: this.dmgType, casterId: this.id, casterTeam: this.team, fuseTime: sp.fuseTime || 2.0, radius: sp.radius || 130, slowDuration: sp.slowDuration || 1.2, slowMod: sp.slowMod || 0.45 };
+        const bombData = { damage, dmgType: this.dmgType, casterId: this.id, casterTeam: this.team, fuseTime: sp.fuseTime || 2.0, radius: sp.radius || 130, stunDuration: sp.stunDuration || 0.7 };
         let proj = new Projectile(this.pos.x + Math.cos(angle)*(this.radius+6), this.pos.y + Math.sin(angle)*(this.radius+6), Math.cos(angle)*speed, Math.sin(angle)*speed, this.id, this.team, { damage: 0, dmgType: this.dmgType, glyph: sp.pGlyph || '*', life, radius: 10, isSpell: true, noHitParticles: true });
         const origUpdate = proj.update.bind(proj);
         proj._stickyTarget = null;
@@ -1623,8 +1623,7 @@ export class Player{
                             if (p.team === bd.casterTeam || !p.alive) continue;
                             if (dist(this.pos, p.pos) <= bd.radius) {
                                 applyDamage(p, bd.damage, bd.dmgType, bd.casterId, false, true);
-                                p.slowTimer = Math.max(p.slowTimer || 0, bd.slowDuration);
-                                p.slowMod = Math.min(p.slowMod !== undefined ? p.slowMod : 1, bd.slowMod);
+                                p.stunTimer = Math.max(p.stunTimer || 0, bd.stunDuration);
                                 if (p.hp <= 0) handlePlayerKill(p, bd.casterId);
                             }
                         }

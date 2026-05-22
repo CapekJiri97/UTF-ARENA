@@ -107,8 +107,8 @@ export const CLASSES = {
       baseCooldown: 8.0, castTime: 0.15,
       baseDamage: 70, scaleAP: 0.65, scaleAD: 0,
       type: 'sticky_bomb', pGlyph: '*', pSpeed: 700, life: 0.55,
-      fuseTime: 2.0, radius: 130, slowDuration: 1.2, slowMod: 0.45,
-      desc: 'Throw sticky bomb — sticks to first enemy hit, explodes after 2s: AoE damage + slow.'
+      fuseTime: 2.0, radius: 130, stunDuration: 0.7,
+      desc: 'Throw sticky bomb — sticks to first enemy hit, explodes after 2s: AoE damage + stun (0.7s).'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.1,
