@@ -384,8 +384,8 @@ export class Player{
                   this.beamTick = this.beamData.tickRate || 0.1;
                   if (!socket || game.isHost) {
                       let mult = this.beamUberTimer > 0 ? 2.0 : 1.0;
-                      let healed = applyHeal(target, this.beamData.amount * mult);
-                      let selfHealed = applyHeal(this, this.beamData.amount * mult);
+                      let healed = applyHeal(target, this.beamData.amount * mult, this);
+                      let selfHealed = applyHeal(this, this.beamData.amount * mult, this);
                       if(this.stats) this.stats.hpHealed += healed + selfHealed;
                   }
               }
@@ -1071,7 +1071,7 @@ export class Player{
       game.effectTexts.push(new EffectText(this.pos.x, this.pos.y - 30, this.summonerSpell, '#ffcc00'));
 
       switch(this.summonerSpell) {
-          case 'Heal': applyHeal(this, 150 + this.level * 20); spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); break;
+          case 'Heal': applyHeal(this, 150 + this.level * 20, this); spawnParticles(this.pos.x, this.pos.y, 25, '#0f0', {speed: 150}); break;
           case 'Ghost': this.msBuffTimer = 5.0; this.msBuffAmount = 0.4; spawnParticles(this.pos.x, this.pos.y, 25, '#0ff', {speed: 150}); break;
           case 'Boost': this.boostTimer = 5.0; spawnParticles(this.pos.x, this.pos.y, 25, '#ff0', {speed: 150}); break;
           case 'Rally': this.rallyTimer = 5.0; spawnParticles(this.pos.x, this.pos.y, 25, '#f80', {speed: 150}); 
@@ -1271,20 +1271,20 @@ export class Player{
         spawnParticles(this.pos.x, this.pos.y, 10, '#ccf');
     } else if (sp.type === 'heal_self') {
         let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10));
-        let healed = applyHeal(this, healAmount); 
+        let healed = applyHeal(this, healAmount, this);
         if(this.stats && (!socket || game.isHost)) this.stats.hpHealed += healed;
         spawnParticles(this.pos.x, this.pos.y, 8, '#0f0');
     } else if (sp.type === 'heal_aoe') {
         let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10));
         game.particles.push(new Particle(this.pos.x, this.pos.y, '#0f0', {shape: 'ring', radius: sp.radius, life: 0.4, speed: 0, lineWidth: 4}));
-        for(let p of game.players){ 
-            if(p.team === this.team && p.alive && dist(this.pos, p.pos) <= sp.radius){ 
+        for(let p of game.players){
+            if(p.team === this.team && p.alive && dist(this.pos, p.pos) <= sp.radius){
                 let currentHeal = healAmount;
                 if (p === this && sp.selfHealPenalty) { currentHeal *= sp.selfHealPenalty; }
-                let healed = applyHeal(p, currentHeal); 
-                if(this.stats && (!socket || game.isHost)) this.stats.hpHealed += healed; 
-                spawnParticles(p.pos.x, p.pos.y, 6, '#0f0'); 
-            } 
+                let healed = applyHeal(p, currentHeal, this);
+                if(this.stats && (!socket || game.isHost)) this.stats.hpHealed += healed;
+                spawnParticles(p.pos.x, p.pos.y, 6, '#0f0');
+            }
         }
     } else if (sp.type === 'aoe_knockback') {
         const range = sp.radius;
@@ -1401,9 +1401,9 @@ export class Player{
         };
     } else if (sp.type === 'dash_heal_silence') {
         let healAmount = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 10));
-        let healed = applyHeal(this, healAmount); 
-        if(this.stats && (!socket || game.isHost)) this.stats.hpHealed += healed; 
-        
+        let healed = applyHeal(this, healAmount, this);
+        if(this.stats && (!socket || game.isHost)) this.stats.hpHealed += healed;
+
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
         const distToMove = sp.distance || 80;
         const dashTime = sp.dashTime || 0.15; 
@@ -1496,11 +1496,11 @@ export class Player{
                         this.healTimer = sp.healInterval || 1.0;
                         if (this.targetHeroId) {
                             let targetHero = game.players.find(p => p.id === this.targetHeroId);
-                            if (targetHero && dist(this.pos, targetHero.pos) < 500 && targetHero.hp < targetHero.effectiveMaxHp) { 
-                                let healed = applyHeal(targetHero, this.healAmount); 
+                            if (targetHero && dist(this.pos, targetHero.pos) < 500 && targetHero.hp < targetHero.effectiveMaxHp) {
                                 let owner = game.players.find(p => p.id === this.ownerId);
+                                let healed = applyHeal(targetHero, this.healAmount, owner);
                                 if (owner && owner.stats) owner.stats.hpHealed += healed;
-                                spawnParticles(this.pos.x, this.pos.y, 3, '#0f0'); 
+                                spawnParticles(this.pos.x, this.pos.y, 3, '#0f0');
                             }
                         }
                         let hit = false;
@@ -1559,12 +1559,12 @@ export class Player{
 
                         if (this.healTimer <= 0) { 
                             this.healTimer = sp.healInterval || 1.0; 
-                            if (targetHero && dist(this.pos, targetHero.pos) < 500 && targetHero.hp < targetHero.effectiveMaxHp) { 
-                                let healed = applyHeal(targetHero, this.healAmount); 
+                            if (targetHero && dist(this.pos, targetHero.pos) < 500 && targetHero.hp < targetHero.effectiveMaxHp) {
                                 let owner = game.players.find(p => p.id === this.ownerId);
+                                let healed = applyHeal(targetHero, this.healAmount, owner);
                                 if (owner && owner.stats) owner.stats.hpHealed += healed;
-                                spawnParticles(this.pos.x, this.pos.y, 6, '#0f0'); 
-                            } 
+                                spawnParticles(this.pos.x, this.pos.y, 6, '#0f0');
+                            }
                             let hit = false;
                             for(let ep of game.players) { if(ep.team !== this.team && ep.alive && dist(this.pos, ep.pos) <= 65) { applyDamage(ep, this.pulseDmg, 'magical', this.ownerId); if(ep.hp <= 0) handlePlayerKill(ep, this.ownerId); hit = true; } }
                             for(let em of game.minions) { if(em.team !== this.team && !em.dead && dist(this.pos, em.pos) <= 65) { applyDamage(em, this.pulseDmg, 'magical', this.ownerId); if(em.hp <= 0) em.dead = true; hit = true; } }
@@ -1586,7 +1586,7 @@ export class Player{
         if (pet) {
             this.castingTimeRemaining = 0.2; this.castingTimeTotal = 0.2; sp.cd = this.computeSpellCooldown(spKey) + 0.2;
             let healAmt = Math.round((sp.amount||0) + (pAP * (sp.scaleAP||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 25));
-            let healed = applyHeal(pet, healAmt); if(this.stats && (!socket || game.isHost)) this.stats.hpHealed += healed;
+            let healed = applyHeal(pet, healAmt, this); if(this.stats && (!socket || game.isHost)) this.stats.hpHealed += healed;
             spawnParticles(pet.pos.x, pet.pos.y, 15, '#0f0');
         } else {
             this.castingTimeRemaining = 3.0; this.castingTimeTotal = 3.0; sp.cd = this.computeSpellCooldown(spKey) + 3.0;

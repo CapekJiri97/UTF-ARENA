@@ -549,8 +549,10 @@ import { initAudio, playSound } from './Audio.js';
     }
   }
 
-  export function applyHeal(target, amount) {
+  export function applyHeal(target, amount, caster) {
     if(!target || target.dead || target.hp <= 0) return 0;
+    // Heal Power multiplikátor (patří castujícímu, ne targetovi)
+    if (caster && (caster.healPower || 0) > 0) amount *= (1 + caster.healPower);
     // Anti-heal: reduce incoming heal (takes strongest active debuff, no stacking)
     if ((target.antiHealTimer || 0) > 0 && (target.antiHealStrength || 0) > 0) {
         amount *= (1 - target.antiHealStrength);
