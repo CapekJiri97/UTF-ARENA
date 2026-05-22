@@ -115,7 +115,7 @@ export const CLASSES = {
       baseDamage: 45, scaleAP: 0.40, scaleAD: 0,
       type: 'smoke_bomb',
       duration: 2.0, tickRate: 0.25, radius: 140,
-      healPerTick: 10, scaleHealAP: 0.07,
+      healPerTick: 5, scaleHealAP: 0.035,
       defBuffPct: 0.08, statDebuffPct: 0.08, slowMod: 0.75,
       desc: 'Drop smoke bomb — 2s cloud: heals allies, debuffs + slows enemies each tick. Final burst damages enemies.'
     }

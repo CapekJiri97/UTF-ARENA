@@ -1604,6 +1604,8 @@ export class Player{
         proj._stickyTarget = null;
         proj._stickyFuse = 0;
         proj._bombData = bombData;
+        proj._missTimer = 0;
+        proj._origLife = life;
         proj.update = function(dt) {
             if (this._stickyTarget) {
                 // Stuck to target — follow it
@@ -1640,20 +1642,23 @@ export class Player{
                 }
                 return;
             }
-            // Still flying — check for first enemy hit
-            origUpdate(dt);
-            if (!this._stickyTarget) {
-                for (let p of game.players) {
-                    if (!p.alive || p.team === this._bombData.casterTeam) continue;
-                    if (dist(this.pos, p.pos) < 14 + p.radius) {
-                        this._stickyTarget = p;
-                        this._stickyFuse = this._bombData.fuseTime;
-                        this.vx = 0; this.vy = 0;
-                        spawnParticles(p.pos.x, p.pos.y, 6, '#ff8800');
-                        break;
-                    }
+            // Still flying — move manually so life timer can't kill it before hit check
+            this.pos.x += this.vx * dt;
+            this.pos.y += this.vy * dt;
+            this._missTimer += dt;
+            // Check hit against enemies
+            for (let p of game.players) {
+                if (!p.alive || p.team === this._bombData.casterTeam) continue;
+                if (dist(this.pos, p.pos) < 14 + p.radius) {
+                    this._stickyTarget = p;
+                    this._stickyFuse = this._bombData.fuseTime;
+                    this.vx = 0; this.vy = 0;
+                    spawnParticles(p.pos.x, p.pos.y, 6, '#ff8800');
+                    break;
                 }
             }
+            // Miss — expire after original life
+            if (!this._stickyTarget && this._missTimer >= this._origLife) this.dead = true;
         };
         game.projectiles.push(proj);
         spawnParticles(this.pos.x, this.pos.y, 8, '#ff8800', { speed: 120 });

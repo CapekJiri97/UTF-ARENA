@@ -1134,39 +1134,49 @@ export function draw(){
   for(let t of game.towers) t.draw(ec); for(let m of game.minions) m.draw(ec); for(let p of game.projectiles) p.draw(ec);
   if (game.groundEffects) for (const ge of game.groundEffects) {
     const t = performance.now() * 0.001;
-    const pulse = 0.6 + 0.4 * Math.sin(t * 3.5);
+    const pulse = 0.7 + 0.3 * Math.sin(t * 4.0);
     ec.save();
-    ec.font = '13px monospace'; ec.textAlign = 'center'; ec.textBaseline = 'middle';
-    // Outer ring — rotating smoke chars
-    const outerChars = ['~','≈','~','≋','~','≈','~','≋'];
-    const outerR = ge.radius;
-    for (let i = 0; i < outerChars.length; i++) {
-      const a = (i / outerChars.length) * Math.PI * 2 + t * 0.6;
-      const alpha = (0.35 + 0.25 * Math.sin(t * 2 + i)) * pulse;
-      ec.globalAlpha = alpha;
-      ec.fillStyle = '#aaffcc';
-      ec.fillText(outerChars[i], ge.pos.x + Math.cos(a) * outerR, ge.pos.y + Math.sin(a) * outerR);
+    ec.textAlign = 'center'; ec.textBaseline = 'middle';
+    const R = ge.radius;
+    // Outer ring: dense rotating chars at exact radius
+    const outerRing = ['#','=','#','~','#','=','#','~','#','=','#','~','#','=','#','~'];
+    ec.font = '15px monospace';
+    for (let i = 0; i < outerRing.length; i++) {
+      const a = (i / outerRing.length) * Math.PI * 2 + t * 0.5;
+      ec.globalAlpha = (0.55 + 0.45 * Math.sin(t * 3 + i * 1.2)) * pulse;
+      ec.fillStyle = i % 2 === 0 ? '#00ff88' : '#44ffbb';
+      ec.fillText(outerRing[i], ge.pos.x + Math.cos(a) * R, ge.pos.y + Math.sin(a) * R);
     }
-    // Mid ring — denser, counter-rotating
-    const midChars = [':','.','·',':','.','·',':','.','·',':','.','·'];
-    const midR = outerR * 0.62;
-    for (let i = 0; i < midChars.length; i++) {
-      const a = (i / midChars.length) * Math.PI * 2 - t * 0.9;
-      const alpha = (0.25 + 0.20 * Math.sin(t * 3 + i * 0.8)) * pulse;
-      ec.globalAlpha = alpha;
-      ec.fillStyle = '#66ffaa';
-      ec.fillText(midChars[i], ge.pos.x + Math.cos(a) * midR, ge.pos.y + Math.sin(a) * midR);
+    // Second ring: counter-rotating smoke
+    const midRing = ['%','§','%','§','%','§','%','§','%','§','%','§'];
+    const R2 = R * 0.68;
+    ec.font = '13px monospace';
+    for (let i = 0; i < midRing.length; i++) {
+      const a = (i / midRing.length) * Math.PI * 2 - t * 0.85;
+      ec.globalAlpha = (0.45 + 0.35 * Math.sin(t * 2.2 + i)) * pulse;
+      ec.fillStyle = '#aaffdd';
+      ec.fillText(midRing[i], ge.pos.x + Math.cos(a) * R2, ge.pos.y + Math.sin(a) * R2);
     }
-    // Center — pulsing core glyph
-    ec.globalAlpha = 0.7 * pulse;
-    ec.font = '20px monospace';
-    ec.fillStyle = '#ccffdd';
-    ec.fillText('*', ge.pos.x, ge.pos.y);
-    // Timer
-    ec.globalAlpha = 0.9;
-    ec.font = '10px monospace';
-    ec.fillStyle = '#aaffcc';
-    ec.fillText(ge.timer.toFixed(1) + 's', ge.pos.x, ge.pos.y + 22);
+    // Inner ring: fast small chars
+    const innerRing = ['.','o','.','o','.','o','.','o'];
+    const R3 = R * 0.36;
+    ec.font = '11px monospace';
+    for (let i = 0; i < innerRing.length; i++) {
+      const a = (i / innerRing.length) * Math.PI * 2 + t * 1.8;
+      ec.globalAlpha = (0.4 + 0.3 * Math.sin(t * 4 + i)) * pulse;
+      ec.fillStyle = '#ccffee';
+      ec.fillText(innerRing[i], ge.pos.x + Math.cos(a) * R3, ge.pos.y + Math.sin(a) * R3);
+    }
+    // Center glyph
+    ec.globalAlpha = pulse;
+    ec.font = 'bold 22px monospace';
+    ec.fillStyle = '#ffffff';
+    ec.fillText('¤', ge.pos.x, ge.pos.y);
+    // Timer below
+    ec.globalAlpha = 1.0;
+    ec.font = 'bold 12px monospace';
+    ec.fillStyle = '#00ff88';
+    ec.fillText(ge.timer.toFixed(1) + 's', ge.pos.x, ge.pos.y + R + 13);
     ec.restore();
   }
   for(let pl of game.players) pl.draw(ec); for(let d of game.damageNumbers) d.draw(ec); for(let pt of game.particles) pt.draw(ec);
