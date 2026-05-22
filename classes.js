@@ -236,7 +236,7 @@ export const CLASSES = {
   },
 
   Volstrov: {
-    glyph: 'B', role: 'MAGE', range: true, attackRange: 180, dmgType: 'magical', aaScale: 0.60,
+    glyph: '@', role: 'MAGE', range: true, attackRange: 180, dmgType: 'magical', aaScale: 0.60,
     hp: 720, speed: 118, attackDelay: 1.0,
     baseAtk: 30, baseAD: 0, baseAP: 79,
     baseArmor: 32, baseMR: 34,

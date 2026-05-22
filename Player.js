@@ -510,9 +510,9 @@ export class Player{
     if(this.boostTimer > 0) this.boostTimer -= dt;
     if(this.rallyTimer > 0) this.rallyTimer -= dt;
     if(this.titanSigilCd > 0) this.titanSigilCd -= dt;
-    if(this.slowTimer > 0) this.slowTimer -= dt;
+    if(this.slowTimer > 0) { this.slowTimer -= dt; if(this.slowTimer <= 0) this.slowMod = 1; }
     if(this.antiHealTimer > 0) { this.antiHealTimer -= dt; if(this.antiHealTimer <= 0) this.antiHealStrength = 0; }
-    
+
     if(this.junglePowerTimer > 0) this.junglePowerTimer -= dt;
     if(this.jungleAsAhTimer > 0) this.jungleAsAhTimer -= dt;
     if(this.jungleTankTimer > 0) this.jungleTankTimer -= dt;
@@ -3542,7 +3542,7 @@ export class BotPlayer extends Player {
           if(this.boostTimer > 0) this.boostTimer -= dt;
           if(this.rallyTimer > 0) this.rallyTimer -= dt;
           if(this.titanSigilCd > 0) this.titanSigilCd -= dt;
-          if(this.slowTimer > 0) this.slowTimer -= dt;
+          if(this.slowTimer > 0) { this.slowTimer -= dt; if(this.slowTimer <= 0) this.slowMod = 1; }
           if(this.antiHealTimer > 0) { this.antiHealTimer -= dt; if(this.antiHealTimer <= 0) this.antiHealStrength = 0; }
           if(this.msBuffTimer > 0) this.msBuffTimer -= dt;
           if(this.levelUpTimer > 0) this.levelUpTimer -= dt;
@@ -3824,7 +3824,7 @@ export class BotPlayer extends Player {
 
       if(this.boostTimer > 0) this.boostTimer -= dt;
       if(this.rallyTimer > 0) this.rallyTimer -= dt;
-      if(this.slowTimer > 0) this.slowTimer -= dt;
+      if(this.slowTimer > 0) { this.slowTimer -= dt; if(this.slowTimer <= 0) this.slowMod = 1; }
       if(this.antiHealTimer > 0) { this.antiHealTimer -= dt; if(this.antiHealTimer <= 0) this.antiHealStrength = 0; }
 
       this.processBeam(dt);
