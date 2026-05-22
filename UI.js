@@ -2535,7 +2535,6 @@ export function buildMenu() {
           <div style="display:flex; gap:8px; align-items:center;">
               <button class="mode-btn" data-mode="classic" style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#ffcc00; border:2px solid #ffcc00; letter-spacing:1px;">DOMINION</button>
               <button class="mode-btn" data-mode="speed"   style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#444;   border:2px solid #444;   letter-spacing:1px;">SPEED</button>
-              <button class="mode-btn" data-mode="aram"    style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#444;   border:2px solid #444;   letter-spacing:1px;">ARAM</button>
               <button class="mode-btn" data-mode="arena"   style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#444;   border:2px solid #444;   letter-spacing:1px;">ARENA</button>
               <button id="btnSpec" style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#aaa; border:1px solid #555;">[ SPECTATE ]</button>
               <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:6px 12px; cursor:pointer; font-family:monospace; background:#000; color:#ff4444; border:1px solid #ff4444; font-weight:bold;">[ LEAVE ]</button>

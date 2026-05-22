@@ -20,6 +20,7 @@ import { game }                                   from './State.js';
 import { GameMode_Arena }                         from './GameMode_Arena.js';
 import { GameMode_Classic }                       from './GameMode_Classic.js';
 import { GameMode_Speed }                         from './GameMode_Speed.js';
+import { GameMode_ARAM }                          from './GameMode_ARAM.js';
 import { CLASSES }                                from './classes.js';
 import {
     simMode, setSimMode,
@@ -37,7 +38,7 @@ const MAX_SIM_SECONDS = 20 * 60;
 const SIM_DT          = 1 / 20;
 
 export const ALL_CLASSES   = Object.keys(CLASSES);
-export const ALL_GAMEMODES = ['arena', 'classic', 'speed', 'aram'];
+export const ALL_GAMEMODES = ['arena', 'classic', 'speed'];
 
 // ─── SimulationEngine ─────────────────────────────────────────────────────────
 export class SimulationEngine {
@@ -104,7 +105,7 @@ export class SimulationEngine {
     _installPatches() {
         const simTrigger = function(winner) { game.gameOver = true; game.winner = winner; };
         this._origTriggers = {};
-        for (const [key, mode] of Object.entries({ arena: GameMode_Arena, classic: GameMode_Classic, speed: GameMode_Speed })) {
+        for (const [key, mode] of Object.entries({ arena: GameMode_Arena, classic: GameMode_Classic, speed: GameMode_Speed, aram: GameMode_ARAM })) {
             this._origTriggers[key] = mode._triggerGameOver?.bind(mode);
             mode._triggerGameOver   = simTrigger;
         }
@@ -114,7 +115,7 @@ export class SimulationEngine {
     }
 
     _removePatches() {
-        const modes = { arena: GameMode_Arena, classic: GameMode_Classic, speed: GameMode_Speed };
+        const modes = { arena: GameMode_Arena, classic: GameMode_Classic, speed: GameMode_Speed, aram: GameMode_ARAM };
         for (const [key, mode] of Object.entries(modes)) {
             if (this._origTriggers?.[key]) mode._triggerGameOver = this._origTriggers[key];
         }

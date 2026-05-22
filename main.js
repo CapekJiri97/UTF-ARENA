@@ -34,7 +34,10 @@ export function setActiveMode(modeName) {
 // ── Simulation mode flag ──────────────────────────────────────────────────────
 // When true: draw() is skipped, audio is muted, particles are purged by the sim engine.
 export let simMode = false;
-export function setSimMode(v) { simMode = v; }
+export function setSimMode(v) {
+    simMode = v;
+    if (!v && window._simRafRestart) { const fn = window._simRafRestart; window._simRafRestart = null; requestAnimationFrame(fn); }
+}
 // Wrapper so Simulation.js can call update() (which is not otherwise exported).
 export function simUpdate(dt) { update(dt); }
 // Resets the spawn timer between simulated games (it persists as a module-level var).
@@ -1170,6 +1173,7 @@ import { initAudio, playSound } from './Audio.js';
   export function flashMessage(txt){ const el = document.createElement('div'); el.style.position='fixed'; el.style.left='50%'; el.style.top='18px'; el.style.transform='translateX(-50%)'; el.style.background='rgba(255,255,255,0.06)'; el.style.padding='6px 10px'; el.style.borderRadius='6px'; el.style.zIndex=100000; el.textContent = txt; document.body.appendChild(el); setTimeout(()=>el.remove(),1200); }
 
   function update(dt){ if(game.gameOver || !game.started) return;
+    game._pcsCache = null; // invalidate once per tick — works correctly in sim and live
     if(game.startDelay > 0) game.startDelay -= dt;
 
     // update mouse world
@@ -1607,7 +1611,8 @@ import { initAudio, playSound } from './Audio.js';
       }
 
       if (!simMode) { update(dtRaw); draw(); }
-      requestAnimationFrame(loop);
+      if (!simMode) requestAnimationFrame(loop);
+      else          window._simRafRestart = loop;
     } catch(err) {
       console.error('[FATAL ERROR] Game loop crashed!', err);
       try { console.table({ players: game.players.length, minions: game.minions.length, projectiles: game.projectiles.length, particles: game.particles.length, isHost: game.isHost }); } catch(_) {}

@@ -149,10 +149,9 @@ export class Player{
           this.powerupUptime += dt;
       }
 
-      // Pre-compute per-tower pressure once, shared across all callers in same tick via game._pcsCache
-      const now = performance.now();
-      if (!game._pcsCache || now - game._pcsCache.ts > 450) {
-          const cache = { ts: now, towers: [] };
+      // Pre-compute per-tower pressure once per tick (invalidated by update() at tick start)
+      if (!game._pcsCache) {
+          const cache = { towers: [] };
           for (let tower of game.towers) {
               const r250 = tower.captureRadius + 250;
               const r250sq = r250 * r250;

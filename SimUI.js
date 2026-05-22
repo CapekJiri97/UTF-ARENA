@@ -115,7 +115,6 @@ function _buildPanel() {
       <option value="arena">Arena (4v4)</option>
       <option value="classic">Dominion (5v5)</option>
       <option value="speed">Speed Dominion (5v5)</option>
-      <option value="aram">ARAM</option>
     </select>
   </div>
 
