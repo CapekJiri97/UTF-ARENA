@@ -183,6 +183,7 @@ export class Player{
           if (towerDistance > tower.captureRadius + 420) continue;
 
           const tc = game._pcsCache.towers[i];
+          if (!tc) continue;
           const enemyPressure = this.team === 0 ? tc.hasEnemy1 : tc.hasEnemy0;
           const alliedWavePressure = this.team === 0 ? tc.hasMinion0 : tc.hasMinion1;
           const isBotCaptureStance = this instanceof BotPlayer && this.state === 'CAPTURE' && this.objective === tower;
