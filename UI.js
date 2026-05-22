@@ -2669,7 +2669,7 @@ export function buildMenu() {
 
   const cBtns = document.getElementById('classBtns');
   const catGroups = { 
-      'FIGHTER': ['Bruiser', 'Vanguard', 'Jirina'], 
+      'FIGHTER': ['Bruiser', 'Vanguard', 'Jirina', 'Arson'],
       'TANK': ['Ironclad', 'Goliath', 'Hana', 'Jailer'], 
       'ASSASSIN': ['Lynx', 'Zephyr', 'Reaper', 'Wanderer'],
       'RANGED': ['Quiller', 'Kratoma', 'Fusilier', 'Volstrov'],
