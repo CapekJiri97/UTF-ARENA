@@ -167,7 +167,7 @@ export class Tower{
       // Capture logika — jen v Classic (ARAM věže mají HP a ničí se)
       if (this.maxHp === null) {
       const counts = [0,0]; let rallyBonus = [0,0];
-      for(let p of game.players){ if(p.alive && dist(p.pos, this.pos) <= this.captureRadius) { counts[p.team]++; if(p.rallyTimer > 0) rallyBonus[p.team] += 2; } } 
+      for(let p of game.players){ if(p.alive && dist(p.pos, this.pos) <= this.captureRadius) { counts[p.team]++; if(p.rallyTimer > 0) rallyBonus[p.team] += 2; } }
       const presenceDelta = (counts[0] + rallyBonus[0]) - (counts[1] + rallyBonus[1]);
       const captureSpeedMult = (activeGameMode && activeGameMode.name === 'arena') ? 0.5 : 1.0;
       if(presenceDelta !== 0){
@@ -385,14 +385,16 @@ export class Minion{
   }
   think() {
     const isArena = activeGameMode && activeGameMode.name === 'arena';
-    let giveUpRange = this.isSummon ? 800 : (this.isRanged ? 280 : 200);
-    if (isArena && !this.isSummon) giveUpRange = 120;
+    const isDominion = !this.isSummon && !isArena;
+    // Summons chase far; regular minions give up quickly so they stay on objective
+    let giveUpRange = this.isSummon ? 800 : 95;
     if (this.currentTarget && (this.currentTarget.dead || this.currentTarget.hp <= 0 || dist(this.pos, this.currentTarget.pos) > giveUpRange)) {
         this.currentTarget = null; this.state = 'PUSH';
     }
     if (this.state === 'PUSH') {
-        let nearestEnemy = null, minDist = this.isSummon ? 600 : (this.isRanged ? 200 : 150);
-        if (isArena && !this.isSummon) minDist = 100;
+        // Regular minions only aggro heroes that are very close (90px); summons chase normally
+        const heroAggroRange = this.isSummon ? 600 : 90;
+        let nearestEnemy = null, minDist = heroAggroRange;
         let slowedSilencedEnemy = null, slowedSilencedDist = minDist;
 
         for (const p of game.players) {
@@ -404,17 +406,17 @@ export class Minion{
                     else if (!slowedSilencedEnemy) { nearestEnemy = p; minDist = d; }
                 }
             } else {
-                let eff = d; if (isArena) eff += 200;
-                if (eff < minDist) { nearestEnemy = p; minDist = eff; }
+                if (d < minDist) { nearestEnemy = p; minDist = d; }
             }
         }
         if (this.isSummon && slowedSilencedEnemy) nearestEnemy = slowedSilencedEnemy;
 
         if (!nearestEnemy) {
+            const minionAggroRange = this.isSummon ? 600 : (this.isRanged ? 200 : 150);
             for (const m of game.minions) {
                 if (m.dead || m.team === this.team || m === this) continue;
                 const d = dist(this.pos, m.pos);
-                if (d < minDist) { nearestEnemy = m; minDist = d; }
+                if (d < minionAggroRange) { nearestEnemy = m; minDist = d; break; }
             }
         }
         if (nearestEnemy) { this.state = 'ATTACK'; this.currentTarget = nearestEnemy; }
@@ -526,40 +528,63 @@ export class Minion{
         if (this.currentTarget && d > stopRange) { dx = this.currentTarget.pos.x - this.pos.x; dy = this.currentTarget.pos.y - this.pos.y; }
     } else {
         if (!this.atTarget) {
-            let destPos = activeGameMode.mapConfig.MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos;
+            // Arena: go straight to tower. Dominion: use lane waypoints.
+            let destPos;
             if (activeGameMode && activeGameMode.name === 'arena') {
-                if (towerTarget && towerTarget.owner === this.team) {
-                    destPos = this.team === 0 ? {x: 2917, y: 682} : {x: 483, y: 682};
-                } else {
-                    destPos = towerTarget.pos;
-                }
+                destPos = towerTarget.pos;
+            } else {
+                destPos = activeGameMode.mapConfig.MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos;
             }
             let distToTarget = dist(this.pos, destPos);
             if (activeGameMode && activeGameMode.minionPathMode === 'linear') {
-                // ARAM: přímá linka k cíli
                 dx = destPos.x - this.pos.x;
                 dy = destPos.y - this.pos.y;
             } else {
-                // Classic: eliptická cesta kolem středu mapy
+                // Classic/Speed: eliptická cesta kolem středu mapy
                 const cx = 2000, cy = 1575, Rx = 1250, Ry = 1150;
                 if (distToTarget > 350) { let myA = Math.atan2((this.pos.y - cy)/Ry, (this.pos.x - cx)/Rx); let tA = Math.atan2((destPos.y - cy)/Ry, (destPos.x - cx)/Rx); let diff = tA - myA; while(diff <= -Math.PI) diff += 2*Math.PI; while(diff > Math.PI) diff -= 2*Math.PI; let lookAhead = myA + Math.sign(diff) * 0.15; dx = (cx + Rx * Math.cos(lookAhead)) - this.pos.x; dy = (cy + Ry * Math.sin(lookAhead)) - this.pos.y;
                 } else { dx = destPos.x - this.pos.x; dy = destPos.y - this.pos.y; }
             }
-            if (distToTarget <= 70) { 
-                this.atTarget = true; this.linger = 3.5; dx = 0; dy = 0; 
-                if (activeGameMode && activeGameMode.name === 'arena' && towerTarget && towerTarget.owner === this.team) {
+            if (distToTarget <= 70) {
+                dx = 0; dy = 0;
+                const ownsTower = towerTarget.owner === this.team;
+                if (ownsTower) {
+                    // Own tower: die immediately, grant points in arena
                     this.dead = true;
                     if (!socket || game.isHost) {
-                        game.score[this.team] = (game.score[this.team] || 0) + 2;
-                        game.damageNumbers.push(new DamageNumber(this.pos.x, this.pos.y - 15, '+2', this.team === 0 ? '#486FED' : '#FF4E4E'));
+                        if (activeGameMode && activeGameMode.name === 'arena') {
+                            game.score[this.team] = (game.score[this.team] || 0) + 2;
+                            game.damageNumbers.push(new DamageNumber(this.pos.x, this.pos.y - 15, '+2', this.team === 0 ? '#486FED' : '#FF4E4E'));
+                        }
                     }
+                } else {
+                    // Enemy/neutral tower: start sieging it
+                    this.atTarget = true; this.linger = 1.75;
+                    this._siegingTower = towerTarget;
+                    this.attackCooldown = 0;
                 }
             }
         }
     }
     if (this.atTarget) {
-        // Linger at the lane midpoint then expire — no tower siege
-        this.linger -= dt; if (this.linger <= 0) this.dead = true;
+        this.linger -= dt;
+        // Auto-attack the tower: each hit adds 5% capture progress and costs 15% max HP
+        if (this._siegingTower && !this._siegingTower.dead && this.attackCooldown <= 0) {
+            const atkCd = this.isRanged ? 1.8 : 1.2;
+            this.attackCooldown = atkCd;
+            if (!socket || game.isHost) {
+                const tower = this._siegingTower;
+                // Capture progress: +5% toward this team (control range -100..100)
+                const captureHit = 5 * (this.team === 0 ? 1 : -1);
+                tower.control = Math.max(-100, Math.min(100, (tower.control || 0) + captureHit));
+                // Cost: minion loses 15% of its max HP
+                this.hp -= this.maxHp * 0.15;
+                if (this.hp <= 0) { this.dead = true; }
+            }
+            const col = this.team === 0 ? '#486FED' : '#FF4E4E';
+            spawnParticles(this._siegingTower.pos.x, this._siegingTower.pos.y, 3, col, {speed: 80, life: 0.35});
+        }
+        if (this.linger <= 0) this.dead = true;
     } else {
         if (dx !== 0 || dy !== 0) {
             let currentL = Math.hypot(dx, dy); if (currentL > 0) { dx /= currentL; dy /= currentL; }
