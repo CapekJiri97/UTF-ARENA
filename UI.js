@@ -1133,19 +1133,40 @@ export function draw(){
   if (game.shake > 0) { const mag = game.shake * 20; ec.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag); }
   for(let t of game.towers) t.draw(ec); for(let m of game.minions) m.draw(ec); for(let p of game.projectiles) p.draw(ec);
   if (game.groundEffects) for (const ge of game.groundEffects) {
-    const pulse = 0.55 + 0.45 * Math.abs(Math.sin(performance.now() * 0.004));
+    const t = performance.now() * 0.001;
+    const pulse = 0.6 + 0.4 * Math.sin(t * 3.5);
     ec.save();
-    ec.globalAlpha = 0.22 * pulse;
-    ec.beginPath(); ec.arc(ge.pos.x, ge.pos.y, ge.radius, 0, Math.PI*2);
-    ec.fillStyle = '#88ffaa'; ec.fill();
-    ec.globalAlpha = 0.55 * pulse;
-    ec.beginPath(); ec.arc(ge.pos.x, ge.pos.y, ge.radius, 0, Math.PI*2);
-    ec.strokeStyle = '#44ff88'; ec.lineWidth = 2; ec.stroke();
-    ec.globalAlpha = 1;
-    ec.font = '18px monospace'; ec.textAlign = 'center'; ec.textBaseline = 'middle';
-    ec.fillStyle = '#44ff88'; ec.fillText('☁', ge.pos.x, ge.pos.y);
-    const timeLeft = Math.ceil(ge.timer * 10) / 10;
-    ec.font = '11px monospace'; ec.fillStyle = '#fff'; ec.fillText(timeLeft.toFixed(1) + 's', ge.pos.x, ge.pos.y + 18);
+    ec.font = '13px monospace'; ec.textAlign = 'center'; ec.textBaseline = 'middle';
+    // Outer ring — rotating smoke chars
+    const outerChars = ['~','≈','~','≋','~','≈','~','≋'];
+    const outerR = ge.radius;
+    for (let i = 0; i < outerChars.length; i++) {
+      const a = (i / outerChars.length) * Math.PI * 2 + t * 0.6;
+      const alpha = (0.35 + 0.25 * Math.sin(t * 2 + i)) * pulse;
+      ec.globalAlpha = alpha;
+      ec.fillStyle = '#aaffcc';
+      ec.fillText(outerChars[i], ge.pos.x + Math.cos(a) * outerR, ge.pos.y + Math.sin(a) * outerR);
+    }
+    // Mid ring — denser, counter-rotating
+    const midChars = [':','.','·',':','.','·',':','.','·',':','.','·'];
+    const midR = outerR * 0.62;
+    for (let i = 0; i < midChars.length; i++) {
+      const a = (i / midChars.length) * Math.PI * 2 - t * 0.9;
+      const alpha = (0.25 + 0.20 * Math.sin(t * 3 + i * 0.8)) * pulse;
+      ec.globalAlpha = alpha;
+      ec.fillStyle = '#66ffaa';
+      ec.fillText(midChars[i], ge.pos.x + Math.cos(a) * midR, ge.pos.y + Math.sin(a) * midR);
+    }
+    // Center — pulsing core glyph
+    ec.globalAlpha = 0.7 * pulse;
+    ec.font = '20px monospace';
+    ec.fillStyle = '#ccffdd';
+    ec.fillText('*', ge.pos.x, ge.pos.y);
+    // Timer
+    ec.globalAlpha = 0.9;
+    ec.font = '10px monospace';
+    ec.fillStyle = '#aaffcc';
+    ec.fillText(ge.timer.toFixed(1) + 's', ge.pos.x, ge.pos.y + 22);
     ec.restore();
   }
   for(let pl of game.players) pl.draw(ec); for(let d of game.damageNumbers) d.draw(ec); for(let pt of game.particles) pt.draw(ec);
