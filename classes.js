@@ -161,9 +161,9 @@ export const CLASSES = {
     },
     E: {
       baseCooldown: 7.5, castTime: 0.05,
-      baseDamage: 65, scaleAP: 0.5, scaleAD: 0, dashTime: 0.2,
-      type: 'dash_def', distance: 180, radius: 130, slowDuration: 1.5, slowMod: 0.3,
-      desc: 'Dash + defense boost. On landing: damage + slow nearby enemies (70%, 1.5s).'
+      baseDamage: 55, scaleAP: 0.5, scaleAD: 0, dashTime: 0.2,
+      type: 'dash_def', distance: 180, radius: 80, slowDuration: 1.7, slowMod: 0.15,
+      desc: 'Dash + defense boost. On landing: damage + slow nearby enemies (85%, 1.7s).'
     }
   },
 
