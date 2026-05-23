@@ -1361,8 +1361,9 @@ export function draw(){
               const _jpT = t.junglePowerTimer > 0 ? 1.1 : 1.0;
               const _jaT = t.jungleAsAhTimer > 0 ? 1.1 : 1.0;
               const _jtT = t.jungleTankTimer > 0 ? 1.1 : 1.0;
-              const _arT = Math.round(t.armor * _puT * (t.boostTimer > 0 ? 1.1 : 1) * _jtT + (t.defBuffTimer > 0 ? 50 : 0));
-              const _mrT = Math.round(t.mr * _puT * (t.boostTimer > 0 ? 1.1 : 1) * _jtT + (t.defBuffTimer > 0 ? 50 : 0));
+              const _defMultT = t.defBuffTimer > 0 ? (1 + (t.defBuffAmount || 0.15)) : 1;
+              const _arT = Math.round(t.armor * _puT * (t.boostTimer > 0 ? 1.1 : 1) * _jtT * _defMultT);
+              const _mrT = Math.round(t.mr * _puT * (t.boostTimer > 0 ? 1.1 : 1) * _jtT * _defMultT);
               const _spT = Math.round(t.speed * _puT * (t.msBuffTimer > 0 ? 1 + t.msBuffAmount : 1));
               const _tPwrLabel = (t.dmgType === 'magical') ? 'AP' : 'AD';
               const _tPwrVal = (t.dmgType === 'magical') ? Math.round(t.AP * _puT * _jpT) : Math.round(t.AD * _puT * buffAdMultT * _jpT);
@@ -1502,8 +1503,9 @@ export function draw(){
       let buffAsMult = 1.0 + (player.adAsBuffTimer > 0 ? player.adAsBuffAmount : 0);
       if (player.hanaBuffTimer > 0) buffAsMult *= (player.spells?.Q?.bonusAsMult || 1.25);
       const _pu = player.hasPowerup ? 1.2 : 1;
-      const _arHud = Math.round(player.armor * _pu * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
-      const _mrHud = Math.round(player.mr * _pu * (player.boostTimer > 0 ? 1.1 : 1) + (player.defBuffTimer > 0 ? 50 : 0));
+      const _defMultHud = player.defBuffTimer > 0 ? (1 + (player.defBuffAmount || 0.15)) : 1;
+      const _arHud = Math.round(player.armor * _pu * (player.boostTimer > 0 ? 1.1 : 1) * _defMultHud);
+      const _mrHud = Math.round(player.mr * _pu * (player.boostTimer > 0 ? 1.1 : 1) * _defMultHud);
       const _spHud = Math.round(player.speed * _pu * (player.msBuffTimer > 0 ? 1 + player.msBuffAmount : 1));
       const _powerVal = player.dmgType === 'magical'
         ? Math.round(player.AP * _pu)
@@ -1889,8 +1891,9 @@ export function draw(){
         let vJt = player.jungleTankTimer > 0 ? 1.1 : 1.0;
         let vAdVal = Math.round(player.AD * _vPu * vBuffAdMult * vJp);
         let vApVal = Math.round(player.AP * _vPu * vJp);
-        let vArVal = Math.round(player.armor * _vPu * (player.boostTimer > 0 ? 1.1 : 1) * vJt + (player.defBuffTimer > 0 ? 50 : 0));
-        let vMrVal = Math.round(player.mr * _vPu * (player.boostTimer > 0 ? 1.1 : 1) * vJt + (player.defBuffTimer > 0 ? 50 : 0));
+        const _defMultV = player.defBuffTimer > 0 ? (1 + (player.defBuffAmount || 0.15)) : 1;
+        let vArVal = Math.round(player.armor * _vPu * (player.boostTimer > 0 ? 1.1 : 1) * vJt * _defMultV);
+        let vMrVal = Math.round(player.mr * _vPu * (player.boostTimer > 0 ? 1.1 : 1) * vJt * _defMultV);
         let vAsVal = (player.attackSpeed * vBuffAsMult * vJa).toFixed(2);
         let vMsVal = Math.round(player.speed * _vPu * (player.msBuffTimer > 0 ? 1 + player.msBuffAmount : 1));
         const _vLs = player.lifesteal || 0;
@@ -2702,7 +2705,7 @@ export function buildMenu() {
   const catGroups = { 
       'FIGHTER': ['Bruiser', 'Vanguard', 'Jirina', 'Arson'],
       'TANK': ['Ironclad', 'Goliath', 'Hana', 'Jailer'], 
-      'ASSASSIN': ['Lynx', 'Zephyr', 'Reaper', 'Wanderer'],
+      'ASSASSIN': ['Lynx', 'Zephyr', 'Reaper', 'Wanderer', 'Nemesis'],
       'RANGED': ['Quiller', 'Kratoma', 'Fusilier', 'Volstrov'],
       'MAGE': ['Mage', 'Summoner', 'Pyromancer', 'Tamer'],
       'SUPPORT': ['Healer', 'Cleric', 'Eggchanter', 'Oracle', 'Doctor'] 

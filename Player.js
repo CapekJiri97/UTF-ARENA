@@ -528,6 +528,39 @@ export class Player{
     
     if(this.flashTimer > 0) this.flashTimer -= dt;
 
+    // Vendetta mark timer
+    if (this.vendettaMarkTimer > 0) {
+        this.vendettaMarkTimer -= dt;
+        if (this.vendettaMarkTimer <= 0) { this.vendettaMarkTarget = null; }
+    }
+    // Vendetta AD buff timer
+    if (this.vendettaAdBuffTimer > 0) this.vendettaAdBuffTimer -= dt;
+
+    // Parry shield tracking — detect if shield was broken during parry window
+    if (this._parryActive) {
+        this._parryTimer -= dt;
+        if (this._parryTimer <= 0) {
+            // Expired unbroken — CDR reward
+            if (this.shield > 0) {
+                if (this.spells && this.spells.E) {
+                    this.spells.E.cd = Math.max(0, this.spells.E.cd * (1 - (this._parryCdrOnExpiry || 0.33)));
+                }
+                spawnParticles(this.pos.x, this.pos.y, 5, '#aaaaff', { speed: 60, life: 0.3 });
+            }
+            this._parryActive = false;
+            this._parryShieldAtStart = 0;
+        } else if (this.shield <= 0 && this._parryShieldAtStart > 0) {
+            // Shield broken during parry — grant MS + AD buffs
+            this.msBuffTimer = Math.max(this.msBuffTimer || 0, this._parryMsBuffDuration || 1.5);
+            this.msBuffAmount = Math.max(this.msBuffAmount || 0, this._parryMsBuff || 0.18);
+            this.vendettaAdBuffTimer = this._parryAdBuffDuration || 2.0;
+            this.vendettaAdBuffPct = this._parryAdBuffPct || 0.25;
+            spawnParticles(this.pos.x, this.pos.y, 14, '#ffcc44', { speed: 140, life: 0.5 });
+            this._parryActive = false;
+            this._parryShieldAtStart = 0;
+        }
+    }
+
     if (this.shieldExplodeData) {
         this.shieldExplodeData.timer -= dt;
         if (this.shieldExplodeData.timer <= 0 || this.shield <= 0) {
@@ -1108,7 +1141,7 @@ export class Player{
       }
     }
 
-    const buffAdMult = 1.0 + (this.adAsBuffTimer > 0 ? this.adAsBuffAmount : 0);
+    const buffAdMult = 1.0 + (this.adAsBuffTimer > 0 ? this.adAsBuffAmount : 0) + (this.vendettaAdBuffTimer > 0 ? (this.vendettaAdBuffPct || 0) : 0);
     const jp = this.junglePowerTimer > 0 ? 1.1 : 1.0;
     const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0) * buffAdMult * jp; 
     const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0) * jp;
@@ -1217,7 +1250,7 @@ export class Player{
     this.castingTimeRemaining = sp.castTime || 0;
     this.castingTimeTotal = sp.castTime || 0;
 
-    const buffAdMult = 1.0 + (this.adAsBuffTimer > 0 ? this.adAsBuffAmount : 0);
+    const buffAdMult = 1.0 + (this.adAsBuffTimer > 0 ? this.adAsBuffAmount : 0) + (this.vendettaAdBuffTimer > 0 ? (this.vendettaAdBuffPct || 0) : 0);
     const jp = this.junglePowerTimer > 0 ? 1.1 : 1.0;
     const pAD = this.AD * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0) * buffAdMult * jp; const pAP = this.AP * (this.hasPowerup ? 1.2 : 1.0) * (this.boostTimer > 0 ? 1.1 : 1.0) * jp;
     const damage = Math.round((sp.baseDamage || 0) + (pAP * (sp.scaleAP||0)) + (pAD * (sp.scaleAD||0)) + sp.level*(sp.scaleLevel !== undefined ? sp.scaleLevel : 8)); // Damage calculation is fine on client for display
@@ -1682,6 +1715,37 @@ export class Player{
         };
         game.groundEffects.push(effect);
         spawnParticles(this.pos.x, this.pos.y, 15, '#aaffaa', { speed: 80, life: 0.6 });
+    } else if (sp.type === 'vendetta') {
+        const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
+        const speed = sp.pSpeed || 850;
+        const life = sp.life || 0.35;
+        const markDuration = sp.markDuration || 3.0;
+        const markBonusAD = sp.markBonusAD || 0.30;
+        const casterId = this.id;
+        const casterTeam = this.team;
+        let proj = new Projectile(
+            this.pos.x + Math.cos(angle) * (this.radius + 6),
+            this.pos.y + Math.sin(angle) * (this.radius + 6),
+            Math.cos(angle) * speed, Math.sin(angle) * speed,
+            this.id, this.team,
+            { damage, dmgType: this.dmgType, glyph: sp.pGlyph || 'd', life, radius: 8, isSpell: true,
+              _isVendetta: true, _markDuration: markDuration, _markBonusAD: markBonusAD, _casterId: casterId, _casterTeam: casterTeam }
+        );
+        game.projectiles.push(proj);
+        spawnParticles(this.pos.x, this.pos.y, 6, '#ffcc44', { speed: 100 });
+    } else if (sp.type === 'parry') {
+        const shieldAmt = sp.shieldAmount || 55;
+        this.shield = Math.max(this.shield || 0, shieldAmt);
+        this._parryActive = true;
+        this._parryDuration = sp.duration || 2.0;
+        this._parryTimer = sp.duration || 2.0;
+        this._parryMsBuff = sp.msBuff || 0.18;
+        this._parryMsBuffDuration = sp.msBuffDuration || 1.5;
+        this._parryAdBuffPct = sp.adBuffPct || 0.25;
+        this._parryAdBuffDuration = sp.adBuffDuration || 2.0;
+        this._parryCdrOnExpiry = sp.cdrOnExpiry || 0.33;
+        this._parryShieldAtStart = shieldAmt;
+        spawnParticles(this.pos.x, this.pos.y, 10, '#aaaaff', { speed: 80, life: 0.4 });
     } else if (sp.type === 'spin_to_win') {
         this.spinTimer = sp.duration || 2.5;
         this.spinTick = 0;
@@ -4360,6 +4424,12 @@ export class BotPlayer extends Player {
                   }
                   else if (this.spells.Q.type === 'volstrov_q') castQ = (d < 400 && this.volstrovQTimer <= 0); // Volstrov Q — aktivuje buff jen když není aktivní
                   else if (this.spells.Q.type === 'sticky_bomb') castQ = (d < (this.spells.Q.pSpeed || 700) * (this.spells.Q.life || 0.55) + 20);
+                  else if (this.spells.Q.type === 'vendetta') {
+                      const vRange = (this.spells.Q.pSpeed || 850) * (this.spells.Q.life || 0.35);
+                      // Prioritizuj: pokud target nemá mark → vystřel; pokud mark už máme → neplýtvej Q (reset on kill je odměna)
+                      const alreadyMarked = this.vendettaMarkTarget && this.vendettaMarkTarget.id === this.target.id && this.vendettaMarkTimer > 0;
+                      castQ = !alreadyMarked && d < vRange;
+                  }
                   else castQ = (d < 450);
                   if (castQ) this.castSpell('Q', qtx, qty);
               }
@@ -4426,6 +4496,28 @@ export class BotPlayer extends Player {
                       // Cast under self when in melee range or low HP
                       castE = (d < (this.spells.E.radius || 140) + 30 || this.hp < this.effectiveMaxHp * 0.65);
                       etx = this.pos.x; ety = this.pos.y;
+                  }
+                  else if (this.spells.E.type === 'parry') {
+                      // Parry bot logika — klíčové podmínky:
+                      // 1. Máme mark na cíl (vendetta active) → parry pro AD buff do kill okna
+                      // 2. Jsme v melee range a HP klesá (přijímáme damage) → reaktivní obrana
+                      // 3. Cíl má projectile spell na CD <= 0 (hrozí hit) a jsme blízko → anticipace
+                      // 4. NIKDY nekastuj pokud jsme > 300px od cíle (zbytečné)
+                      const hasVendettaMark = this.vendettaMarkTarget && this.vendettaMarkTarget.id === this.target.id && this.vendettaMarkTimer > 0;
+                      const inMeleeRange = d < this.attackRange + 40;
+                      const takingDamage = this.hp < this.effectiveMaxHp * 0.80;
+                      const targetHasProjectile = this.target.spells && (
+                          (this.target.spells.Q && this.target.spells.Q.cd <= 0 && ['projectile','vendetta','sticky_bomb'].includes(this.target.spells.Q.type)) ||
+                          (this.target.spells.E && this.target.spells.E.cd <= 0 && ['projectile','vendetta'].includes(this.target.spells.E.type))
+                      );
+                      // Priorita 1: máme mark + AD buff pomůže → castuj hned
+                      if (hasVendettaMark && inMeleeRange) castE = true;
+                      // Priorita 2: jsme blízko, berejem damage, chceme shield jako buffer
+                      else if (inMeleeRange && takingDamage && this.hp < this.effectiveMaxHp * 0.65) castE = true;
+                      // Priorita 3: nepřítel chystá spell a jsme blízko → preemptivně
+                      else if (inMeleeRange && targetHasProjectile && d < 160) castE = true;
+                      // Nikdy castuj ze vzdálena — parry je melee tool
+                      if (d > 300) castE = false;
                   }
                   else castE = (d < (this.spells.E.radius || 250));
                   if (castE) this.castSpell('E', etx, ety);

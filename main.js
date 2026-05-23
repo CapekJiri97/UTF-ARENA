@@ -614,6 +614,10 @@ import { initAudio, playSound } from './Audio.js';
     if (type === 'physical') multiplier = 100 / (100 + arm);
     else if (type === 'magical') multiplier = 100 / (100 + mr);
     else if (type === 'true' || type === 'dot') multiplier = 1; // Pure damage (Fountain laser)
+    // Vendetta mark bonus — applies when attacker has target marked
+    if (sourceEntity && sourceEntity.vendettaMarkTarget && sourceEntity.vendettaMarkTarget.id === target.id && sourceEntity.vendettaMarkTimer > 0) {
+        amount = Math.round(amount * (1 + (sourceEntity.vendettaMarkBonusAD || 0.30)));
+    }
     
     // OPRAVA: Host posílá striktní zprávu o poškození minionů pouze proti lidským hráčům (Boti se posílají rovnou celí přes host_state prevence zdvojení).
     if (socket && game.isHost && !isNetwork && !simMode) {
@@ -770,7 +774,14 @@ import { initAudio, playSound } from './Audio.js';
       if (game.killFeed) game.killFeed.push(killData);
 
       if (!socket || game.isHost) {
-          if (killer) { grantRewards(killer, 150, 50); killer.kills++; if (typeof killer.refreshDominionPCS === 'function') killer.refreshDominionPCS(); game.nexus[victim.team] = Math.max(0, (game.nexus[victim.team] || 0) - 2); if (typeof activeGameMode.onKill === 'function') activeGameMode.onKill(killer.team); }
+          if (killer) { grantRewards(killer, 150, 50); killer.kills++; if (typeof killer.refreshDominionPCS === 'function') killer.refreshDominionPCS(); game.nexus[victim.team] = Math.max(0, (game.nexus[victim.team] || 0) - 2); if (typeof activeGameMode.onKill === 'function') activeGameMode.onKill(killer.team);
+              // Vendetta Q reset on marked kill
+              if (killer.vendettaMarkTarget && killer.vendettaMarkTarget.id === victim.id && killer.spells && killer.spells.Q) {
+                  killer.spells.Q.cd = 0;
+                  killer.vendettaMarkTarget = null; killer.vendettaMarkTimer = 0;
+                  spawnParticles(killer.pos.x, killer.pos.y, 12, '#ffcc44', { speed: 160, life: 0.5 });
+              }
+          }
           let now = performance.now();
           if (victim.recentAttackers) {
               victim.recentAttackers.forEach((data, attackerId) => {

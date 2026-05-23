@@ -92,6 +92,16 @@ export class Projectile{
       }
       if (this.opts.stunDuration) { target.stunTimer = Math.max(target.stunTimer || 0, this.opts.stunDuration); if(target.className) game.effectTexts.push(new EffectText(target.pos.x, target.pos.y-20, "STUNNED", '#ffcc00')); }
       if (this.opts.silenceDuration) { target.silenceTimer = Math.max(target.silenceTimer || 0, this.opts.silenceDuration); if(target.className) game.effectTexts.push(new EffectText(target.pos.x, target.pos.y-20, "SILENCED", '#fff')); }
+      if (this.opts._isVendetta && target.className) {
+          const owner = game.players.find(p => p.id === this.ownerId);
+          if (owner) {
+              owner.vendettaMarkTarget = target;
+              owner.vendettaMarkTimer = this.opts._markDuration || 3.0;
+              owner.vendettaMarkBonusAD = this.opts._markBonusAD || 0.30;
+              game.effectTexts.push(new EffectText(target.pos.x, target.pos.y - 24, '†MARKED', '#ffcc44'));
+              spawnParticles(target.pos.x, target.pos.y, 8, '#ffcc44', { speed: 80, life: 0.5 });
+          }
+      }
       if (this.opts.spawnMinion && (!socket || game.isHost)) {
           let bestTower = null, bd = Infinity;
           for (let t of game.towers) if (t.owner !== this.ownerTeam && dist(t.pos, this.pos) < bd) { bestTower = t; bd = dist(t.pos, this.pos); }

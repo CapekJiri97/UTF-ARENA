@@ -75,6 +75,33 @@ export const CLASSES = {
     }
   },
 
+  Nemesis: {
+    glyph: 'N', role: 'FIGHTER', range: false, dmgType: 'physical', aaScale: 0.55,
+    respawnBase: 6, respawnPerLevel: 1, hpRegen: 1.2,
+    hp: 700, speed: 127, attackDelay: 0.95,
+    baseAtk: 52, baseAD: 62, baseAP: 0,
+    baseArmor: 30, baseMR: 30,
+    lvlHP: 12, lvlArmor: 0.4, lvlMR: 0.3, lvlPower: 1.6, lvlAtk: 0.6,
+    playStyle: { engageRange: 80, preferredCombatDist: 40, backoffAggression: 0.55, strafeIntensity: 0.65, diveThreshold: 0.70, panicHpMod: 1.10, spellCombo: 'burst', retreatSpeedMod: 1.15 },
+    Q: {
+      baseCooldown: 7.0, castTime: 0.1,
+      baseDamage: 55, scaleAP: 0, scaleAD: 0.50,
+      type: 'vendetta', pGlyph: 'd', pSpeed: 850, life: 0.35,
+      markDuration: 3.0, markBonusAD: 0.30,
+      desc: 'Throw a dagger — marks first enemy hit (3s). Attacks on marked target deal +30% AD bonus damage. Killing marked target resets Q cooldown.'
+    },
+    E: {
+      baseCooldown: 11.0, castTime: 0.05,
+      baseDamage: 0, scaleAP: 0, scaleAD: 0,
+      type: 'parry',
+      shieldAmount: 55, duration: 2.0,
+      msBuff: 0.18, msBuffDuration: 1.5,
+      adBuffPct: 0.25, adBuffDuration: 2.0,
+      cdrOnExpiry: 0.33,
+      desc: 'Raise a small shield (55 HP, 2s). If broken: gain +18% MS (1.5s) + +25% AD (2s). If it expires unbroken: reduce E cooldown by 33%.'
+    }
+  },
+
   Bruiser: {
     glyph: 'B', role: 'FIGHTER', range: false, dmgType: 'physical', aaScale: 0.60,
     hp: 760, speed: 120, attackDelay: 1.1,
