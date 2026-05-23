@@ -10,6 +10,8 @@ app.use(express.static(__dirname));
 
 let rooms = {};
 
+const ALL_CLASS_NAMES = ['Vanguard', 'Jirina', 'Bruiser', 'Arson', 'Ironclad', 'Hana', 'Goliath', 'Jailer', 'Lynx', 'Zephyr', 'Reaper', 'Wanderer', 'Nemesis', 'Kratoma', 'Quiller', 'Fusilier', 'Volstrov', 'Mage', 'Summoner', 'Pyromancer', 'Tamer', 'Healer', 'Cleric', 'Eggchanter', 'Oracle', 'Doctor'];
+
 io.on('connection', (socket) => {
   console.log(`[SERVER] Nový hráč připojen! ID: ${socket.id}`);
 
@@ -29,7 +31,7 @@ io.on('connection', (socket) => {
 
   socket.on('create_room', (roomName) => {
       if (!roomName || roomName.trim() === '' || rooms[roomName]) return;
-      rooms[roomName] = { players: {}, started: false, settings: { blueBotDiff: 100, redBotDiff: 100 } };
+      rooms[roomName] = { players: {}, started: false, hostId: socket.id, settings: { blueBotDiff: 100, redBotDiff: 100, botSlots: { blue: [], red: [] } } };
       joinRoom(roomName);
       sendRoomList();
   });
@@ -45,12 +47,17 @@ io.on('connection', (socket) => {
 
   function leaveCurrentRoom() {
       if (currentRoom && rooms[currentRoom]) {
+          const room = rooms[currentRoom];
           socket.leave(currentRoom);
-          delete rooms[currentRoom].players[socket.id];
-          io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: rooms[currentRoom].players, settings: rooms[currentRoom].settings });
-          
-          if (Object.keys(rooms[currentRoom].players).length === 0) {
+          delete room.players[socket.id];
+          if (Object.keys(room.players).length === 0) {
               delete rooms[currentRoom];
+          } else {
+              // Transfer host to first remaining player if host left
+              if (room.hostId === socket.id) {
+                  room.hostId = Object.keys(room.players)[0];
+              }
+              io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players, settings: room.settings, hostId: room.hostId });
           }
           currentRoom = null;
           sendRoomList();
@@ -61,9 +68,12 @@ io.on('connection', (socket) => {
       leaveCurrentRoom();
       currentRoom = roomName;
       socket.join(currentRoom);
-      // Univerzální fallback, na Klientovi se to případně automaticky přepne, pokud je Bruiser zabraný
-      rooms[currentRoom].players[socket.id] = { id: socket.id, className: 'Bruiser', summonerSpell: 'Heal', team: 0, x: 0, y: 0, ready: false };
-      io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: rooms[currentRoom].players, settings: rooms[currentRoom].settings });
+      const takenOnBlue = Object.values(rooms[currentRoom].players).filter(p => p.team === 0).map(p => p.className);
+      const available = ALL_CLASS_NAMES.filter(c => !takenOnBlue.includes(c));
+      const randomClass = available.length > 0 ? available[Math.floor(Math.random() * available.length)] : ALL_CLASS_NAMES[Math.floor(Math.random() * ALL_CLASS_NAMES.length)];
+      rooms[currentRoom].players[socket.id] = { id: socket.id, className: randomClass, summonerSpell: 'Heal', team: 0, x: 0, y: 0, ready: false };
+      const room = rooms[currentRoom];
+      io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players, settings: room.settings, hostId: room.hostId });
   }
 
   socket.on('update_settings', (data) => {
@@ -71,7 +81,18 @@ io.on('connection', (socket) => {
       if (data.blueBotDiff !== undefined) rooms[currentRoom].settings.blueBotDiff = data.blueBotDiff;
       if (data.redBotDiff !== undefined) rooms[currentRoom].settings.redBotDiff = data.redBotDiff;
       if (data.gameMode   !== undefined) rooms[currentRoom].settings.gameMode   = data.gameMode;
-      io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: rooms[currentRoom].players, settings: rooms[currentRoom].settings });
+      const room = rooms[currentRoom];
+      io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players, settings: room.settings, hostId: room.hostId });
+  });
+
+  socket.on('update_bot_slots', (data) => {
+      if (!currentRoom || !rooms[currentRoom]) return;
+      if (rooms[currentRoom].hostId !== socket.id) return; // Only room host can change bots
+      const slots = rooms[currentRoom].settings.botSlots;
+      if (data.team === 'blue' && Array.isArray(data.slots)) slots.blue = data.slots;
+      if (data.team === 'red'  && Array.isArray(data.slots)) slots.red  = data.slots;
+      const room = rooms[currentRoom];
+      io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players, settings: room.settings, hostId: room.hostId });
   });
 
   // Hráč si v menu vybral jinou postavu/tým
@@ -87,7 +108,7 @@ io.on('connection', (socket) => {
 
     if (newTeam === -1) { // Player chose to spectate
         player.team = -1;
-        io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players, settings: room.settings });
+        io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players, settings: room.settings, hostId: room.hostId });
         return;
     }
 
@@ -98,7 +119,7 @@ io.on('connection', (socket) => {
     // Případ 1: Hráč mění tým. Musíme zkontrolovat, jestli jeho postava není v novém týmu už zabraná.
     if (newTeam !== player.team) {
         if (isClassTakenOnNewTeam(player.className)) {
-                    const allClassNames = ['Vanguard', 'Jirina', 'Bruiser', 'Ironclad', 'Hana', 'Goliath', 'Jailer', 'Lynx', 'Zephyr', 'Kratoma', 'Quiller', 'Fusilier', 'Mage', 'Summoner', 'Pyromancer', 'Tamer', 'Healer', 'Cleric', 'Eggchanter', 'Reaper', 'Wanderer', 'Oracle', 'Doctor'];
+                    const allClassNames = ['Vanguard', 'Jirina', 'Bruiser', 'Ironclad', 'Hana', 'Goliath', 'Jailer', 'Lynx', 'Zephyr', 'Kratoma', 'Quiller', 'Fusilier', 'Mage', 'Summoner', 'Pyromancer', 'Tamer', 'Healer', 'Cleric', 'Eggchanter', 'Reaper', 'Wanderer', 'Oracle', 'Doctor', 'Arson', 'Nemesis', 'Volstrov'];
             const availableClass = allClassNames.find(cls => !isClassTakenOnNewTeam(cls));
             newClass = availableClass || 'Bruiser'; // Najde první volnou postavu. Pokud by náhodou bylo vše plné, až pak použije fallback
         } else {
@@ -120,7 +141,7 @@ io.on('connection', (socket) => {
     player.summonerSpell = newSpell;
     player.ready = false;
 
-    io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players, settings: room.settings });
+    io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players, settings: room.settings, hostId: room.hostId });
   });
 
   socket.on('toggle_ready', (isReady) => {
@@ -128,7 +149,7 @@ io.on('connection', (socket) => {
     const room = rooms[currentRoom];
     if (room.players[socket.id]) {
         room.players[socket.id].ready = isReady;
-        io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players, settings: room.settings });
+        io.to(currentRoom).emit('lobby_update', { roomName: currentRoom, players: room.players, settings: room.settings, hostId: room.hostId });
     }
   });
 

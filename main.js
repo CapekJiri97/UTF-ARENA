@@ -78,7 +78,7 @@ import { initAudio, playSound } from './Audio.js';
     });
     
     socket.on('room_list', (data) => { updateRoomListUI(data); });
-    socket.on('lobby_update', (data) => { updateLobbyUI(data.players, data.roomName, data.settings); });
+    socket.on('lobby_update', (data) => { updateLobbyUI(data.players, data.roomName, data.settings, data.hostId); });
     socket.on('game_start', (data) => {
       const m = document.getElementById('menu'); if(m) m.style.display = 'none';
       game.isHost = (socket.id === data.hostId);
@@ -88,7 +88,7 @@ import { initAudio, playSound } from './Audio.js';
           game.redBotDifficulty = data.settings.redBotDiff / 100;
           if (data.settings.gameMode) setActiveMode(data.settings.gameMode);
       }
-      if(typeof startGameNetworked === 'function') startGameNetworked(data.players);
+      if(typeof startGameNetworked === 'function') startGameNetworked(data.players, data.settings);
     });
     socket.on('network_player_update', (data) => {
       let netPlayer = game.playersById ? game.playersById.get(data.id) : game.players.find(p => p.id === data.id);
@@ -778,6 +778,7 @@ import { initAudio, playSound } from './Audio.js';
               // Vendetta Q reset on marked kill
               if (killer.vendettaMarkTarget && killer.vendettaMarkTarget.id === victim.id && killer.spells && killer.spells.Q) {
                   killer.spells.Q.cd = 0;
+                  victim.isVendettaMarked = false;
                   killer.vendettaMarkTarget = null; killer.vendettaMarkTimer = 0;
                   spawnParticles(killer.pos.x, killer.pos.y, 12, '#ffcc44', { speed: 160, life: 0.5 });
               }
@@ -931,27 +932,40 @@ import { initAudio, playSound } from './Audio.js';
     }
 
     const getBotLane = (idx) => activeGameMode.getBotLane(idx);
-
     const teamSize = activeGameMode.mapConfig.teamSize || 5;
-    let blueBotCount = (!isSpectator && playerTeam === 0) ? teamSize - 1 : teamSize;
-    let redBotCount  = (!isSpectator && playerTeam === 1) ? teamSize - 1 : teamSize;
-    let totalBots = Math.max(blueBotCount, redBotCount);
+    const offlineSlots = game.offlineBotSlots || null;
+    const humansBlue = (!isSpectator && playerTeam === 0) ? 1 : 0;
+    const humansRed  = (!isSpectator && playerTeam === 1) ? 1 : 0;
 
-    // Boti si vybírají na střídačku, aby dokázali reagovat na kompozici nepřítele a nebrali zrcadlové postavy
-    for (let i = 1; i <= totalBots; i++) {
-        if (i <= blueBotCount) {
-            const c = getSmartBotClass(bluePicked, redPicked);
-            bluePicked.push(c);
-            let bot = new BotPlayer(spawnPoints[0].x + Math.random()*50, spawnPoints[0].y + Math.random()*50, {team:0, id:'bot0_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
-            game.players.push(bot);
-        }
-        if (i <= redBotCount) {
-            const c = getSmartBotClass(redPicked, bluePicked);
-            redPicked.push(c);
-            let bot = new BotPlayer(spawnPoints[1].x + Math.random()*50, spawnPoints[1].y + Math.random()*50, {team:1, id:'bot1_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
-            game.players.push(bot);
+    function spawnOfflineBotsForTeam(teamIdx, teamKey, humanCount, myPicked, enemyPicked) {
+        const slots = offlineSlots && offlineSlots[teamKey] && offlineSlots[teamKey].length > 0 ? offlineSlots[teamKey] : null;
+        const maxBots = Math.max(0, teamSize - humanCount);
+        if (slots) {
+            const effectiveSlots = slots.slice(0, maxBots);
+            effectiveSlots.forEach((slot, i) => {
+                let c;
+                if (slot.mode === 'fixed' && slot.className && CLASSES[slot.className] && !myPicked.includes(slot.className)) c = slot.className;
+                else if (slot.mode === 'random') { const all = Object.keys(CLASSES).filter(n => !myPicked.includes(n)); c = all.length > 0 ? all[Math.floor(Math.random()*all.length)] : getSmartBotClass(myPicked, enemyPicked); }
+                else c = getSmartBotClass(myPicked, enemyPicked);
+                myPicked.push(c);
+                game.players.push(new BotPlayer(spawnPoints[teamIdx].x + Math.random()*50, spawnPoints[teamIdx].y + Math.random()*50, {team:teamIdx, id:`bot${teamIdx}_${i+1}`, className: c, lane: getBotLane(i+1), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]}));
+            });
+            // Fill remaining up to maxBots with smart bots
+            for (let i = effectiveSlots.length; i < maxBots; i++) {
+                const c = getSmartBotClass(myPicked, enemyPicked);
+                myPicked.push(c);
+                game.players.push(new BotPlayer(spawnPoints[teamIdx].x + Math.random()*50, spawnPoints[teamIdx].y + Math.random()*50, {team:teamIdx, id:`bot${teamIdx}_${i+1}`, className: c, lane: getBotLane(i+1), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]}));
+            }
+        } else {
+            for (let i = 1; i <= maxBots; i++) {
+                const c = getSmartBotClass(myPicked, enemyPicked);
+                myPicked.push(c);
+                game.players.push(new BotPlayer(spawnPoints[teamIdx].x + Math.random()*50, spawnPoints[teamIdx].y + Math.random()*50, {team:teamIdx, id:`bot${teamIdx}_${i}`, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]}));
+            }
         }
     }
+    spawnOfflineBotsForTeam(0, 'blue', humansBlue, bluePicked, redPicked);
+    spawnOfflineBotsForTeam(1, 'red',  humansRed,  redPicked,  bluePicked);
 
     game.started = true;
     updateSpellLabels();
@@ -965,7 +979,7 @@ import { initAudio, playSound } from './Audio.js';
     console.log(`[DEBUG] Game started! Player selected class: ${playerClass}`);
   }
 
-  function startGameNetworked(playersData) {
+  function startGameNetworked(playersData, settings) {
     game.players = []; game.minions = []; game.projectiles = [];
 
     // Reinicializace mapy pro aktuální game mode (setActiveMode bylo zavoláno těsně před tímto)
@@ -1011,26 +1025,49 @@ import { initAudio, playSound } from './Audio.js';
     }
 
     const getBotLane = (idx) => activeGameMode.getBotLane(idx);
-
     const teamSize = activeGameMode.mapConfig.teamSize || 5;
-    let blueBotCount = Math.max(0, teamSize - humansBlue);
-    let redBotCount  = Math.max(0, teamSize - humansRed);
-    let totalBots = Math.max(blueBotCount, redBotCount);
+    const botSlots = settings && settings.botSlots ? settings.botSlots : null;
 
-    for (let i = 1; i <= totalBots; i++) {
-        if (i <= blueBotCount) {
-            const c = getSmartBotClass(bluePicked, redPicked);
-            bluePicked.push(c);
-            let bot = new BotPlayer(spawnPoints[0].x + Math.random()*50, spawnPoints[0].y + Math.random()*50, {team:0, id:'bot0_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
-            game.players.push(bot);
-        }
-        if (i <= redBotCount) {
-            const c = getSmartBotClass(redPicked, bluePicked);
-            redPicked.push(c);
-            let bot = new BotPlayer(spawnPoints[1].x + Math.random()*50, spawnPoints[1].y + Math.random()*50, {team:1, id:'bot1_'+i, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]});
-            game.players.push(bot);
+    function spawnBotsForTeam(teamIdx, teamKey, humanCount, myPicked, enemyPicked) {
+        const slots = botSlots && botSlots[teamKey] && botSlots[teamKey].length > 0 ? botSlots[teamKey] : null;
+        const maxBots = Math.max(0, teamSize - humanCount);
+        let botIdx = 0;
+        if (slots) {
+            // Spawn configured slots (capped to maxBots)
+            const effectiveSlots = slots.slice(0, maxBots);
+            effectiveSlots.forEach((slot, i) => {
+                let c;
+                if (slot.mode === 'fixed' && slot.className && CLASSES[slot.className] && !myPicked.includes(slot.className)) {
+                    c = slot.className;
+                } else if (slot.mode === 'random') {
+                    const allNames = Object.keys(CLASSES).filter(n => !myPicked.includes(n));
+                    c = allNames.length > 0 ? allNames[Math.floor(Math.random() * allNames.length)] : getSmartBotClass(myPicked, enemyPicked);
+                } else {
+                    c = getSmartBotClass(myPicked, enemyPicked);
+                }
+                myPicked.push(c);
+                botIdx = i + 1;
+                game.players.push(new BotPlayer(spawnPoints[teamIdx].x + Math.random()*50, spawnPoints[teamIdx].y + Math.random()*50, {team:teamIdx, id:`bot${teamIdx}_${botIdx}`, className: c, lane: getBotLane(botIdx), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]}));
+            });
+            // Fill remaining slots up to maxBots with smart bots
+            for (let i = effectiveSlots.length; i < maxBots; i++) {
+                const c = getSmartBotClass(myPicked, enemyPicked);
+                myPicked.push(c);
+                botIdx = i + 1;
+                game.players.push(new BotPlayer(spawnPoints[teamIdx].x + Math.random()*50, spawnPoints[teamIdx].y + Math.random()*50, {team:teamIdx, id:`bot${teamIdx}_${botIdx}`, className: c, lane: getBotLane(botIdx), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]}));
+            }
+        } else {
+            // Auto-fill to teamSize (default behavior)
+            for (let i = 1; i <= maxBots; i++) {
+                const c = getSmartBotClass(myPicked, enemyPicked);
+                myPicked.push(c);
+                game.players.push(new BotPlayer(spawnPoints[teamIdx].x + Math.random()*50, spawnPoints[teamIdx].y + Math.random()*50, {team:teamIdx, id:`bot${teamIdx}_${i}`, className: c, lane: getBotLane(i), summonerSpell: spellsArray[Math.floor(Math.random()*spellsArray.length)]}));
+            }
         }
     }
+
+    spawnBotsForTeam(0, 'blue', humansBlue, bluePicked, redPicked);
+    spawnBotsForTeam(1, 'red',  humansRed,  redPicked,  bluePicked);
 
     game.started = true; updateSpellLabels();
     const mc = document.getElementById('mobileControls'); if (mc) mc.style.display = 'block';

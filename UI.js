@@ -684,10 +684,10 @@ export function requestLandscapeFullscreen() {
         }).catch(e => console.warn('Fullscreen ignored by browser'));
     }
 }
-export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null) {
+export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null, lobbyHostId = null) {
   const rb = document.getElementById('roomBrowser'); if (rb) rb.style.display = 'none';
   const rl = document.getElementById('roomLobby'); if (rl) rl.style.display = 'flex';
-  
+
   const title = document.getElementById('lobbyTitle');
   if (title) title.textContent = `ROOM: ${roomName}`;
 
@@ -697,7 +697,7 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null
   if (blueList) blueList.innerHTML = '';
   if (redList) redList.innerHTML = '';
   if (specList) specList.innerHTML = '';
-  
+
   let myTeam = -1;
   let myClass = '';
   let mySpell = 'Heal';
@@ -706,10 +706,11 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null
   let playerCount = 0;
   const blueTaken = new Set();
   const redTaken = new Set();
+  const amIHost = lobbyHostId === '__offline__' || (socket && lobbyHostId === socket.id);
 
   Object.values(playersData).forEach(p => {
       playerCount++;
-      const tColor = p.team === 0 ? '#486FED' : '#FF4E4E'; 
+      const tColor = p.team === 0 ? '#486FED' : '#FF4E4E';
       const isMe = (socket && p.id === socket.id);
       if (isMe) {
           myTeam = p.team;
@@ -717,10 +718,11 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null
           mySpell = p.summonerSpell;
           myReady = p.ready;
       }
-      
+
       const readyHTML = p.ready ? '<span style="color:#0f0; font-size: 10px;">READY</span>' : '<span style="color:#888; font-size: 10px;">WAITING</span>';
       const meTag = isMe ? '<span style="color:#ffcc00; font-size:10px; margin-left:4px;">(YOU)</span>' : '';
-      
+      const hostTag = (socket && p.id === lobbyHostId) ? '<span style="color:#ffcc00; font-size:10px; margin-left:4px;">[HOST]</span>' : '';
+
       if (p.team === -1) {
           if (specList) specList.innerHTML += `<li>[SPECTATOR] ${p.id.substring(0,4)}... ${meTag}</li>`;
       } else {
@@ -730,19 +732,93 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null
               const dmgStr = cInfo ? (cInfo.dmgType === 'physical' ? 'AD' : 'AP') : '';
               const dmgColor = dmgStr === 'AD' ? '#ffcc00' : '#d270ff';
               const dmgTag = dmgStr ? `<span style="color:${dmgColor}; font-size:10px; margin-left:4px;">[${dmgStr}]</span>` : '';
-              
+
               targetList.innerHTML += `<li class="player-item" style="border-left: 3px solid ${tColor};">
-                  <div><strong style="color:${tColor};">${p.className}</strong>${dmgTag}<span style="color:#aaa; font-size:10px; margin-left:4px;">[${p.summonerSpell}]</span>${meTag}</div>
+                  <div><strong style="color:${tColor};">${p.className}</strong>${dmgTag}<span style="color:#aaa; font-size:10px; margin-left:4px;">[${p.summonerSpell}]</span>${hostTag}${meTag}</div>
                   <div>${readyHTML}</div>
               </li>`;
           }
       }
-      
+
       if (p.team === 0) blueTaken.add(p.className);
       else redTaken.add(p.className);
 
       if (!p.ready) allReady = false;
   });
+
+  // Bot slots — show configured bots in team lists
+  const botSlots = settings && settings.botSlots ? settings.botSlots : { blue: [], red: [] };
+  const allClassNames = Object.keys(CLASSES);
+
+  function renderBotSlots(list, teamKey, teamColor) {
+      if (!list) return;
+      const slots = botSlots[teamKey] || [];
+      slots.forEach((slot, idx) => {
+          const modeLabel = slot.mode === 'fixed' && slot.className ? slot.className
+              : slot.mode === 'random' ? '? RANDOM'
+              : '★ SMART';
+          const modeColor = slot.mode === 'fixed' ? '#aaa' : slot.mode === 'random' ? '#f8a' : '#8cf';
+          let controls = '';
+          if (amIHost) {
+              const modeOpts = `<option value="smart" ${slot.mode === 'smart' ? 'selected' : ''}>★ Smart</option>
+                  <option value="random" ${slot.mode === 'random' ? 'selected' : ''}>? Random</option>
+                  <option value="fixed" ${slot.mode === 'fixed' ? 'selected' : ''}>✎ Pick</option>`;
+              const classOpts = allClassNames.map(c => `<option value="${c}" ${slot.className === c ? 'selected' : ''}>${c}</option>`).join('');
+              controls = `<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap; margin-top:3px;">
+                  <select data-bot-team="${teamKey}" data-bot-idx="${idx}" data-bot-field="mode" style="background:#111; color:#ccc; border:1px solid #333; font-size:10px; font-family:monospace; padding:1px 3px;">${modeOpts}</select>
+                  <select data-bot-team="${teamKey}" data-bot-idx="${idx}" data-bot-field="class" style="background:#111; color:#ccc; border:1px solid #333; font-size:10px; font-family:monospace; padding:1px 3px; display:${slot.mode === 'fixed' ? 'inline' : 'none'};">${classOpts}</select>
+                  <button data-bot-remove="${idx}" data-bot-team="${teamKey}" style="background:#300; color:#f44; border:1px solid #f44; font-size:9px; padding:1px 5px; cursor:pointer; font-family:monospace;">✕</button>
+              </div>`;
+          }
+          list.innerHTML += `<li class="player-item" style="border-left: 3px solid #555; opacity: 0.85;">
+              <div><span style="color:#555; font-size:10px; margin-right:4px;">[BOT]</span><strong style="color:${modeColor};">${modeLabel}</strong></div>
+              ${controls}
+          </li>`;
+      });
+      if (amIHost) {
+          list.innerHTML += `<li style="padding: 4px 0;">
+              <button data-bot-add="${teamKey}" style="background:#000; color:#555; border:1px dashed #444; font-size:10px; padding:3px 8px; cursor:pointer; font-family:monospace; width:100%;">+ Add Bot</button>
+          </li>`;
+      }
+  }
+  renderBotSlots(blueList, 'blue', '#486FED');
+  renderBotSlots(redList,  'red',  '#FF4E4E');
+
+  // Bot slot interaction (only host)
+  if (amIHost && socket) {
+      document.querySelectorAll('[data-bot-add]').forEach(btn => {
+          btn.onclick = () => {
+              const team = btn.dataset.botAdd;
+              const slots = (botSlots[team] || []).slice();
+              slots.push({ mode: 'smart', className: null });
+              socket.emit('update_bot_slots', { team, slots });
+          };
+      });
+      document.querySelectorAll('[data-bot-remove]').forEach(btn => {
+          btn.onclick = () => {
+              const team = btn.dataset.botTeam;
+              const idx = parseInt(btn.dataset.botRemove);
+              const slots = (botSlots[team] || []).slice();
+              slots.splice(idx, 1);
+              socket.emit('update_bot_slots', { team, slots });
+          };
+      });
+      document.querySelectorAll('select[data-bot-field]').forEach(sel => {
+          sel.onchange = () => {
+              const team = sel.dataset.botTeam;
+              const idx = parseInt(sel.dataset.botIdx);
+              const field = sel.dataset.botField;
+              const slots = JSON.parse(JSON.stringify(botSlots[team] || []));
+              if (field === 'mode') {
+                  slots[idx].mode = sel.value;
+                  if (sel.value !== 'fixed') slots[idx].className = null;
+              } else if (field === 'class') {
+                  slots[idx].className = sel.value;
+              }
+              socket.emit('update_bot_slots', { team, slots });
+          };
+      });
+  }
 
   const myTeamTakenByOthers = myTeam === 0 ? blueTaken : redTaken;
   
@@ -2755,6 +2831,69 @@ export function buildMenu() {
 
   function notifyServer() { if(socket) socket.emit('update_selection', { className: selectedClass, team: selectedTeam, summonerSpell: selectedSpell }); }
   startBtn.addEventListener('click', () => { requestLandscapeFullscreen(); if(socket && socket.connected) socket.emit('start_game'); else { m.style.display = 'none'; startGame(selectedClass, selectedTeam, isSpectator, selectedSpell); } });
+
+  // Offline bot slots (no socket) — local state, host-level control
+  let offlineBotSlots = { blue: [], red: [] };
+  const allClassNames_ = Object.keys(CLASSES);
+  function renderOfflineBotSlots() {
+      if (socket) return;
+      function buildSlotsHTML(teamKey, teamColor) {
+          const slots = offlineBotSlots[teamKey] || [];
+          let html = '';
+          slots.forEach((slot, idx) => {
+              const modeLabel = slot.mode === 'fixed' && slot.className ? slot.className : slot.mode === 'random' ? '? RANDOM' : '★ SMART';
+              const modeColor = slot.mode === 'fixed' ? '#aaa' : slot.mode === 'random' ? '#f8a' : '#8cf';
+              const modeOpts = `<option value="smart" ${slot.mode==='smart'?'selected':''}>★ Smart</option><option value="random" ${slot.mode==='random'?'selected':''}>? Random</option><option value="fixed" ${slot.mode==='fixed'?'selected':''}>✎ Pick</option>`;
+              const classOpts = allClassNames_.map(c => `<option value="${c}" ${slot.className===c?'selected':''}>${c}</option>`).join('');
+              html += `<li class="player-item" style="border-left:3px solid #555; opacity:0.85;">
+                  <div><span style="color:#555;font-size:10px;margin-right:4px;">[BOT]</span><strong style="color:${modeColor};">${modeLabel}</strong></div>
+                  <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:3px;">
+                      <select data-off-team="${teamKey}" data-off-idx="${idx}" data-off-field="mode" style="background:#111;color:#ccc;border:1px solid #333;font-size:10px;font-family:monospace;padding:1px 3px;">${modeOpts}</select>
+                      <select data-off-team="${teamKey}" data-off-idx="${idx}" data-off-field="class" style="background:#111;color:#ccc;border:1px solid #333;font-size:10px;font-family:monospace;padding:1px 3px;display:${slot.mode==='fixed'?'inline':'none'};">${classOpts}</select>
+                      <button data-off-remove="${idx}" data-off-team="${teamKey}" style="background:#300;color:#f44;border:1px solid #f44;font-size:9px;padding:1px 5px;cursor:pointer;font-family:monospace;">✕</button>
+                  </div>
+              </li>`;
+          });
+          html += `<li style="padding:4px 0;"><button data-off-add="${teamKey}" style="background:#000;color:#555;border:1px dashed #444;font-size:10px;padding:3px 8px;cursor:pointer;font-family:monospace;width:100%;">+ Add Bot</button></li>`;
+          return html;
+      }
+      const blueList = document.getElementById('blueTeamList');
+      const redList = document.getElementById('redTeamList');
+      if (blueList) blueList.innerHTML = buildSlotsHTML('blue', '#486FED');
+      if (redList)  redList.innerHTML  = buildSlotsHTML('red',  '#FF4E4E');
+      // Attach handlers
+      document.querySelectorAll('[data-off-add]').forEach(btn => {
+          btn.onclick = () => {
+              const team = btn.dataset.offAdd;
+              offlineBotSlots[team] = [...(offlineBotSlots[team]||[]), { mode:'smart', className:null }];
+              game.offlineBotSlots = offlineBotSlots;
+              renderOfflineBotSlots();
+          };
+      });
+      document.querySelectorAll('[data-off-remove]').forEach(btn => {
+          btn.onclick = () => {
+              const team = btn.dataset.offTeam;
+              const idx = parseInt(btn.dataset.offRemove);
+              offlineBotSlots[team] = (offlineBotSlots[team]||[]).filter((_,i) => i !== idx);
+              game.offlineBotSlots = offlineBotSlots;
+              renderOfflineBotSlots();
+          };
+      });
+      document.querySelectorAll('select[data-off-field]').forEach(sel => {
+          sel.onchange = () => {
+              const team = sel.dataset.offTeam;
+              const idx = parseInt(sel.dataset.offIdx);
+              const field = sel.dataset.offField;
+              const slots = JSON.parse(JSON.stringify(offlineBotSlots[team]||[]));
+              if (field === 'mode') { slots[idx].mode = sel.value; if (sel.value !== 'fixed') slots[idx].className = null; }
+              else if (field === 'class') { slots[idx].className = sel.value; }
+              offlineBotSlots[team] = slots;
+              game.offlineBotSlots = offlineBotSlots;
+              renderOfflineBotSlots();
+          };
+      });
+  }
+  if (!socket) renderOfflineBotSlots();
 
   let blueBotDiff = 100, redBotDiff = 100;
   const blueSlider = document.getElementById('blueBotSlider');

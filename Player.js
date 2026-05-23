@@ -531,7 +531,10 @@ export class Player{
     // Vendetta mark timer
     if (this.vendettaMarkTimer > 0) {
         this.vendettaMarkTimer -= dt;
-        if (this.vendettaMarkTimer <= 0) { this.vendettaMarkTarget = null; }
+        if (this.vendettaMarkTimer <= 0) {
+            if (this.vendettaMarkTarget) { this.vendettaMarkTarget.isVendettaMarked = false; }
+            this.vendettaMarkTarget = null;
+        }
     }
     // Vendetta AD buff timer
     if (this.vendettaAdBuffTimer > 0) this.vendettaAdBuffTimer -= dt;
@@ -539,23 +542,28 @@ export class Player{
     // Parry shield tracking — detect if shield was broken during parry window
     if (this._parryActive) {
         this._parryTimer -= dt;
-        if (this._parryTimer <= 0) {
-            // Expired unbroken — CDR reward
-            if (this.shield > 0) {
-                if (this.spells && this.spells.E) {
-                    this.spells.E.cd = Math.max(0, this.spells.E.cd * (1 - (this._parryCdrOnExpiry || 0.33)));
-                }
-                spawnParticles(this.pos.x, this.pos.y, 5, '#aaaaff', { speed: 60, life: 0.3 });
-            }
-            this._parryActive = false;
-            this._parryShieldAtStart = 0;
-        } else if (this.shield <= 0 && this._parryShieldAtStart > 0) {
+        if (this.shield <= 0 && this._parryShieldAtStart > 0) {
             // Shield broken during parry — grant MS + AD buffs
             this.msBuffTimer = Math.max(this.msBuffTimer || 0, this._parryMsBuffDuration || 1.5);
             this.msBuffAmount = Math.max(this.msBuffAmount || 0, this._parryMsBuff || 0.18);
             this.vendettaAdBuffTimer = this._parryAdBuffDuration || 2.0;
             this.vendettaAdBuffPct = this._parryAdBuffPct || 0.25;
-            spawnParticles(this.pos.x, this.pos.y, 14, '#ffcc44', { speed: 140, life: 0.5 });
+            // Broken: sharp burst of gold sparks
+            spawnParticles(this.pos.x, this.pos.y, 18, '#ffcc44', { speed: 160, life: 0.55 });
+            spawnParticles(this.pos.x, this.pos.y, 8, '#ff8800', { speed: 80, life: 0.3 });
+            this._parryActive = false;
+            this._parryShieldAtStart = 0;
+        } else if (this._parryTimer <= 0) {
+            // Expired unbroken — CDR reward + remove shield
+            if (this.shield > 0) {
+                if (this.spells && this.spells.E) {
+                    this.spells.E.cd = Math.max(0, this.spells.E.cd * (1 - (this._parryCdrOnExpiry || 0.33)));
+                }
+                this.shield = 0;
+                // Expired: soft blue fade-out particles
+                spawnParticles(this.pos.x, this.pos.y, 10, '#aaaaff', { speed: 50, life: 0.5 });
+                spawnParticles(this.pos.x, this.pos.y, 5, '#ffffff', { speed: 30, life: 0.3 });
+            }
             this._parryActive = false;
             this._parryShieldAtStart = 0;
         }
@@ -1031,6 +1039,7 @@ export class Player{
 
     // Dynamické skládání aktivních status efektů nad sebou
     let statuses = [];
+    if (this.isVendettaMarked) statuses.push({ t: '†MARKED', c: '#ffcc44' });
     if (this.silenceTimer > 0) statuses.push({ t: 'SILENCED', c: '#fff' });
     if (this.slowTimer > 0) statuses.push({ t: 'SLOWED', c: '#f55' });
     if (this.invulnerableTimer > 0) statuses.push({ t: 'IMMUNE', c: '#ffcc00' });

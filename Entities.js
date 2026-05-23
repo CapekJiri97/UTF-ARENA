@@ -98,6 +98,7 @@ export class Projectile{
               owner.vendettaMarkTarget = target;
               owner.vendettaMarkTimer = this.opts._markDuration || 3.0;
               owner.vendettaMarkBonusAD = this.opts._markBonusAD || 0.30;
+              target.isVendettaMarked = true;
               game.effectTexts.push(new EffectText(target.pos.x, target.pos.y - 24, '†MARKED', '#ffcc44'));
               spawnParticles(target.pos.x, target.pos.y, 8, '#ffcc44', { speed: 80, life: 0.5 });
           }
