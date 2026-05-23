@@ -1643,8 +1643,8 @@ export class Player{
                 return;
             }
             // Still flying — move manually so life timer can't kill it before hit check
-            this.pos.x += this.vx * dt;
-            this.pos.y += this.vy * dt;
+            this.pos.x += this.vel.x * dt;
+            this.pos.y += this.vel.y * dt;
             this._missTimer += dt;
             // Check hit against enemies
             for (let p of game.players) {
@@ -1652,7 +1652,7 @@ export class Player{
                 if (dist(this.pos, p.pos) < 14 + p.radius) {
                     this._stickyTarget = p;
                     this._stickyFuse = this._bombData.fuseTime;
-                    this.vx = 0; this.vy = 0;
+                    this.vel.x = 0; this.vel.y = 0;
                     spawnParticles(p.pos.x, p.pos.y, 6, '#ff8800');
                     break;
                 }
