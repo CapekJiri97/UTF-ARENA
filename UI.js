@@ -827,7 +827,7 @@ export function updateLobbyUI(playersData, roomName = "OFFLINE", settings = null
       const className = btn.dataset.className;
       const isMyClass = className === myClass;
       const isTakenByOther = myTeamTakenByOthers.has(className) && !isMyClass;
-      
+
       btn.disabled = isTakenByOther;
       if (isTakenByOther) {
           btn.classList.add('taken');
@@ -2829,7 +2829,12 @@ export function buildMenu() {
       sBtns.appendChild(btn); allSpells.push(btn);
   } setTimeout(() => { let b = allSpells.find(x => x.textContent === 'Heal'); if(b) b.click(); }, 50);
 
-  function notifyServer() { if(socket) socket.emit('update_selection', { className: selectedClass, team: selectedTeam, summonerSpell: selectedSpell }); }
+  function notifyServer() {
+      if (!socket) return;
+      const selectedBtn = document.querySelector('.champ-btn.selected');
+      const currentClass = selectedBtn ? selectedBtn.dataset.className : selectedClass;
+      socket.emit('update_selection', { className: currentClass, team: selectedTeam, summonerSpell: selectedSpell });
+  }
   startBtn.addEventListener('click', () => { requestLandscapeFullscreen(); if(socket && socket.connected) socket.emit('start_game'); else { m.style.display = 'none'; startGame(selectedClass, selectedTeam, isSpectator, selectedSpell); } });
 
   // Offline bot slots (no socket) — local state, host-level control
