@@ -1182,6 +1182,12 @@ export function draw(){
   const cw = canvas.clientWidth; const ch = canvas.clientHeight;
   const dpr = game._dpr || window.devicePixelRatio || 1;
 
+  // Reset any leaked canvas state from previous frame before clearing
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle = '#000'; ctx.fillRect(0,0,cw,ch);
   ctx.setTransform(camera.scale*dpr,0,0,camera.scale*dpr, -camera.x*camera.scale*dpr, -camera.y*camera.scale*dpr);
   if (game.shake > 0) { const mag = game.shake * 20; ctx.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag); }

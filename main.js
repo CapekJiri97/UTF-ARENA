@@ -429,6 +429,20 @@ import { initAudio, playSound } from './Audio.js';
       if (game.killFeed) game.killFeed.push(data);
     });
 
+    socket.on('bot_roster', (bots) => {
+      if (!game.started) return;
+      // Odstraníme lokálně vytvořené boty (mají jiná ID než server) a nahradíme serverovými
+      game.players = game.players.filter(p => !p._isBotPlayer && !/^bot\d+_\d+/.test(p.id));
+      const spawnPoints = activeGameMode.mapConfig.spawnPoints;
+      for (const bData of bots) {
+        const sp = spawnPoints[bData.team];
+        const bot = new BotPlayer(sp.x, sp.y, { team: bData.team, id: bData.id, className: bData.className, lane: bData.lane, summonerSpell: bData.summonerSpell });
+        bot._isBotPlayer = true;
+        game.players.push(bot);
+      }
+      game.playersById = new Map(game.players.map(p => [p.id, p]));
+    });
+
     socket.on('player_disconnected', (id) => {
        if(game && game.players) game.players = game.players.filter(p => p.id !== id);
        if(game && game.hostId === id) {
@@ -927,8 +941,8 @@ import { initAudio, playSound } from './Audio.js';
         game.players.push(player);
     } else {
         player = null;
-        camera.x = activeGameMode.mapConfig.world.width / 2;
-        camera.y = activeGameMode.mapConfig.world.height / 2;
+        camera.x = activeGameMode.mapConfig.world.width / 2 - canvas.clientWidth / (2 * camera.scale);
+        camera.y = activeGameMode.mapConfig.world.height / 2 - canvas.clientHeight / (2 * camera.scale);
     }
 
     const getBotLane = (idx) => activeGameMode.getBotLane(idx);
@@ -1020,8 +1034,8 @@ import { initAudio, playSound } from './Audio.js';
 
     if (isSpectator) {
         player = null;
-        camera.x = activeGameMode.mapConfig.world.width / 2;
-        camera.y = activeGameMode.mapConfig.world.height / 2;
+        camera.x = activeGameMode.mapConfig.world.width / 2 - canvas.clientWidth / (2 * camera.scale);
+        camera.y = activeGameMode.mapConfig.world.height / 2 - canvas.clientHeight / (2 * camera.scale);
     }
 
     const getBotLane = (idx) => activeGameMode.getBotLane(idx);
