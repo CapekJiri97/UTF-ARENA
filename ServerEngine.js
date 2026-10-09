@@ -5,18 +5,18 @@
 if (typeof window      === 'undefined') global.window = {};
 if (typeof performance === 'undefined') global.performance = { now: Date.now.bind(Date) };
 
-import { game } from './State.js';
-import { Player, BotPlayer } from './Player.js';
-import { Tower, Minion, HealPickup, PowerUp, SpeedPad } from './Entities.js';
-import { GameMode_Classic } from './GameMode_Classic.js';
-import { GameMode_ARAM }    from './GameMode_ARAM.js';
-import { GameMode_Arena }   from './GameMode_Arena.js';
-import { GameMode_Speed }   from './GameMode_Speed.js';
-import { CLASSES, SUMMONER_SPELLS } from './classes.js';
-import { smoothPolygon, dist } from './Utils.js';
-import { registerGameContext, gc } from './GameContext.js';
+import { game } from './shared/State.js';
+import { Player, BotPlayer } from './entities/Player.js';
+import { Tower, Minion, HealPickup, PowerUp, SpeedPad } from './entities/Entities.js';
+import { GameMode_Classic } from './gamemodes/GameMode_Classic.js';
+import { GameMode_ARAM }    from './gamemodes/GameMode_ARAM.js';
+import { GameMode_Arena }   from './gamemodes/GameMode_Arena.js';
+import { GameMode_Speed }   from './gamemodes/GameMode_Speed.js';
+import { CLASSES, SUMMONER_SPELLS } from './shared/classes.js';
+import { smoothPolygon, dist } from './shared/Utils.js';
+import { registerGameContext, gc } from './shared/GameContext.js';
 import { createServerLogic } from './ServerGameLogic.js';
-import { getShopItem, canBuyShopItem, getItemBuyCost, getItemSellPrice } from './items.js';
+import { getShopItem, canBuyShopItem, getItemBuyCost, getItemSellPrice } from './shared/items.js';
 
 const GAME_MODES = { classic: GameMode_Classic, aram: GameMode_ARAM, arena: GameMode_Arena, speed: GameMode_Speed };
 
@@ -601,9 +601,9 @@ function _serverTick(dt, activeMode, spawnRef, spawnInterval, nexusDrainRate, vS
   game.passiveTimer = (game.passiveTimer || 0) + dt;
   if (game.startDelay <= 0 && game.passiveTimer >= 1.0) {
     game.passiveTimer -= 1.0;
-    let passiveMult = 1.0;
-    if (activeMode.name === 'arena') passiveMult = 1.75;
-    if (activeMode.name === 'speed') passiveMult = 3.0;
+    let passiveMult = activeMode.passiveIncomeMultiplier;
+    if (passiveMult === undefined) passiveMult = activeMode.name === 'arena' ? 1.75 : 1.0;
+    passiveMult *= activeMode.rewardMultiplier || 1;
     for (const p of game.players) {
       p.gold      += 2 * passiveMult;
       p.totalGold += 2 * passiveMult;

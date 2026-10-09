@@ -1,4 +1,4 @@
-import { smoothPolygon } from './Utils.js';
+import { smoothPolygon } from '../shared/Utils.js';
 
 // ── ARAM mapa — čistá aréna 5v5 ──────────────────────────────────────────────
 //

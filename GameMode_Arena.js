@@ -1,12 +1,12 @@
-import { game, camera } from './State.js';
+import { game, camera } from '../shared/State.js';
 import * as ArenaMap from './MapConfig_Arena.js';
-import { showEnd } from './UI.js';
-import { ArenaBrain } from './BotBrain.js';
-import { Minion } from './Entities.js';
-import { player, flashMessage, applyDamage, drawHealthBar, socket } from './main.js';
-import { spawnParticles } from './Effects.js';
-import { dist } from './Utils.js';
-import { playSound } from './Audio.js';
+import { showEnd } from '../client/UI.js';
+import { ArenaBrain } from '../entities/BotBrain.js';
+import { Minion } from '../entities/Entities.js';
+import { player, flashMessage, applyDamage, drawHealthBar, socket } from '../main.js';
+import { spawnParticles } from '../client/Effects.js';
+import { dist } from '../shared/Utils.js';
+import { playSound } from '../client/Audio.js';
 
 // ── Arena game mode ───────────────────────────────────────────────────────────
 // 4v4, elipsová mapa, jedna neutrální věž uprostřed.

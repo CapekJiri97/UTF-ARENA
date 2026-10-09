@@ -1,8 +1,8 @@
-import { game, camera } from './State.js';
+import { game, camera } from '../shared/State.js';
 import * as ClassicMap from './MapConfig.js';
-import { Minion } from './Entities.js';
-import { showEnd } from './UI.js';
-import { DominionBrain } from './BotBrain.js';
+import { Minion } from '../entities/Entities.js';
+import { showEnd } from '../client/UI.js';
+import { DominionBrain } from '../entities/BotBrain.js';
 
 // ── Classic / Dominion mode ───────────────────────────────────────────────────
 // Věže se capture-ují, minionové se spawní podél kruhu věží,
@@ -12,6 +12,9 @@ import { DominionBrain } from './BotBrain.js';
 export const GameMode_Classic = {
   name: 'classic',
   mapConfig: ClassicMap,
+  goalProgressMultiplier: 1.875,
+  rewardMultiplier: 1.5,
+  passiveIncomeMultiplier: 1.0,
 
   // Voláno jednou při startu hry — inicializace stavu specifického pro mód
   init() {
@@ -67,8 +70,8 @@ export const GameMode_Classic = {
     const owned0 = game.towers.filter(t => t.owner === 0).length;
     const owned1 = game.towers.filter(t => t.owner === 1).length;
     const diff = owned0 - owned1;
-    if (diff > 0) game.nexus[1] -= nexusDrainRate * diff * dt;
-    else if (diff < 0) game.nexus[0] -= nexusDrainRate * (-diff) * dt;
+    if (diff > 0) game.nexus[1] -= nexusDrainRate * this.goalProgressMultiplier * diff * dt;
+    else if (diff < 0) game.nexus[0] -= nexusDrainRate * this.goalProgressMultiplier * (-diff) * dt;
     game.nexus[0] = Math.max(0, game.nexus[0]);
     game.nexus[1] = Math.max(0, game.nexus[1]);
 

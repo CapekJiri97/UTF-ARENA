@@ -1,17 +1,17 @@
-import { clamp, dist, isPointInPoly, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
-import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost, getItemSellPrice } from './items.js';
-import { CLASSES, SUMMONER_SPELLS } from './classes.js';
-import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
+import { clamp, dist, isPointInPoly, distToPoly, smoothPolygon, expForLevel } from '../shared/Utils.js';
+import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost, getItemSellPrice } from '../shared/items.js';
+import { CLASSES, SUMMONER_SPELLS } from '../shared/classes.js';
+import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from '../shared/State.js';
 // MapConfig data jsou čtena za běhu z activeGameMode.mapConfig
-import { Particle, spawnParticles, DamageNumber, EffectText } from './Effects.js';
-import { Projectile, Tower, Minion, HealPickup, PowerUp, SpeedPad } from './Entities.js';
+import { Particle, spawnParticles, DamageNumber, EffectText } from '../client/Effects.js';
+import { Projectile, Tower, Minion, HealPickup, PowerUp, SpeedPad } from '../entities/Entities.js';
 import { Player, BotPlayer } from './Player.js';
-import { buildMenu, populateShop, toggleShop, showEnd, draw, updateSpellLabels, updateInventory, updateShopGold, updateLobbyUI, updateRoomListUI } from './UI.js';
-import { GameMode_Classic } from './GameMode_Classic.js';
-import { GameMode_Speed } from './GameMode_Speed.js';
-import { GameMode_ARAM } from './GameMode_ARAM.js';
-import { GameMode_Arena } from './GameMode_Arena.js';
-import { registerGameContext, gc } from './GameContext.js';
+import { buildMenu, populateShop, toggleShop, showEnd, draw, updateSpellLabels, updateInventory, updateShopGold, updateLobbyUI, updateRoomListUI } from '../client/UI.js';
+import { GameMode_Classic } from '../gamemodes/GameMode_Classic.js';
+import { GameMode_Speed } from '../gamemodes/GameMode_Speed.js';
+import { GameMode_ARAM } from '../gamemodes/GameMode_ARAM.js';
+import { GameMode_Arena } from '../gamemodes/GameMode_Arena.js';
+import { registerGameContext, gc } from '../shared/GameContext.js';
 
 export const GAME_MODES = {
   classic: GameMode_Classic,
@@ -41,7 +41,7 @@ export function setSimMode(v) { simMode = v; }
 export function simUpdate(dt) { update(dt); }
 // Resets the spawn timer between simulated games (it persists as a module-level var).
 export function resetSpawnTimer() { spawnTimer = 0; }
-import { initAudio, playSound } from './Audio.js';
+import { initAudio, playSound } from '../client/Audio.js';
 
   export const canvas = document.getElementById('gameCanvas');
   export const ctx = canvas.getContext('2d');

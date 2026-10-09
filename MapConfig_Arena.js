@@ -1,4 +1,4 @@
-import { smoothPolygon } from './Utils.js';
+import { smoothPolygon } from '../shared/Utils.js';
 
 // ── Arena mapa — 85 % Dominionu, elipsový tvar ────────────────────────────────
 //

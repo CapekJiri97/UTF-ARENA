@@ -6,27 +6,49 @@ Spouštění: `node server.js` → `http://localhost:3000`.
 
 ## Architektura
 
-### Dva kontexty souborů
-| Složka | Účel |
-|--------|------|
-| Kořen projektu | Klientské soubory (canvas renderer, UI, game logic sdílená) |
-| `server logika js soubory/` | Serverové kopie `ServerEngine.js`, `Player.js`, `main.js` |
+### Složková struktura
+```
+Kořen (vstupní body):
+  server.js           ← Express + Socket.IO server
+  main.js             ← klientský vstupní bod (browser)
+  ServerEngine.js     ← server game loop (kořenová kopie)
+  ServerGameLogic.js  ← server autorita: damage, heal, shop
+  index.html, style.css
 
-Server importuje z kořene (State.js, Utils.js, items.js, classes.js, Effects.js, Entities.js, GameMode_*.js atd.) přes relativní cesty.
+shared/             ← sdílené mezi klientem i serverem (žádná DOM závislost)
+  State.js, Utils.js, GameContext.js, classes.js, items.js
+
+client/             ← čistě browserové soubory
+  Audio.js, UI.js, Effects.js
+
+entities/           ← herní objekty (sdílené)
+  Entities.js, BotBrain.js, Player.js
+
+gamemodes/          ← herní módy + mapové konfigurace
+  GameMode_Classic.js / Speed / ARAM / Arena
+  MapConfig.js / MapConfig_ARAM.js / MapConfig_Arena.js
+
+server logika js soubory/   ← serverové kopie (alternative server runtime)
+  ServerEngine.js, ServerGameLogic.js, Player.js, main.js
+
+simulation/         ← simulační engine (browser only)
+  Simulation.js, SimStats.js, SimUI.js
+
+simulations/        ← CSV/JSON výstupy simulací
+tools/              ← balance nástroje
+NO CODE BASE/       ← dokumentace, obrázky, poznámky (ne kód)
+```
 
 ### Klíčové soubory (číst jako první)
 - `server.js` — Express + Socket.IO vstupní bod, room management, routing socketových eventů
 - `server logika js soubory/ServerEngine.js` — server-side game loop (20 FPS), multi-room via `_rooms` Map, context-swap pattern (`_withRoomContext`)
-- `server logika js soubory/ServerGameLogic.js` — server autorita: damage, heal, shop, kills
-- `GameContext.js` — DI hub (gc objekt), swapuje implementace mezi serverem a klientem
-- `State.js` — `game` objekt (sdílený stav), `camera`, konstanty, `BOT_WEIGHTS`
+- `ServerGameLogic.js` — server autorita: damage, heal, shop, kills
+- `shared/GameContext.js` — DI hub (gc objekt), swapuje implementace mezi serverem a klientem
+- `shared/State.js` — `game` objekt (sdílený stav), `camera`, konstanty, `BOT_WEIGHTS`
 - `server logika js soubory/Player.js` — Player třída s proxy přes `gc.*`
 
-### Sdílené soubory (klient i server)
-`Utils.js`, `items.js`, `classes.js`, `Entities.js`, `Effects.js`, `BotBrain.js`, `MapConfig*.js`, `GameMode_*.js`
-
 ## Herní módy
-`classic` | `speed` | `aram` | `arena` — třídy `GameMode_*` s `mapConfig.spawnPoints` a `mapConfig.mapBoundary`.
+`classic` | `speed` | `aram` | `arena` — třídy `GameMode_*` v `gamemodes/` s `mapConfig.spawnPoints` a `mapConfig.mapBoundary`.
 
 ## Server-authoritative architektura (dokončeno Fáze 1–7)
 
@@ -63,10 +85,10 @@ Pohyb lokálního hráče je okamžitý. Server posílá korekci:
 ## Simulace a nástroje
 - `simulations/` — CSV/JSON výstupy z herních simulací
 - `tools/balance_analysis.js` + `summarize_report.js` — balance nástroje
-- `SimStats.js`, `SimUI.js`, `Simulation.js` — simulační engine
+- `simulation/Simulation.js`, `simulation/SimStats.js`, `simulation/SimUI.js` — simulační engine
 
 ## Co NEČÍST při hledání serverové logiky
-`Audio.js`, `UI.js`, `Effects.js` — čistě klientské, server je ignoruje (jsou mockované přes `gc`).
+`client/Audio.js`, `client/UI.js`, `client/Effects.js` — čistě klientské, server je ignoruje (jsou mockované přes `gc`).
 
 ## Stav projektu (2026-05)
 Fáze 7 dokončena — čistý codebase, žádný zbytkový host-client kód.

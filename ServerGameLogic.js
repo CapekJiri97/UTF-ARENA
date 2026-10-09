@@ -1,9 +1,9 @@
 // ServerGameLogic.js — Server-side authoritative game logic
 // Factory: createServerLogic(io, roomName, game, getActiveMode) → { applyDamage, applyHeal, ... }
 
-import { getShopItem, canBuyShopItem, getItemBuyCost } from './items.js';
-import { dist } from './Utils.js';
-import { CLASSES } from './classes.js';
+import { getShopItem, canBuyShopItem, getItemBuyCost } from './shared/items.js';
+import { dist } from './shared/Utils.js';
+import { CLASSES } from './shared/classes.js';
 
 const _MINION_EXP_PCT = [1.0, 0.75, 0.50, 0.33, 0.25];
 
@@ -52,10 +52,13 @@ export function createServerLogic(io, roomName, game, getActiveMode) {
     let mult = 1.0;
     if (targetPlayer.level >= avgLevel + 2) mult = 0.5;
     else if (targetPlayer.level <= avgLevel - 2) mult = 1.5;
-    const finalGold = Math.round(baseGold * mult);
-    const finalExp  = Math.round(baseExp  * mult);
+    const mode = getActiveMode();
+    const rewardMultiplier = mode.rewardMultiplier || 1;
+    const finalGold = Math.round(baseGold * mult * rewardMultiplier);
+    const finalExp  = Math.round(baseExp  * mult * rewardMultiplier);
     targetPlayer.gold      += finalGold;
     targetPlayer.totalGold += finalGold;
+    if (finalGold > 0) emit('network_gold_gain', { playerId: targetPlayer.id, amount: finalGold });
     targetPlayer.exp       += finalExp;
     targetPlayer.totalExp   = (targetPlayer.totalExp || 0) + finalExp;
     // Bot auto-buy — BotPlayer.botBuyItems calls recalcPlayerItemStats via gc
@@ -76,12 +79,15 @@ export function createServerLogic(io, roomName, game, getActiveMode) {
     const nearby = game.players.filter(p => p.alive && p.team === killer.team && dist(p.pos, minionPos) <= 300);
     const recipients = nearby.length > 0 ? nearby : [killer];
     const pct = _MINION_EXP_PCT[Math.min(recipients.length - 1, _MINION_EXP_PCT.length - 1)];
-    const modeMult = (activeGameMode && activeGameMode.name === 'arena') ? 1.5 : 1.0;
+    const modeMult = ((activeGameMode && activeGameMode.name === 'arena') ? 1.5 : 1.0)
+      * ((activeGameMode && activeGameMode.rewardMultiplier) || 1);
     for (const p of recipients) {
       const m = snowMult(p) * modeMult;
       const prevGold = p.gold;
-      p.gold      += Math.round(8  * pct * m);
-      p.totalGold += Math.round(8  * pct * m);
+      const goldReward = Math.round(8 * pct * m);
+      p.gold      += goldReward;
+      p.totalGold += goldReward;
+      if (goldReward > 0) emit('network_gold_gain', { playerId: p.id, amount: goldReward });
       p.exp       += Math.round(11 * pct * m);
       p.totalExp   = (p.totalExp || 0) + Math.round(11 * pct * m);
       if (p._isBotPlayer && prevGold < 250 && p.gold >= 250) {

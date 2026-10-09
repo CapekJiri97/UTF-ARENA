@@ -1,10 +1,10 @@
-import { dist, isPointInPoly, distToPoly } from './Utils.js';
-import { game, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
+import { dist, isPointInPoly, distToPoly } from '../shared/Utils.js';
+import { game, TEAM_COLOR, NEUTRAL_COLOR } from '../shared/State.js';
 const _isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 // mapBoundary, spawnPoints, MINION_SPAWN_POINTS jsou čteny z activeGameMode.mapConfig za běhu
-import { spawnParticles, EffectText, DamageNumber } from './Effects.js';
-import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, grantRewards, grantMinionKillRewards, activeGameMode } from './main.js';
-import { playSound } from './Audio.js';
+import { spawnParticles, EffectText, DamageNumber } from '../client/Effects.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, grantRewards, grantMinionKillRewards, activeGameMode } from '../main.js';
+import { playSound } from '../client/Audio.js';
 
 export class Projectile{
   constructor(x,y,vx,vy,ownerId,ownerTeam,opts={}){ this.pos={x,y}; this.vel={x:vx,y:vy}; 
@@ -180,7 +180,7 @@ export class Tower{
       const counts = [0,0]; let rallyBonus = [0,0];
       for(let p of game.players){ if(p.alive && dist(p.pos, this.pos) <= this.captureRadius) { counts[p.team]++; if(p.rallyTimer > 0) rallyBonus[p.team] += 2; } }
       const presenceDelta = (counts[0] + rallyBonus[0]) - (counts[1] + rallyBonus[1]);
-      const captureSpeedMult = (activeGameMode && activeGameMode.name === 'arena') ? 0.5 : 1.0;
+        const captureSpeedMult = (activeGameMode && activeGameMode.name === 'arena') ? 0.5 : 1.0;
       if(presenceDelta !== 0){
         const rate = Math.sign(presenceDelta) * (25 + (Math.abs(presenceDelta) - 1) * 5) * captureSpeedMult;
         this.control += rate * dt;
@@ -481,7 +481,17 @@ export class Minion{
       this.dead = true;
       return;
     }
-    if(dist(this.pos, activeGameMode.mapConfig.spawnPoints[1-this.team]) < 200 && (!socket || game.isHost)) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) { this.dead=true; return; } }
+    if(dist(this.pos, activeGameMode.mapConfig.spawnPoints[1-this.team]) < 200 && (!socket || game.isHost)) {
+      applyDamage(this, 1000 * dt, 'true', 'laser');
+      if(this.hp<=0) {
+        this.dead = true;
+        if (activeGameMode && activeGameMode.name === 'arena') {
+          game.score[this.team] = (game.score[this.team] || 0) + 2;
+          game.damageNumbers.push(new DamageNumber(this.pos.x, this.pos.y - 15, '+2', this.team === 0 ? '#486FED' : '#FF4E4E'));
+        }
+        return;
+      }
+    }
     if(this.flashTimer > 0) this.flashTimer -= dt;
     if(this.stunTimer > 0) this.stunTimer -= dt;
     if(this.attackCooldown>0) this.attackCooldown -= dt;
@@ -539,12 +549,14 @@ export class Minion{
         if (this.currentTarget && d > stopRange) { dx = this.currentTarget.pos.x - this.pos.x; dy = this.currentTarget.pos.y - this.pos.y; }
     } else {
         if (!this.atTarget) {
-            // Arena: go straight to tower. Dominion: use lane waypoints.
+            // Arena minions push toward the enemy base; other modes follow their tower route.
             let destPos;
             if (activeGameMode && activeGameMode.name === 'arena') {
-                destPos = towerTarget.pos;
+                destPos = activeGameMode.mapConfig.spawnPoints[1 - this.team];
             } else {
-                destPos = activeGameMode.mapConfig.MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos;
+                destPos = activeGameMode && ['classic', 'speed'].includes(activeGameMode.name)
+                    ? towerTarget.pos
+                    : (activeGameMode.mapConfig.MINION_SPAWN_POINTS[this.targetIndex] || towerTarget.pos);
             }
             let distToTarget = dist(this.pos, destPos);
             if (activeGameMode && activeGameMode.minionPathMode === 'linear') {
@@ -558,16 +570,11 @@ export class Minion{
             }
             if (distToTarget <= 70) {
                 dx = 0; dy = 0;
-                const ownsTower = towerTarget.owner === this.team;
-                if (ownsTower) {
-                    // Own tower: die immediately, grant points in arena
+                if (activeGameMode && activeGameMode.name === 'arena') {
+                    // Stop short of the enemy spawn and let its laser finish the minion.
+                } else if (towerTarget.owner === this.team) {
+                    // Own tower: die immediately.
                     this.dead = true;
-                    if (!socket || game.isHost) {
-                        if (activeGameMode && activeGameMode.name === 'arena') {
-                            game.score[this.team] = (game.score[this.team] || 0) + 2;
-                            game.damageNumbers.push(new DamageNumber(this.pos.x, this.pos.y - 15, '+2', this.team === 0 ? '#486FED' : '#FF4E4E'));
-                        }
-                    }
                 } else {
                     // Enemy/neutral tower: start sieging it
                     this.atTarget = true; this.linger = 1.75;

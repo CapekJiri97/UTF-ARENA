@@ -1,4 +1,4 @@
-import { smoothPolygon } from './Utils.js';
+import { smoothPolygon } from '../shared/Utils.js';
 
 export const world = { width: 4000, height: 3150 };
 export const spawnPoints = [ { x: 350, y: 2173 }, { x: 3650, y: 2173 } ];

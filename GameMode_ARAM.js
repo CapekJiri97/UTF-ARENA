@@ -1,8 +1,8 @@
-import { game, camera } from './State.js';
+import { game, camera } from '../shared/State.js';
 import * as AramMap from './MapConfig_ARAM.js';
-import { showEnd } from './UI.js';
-import { AramBrain } from './BotBrain.js';
-import { Minion } from './Entities.js';
+import { showEnd } from '../client/UI.js';
+import { AramBrain } from '../entities/BotBrain.js';
+import { Minion } from '../entities/Entities.js';
 
 // ── ARAM game mode — 5v5 v jedné lince s věžemi ──────────────────────────────
 // Věže s HP jako v LoLku (Outer 1500, Inner 2000, Base 2500).

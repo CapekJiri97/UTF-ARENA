@@ -1,16 +1,16 @@
-import { clamp, dist, isPointInPoly, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
-import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost, getItemSellPrice } from './items.js';
-import { CLASSES, SUMMONER_SPELLS } from './classes.js';
-import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
+import { clamp, dist, isPointInPoly, distToPoly, smoothPolygon, expForLevel } from './shared/Utils.js';
+import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost, getItemSellPrice } from './shared/items.js';
+import { CLASSES, SUMMONER_SPELLS } from './shared/classes.js';
+import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './shared/State.js';
 // MapConfig data jsou čtena za běhu z activeGameMode.mapConfig
-import { Particle, spawnParticles, DamageNumber, EffectText } from './Effects.js';
-import { Projectile, Tower, Minion, HealPickup, PowerUp, SpeedPad } from './Entities.js';
-import { Player, BotPlayer } from './Player.js';
-import { buildMenu, populateShop, toggleShop, showEnd, draw, updateSpellLabels, updateInventory, updateShopGold, updateLobbyUI, updateRoomListUI } from './UI.js';
-import { GameMode_Classic } from './GameMode_Classic.js';
-import { GameMode_Speed } from './GameMode_Speed.js';
-import { GameMode_ARAM } from './GameMode_ARAM.js';
-import { GameMode_Arena } from './GameMode_Arena.js';
+import { Particle, spawnParticles, DamageNumber, EffectText } from './client/Effects.js';
+import { Projectile, Tower, Minion, HealPickup, PowerUp, SpeedPad } from './entities/Entities.js';
+import { Player, BotPlayer } from './entities/Player.js';
+import { buildMenu, populateShop, toggleShop, showEnd, draw, updateSpellLabels, updateInventory, updateShopGold, updateLobbyUI, updateRoomListUI } from './client/UI.js';
+import { GameMode_Classic } from './gamemodes/GameMode_Classic.js';
+import { GameMode_Speed } from './gamemodes/GameMode_Speed.js';
+import { GameMode_ARAM } from './gamemodes/GameMode_ARAM.js';
+import { GameMode_Arena } from './gamemodes/GameMode_Arena.js';
 
 export const GAME_MODES = {
   classic: GameMode_Classic,
@@ -42,7 +42,7 @@ export function setSimMode(v) {
 export function simUpdate(dt) { update(dt); }
 // Resets the spawn timer between simulated games (it persists as a module-level var).
 export function resetSpawnTimer() { spawnTimer = 0; }
-import { initAudio, playSound } from './Audio.js';
+import { initAudio, playSound } from './client/Audio.js';
 
   export const canvas = document.getElementById('gameCanvas');
   export const ctx = canvas.getContext('2d');
@@ -331,7 +331,10 @@ import { initAudio, playSound } from './Audio.js';
     // PŘIDÁNO: Přijímání jednorázových událostí od Hosta (Věže střílí, poškození prostředím, Konec hry)
     socket.on('network_host_event', (data) => {
       if (game && game.isHost) return; 
-      if (data.type === 'damage') {
+      if (data.type === 'gold_gain') {
+        const recipient = game.players.find(p => p.id === data.playerId);
+        if (recipient) showGoldGain(recipient, data.amount);
+      } else if (data.type === 'damage') {
         let t = game.players.find(p => p.id === data.targetId);
         if (t) applyDamage(t, data.amount, data.dmgType, data.sourceId, true); // true = isNetwork = ignore host check
       } else if (data.type === 'tower_shoot') {
@@ -392,6 +395,12 @@ import { initAudio, playSound } from './Audio.js';
         if (tgt) { tgt.invulnerableTimer = Math.max(tgt.invulnerableTimer || 0, 1.5); tgt.msBuffTimer = Math.max(tgt.msBuffTimer || 0, 1.5); tgt.msBuffAmount = 0.3; spawnParticles(tgt.pos.x, tgt.pos.y, 20, '#ffcc00', {speed: 180}); if (tgt === player) flashMessage("UBERCHARGE! IMMUNE!"); }
       }
     });
+
+    socket.on('network_gold_gain', (data) => {
+      if (game && game.isHost) return;
+      const recipient = game.players.find(p => p.id === data.playerId);
+      if (recipient) showGoldGain(recipient, data.amount);
+    });
     
     // PŘIDÁNO: Přijímání útoků a kouzel od ostatních hráčů (a botů)
     socket.on('network_player_action', (data) => {
@@ -417,6 +426,7 @@ import { initAudio, playSound } from './Audio.js';
           if (idx !== -1) {
             netPlayer.items.splice(idx, 1);
             netPlayer.gold += data.refund;
+            showGoldGain(netPlayer, data.refund);
             recalcPlayerItemStats(netPlayer);
             netPlayer.isDirty = true;
           }
@@ -521,11 +531,16 @@ import { initAudio, playSound } from './Audio.js';
     if (targetPlayer.level >= avgLevel + 2) mult = 0.5;
     else if (targetPlayer.level <= avgLevel - 2) mult = 1.5;
 
-    let finalGold = Math.round(baseGold * mult);
-    let finalExp = Math.round(baseExp * mult);
+    const rewardMultiplier = activeGameMode.rewardMultiplier || 1;
+    let finalGold = Math.round(baseGold * mult * rewardMultiplier);
+    let finalExp = Math.round(baseExp * mult * rewardMultiplier);
 
     targetPlayer.gold += finalGold;
     targetPlayer.totalGold += finalGold;
+    showGoldGain(targetPlayer, finalGold);
+    if (socket && game.isHost && !simMode) {
+      socket.emit('host_event', { type: 'gold_gain', playerId: targetPlayer.id, amount: finalGold });
+    }
     targetPlayer.exp += finalExp;
     targetPlayer.totalExp = (targetPlayer.totalExp || 0) + finalExp;
 
@@ -550,12 +565,18 @@ import { initAudio, playSound } from './Audio.js';
     const nearby = game.players.filter(p => p.alive && p.team === killer.team && dist(p.pos, minionPos) <= 300);
     const recipients = nearby.length > 0 ? nearby : [killer];
     const pct = _MINION_EXP_PCT[Math.min(recipients.length - 1, _MINION_EXP_PCT.length - 1)];
-    const modeMult = (activeGameMode && activeGameMode.name === 'arena') ? 1.5 : 1.0;
+    const modeMult = ((activeGameMode && activeGameMode.name === 'arena') ? 1.5 : 1.0)
+      * ((activeGameMode && activeGameMode.rewardMultiplier) || 1);
     for (const p of recipients) {
       const m = snowMult(p) * modeMult;
       const prevGold = p.gold;
-      p.gold      += Math.round(8  * pct * m);
-      p.totalGold += Math.round(8  * pct * m);
+      const goldReward = Math.round(8 * pct * m);
+      p.gold      += goldReward;
+      p.totalGold += goldReward;
+      showGoldGain(p, goldReward);
+      if (socket && game.isHost && !simMode) {
+        socket.emit('host_event', { type: 'gold_gain', playerId: p.id, amount: goldReward });
+      }
       p.exp       += Math.round(11 * pct * m);
       p.totalExp   = (p.totalExp || 0) + Math.round(11 * pct * m);
       // Bot nakupuje jakmile překoná práh pro basic item (throttled)
@@ -564,6 +585,13 @@ import { initAudio, playSound } from './Audio.js';
         BotPlayer.botBuyItems(p, botEnemies);
       }
     }
+  }
+
+  function showGoldGain(targetPlayer, amount) {
+    if (!targetPlayer || amount <= 0) return;
+    const popup = new DamageNumber(targetPlayer.pos.x, targetPlayer.pos.y - 30, `+${amount}g`, '#ffd700');
+    popup.size = 12;
+    game.damageNumbers.push(popup);
   }
 
   export function applyHeal(target, amount, caster) {
@@ -1230,6 +1258,7 @@ import { initAudio, playSound } from './Audio.js';
     const sellPrice = getItemSellPrice(player, it);
     player.items.splice(idx, 1);
     player.gold += sellPrice;
+    showGoldGain(player, sellPrice);
     recalcPlayerItemStats(player);
     player.isDirty = true;
     flashMessage(`Sold ${it.name} for ${sellPrice}g`);
@@ -1350,9 +1379,9 @@ import { initAudio, playSound } from './Audio.js';
     game.passiveTimer = (game.passiveTimer || 0) + dt;
     if (game.startDelay <= 0 && game.passiveTimer >= 1.0) { 
         game.passiveTimer -= 1.0; 
-        let passiveMult = 1.0;
-        if (activeGameMode && activeGameMode.name === 'arena') passiveMult = 1.75;
-        if (activeGameMode && activeGameMode.name === 'speed') passiveMult = 3.0;
+        let passiveMult = activeGameMode.passiveIncomeMultiplier;
+        if (passiveMult === undefined) passiveMult = activeGameMode.name === 'arena' ? 1.75 : 1.0;
+        passiveMult *= activeGameMode.rewardMultiplier || 1;
         if (!socket || game.isHost) { for(let p of game.players) { p.gold += 2 * passiveMult; p.totalGold += 2 * passiveMult; p.exp += 1 * passiveMult; p.totalExp = (p.totalExp||0) + 1 * passiveMult; } } 
     }
 

@@ -1,10 +1,10 @@
-import { dist, distToPoly, expForLevel } from './Utils.js';
-import { CLASSES, SUMMONER_SPELLS } from './classes.js';
-import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost } from './items.js';
-import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
-import { Projectile, Minion } from './Entities.js';
-import { DominionBrain } from './BotBrain.js';
-import { gc } from './GameContext.js';
+import { dist, distToPoly, expForLevel } from '../shared/Utils.js';
+import { CLASSES, SUMMONER_SPELLS } from '../shared/classes.js';
+import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost } from '../shared/items.js';
+import { game, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from '../shared/State.js';
+import { Projectile, Minion } from '../entities/Entities.js';
+import { DominionBrain } from '../entities/BotBrain.js';
+import { gc } from '../shared/GameContext.js';
 
 // Proxy wrappers — delegují přes gc; fungují na clientu i na serveru
 const applyDamage            = (...a) => gc.applyDamage(...a);
