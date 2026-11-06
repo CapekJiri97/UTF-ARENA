@@ -164,13 +164,13 @@ export function createServerLogic(io, roomName, game, getActiveMode) {
       sourceEntity.titanSigilCd = 2.0;
     }
 
-    // Strike Burn DoT
+    // Blade Strike: direct bonus true damage based on target's max HP %
     if ((sourceEntity?.strikeBurnPct || 0) > 0 && type !== 'true' && type !== 'dot' && target.maxHp && !target.isLocked) {
       const burnMult = (isSpell && isAoE) ? 0.5 : 1.0;
-      target.burnDotTimer   = 2.0;
-      target.burnDotTickDmg = (target.maxHp * sourceEntity.strikeBurnPct * burnMult) / 4.0;
-      target.burnDotSource  = sourceId;
-      if (!target.burnDotTick || target.burnDotTick <= 0) target.burnDotTick = 0.5;
+      const bladeTrueDmg = Math.round(target.maxHp * sourceEntity.strikeBurnPct * burnMult);
+      if (bladeTrueDmg > 0) {
+        applyDamage(target, bladeTrueDmg, 'true', sourceId);
+      }
     }
 
     target.flashTimer = 0.1;

@@ -36,6 +36,12 @@ export const arenaMinionSpawns = [
   [{x: 2918, y: 492}, {x: 2941, y: 850}]
 ];
 
+// Cílové body pro miniony (umístěny bezpečně před zdmi směrem ke středu)
+export const arenaMinionGoals = [
+  { x: 600, y: CY },   // Modrý cíl (kam pochodují červení minioni zemřít pro body)
+  { x: 2800, y: CY },  // Červený cíl (kam pochodují modří minioni zemřít pro body)
+];
+
 // Healy rozmístěny symetricky na horní a spodní stranu mapy
 export const healPickupPositions = [
   {x: 1368, y: 120},

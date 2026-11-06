@@ -12,13 +12,14 @@ import { GameMode_Classic } from './gamemodes/GameMode_Classic.js';
 import { GameMode_ARAM }    from './gamemodes/GameMode_ARAM.js';
 import { GameMode_Arena }   from './gamemodes/GameMode_Arena.js';
 import { GameMode_Speed }   from './gamemodes/GameMode_Speed.js';
+import { GameMode_Horde }   from './gamemodes/GameMode_Horde.js';
 import { CLASSES, SUMMONER_SPELLS } from './shared/classes.js';
 import { smoothPolygon, dist } from './shared/Utils.js';
 import { registerGameContext, gc } from './shared/GameContext.js';
 import { createServerLogic } from './ServerGameLogic.js';
 import { getShopItem, canBuyShopItem, getItemBuyCost, getItemSellPrice } from './shared/items.js';
 
-const GAME_MODES = { classic: GameMode_Classic, aram: GameMode_ARAM, arena: GameMode_Arena, speed: GameMode_Speed };
+const GAME_MODES = { classic: GameMode_Classic, aram: GameMode_ARAM, arena: GameMode_Arena, speed: GameMode_Speed, horde: GameMode_Horde };
 
 // Per-room state map: roomName → { interval, mode, vSocket, serverLogic, spawnRef, spawnInterval, nexusDrainRate, fastTimer, slowTimer, lastTick, state }
 const _rooms = new Map();
@@ -235,7 +236,8 @@ export function startServerGame(io, roomName, playersData, settings) {
   const humansBlue = Object.values(playersData).filter(p => p.team === 0).length;
   const humansRed  = Object.values(playersData).filter(p => p.team === 1).length;
   const blueBotCnt = Math.max(0, teamSize - humansBlue);
-  const redBotCnt  = Math.max(0, teamSize - humansRed);
+  const isHorde    = activeMode.name === 'horde';
+  const redBotCnt  = isHorde ? 0 : Math.max(0, teamSize - humansRed);
   const totalBots  = Math.max(blueBotCnt, redBotCnt);
   const getBotLane = (idx) => activeMode.getBotLane(idx);
 
@@ -836,7 +838,12 @@ function _broadcastTowers(io, roomName) {
   if (!game.towers || game.towers.length === 0) return;
   io.to(roomName).emit('network_host_state', {
     bots: [], minions: [], humans: [],
-    towers: game.towers.map(t => ({ i: t.index, c: t.control, o: t.owner, l: t.isLocked, u: t.unlockTimer })),
+    towers: game.towers.map(t => ({
+      i: t.index, c: t.control, o: t.owner, l: t.isLocked, u: t.unlockTimer,
+      hp: t.hp !== null && t.hp !== undefined ? Math.round(t.hp) : null,
+      maxHp: t.maxHp,
+      d: t.dead
+    })),
   });
 }
 

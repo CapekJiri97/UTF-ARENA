@@ -1,8 +1,8 @@
-import { dist, distToPoly, smoothPolygon, expForLevel } from './Utils.js';
-import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost, getItemSellPrice, getItemCount, getUniqueItemCount, getTotalItemCount } from './items.js';
-import { CLASSES, SUMMONER_SPELLS } from './classes.js';
-import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from './State.js';
-import { canvas, ctx, keys, player, socket, startGame, buyItem, sellItem, drawHealthBar, activeGameMode, setActiveMode, initWalls, initTowers } from './main.js';
+import { dist, distToPoly, smoothPolygon, expForLevel } from '../shared/Utils.js';
+import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost, getItemSellPrice, getItemCount, getUniqueItemCount, getTotalItemCount } from '../shared/items.js';
+import { CLASSES, SUMMONER_SPELLS } from '../shared/classes.js';
+import { game, camera, TEAM_COLOR, NEUTRAL_COLOR } from '../shared/State.js';
+import { canvas, ctx, keys, player, socket, startGame, buyItem, sellItem, drawHealthBar, activeGameMode, setActiveMode, initWalls, initTowers } from '../main.js';
 // spawnPoints a mapBoundary jsou lazy proxy — activeGameMode je již importován výše
 const spawnPoints  = new Proxy([], { get: (_, i) => activeGameMode.mapConfig.spawnPoints[i] });
 const mapBoundary  = new Proxy([], { get: (_, k) => activeGameMode.mapConfig.mapBoundary[k] });
@@ -982,7 +982,9 @@ export function populateShop() {
     wrap.className = 'shop-owned-bar';
     const title = document.createElement('div');
     title.className = 'shop-owned-title';
-        title.textContent = `INVENTORY  (${uniqueCount}/6, ${ownedItems.length}/20)`;
+        const bCount = new Set((ownedItems || []).filter(id => getShopItem(id)?.group === 'basic')).size;
+        const sCount = (ownedItems || []).filter(id => getShopItem(id)?.group === 'special').length;
+        title.textContent = `INVENTORY  (${bCount}/4 Basic, ${sCount}/2 Special - ${ownedItems.length}/20 total)`;
     wrap.appendChild(title);
     const list = document.createElement('div');
     list.className = 'shop-owned-list';
@@ -1029,6 +1031,42 @@ export function populateShop() {
 export function updateShopGold() {
   const el = document.getElementById('shopGoldDisplay');
   if (el && player) el.textContent = `[G] ${Math.floor(player.gold || 0)}g`;
+
+  const overlay = document.getElementById('shopOverlay');
+  if (!overlay || overlay.classList.contains('hidden')) return;
+
+  const cards = overlay.querySelectorAll('.shop-card[data-shop-item]');
+  for (const card of cards) {
+    const id = card.dataset.shopItem;
+    const it = getShopItem(id);
+    if (!it || !player) continue;
+    const costNow = getItemBuyCost(player, it);
+    const buyCheck = canBuyShopItem(player, it);
+    const canAfford = (player.gold || 0) >= costNow;
+    const state = !buyCheck.ok ? 'blocked' : (!canAfford ? 'gold' : 'buy');
+
+    if (!card.classList.contains(`shop-state-${state}`)) {
+      card.classList.remove('shop-state-buy', 'shop-state-gold', 'shop-state-blocked');
+      card.classList.add(`shop-state-${state}`);
+    }
+
+    const btn = card.querySelector('.shop-buy-btn');
+    if (btn) {
+      const canActuallyBuy = buyCheck.ok && canAfford;
+      if (state === 'buy') {
+        btn.textContent = '[BUY]';
+        btn.title = '';
+      } else if (state === 'gold') {
+        const deficit = costNow - Math.floor(player.gold || 0);
+        btn.textContent = `+${Math.max(0, deficit)}g`;
+        btn.title = `Need ${deficit} more gold`;
+      } else {
+        btn.textContent = '[REQ]';
+        btn.title = buyCheck.reason || 'Blocked';
+      }
+      btn.disabled = !canActuallyBuy;
+    }
+  }
 }
 
 export function updateInventory() {
@@ -1166,9 +1204,8 @@ export function drawBackground(ctx){
 const _FLASH_CHARS = ['#', '%', '&', '=', 'X', '@'];
 
 export function draw(){
-  // Real-time shop gold sync
-  const _sgEl = document.getElementById('shopGoldDisplay');
-  if (_sgEl && player) _sgEl.textContent = `[G] ${Math.floor(player.gold || 0)}g`;
+  // Real-time shop gold & button sync
+  updateShopGold();
 
     const _fpsNow = performance.now();
     if (!game._fpsLastTime) { game._fpsLastTime = _fpsNow; game._fpsFrames = 0; game._fpsValue = 0; }
@@ -1606,7 +1643,8 @@ export function draw(){
       ctx.fillText(`LS:${Math.round(_ls*100)}%`, cx + 325, cy - 5);
       ctx.fillText(`Pen:${Math.round(_apen*100)}%`, cx + 325, cy + 15);
       ctx.fillText(`GW:${Math.round(_gw*100)}%`, cx + 385, cy - 25);
-      if (_ss > 0) ctx.fillText(`Sp:${Math.round(_ss*100)}%`, cx + 385, cy - 5);
+      const _slowStat = Math.max(player.onHitSlow || 0, player.onSpellHitSlow || 0);
+      if (_slowStat > 0) ctx.fillText(`Slw:${Math.round(_slowStat*100)}%`, cx + 385, cy - 5);
       if (_hp > 0) ctx.fillText(`HP+:${Math.round(_hp*100)}%`, cx + 385, cy + 15);
       
       ctx.restore();
@@ -1990,8 +2028,8 @@ export function draw(){
         ctx.fillStyle = '#7cf';
         ctx.fillText(`LS: ${Math.round(_vLs*100)}%  | Pen: ${Math.round(_vApen*100)}%  | GW: ${Math.round(_vGw*100)}%`, leftM, startY); startY += 18;
         if (player.healPower > 0) { ctx.fillText(`Heal Power: +${Math.round(player.healPower*100)}%`, leftM, startY); startY += 18; }
-        if (_vSw > 0) { ctx.fillText(`AA Slow: ${Math.round(_vSw*100)}%`, leftM, startY); startY += 18; }
-        if (_vSs > 0) { ctx.fillText(`Spell Slow: ${Math.round(_vSs*100)}%`, leftM, startY); startY += 18; }
+        const _vSlow = Math.max(_vSw, _vSs);
+        if (_vSlow > 0) { ctx.fillText(`Slow: ${Math.round(_vSlow*100)}%`, leftM, startY); startY += 18; }
         startY += 12;
 
         // ── INVENTORY (2×3 grid) ─────────────────────────────────────────
@@ -1999,7 +2037,9 @@ export function draw(){
         const counts = buildItemCounts(ownedIds);
         const uniqueCount = counts.order.length;
         ctx.fillStyle = '#ffcc00'; ctx.font = `bold 16px monospace`;
-        ctx.fillText(`INVENTORY  (${uniqueCount}/6, ${ownedIds.length}/20)`, leftM, startY); startY += 14;
+        const bCount = new Set((ownedIds || []).filter(id => getShopItem(id)?.group === 'basic')).size;
+        const sCount = (ownedIds || []).filter(id => getShopItem(id)?.group === 'special').length;
+        ctx.fillText(`INVENTORY  (${bCount}/4 Basic, ${sCount}/2 Special - ${ownedIds.length}/20 total)`, leftM, startY); startY += 14;
         ctx.fillStyle = '#333'; ctx.fillRect(leftM, startY, panelW - leftM * 2, 1); startY += 10;
 
         {
@@ -2092,15 +2132,10 @@ export function draw(){
                     { t: `On-hit: reduces ALL healing target receives by ${Math.round(_mGw*100)}%.` },
                     { t: `Stacks up to 60%.` }
                 );
-                if (_mSw > 0) mLines.push(
-                    { h: `AA SLOW  (${Math.round(_mSw*100)}%)`, c: '#44ccff' },
-                    { t: `Basic attacks slow enemy by ${Math.round(_mSw*100)}% for a short duration.` },
-                    { t: `Stacks up to 30%.` }
-                );
-                if (_mSs > 0) mLines.push(
-                    { h: `SPELL SLOW  (${Math.round(_mSs*100)}%)`, c: '#44ccff' },
-                    { t: `Spells slow enemy by ${Math.round(_mSs*100)}% for a short duration.` },
-                    { t: `AoE spells apply only half of this value.` }
+                if (_mSw > 0 || _mSs > 0) mLines.push(
+                    { h: `SLOW  (${Math.round(Math.max(_mSw, _mSs)*100)}%)`, c: '#44ccff' },
+                    { t: `Basic attacks & spells slow enemy by ${Math.round(Math.max(_mSw, _mSs)*100)}% for 1.5s.` },
+                    { t: `AoE spells apply half slow. Stacks up to 30%.` }
                 );
                 for (const ml of mLines) {
                     if (startY > panelH - 14) break;
@@ -2416,7 +2451,7 @@ export function drawMinimap(){
           }
       }
 
-      if (activeGameMode.name === 'arena') {
+      if (activeGameMode.name === 'arena' || activeGameMode.name === 'aram' || activeGameMode.name === 'horde') {
           let sb = smoothPolygon(mapBoundary, 3);
           let accumDist = 0; const bSpacing = mmSpacing * 1.5;
           for(let i=0; i<sb.length; i++) { 
@@ -2444,6 +2479,8 @@ export function drawMinimap(){
   function mmVisible(wx, wy) {
     if (_enemyTeamMM < 0) return true;
     if (activeGameMode.name === 'arena' && wx >= 220 && wx <= 3180 && wy >= 470 && wy <= 870) return true;
+    if (activeGameMode.name === 'aram' && wx >= 80 && wx <= 3120 && wy >= 200 && wy <= 800) return true;
+    if (activeGameMode.name === 'horde') return true;
     // Enemy spawn always hidden
     if (_enemySpawnMM) { const edx = wx - _enemySpawnMM.x, edy = wy - _enemySpawnMM.y; if (edx*edx + edy*edy <= _spawnFogR2) return false; }
     if (!isFinite(visionRSqMM)) return true;
@@ -2563,7 +2600,7 @@ export function drawMinimap(){
       }
     }
 
-    if (activeGameMode.name === 'arena') {
+    if (activeGameMode.name === 'arena' || activeGameMode.name === 'aram') {
         let sb = smoothPolygon(mapBoundary, 3);
         let accumDist = 0; const bSpacing = mmSpacingOv * 1.5;
         for(let i=0; i<sb.length; i++) { 
@@ -2669,6 +2706,8 @@ export function buildMenu() {
               <button class="mode-btn" data-mode="classic" style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#ffcc00; border:2px solid #ffcc00; letter-spacing:1px;">DOMINION</button>
               <button class="mode-btn" data-mode="speed"   style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#444;   border:2px solid #444;   letter-spacing:1px;">SPEED</button>
               <button class="mode-btn" data-mode="arena"   style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#444;   border:2px solid #444;   letter-spacing:1px;">ARENA</button>
+              <button class="mode-btn" data-mode="aram"    style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#444;   border:2px solid #444;   letter-spacing:1px;">ARAM</button>
+              <button class="mode-btn" data-mode="horde"   style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#444;   border:2px solid #444;   letter-spacing:1px;">HORDE PVE</button>
               <button id="btnSpec" style="padding:6px 12px; cursor:pointer; font-weight:bold; font-family:monospace; background:#000; color:#aaa; border:1px solid #555;">[ SPECTATE ]</button>
               <button id="leaveRoomBtn" style="display: ${socket ? 'block' : 'none'}; padding:6px 12px; cursor:pointer; font-family:monospace; background:#000; color:#ff4444; border:1px solid #ff4444; font-weight:bold;">[ LEAVE ]</button>
           </div>

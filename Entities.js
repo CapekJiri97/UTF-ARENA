@@ -46,8 +46,12 @@ export class Projectile{
     if (this.ownerId !== 'tower' && (!socket || game.isHost)) {
       for (let t of game.towers) {
         if (!t.dead && t.maxHp !== null && t.owner !== this.ownerTeam && dist(this.pos, t.pos) < this.radius + t.radius + 12) {
-          t.takeDamage(this.damage, this.ownerId);
-          spawnParticles(this.pos.x, this.pos.y, 4, '#ff8800');
+          if (!t.isInvulnerable || !t.isInvulnerable()) {
+            t.takeDamage(this.damage, this.ownerId);
+            spawnParticles(this.pos.x, this.pos.y, 4, '#ff8800');
+          } else {
+            spawnParticles(this.pos.x, this.pos.y, 3, '#00e5ff');
+          }
           if (!pierce) { this.dead = true; return; }
         }
       }
@@ -155,6 +159,15 @@ export class Tower{
     this.isLocked = false;
     this.unlockTimer = 0;
   }
+  isInvulnerable() {
+    if (activeGameMode && activeGameMode.name === 'aram') {
+      if (this.index === 1 && game.towers[0] && !game.towers[0].dead) return true;
+      if (this.index === 2 && game.towers[1] && !game.towers[1].dead) return true;
+      if (this.index === 4 && game.towers[3] && !game.towers[3].dead) return true;
+      if (this.index === 5 && game.towers[4] && !game.towers[4].dead) return true;
+    }
+    return false;
+  }
   update(dt){ if(game.gameOver) return;
     if (this.dead) {
       if (typeof this._handleJungleDeath === 'function' && !this._jungleDeathHandled) {
@@ -245,7 +258,9 @@ export class Tower{
       if (this.attackCooldown > 0) this.attackCooldown -= dt;
       if (this.attackCooldown <= 0 && (!socket || game.isHost)) {
         let isBeingCaptured = false;
-        for (let p of game.players) { if (p.alive && p.team !== this.owner && dist(p.pos, this.pos) <= this.captureRadius) { isBeingCaptured = true; break; } }
+        if (this.maxHp === null) {
+          for (let p of game.players) { if (p.alive && p.team !== this.owner && dist(p.pos, this.pos) <= this.captureRadius) { isBeingCaptured = true; break; } }
+        }
         if (!isBeingCaptured) {
           // LoL agro: pokud enemy hero napadl spojeneckou jednotku v range, přepni na něj
           if (this._aggroTarget && (!this._aggroTarget.alive || this._aggroTarget.dead || dist(this._aggroTarget.pos, this.pos) > this.attackRange)) {
@@ -291,7 +306,7 @@ export class Tower{
 
   // Voláno z applyDamage když věž dostane dmg (jen ARAM)
   takeDamage(amount, killerId) {
-    if (this.maxHp === null || this.dead) return;
+    if (this.maxHp === null || this.dead || this.isInvulnerable()) return;
     this.hp = Math.max(0, this.hp - amount);
     if (this.hp <= 0) {
       this.dead = true;
@@ -334,19 +349,29 @@ export class Tower{
         return; // Během zámku nevykreslujeme HP ani obsazovací ring
     }
 
-    ctx.fillStyle = color; ctx.fillText('T', this.pos.x, this.pos.y);
+    if (activeGameMode && activeGameMode.name === 'horde') {
+      ctx.fillStyle = '#00e5ff';
+      ctx.font = 'bold 24px monospace';
+      ctx.fillText('Ω', this.pos.x, this.pos.y);
+    } else {
+      ctx.fillStyle = color; ctx.fillText('T', this.pos.x, this.pos.y);
+    }
 
     // HP bar pro ARAM věže
     if (this.maxHp !== null) {
       const bw = 60, bh = 7;
       const bx = this.pos.x - bw/2, by = this.pos.y - 38;
       const hpPct = Math.max(0, this.hp / this.maxHp);
+      const shielded = this.isInvulnerable();
       ctx.fillStyle = '#111'; ctx.fillRect(bx, by, bw, bh);
-      ctx.fillStyle = hpPct > 0.5 ? '#0f0' : hpPct > 0.25 ? '#ff0' : '#f00';
+      ctx.fillStyle = shielded ? '#00e5ff' : (hpPct > 0.5 ? '#0f0' : hpPct > 0.25 ? '#ff0' : '#f00');
       ctx.fillRect(bx, by, bw * hpPct, bh);
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.5; ctx.strokeRect(bx, by, bw, bh);
-      ctx.font = '9px monospace'; ctx.fillStyle = '#fff';
-      ctx.fillText(Math.ceil(this.hp) + '/' + this.maxHp, this.pos.x, by - 3);
+      ctx.strokeStyle = shielded ? '#00e5ff' : '#fff'; ctx.lineWidth = shielded ? 1.5 : 0.5; ctx.strokeRect(bx, by, bw, bh);
+      ctx.font = '9px monospace'; ctx.fillStyle = shielded ? '#00e5ff' : '#fff';
+      const hpLabel = (activeGameMode && activeGameMode.name === 'horde')
+        ? (`SHRINE ${Math.ceil(this.hp)}/${this.maxHp}`)
+        : (shielded ? 'SHIELDED' : (Math.ceil(this.hp) + '/' + this.maxHp));
+      ctx.fillText(hpLabel, this.pos.x, by - 3);
     }
 
     // Capture ring (jen classic) — #/. fillText loop
@@ -392,19 +417,71 @@ export class Minion{
     this.thinkTimer = Math.random() * 0.5; this.state = 'PUSH'; this.currentTarget = null;
     this.knockbackTimer = 0; this.knockbackVel = {x: 0, y: 0};
     this.stunTimer = 0; this.silenceTimer = 0;
+    this.slowTimer = 0; this.slowMod = 1;
     this.spawnDeathTimer = 0; this.deathDamagePercent = 0; this.deathStartTime = null;
+
+    this.name = opts.name || (this.isRanged ? 'Archer' : 'Minion');
+    if (opts.glyph) this.glyph = opts.glyph;
+    if (opts.color) this.color = opts.color;
+    if (opts.radius) this.radius = opts.radius;
+    if (opts.speed) this.speed = opts.speed;
+    if (opts.maxHp) {
+      this.maxHp = opts.maxHp;
+      this.hp = this.maxHp;
+    }
+    if (opts.attackDamage) this.attackDamage = opts.attackDamage;
+    if (opts.attackRange) this.attackRange = opts.attackRange;
+    if (opts.isBomber) this.isBomber = true;
+    if (opts.isBoss) {
+      this.isBoss = true;
+      this.bossAbilityCd = 4.0;
+    }
+    if (opts.isFinalBoss) this.isFinalBoss = true;
+    if (opts.slowOnHit) this.slowOnHit = opts.slowOnHit;
+    if (opts.goldReward) this.goldReward = opts.goldReward;
+    if (opts.expReward) this.expReward = opts.expReward;
+  }
+  explode() {
+    if (this._hasExploded) return;
+    this._hasExploded = true;
+    this.dead = true;
+    this.hp = 0;
+    const explRadius = 110;
+    const explDmg = 160;
+    game.shake = 0.4;
+    playSound('explosion', this.pos);
+    spawnParticles(this.pos.x, this.pos.y, 25, '#ff4400', { speed: 200, life: 0.45 });
+    spawnParticles(this.pos.x, this.pos.y, 15, '#ffcc00', { speed: 120, life: 0.3 });
+
+    if (!socket || game.isHost) {
+      for (const p of game.players) {
+        if (p.alive && p.team === 0 && dist(this.pos, p.pos) <= explRadius + p.radius) {
+          applyDamage(p, explDmg, 'physical', this.id, false, true);
+        }
+      }
+      if (game.towers[0] && !game.towers[0].dead && dist(this.pos, game.towers[0].pos) <= explRadius + game.towers[0].radius) {
+        game.towers[0].takeDamage(explDmg, this.id);
+      }
+      for (const m of game.minions) {
+        if (m !== this && !m.dead && dist(this.pos, m.pos) <= explRadius) {
+          applyDamage(m, explDmg * 0.75, 'physical', this.id, false, true);
+          if (m.hp <= 0) m.dead = true;
+        }
+      }
+    }
   }
   think() {
     const isArena = activeGameMode && activeGameMode.name === 'arena';
-    const isDominion = !this.isSummon && !isArena;
+    const isHorde = activeGameMode && activeGameMode.name === 'horde';
+    const isDominion = !this.isSummon && !isArena && !isHorde;
     // Summons chase far; regular minions give up quickly so they stay on objective
-    let giveUpRange = this.isSummon ? 800 : 95;
+    let giveUpRange = this.isSummon ? 800 : (isHorde ? 260 : 95);
     if (this.currentTarget && (this.currentTarget.dead || this.currentTarget.hp <= 0 || dist(this.pos, this.currentTarget.pos) > giveUpRange)) {
         this.currentTarget = null; this.state = 'PUSH';
     }
     if (this.state === 'PUSH') {
         // Regular minions only aggro heroes that are very close (90px); summons chase normally
-        const heroAggroRange = this.isSummon ? 600 : 90;
+        const heroAggroRange = this.isSummon ? 600 : (isHorde ? (this.isBomber ? 320 : 180) : 90);
         let nearestEnemy = null, minDist = heroAggroRange;
         let slowedSilencedEnemy = null, slowedSilencedDist = minDist;
 
@@ -459,11 +536,46 @@ export class Minion{
     if(this.dead || game.gameOver) return; 
     const towerTarget = game.towers[this.targetIndex]; if(!towerTarget) return;
     // ARAM retargeting na další žijící věž
-    if (towerTarget.dead && activeGameMode && activeGameMode.name === 'aram') {
-        if (this.team === 0 && this.targetIndex < 5) this.targetIndex++;
-        if (this.team === 1 && this.targetIndex < 2) this.targetIndex++;
+    if (activeGameMode && activeGameMode.name === 'aram') {
+        const order = this.team === 0 ? [3, 4, 5] : [0, 1, 2];
+        const nextTowerIdx = order.find(i => game.towers[i] && !game.towers[i].dead);
+        if (nextTowerIdx !== undefined) this.targetIndex = nextTowerIdx;
     }
     
+    // Bomber early detonation if close to target player or shrine
+    if (this.isBomber && (!socket || game.isHost)) {
+      if (this.currentTarget && dist(this.pos, this.currentTarget.pos) <= 45) {
+        this.explode();
+        return;
+      }
+      if (game.towers[0] && !game.towers[0].dead && dist(this.pos, game.towers[0].pos) <= 55) {
+        this.explode();
+        return;
+      }
+    }
+
+    // Boss Stomp Shockwave
+    if (this.isBoss && (!socket || game.isHost)) {
+      if (this.bossAbilityCd > 0) this.bossAbilityCd -= dt;
+      if (this.bossAbilityCd <= 0) {
+        this.bossAbilityCd = this.isFinalBoss ? 5.5 : 7.0;
+        const stompRadius = this.isFinalBoss ? 260 : 200;
+        const stompDmg = this.isFinalBoss ? 130 : 90;
+        game.shake = 0.5;
+        playSound('explosion', this.pos);
+        spawnParticles(this.pos.x, this.pos.y, 30, '#ff1744', { speed: 220, life: 0.5 });
+        for (const p of game.players) {
+          if (p.alive && p.team === 0 && dist(this.pos, p.pos) <= stompRadius) {
+            applyDamage(p, stompDmg, 'physical', this.id, false, true);
+            const kAngle = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x);
+            p.knockbackTimer = 0.35;
+            p.knockbackVel = { x: Math.cos(kAngle) * 350, y: Math.sin(kAngle) * 350 };
+            p.stunTimer = Math.max(p.stunTimer || 0, 0.6);
+          }
+        }
+      }
+    }
+
     // Handle summon death timer (e.g. Pheasant after 6s or Ghoul after 8s)
     if (this.isSummon && this.spawnDeathTimer > 0 && (!socket || game.isHost)) {
         if (this.deathStartTime === null) this.deathStartTime = 0;
@@ -477,15 +589,22 @@ export class Minion{
     }
     
     if(this.hp <= 0 && !this.dead) {
+      if (this.isBomber) this.explode();
       if (typeof this._handleJungleDeath === 'function') this._handleJungleDeath();
       this.dead = true;
       return;
     }
-    if(dist(this.pos, activeGameMode.mapConfig.spawnPoints[1-this.team]) < 200 && (!socket || game.isHost)) {
+    const _isArenaMode = activeGameMode && activeGameMode.name === 'arena';
+    const _arenaGoal = _isArenaMode && activeGameMode.mapConfig.arenaMinionGoals ? activeGameMode.mapConfig.arenaMinionGoals[1 - this.team] : null;
+    const _laserTarget = _arenaGoal || (activeGameMode?.mapConfig?.spawnPoints ? activeGameMode.mapConfig.spawnPoints[1 - this.team] : null);
+    const _laserDistThreshold = _isArenaMode ? 100 : 200;
+
+    const _noLaserMode = activeGameMode && (activeGameMode.name === 'aram' || activeGameMode.name === 'horde');
+    if(!_noLaserMode && _laserTarget && dist(this.pos, _laserTarget) < _laserDistThreshold && (!socket || game.isHost)) {
       applyDamage(this, 1000 * dt, 'true', 'laser');
       if(this.hp<=0) {
         this.dead = true;
-        if (activeGameMode && activeGameMode.name === 'arena') {
+        if (_isArenaMode) {
           game.score[this.team] = (game.score[this.team] || 0) + 2;
           game.damageNumbers.push(new DamageNumber(this.pos.x, this.pos.y - 15, '+2', this.team === 0 ? '#486FED' : '#FF4E4E'));
         }
@@ -494,6 +613,7 @@ export class Minion{
     }
     if(this.flashTimer > 0) this.flashTimer -= dt;
     if(this.stunTimer > 0) this.stunTimer -= dt;
+    if(this.slowTimer > 0) { this.slowTimer -= dt; if(this.slowTimer <= 0) this.slowMod = 1; }
     if(this.attackCooldown>0) this.attackCooldown -= dt;
     
     if (this.knockbackTimer > 0) {
@@ -532,6 +652,10 @@ export class Minion{
                 // Melee: instant damage + small swipe animation
                 if (!socket || game.isHost) {
                     applyDamage(this.currentTarget, this.attackDamage, 'physical', this.id);
+                    if (this.slowOnHit && this.currentTarget.slowTimer !== undefined) {
+                        this.currentTarget.slowTimer = Math.max(this.currentTarget.slowTimer || 0, 1.5);
+                        this.currentTarget.slowMod = Math.min(this.currentTarget.slowMod || 1, 1 - this.slowOnHit);
+                    }
                 }
                 const ang = Math.atan2(this.currentTarget.pos.y - this.pos.y, this.currentTarget.pos.x - this.pos.x);
                 spawnParticles(this.pos.x + Math.cos(ang) * 12, this.pos.y + Math.sin(ang) * 12,
@@ -552,7 +676,7 @@ export class Minion{
             // Arena minions push toward the enemy base; other modes follow their tower route.
             let destPos;
             if (activeGameMode && activeGameMode.name === 'arena') {
-                destPos = activeGameMode.mapConfig.spawnPoints[1 - this.team];
+                destPos = (activeGameMode.mapConfig.arenaMinionGoals ? activeGameMode.mapConfig.arenaMinionGoals[1 - this.team] : activeGameMode.mapConfig.spawnPoints[1 - this.team]);
             } else {
                 destPos = activeGameMode && ['classic', 'speed'].includes(activeGameMode.name)
                     ? towerTarget.pos
@@ -568,7 +692,9 @@ export class Minion{
                 if (distToTarget > 350) { let myA = Math.atan2((this.pos.y - cy)/Ry, (this.pos.x - cx)/Rx); let tA = Math.atan2((destPos.y - cy)/Ry, (destPos.x - cx)/Rx); let diff = tA - myA; while(diff <= -Math.PI) diff += 2*Math.PI; while(diff > Math.PI) diff -= 2*Math.PI; let lookAhead = myA + Math.sign(diff) * 0.15; dx = (cx + Rx * Math.cos(lookAhead)) - this.pos.x; dy = (cy + Ry * Math.sin(lookAhead)) - this.pos.y;
                 } else { dx = destPos.x - this.pos.x; dy = destPos.y - this.pos.y; }
             }
-            if (distToTarget <= 70) {
+            const isAramSiege = activeGameMode && activeGameMode.name === 'aram';
+            const siegeDist = (isAramSiege && this.isRanged) ? 180 : 70;
+            if (distToTarget <= siegeDist) {
                 dx = 0; dy = 0;
                 if (activeGameMode && activeGameMode.name === 'arena') {
                     // Stop short of the enemy spawn and let its laser finish the minion.
@@ -577,7 +703,7 @@ export class Minion{
                     this.dead = true;
                 } else {
                     // Enemy/neutral tower: start sieging it
-                    this.atTarget = true; this.linger = 1.75;
+                    this.atTarget = true; this.linger = 2.2;
                     this._siegingTower = towerTarget;
                     this.attackCooldown = 0;
                 }
@@ -585,24 +711,51 @@ export class Minion{
         }
     }
     if (this.atTarget) {
-        this.linger -= dt;
-        // Auto-attack the tower: each hit adds 5% capture progress and costs 15% max HP
-        if (this._siegingTower && !this._siegingTower.dead && this.attackCooldown <= 0) {
-            const atkCd = this.isRanged ? 1.8 : 1.2;
-            this.attackCooldown = atkCd;
-            if (!socket || game.isHost) {
-                const tower = this._siegingTower;
-                // Capture progress: +5% toward this team (control range -100..100)
-                const captureHit = 5 * (this.team === 0 ? 1 : -1);
-                tower.control = Math.max(-100, Math.min(100, (tower.control || 0) + captureHit));
-                // Cost: minion loses 15% of its max HP
-                this.hp -= this.maxHp * 0.15;
-                if (this.hp <= 0) { this.dead = true; }
+        const isDestructibleTower = this._siegingTower && this._siegingTower.maxHp !== null;
+        if (isDestructibleTower) {
+            // ARAM & Horde: Minioni útočí na věž s poškozením (nesebevraždí se do controlu)
+            if (this.isBomber) {
+                this.explode();
+            } else if (!this._siegingTower.dead) {
+                if (this.attackCooldown <= 0) {
+                    this.attackCooldown = this.isRanged ? 1.6 : 1.2;
+                    if (!socket || game.isHost) {
+                        const dmg = Math.round(this.attackDamage * (this.isRanged ? 1.2 : 1.5));
+                        this._siegingTower.takeDamage(dmg, this.id);
+                    }
+                    const col = this.team === 0 ? '#486FED' : '#FF4E4E';
+                    spawnParticles(this._siegingTower.pos.x, this._siegingTower.pos.y, 3, col, {speed: 80, life: 0.25});
+                    playSound('hit_physical', this._siegingTower.pos);
+                }
+            } else {
+                // Věž padla -> reset atTarget a pochod na další věž
+                this.atTarget = false;
+                this._siegingTower = null;
+                if (activeGameMode && activeGameMode.name === 'aram') {
+                    const order = this.team === 0 ? [3, 4, 5] : [0, 1, 2];
+                    const nextIdx = order.find(i => game.towers[i] && !game.towers[i].dead);
+                    if (nextIdx !== undefined) this.targetIndex = nextIdx;
+                }
             }
-            const col = this.team === 0 ? '#486FED' : '#FF4E4E';
-            spawnParticles(this._siegingTower.pos.x, this._siegingTower.pos.y, 3, col, {speed: 80, life: 0.35});
+        } else {
+            this.linger -= dt;
+            // Auto-attack the tower: 2 hits per minion, each hit +7.5% capture (15% total per minion, 5 minions = 75%)
+            if (this._siegingTower && !this._siegingTower.dead && this.attackCooldown <= 0) {
+                const atkCd = 1.0;
+                this.attackCooldown = atkCd;
+                if (!socket || game.isHost) {
+                    const tower = this._siegingTower;
+                    const captureHit = 7.5 * (this.team === 0 ? 1 : -1);
+                    tower.control = Math.max(-100, Math.min(100, (tower.control || 0) + captureHit));
+                    // Cost: minion loses 50% max HP per hit -> dies on 2nd hit
+                    this.hp -= this.maxHp * 0.50;
+                    if (this.hp <= 0) { this.dead = true; }
+                }
+                const col = this.team === 0 ? '#486FED' : '#FF4E4E';
+                spawnParticles(this._siegingTower.pos.x, this._siegingTower.pos.y, 4, col, {speed: 80, life: 0.35});
+            }
+            if (this.linger <= 0) this.dead = true;
         }
-        if (this.linger <= 0) this.dead = true;
     } else {
         if (dx !== 0 || dy !== 0) {
             let currentL = Math.hypot(dx, dy); if (currentL > 0) { dx /= currentL; dy /= currentL; }
@@ -615,7 +768,7 @@ export class Minion{
             let nearbyWalls = game.wallGrid ? (game.wallGrid.get(pcx * 10000 + pcy) || []) : game.walls;
             for(let w of nearbyWalls) { let info = distToPoly(this.pos.x, this.pos.y, w.pts); if (info.minDist < w.r + 30 && !info.inside) { dx += info.closestNorm.x * 2.5; dy += info.closestNorm.y * 2.5; let tx = -info.closestNorm.y; let ty = info.closestNorm.x; if (dx * tx + dy * ty < 0) { tx = -tx; ty = -ty; } dx += tx * 3.5 + (Math.random() - 0.5) * 0.5; dy += ty * 3.5 + (Math.random() - 0.5) * 0.5; } }
         }
-        const l = Math.hypot(dx, dy); if (l > 0) { moveEntityWithCollision(this, (dx / l) * this.speed, (dy / l) * this.speed, dt); }
+        const l = Math.hypot(dx, dy); if (l > 0) { const effSpeed = this.speed * (this.slowTimer > 0 ? (this.slowMod || 0.6) : 1); moveEntityWithCollision(this, (dx / l) * effSpeed, (dy / l) * effSpeed, dt); }
     }
   }
   draw(ctx){ 
@@ -633,7 +786,17 @@ export class Minion{
             ctx.restore();
         }
     }
-    ctx.font='14px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = this.flashTimer > 0 ? '#fff' : (this.team===0? '#aaddff' : '#ffb3b3'); ctx.fillText(this.glyph, this.pos.x, this.pos.y); drawHealthBar(ctx, this.hp, this.maxHp, this.pos.x, this.pos.y+12, this.team); 
+    if (this.isBoss && !this.dead) {
+      ctx.font = 'bold 11px monospace';
+      ctx.fillStyle = '#ff4444';
+      ctx.fillText(this.name, this.pos.x, this.pos.y - this.radius - 8);
+    }
+    const fSize = this.isBoss ? (this.isFinalBoss ? 'bold 28px' : 'bold 22px') : (this.radius > 10 ? 'bold 18px' : '14px');
+    ctx.font = fSize + ' monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle = this.flashTimer > 0 ? '#fff' : (this.color || (this.team===0? '#aaddff' : '#ffb3b3'));
+    ctx.fillText(this.glyph, this.pos.x, this.pos.y);
+    const barY = this.pos.y + (this.radius > 10 ? this.radius + 6 : 12);
+    drawHealthBar(ctx, this.hp, this.maxHp, this.pos.x, barY, this.team); 
   }
 }
 

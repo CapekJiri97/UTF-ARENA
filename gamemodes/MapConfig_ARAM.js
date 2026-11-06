@@ -1,14 +1,10 @@
 import { smoothPolygon } from '../shared/Utils.js';
 
-// ── ARAM mapa — čistá aréna 5v5 ──────────────────────────────────────────────
-//
-// Žádné věže, žádní minioni, žádné zdi, žádné healy, žádné powerupy.
-// Pouze spawny pro oba týmy a hranice mapy.
+// ── ARAM mapa — Most 5v5 (Jedna linka, věže, heal relikvie) ───────────────────
 
 export const world = { width: 3200, height: 1000 };
 
 // Spawn hráčů — modrý vlevo, červený vpravo
-// 5 spawn slotů na tým, rozmístěných svisle
 export const spawnPoints = [
   { x: 200, y: 500 },  // modrý tým — střed vlevo
   { x: 3000, y: 500 }, // červený tým — střed vpravo
@@ -35,8 +31,13 @@ export const aramMinionSpawns = [
   { x: 2900, y: 500 } // Red
 ];
 
-// Žádné heal pickupy
-export const healPickupPositions = [];
+// Heal relikvie podél mostu (2 vnitřní, 2 v contested zóně)
+export const healPickupPositions = [
+  { x: 1000, y: 350 }, // Blue inner
+  { x: 1450, y: 650 }, // Blue mid
+  { x: 1750, y: 350 }, // Red mid
+  { x: 2200, y: 650 }, // Red inner
+];
 
 // Žádný powerup
 export const powerupPosition = null;
@@ -47,12 +48,18 @@ export const rawPolys = [];
 // Žádné nexus hex walls
 export const nexusHexWalls = [];
 
-// Hranice hrací plochy — otevřená aréna
+// Hranice mostu — šířka mostu 540 jednotek (y: 230 až 770), centrováno na y: 500
 export const rawMapBoundary = [
-  { x: 60,   y: 60   },
-  { x: 3140, y: 60   },
-  { x: 3140, y: 940 },
-  { x: 60,   y: 940 },
+  { x: 80,   y: 260 },
+  { x: 420,  y: 230 },
+  { x: 1600, y: 230 },
+  { x: 2780, y: 230 },
+  { x: 3120, y: 260 },
+  { x: 3120, y: 740 },
+  { x: 2780, y: 770 },
+  { x: 1600, y: 770 },
+  { x: 420,  y: 770 },
+  { x: 80,   y: 740 },
 ];
 export const mapBoundary = smoothPolygon(rawMapBoundary, 3);
 

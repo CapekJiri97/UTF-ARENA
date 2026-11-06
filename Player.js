@@ -1,16 +1,16 @@
-import { dist, distToPoly, expForLevel } from './Utils.js';
-import { CLASSES, SUMMONER_SPELLS } from './classes.js';
-import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost } from './items.js';
-import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from './State.js';
-import { Particle, spawnParticles, EffectText } from './Effects.js';
+import { dist, distToPoly, expForLevel } from '../shared/Utils.js';
+import { CLASSES, SUMMONER_SPELLS } from '../shared/classes.js';
+import { shopItems, canBuyShopItem, getShopItem, getItemBuyCost } from '../shared/items.js';
+import { game, camera, TEAM_COLOR, NEUTRAL_COLOR, RANGED_ATTACK_RANGE, MELEE_ATTACK_RANGE, BOT_WEIGHTS } from '../shared/State.js';
+import { Particle, spawnParticles, EffectText } from '../client/Effects.js';
 import { Projectile, Minion } from './Entities.js';
-import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards, grantMinionKillRewards, recalcPlayerItemStats, activeGameMode } from './main.js';
+import { socket, applyDamage, applyHeal, handlePlayerKill, moveEntityWithCollision, drawHealthBar, flashMessage, player, keys, buyItem, mouse, grantRewards, grantMinionKillRewards, recalcPlayerItemStats, activeGameMode } from '../main.js';
 import { DominionBrain } from './BotBrain.js';
 // spawnPoints a mapBoundary jsou lazy proxy — activeGameMode je již importován výše
 const spawnPoints = new Proxy([], { get: (_, i) => activeGameMode.mapConfig.spawnPoints[i] });
 const mapBoundary = new Proxy([], { get: (_, k) => activeGameMode.mapConfig.mapBoundary[k] });
-import { updateSpellLabels } from './UI.js';
-import { playSound } from './Audio.js';
+import { updateSpellLabels } from '../client/UI.js';
+import { playSound } from '../client/Audio.js';
 
 export class Player{
   constructor(x,y,opts={}){
@@ -643,11 +643,12 @@ export class Player{
             this.omnislashTick = this.omnislashData ? (this.omnislashData.tickRate || 0.2) : 0.2;
             this.omnislashCount--;
 
+            let jumpR = (this.omnislashData && this.omnislashData.jumpRange) ? this.omnislashData.jumpRange : 200;
             let allTargets = [];
-            for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 80) allTargets.push(p);
-            for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 80) allTargets.push(m);
+            for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= jumpR) allTargets.push(p);
+            for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= jumpR) allTargets.push(m);
 
-            let dashTargets = allTargets.filter(t => dist(this.pos, t.pos) <= 80);
+            let dashTargets = allTargets.filter(t => dist(this.pos, t.pos) <= jumpR);
             if (this.omniLastTargetId && this.omniConsecutiveHits >= 2) {
                 let hasOther = dashTargets.some(t => t.id !== this.omniLastTargetId);
                 if (!hasOther) dashTargets = [];
@@ -722,22 +723,22 @@ export class Player{
     // Fountain Logic + AoE Burn Aura - Host-only
     if (!socket || game.isHost) {
         if (allyBaseDist < 200) this.hp = Math.min(this.effectiveMaxHp, this.hp + (this.effectiveMaxHp * 0.15 * dt));
-        // Fountain laser — jen v Classic módu (v ARAM je spawn na kraji mapy, laser by zabil respawnující hráče)
-        if (activeGameMode.name !== 'aram') {
+        // Fountain laser — jen v Classic módu (v ARAM a Horde je spawn jinde / bez laseru)
+        if (activeGameMode.name !== 'aram' && activeGameMode.name !== 'horde') {
           const enemyBaseDist = dist(this.pos, spawnPoints[1-this.team]);
           if (enemyBaseDist < 200) { applyDamage(this, 1000 * dt, 'true', 'laser'); if(this.hp<=0) handlePlayerKill(this, 'laser'); }
         }
 
-        // Proximity burn aura (ticks twice per second)
+        // Proximity burn aura (ticks twice per second) — melee range (~90px), % of tank's own max HP
         if (this.aoeBurnPct && this.alive) {
             this._aoeBurnTimer = (this._aoeBurnTimer || 0) - dt;
             if (this._aoeBurnTimer <= 0) {
                 this._aoeBurnTimer = 0.5;
                 for (const target of game.players) {
                     if (target.team === this.team || !target.alive || target.hp <= 0) continue;
-                    if (dist(this.pos, target.pos) > 180) continue;
-                    const burnDmg = target.maxHp * (this.aoeBurnPct / 2);
-                    applyDamage(target, burnDmg, 'true', this.id);
+                    if (dist(this.pos, target.pos) > 90) continue;
+                    const burnDmg = (this.effectiveMaxHp || this.maxHp) * (this.aoeBurnPct / 2);
+                    applyDamage(target, burnDmg, 'magical', this.id);
                     if (target.hp <= 0) handlePlayerKill(target, this.id);
                     spawnParticles(target.pos.x, target.pos.y, 2, '#ff6600', { life: 0.3, size: 6, speed: 40 });
                 }
@@ -763,14 +764,14 @@ export class Player{
         
         if (this.dashOmnislashData) {
             let hitTarget = null;
-            for (let p of game.players) { if (p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= this.radius + p.radius + 15) { hitTarget = p; break; } }
-            if (!hitTarget) { for (let m of game.minions) { if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= this.radius + m.radius + 15) { hitTarget = m; break; } } }
+            for (let p of game.players) { if (p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= this.radius + p.radius + 30) { hitTarget = p; break; } }
+            if (!hitTarget) { for (let m of game.minions) { if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= this.radius + m.radius + 30) { hitTarget = m; break; } } }
             
             if (hitTarget) {
                 this.dashTimer = 0;
                 this.omnislashCount = this.dashOmnislashData.count;
                 this.omnislashTick = 0;
-                this.omnislashData = { damage: this.dashOmnislashData.damage, dmgType: this.dashOmnislashData.dmgType, tickRate: this.dashOmnislashData.tickRate };
+                this.omnislashData = { damage: this.dashOmnislashData.damage, dmgType: this.dashOmnislashData.dmgType, tickRate: this.dashOmnislashData.tickRate, jumpRange: this.dashOmnislashData.jumpRange || 200 };
                 this.dashOmnislashData = null;
                 spawnParticles(this.pos.x, this.pos.y, 15, '#fff', {speed: 120});
             }
@@ -798,7 +799,18 @@ export class Player{
                 }
             }
         }
-        if (this.dashTimer <= 0) this.dashOmnislashData = null;
+        if (this.dashTimer <= 0 && this.dashOmnislashData) {
+            let nearTarget = null;
+            for (let p of game.players) { if (p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 90) { nearTarget = p; break; } }
+            if (!nearTarget) { for (let m of game.minions) { if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 90) { nearTarget = m; break; } } }
+            if (nearTarget) {
+                this.omnislashCount = this.dashOmnislashData.count;
+                this.omnislashTick = 0;
+                this.omnislashData = { damage: this.dashOmnislashData.damage, dmgType: this.dashOmnislashData.dmgType, tickRate: this.dashOmnislashData.tickRate, jumpRange: this.dashOmnislashData.jumpRange || 200 };
+                spawnParticles(this.pos.x, this.pos.y, 15, '#fff', {speed: 120});
+            }
+            this.dashOmnislashData = null;
+        }
     } else if (this.knockbackTimer > 0) {
         this.knockbackTimer -= dt;
         moveEntityWithCollision(this, this.knockbackVel.x, this.knockbackVel.y, dt);
@@ -1195,6 +1207,21 @@ export class Player{
           const ringMult = _RING_SPLIT[Math.min(ringHitMinions.length - 1, _RING_SPLIT.length - 1)] || 0.25;
           for(let m of ringHitMinions){ applyDamage(m, Math.round(damage * 0.6 * ringMult), this.dmgType, this.id); if(this.onHitSlow){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = Math.min(m.slowMod||1, 1-this.onHitSlow); } spawnParticles(m.pos.x, m.pos.y, 2, '#fff'); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } }
           for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ if(dist(this.pos, p.pos) <= meleeRange){ applyDamage(p, damage, this.dmgType, this.id); if(this.onHitSlow){ p.slowTimer = Math.max(p.slowTimer||0, 1.5); p.slowMod = Math.min(p.slowMod||1, 1-this.onHitSlow); } spawnParticles(p.pos.x, p.pos.y, 2, '#fff'); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } }
+          if (!socket || game.isHost) {
+            for (let t of game.towers) {
+              if (!t.dead && t.maxHp !== null && t.owner !== this.team) {
+                if (dist(this.pos, t.pos) <= meleeRange + t.radius + 15) {
+                  if (!t.isInvulnerable || !t.isInvulnerable()) {
+                    t.takeDamage(damage, this.id);
+                    spawnParticles(t.pos.x, t.pos.y, 4, '#ff8800');
+                    playSound('hit_physical', t.pos);
+                  } else {
+                    spawnParticles(t.pos.x, t.pos.y, 3, '#00e5ff');
+                  }
+                }
+              }
+            }
+          }
       } else {
           // hit minions in cone
             const ang = Math.atan2(ty-this.pos.y, tx-this.pos.x); const cone = isEmpowered ? (48 * Math.PI / 180) : (56 * Math.PI / 180); // 56deg základní, 48deg pro posílené (Reaper Q)
@@ -1215,7 +1242,47 @@ export class Player{
           for(let m of game.minions){ if(!m.dead && m.team !== this.team){ const d = dist(this.pos, m.pos); if(d <= meleeRange){ const a2 = Math.atan2(m.pos.y - this.pos.y, m.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2) hitMinions.push(m); } } }
           const mMult = _MELEE_SPLIT[Math.min(hitMinions.length - 1, _MELEE_SPLIT.length - 1)] || 0.25;
           for(let m of hitMinions){ applyDamage(m, Math.round(damage * 0.6 * mMult), this.dmgType, this.id); if(isEmpowered){ m.slowTimer = Math.max(m.slowTimer||0, 1.0); m.slowMod = 0.6; } else if(this.onHitSlow){ m.slowTimer = Math.max(m.slowTimer||0, 1.5); m.slowMod = Math.min(m.slowMod||1, 1-this.onHitSlow); } spawnParticles(m.pos.x, m.pos.y, 2, pColor); if(m.hp<=0){ m.dead = true; if (!socket || game.isHost) grantMinionKillRewards(this, m.pos); } }
-          for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ applyDamage(p, damage, this.dmgType, this.id); if(isEmpowered){ p.slowTimer = Math.max(p.slowTimer||0, 1.0); p.slowMod = 0.6; } else if(this.onHitSlow){ p.slowTimer = Math.max(p.slowTimer||0, 1.5); p.slowMod = Math.min(p.slowMod||1, 1-this.onHitSlow); } spawnParticles(p.pos.x, p.pos.y, 2, pColor); if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); } } } } }
+          const hitPlayers = [];
+          for(let p of game.players){ if(p !== this && p.team !== this.team && p.alive){ const d = dist(this.pos, p.pos); if(d <= meleeRange){ const a2 = Math.atan2(p.pos.y - this.pos.y, p.pos.x - this.pos.x); const da = Math.abs(Math.atan2(Math.sin(a2-ang), Math.cos(a2-ang))); if(da <= cone/2){ hitPlayers.push({ p, d }); } } } }
+          if (isEmpowered && this.className === 'Reaper') {
+              hitPlayers.sort((a, b) => a.d - b.d);
+              for (let idx = 0; idx < hitPlayers.length; idx++) {
+                  const { p } = hitPlayers[idx];
+                  const falloff = idx === 0 ? 1.0 : (idx === 1 ? 0.50 : 0.35);
+                  applyDamage(p, Math.round(damage * falloff), this.dmgType, this.id);
+                  p.slowTimer = Math.max(p.slowTimer||0, 1.0); p.slowMod = 0.6;
+                  spawnParticles(p.pos.x, p.pos.y, 2, pColor);
+                  if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); }
+              }
+          } else {
+              for(let { p } of hitPlayers){
+                  applyDamage(p, damage, this.dmgType, this.id);
+                  if(isEmpowered){ p.slowTimer = Math.max(p.slowTimer||0, 1.0); p.slowMod = 0.6; }
+                  else if(this.onHitSlow){ p.slowTimer = Math.max(p.slowTimer||0, 1.5); p.slowMod = Math.min(p.slowMod||1, 1-this.onHitSlow); }
+                  spawnParticles(p.pos.x, p.pos.y, 2, pColor);
+                  if(p.hp<=0 && (!socket || game.isHost)){ handlePlayerKill(p, this.id); }
+              }
+          }
+          if (!socket || game.isHost) {
+            for (let t of game.towers) {
+              if (!t.dead && t.maxHp !== null && t.owner !== this.team) {
+                const d = dist(this.pos, t.pos);
+                if (d <= meleeRange + t.radius + 15) {
+                  const a2 = Math.atan2(t.pos.y - this.pos.y, t.pos.x - this.pos.x);
+                  const da = Math.abs(Math.atan2(Math.sin(a2 - ang), Math.cos(a2 - ang)));
+                  if (da <= cone / 2 + 0.3) {
+                    if (!t.isInvulnerable || !t.isInvulnerable()) {
+                      t.takeDamage(damage, this.id);
+                      spawnParticles(t.pos.x, t.pos.y, 4, pColor);
+                      playSound('hit_physical', t.pos);
+                    } else {
+                      spawnParticles(t.pos.x, t.pos.y, 3, '#00e5ff');
+                    }
+                  }
+                }
+              }
+            }
+          }
       }
     } }
 
@@ -1234,7 +1301,7 @@ export class Player{
     let tx = targetX, ty = targetY; 
     if(tx === undefined){ 
         let useAim = true;
-        const _isDashSpell = sp.type === 'dash' || sp.type === 'dash_def' || sp.type === 'dash_heal_silence' || sp.type === 'reaper_e' || sp.type === 'volstrov_e' || sp.type === 'omnislash';
+        const _isDashSpell = sp.type === 'dash' || sp.type === 'dash_def' || sp.type === 'dash_heal_silence' || sp.type === 'reaper_e' || sp.type === 'volstrov_e';
         if (this === player && game.autoTarget && _isDashSpell) {
             let mx = 0, my = 0;
             if(keys['w']) my -= 1; if(keys['s']) my += 1; if(keys['a']) mx -= 1; if(keys['d']) mx += 1;
@@ -1764,11 +1831,11 @@ export class Player{
         spawnParticles(this.pos.x, this.pos.y, 20, '#ccc', {speed: 150});
     } else if (sp.type === 'omnislash') {
         const angle = Math.atan2(ty - this.pos.y, tx - this.pos.x);
-        const distToMove = sp.distance || 180;
+        const distToMove = sp.distance || 280;
         const dashTime = sp.dashTime || 0.2; 
         this.dashTimer = dashTime;
         this.dashVel = { x: Math.cos(angle)*(distToMove/dashTime), y: Math.sin(angle)*(distToMove/dashTime) };
-        this.dashOmnislashData = { damage: damage, dmgType: this.dmgType, count: sp.count || 5, tickRate: sp.tickRate || 0.2 };
+        this.dashOmnislashData = { damage: damage, dmgType: this.dmgType, count: sp.count || 3, tickRate: sp.tickRate || 0.22, jumpRange: sp.jumpRange || 200 };
         this.omniLastTargetId = null; this.omniConsecutiveHits = 0; this.omniHitCounts = new Map();
         spawnParticles(this.pos.x, this.pos.y, 8, '#fff');
     } else if (sp.type === 'projectile_pull') {
@@ -1876,7 +1943,9 @@ export class BotPlayer extends Player {
       this.maxGroupSize = Math.random() > 0.5 ? 3 : 2; // 50% šance snést 3člennou skupinu na stejné věži
       this.lane = opts.lane || null;
 
-      this.panicThreshold = 0.10 + Math.random() * 0.15; // Panikaří na 10% až 25% HP
+      this.playStyle = (CLASSES[this.className] && CLASSES[this.className].playStyle) ? { ...CLASSES[this.className].playStyle } : {};
+      const panicMod = this.playStyle.panicHpMod !== undefined ? this.playStyle.panicHpMod : 1.0;
+      this.panicThreshold = (0.10 + Math.random() * 0.15) * panicMod; // Panikaří podle playStyle (tanci vydrží déle, mágové méně)
       this.healDesireThreshold = 0.70 + Math.random() * 0.25; // Chce lékárničku na 70% až 95% HP
       this.confidenceMod = 0.8 + Math.random() * 0.4; // 80% až 120% sebevědomí (Ochota bojovat v nevýhodě)
 
@@ -2156,35 +2225,37 @@ export class BotPlayer extends Player {
     // Per-class archetype tabulky: [archName, váha 0..1] — součet vah = 1.0
     static CLASS_ARCHETYPES = {
         // FIGHTER
-        'Vanguard':    [['bruiser_power', 0.35], ['anti_tank', 0.45], ['full_tank', 0.2]],
-        'Jirina':      [['anti_tank', 0.4], ['bruiser_power', 0.35], ['full_power', 0.25]],
-        'Bruiser':     [['anti_tank', 0.4], ['glass_cannon', 0.35], ['lifesteal', 0.25]],
+        'Vanguard':    [['bruiser_power', 0.55], ['full_tank', 0.30], ['anti_tank', 0.15]],
+        'Jirina':      [['bruiser_power', 0.50], ['full_power', 0.35], ['anti_tank', 0.15]],
+        'Nemesis':     [['glass_cannon', 0.45], ['lifesteal', 0.35], ['anti_tank', 0.20]],
+        'Bruiser':     [['lifesteal', 0.50], ['bruiser_power', 0.35], ['anti_tank', 0.15]],
+        'Arson':       [['bruiser_power', 0.45], ['haste_mage', 0.40], ['burn_tank', 0.15]],
         // TANK
-        'Ironclad':    [['full_tank', 0.5], ['burn_tank', 0.3], ['bruiser_power', 0.2]],
-        'Hana':        [['burn_tank', 0.4], ['full_tank', 0.35], ['bruiser_power', 0.25]],
-        'Jailer':      [['full_tank', 0.4], ['anti_tank', 0.3], ['bruiser_power', 0.3]],
-        'Goliath':     [['full_tank', 0.35], ['burn_tank', 0.35], ['lifesteal', 0.3]],
+        'Ironclad':    [['full_tank', 0.55], ['burn_tank', 0.35], ['bruiser_power', 0.10]],
+        'Hana':        [['burn_tank', 0.50], ['full_tank', 0.35], ['bruiser_power', 0.15]],
+        'Jailer':      [['full_tank', 0.50], ['burn_tank', 0.30], ['bruiser_power', 0.20]],
+        'Goliath':     [['full_tank', 0.45], ['burn_tank', 0.35], ['lifesteal', 0.20]],
         // ASSASSIN/SLAYER
-        'Lynx':        [['anti_tank', 0.4], ['glass_cannon', 0.35], ['lifesteal', 0.25]],
-        'Zephyr':      [['anti_tank', 0.4], ['splitpush_ms', 0.35], ['glass_cannon', 0.25]],
-        'Reaper':      [['anti_tank', 0.4], ['full_power', 0.35], ['haste_mage', 0.25]],
-        'Wanderer':    [['anti_tank', 0.45], ['glass_cannon', 0.35], ['lifesteal', 0.2]],
+        'Lynx':        [['glass_cannon', 0.55], ['lifesteal', 0.30], ['anti_tank', 0.15]],
+        'Zephyr':      [['splitpush_ms', 0.45], ['glass_cannon', 0.40], ['anti_tank', 0.15]],
+        'Reaper':      [['full_power', 0.50], ['haste_mage', 0.35], ['anti_tank', 0.15]],
+        'Wanderer':    [['glass_cannon', 0.50], ['lifesteal', 0.35], ['anti_tank', 0.15]],
         // RANGED
-        'Quiller':     [['anti_tank', 0.45], ['glass_cannon', 0.35], ['kite_slow', 0.2]],
-        'Kratoma':     [['anti_tank', 0.4], ['full_power', 0.35], ['glass_cannon', 0.25]],
-        'Fusilier':    [['anti_tank', 0.4], ['glass_cannon', 0.35], ['as_carry', 0.25]],
-        'Volstrov':    [['anti_tank', 0.4], ['as_carry', 0.35], ['haste_mage', 0.25]],
+        'Quiller':     [['glass_cannon', 0.50], ['as_carry', 0.30], ['kite_slow', 0.20]],
+        'Kratoma':     [['full_power', 0.50], ['glass_cannon', 0.35], ['anti_tank', 0.15]],
+        'Fusilier':    [['as_carry', 0.50], ['glass_cannon', 0.35], ['anti_tank', 0.15]],
+        'Volstrov':    [['as_carry', 0.45], ['haste_mage', 0.40], ['anti_tank', 0.15]],
         // MAGE
-        'Mage':        [['anti_tank', 0.45], ['haste_mage', 0.35], ['glass_cannon', 0.2]],
-        'Summoner':    [['anti_tank', 0.4], ['haste_mage', 0.35], ['full_power', 0.25]],
-        'Pyromancer':  [['anti_tank', 0.45], ['glass_cannon', 0.35], ['haste_mage', 0.2]],
-        'Tamer':       [['anti_tank', 0.35], ['haste_mage', 0.4], ['support_healer', 0.25]],
+        'Mage':        [['haste_mage', 0.55], ['glass_cannon', 0.30], ['anti_tank', 0.15]],
+        'Summoner':    [['haste_mage', 0.50], ['full_power', 0.35], ['anti_tank', 0.15]],
+        'Pyromancer':  [['haste_mage', 0.50], ['glass_cannon', 0.35], ['anti_tank', 0.15]],
+        'Tamer':       [['haste_mage', 0.50], ['support_healer', 0.35], ['anti_tank', 0.15]],
         // SUPPORT
-        'Healer':      [['support_healer', 0.5], ['haste_mage', 0.3], ['support_gw', 0.2]],
-        'Cleric':      [['support_healer', 0.4], ['support_tank', 0.35], ['support_gw', 0.25]],
-        'Eggchanter':  [['support_healer', 0.45], ['haste_mage', 0.3], ['support_gw', 0.25]],
-        'Oracle':      [['anti_tank', 0.45], ['glass_cannon', 0.3], ['support_gw', 0.25]],
-        'Doctor':      [['support_healer', 0.4], ['support_tank', 0.3], ['support_gw', 0.3]],
+        'Healer':      [['support_healer', 0.60], ['haste_mage', 0.25], ['support_gw', 0.15]],
+        'Cleric':      [['support_healer', 0.50], ['support_tank', 0.35], ['support_gw', 0.15]],
+        'Eggchanter':  [['support_healer', 0.55], ['haste_mage', 0.30], ['support_gw', 0.15]],
+        'Oracle':      [['support_gw', 0.45], ['glass_cannon', 0.40], ['anti_tank', 0.15]],
+        'Doctor':      [['support_healer', 0.50], ['support_tank', 0.35], ['support_gw', 0.15]],
     };
 
     static pickBuyableItem(owner, candidateIds = null, enemies = null) {
@@ -2549,7 +2620,9 @@ export class BotPlayer extends Player {
             ? game.towers.filter(t => t.owner === team).length - game.towers.filter(t => t.owner === 1 - team).length
             : activeGameMode.name === 'arena'
             ? (game.score?.[team] || 0) - (game.score?.[1 - team] || 0)
-            : game.nexus[team] - game.nexus[1-team];
+            : activeGameMode.name === 'horde'
+            ? 0
+            : (game.nexus ? game.nexus[team] - game.nexus[1-team] : 0);
 
         const homeTowerIndexes = activeGameMode.homeTowerIndexes[team];
         const isHomeTower = (tower) => homeTowerIndexes.includes(tower.index);
@@ -3085,13 +3158,13 @@ export class BotPlayer extends Player {
           if (itemToBuy && getItemBuyCost(this, itemToBuy) <= this.gold) canBuy = true;
       }
 
-      if (activeGameMode.name !== 'aram') {
+      if (activeGameMode.name !== 'aram' && activeGameMode.name !== 'arena') {
           if (dToSpawn < 250) {
               if (canBuy && this._nextBuyCheck > 0) this._nextBuyCheck = 0; // Urychlení nákupu
               if (this.hp / this.effectiveMaxHp < 0.95 || canBuy) wantRecall = true;
           } else {
-              // Stahuje se z mapy jen když umírá nebo má plnou peněženku 600g+ a smysluplný upgrade
-              if (this.hp / this.effectiveMaxHp <= 0.10 || (this.gold >= 600 && canBuy)) wantRecall = true;
+              // Stahuje se z mapy jen když umírá nebo má plnou peněženku 1200g+ a smysluplný upgrade
+              if (this.hp / this.effectiveMaxHp <= 0.10 || (this.gold >= 1200 && canBuy)) wantRecall = true;
           }
       }
 
@@ -3135,10 +3208,20 @@ export class BotPlayer extends Player {
           
           if (dist(t.pos, enemyBase) < 300) score -= this.personalWeights.enemyBasePenalty; // Penalizace
           if (activeGameMode.name === 'aram') {
-            // ARAM: 2 věže (T0 blue, T1 red) — cílem je vždy nepřátelská věž
-            // Blue útočí na T1 (index 1), Red útočí na T0 (index 0)
-            if (t.owner !== this.team) score += 5000; // vždy prioritizuj nepřátelskou věž
-            if (t.owner === this.team && t.hp < t.maxHp * 0.5) score += 3000; // bráň domácí věž když má < 50% HP
+            const frontlineEnemyTower = (this.team === 0 ? [3, 4, 5] : [0, 1, 2]).map(i => game.towers[i]).find(tw => tw && !tw.dead);
+            const frontlineAllyTower = (this.team === 0 ? [0, 1, 2] : [3, 4, 5]).map(i => game.towers[i]).find(tw => tw && !tw.dead);
+            if (t === frontlineEnemyTower) {
+              score += 15000;
+              const allyMinionsTanking = activeAllyMinions.filter(m => dist(m.pos, t.pos) < t.attackRange).length;
+              if (allyMinionsTanking === 0 && dist(this.pos, t.pos) < t.attackRange + 100) {
+                score -= 10000; // Bez minionů pod věží bot nespáchá zbytečnou sebevraždu
+              }
+            } else if (t.owner !== this.team) {
+              score -= 60000; // Neklikej na vnitřní / chráněné věže vzadu
+            }
+            if (t === frontlineAllyTower && t.hp < t.maxHp * 0.6) {
+              score += 12000; // Bráň vlastní ohroženou věž
+            }
           } else {
             let isTopTower = (t.index === 0 || t.index === 1 || t.index === 2);
             let isBotTower = (t.index === 3 || t.index === 4);
@@ -3353,7 +3436,7 @@ export class BotPlayer extends Player {
                       cowardiceThreshold -= 0.15; // Zoufalství: Budou riskovat i vyloženě špatné souboje o cíle!
                   }
 
-                  if (activeGameMode && (activeGameMode.name === 'arena' || activeGameMode.name === 'aram')) {
+                  if (activeGameMode && (activeGameMode.name === 'arena' || activeGameMode.name === 'aram' || activeGameMode.name === 'horde')) {
                       cowardiceThreshold -= 0.15; // V týmových brawlech se tolik nebojí
                   }
 
@@ -3433,6 +3516,14 @@ export class BotPlayer extends Player {
                           if (guardedCarry && guardedCarry.recentAttackers && guardedCarry.recentAttackers.has(e.id)) {
                               score += 18000; // Tank zastaví toho kdo útočí na jeho chráněnce — nejvyšší priorita
                           }
+                      }
+                  }
+
+                  // PLAYSTYLE: diveThreshold pod nepřátelskou věží
+                  if (this.playStyle && this.playStyle.diveThreshold !== undefined) {
+                      const nearEnemyTower = game.towers.some(t => !t.dead && t.owner >= 0 && t.owner !== this.team && dist(e.pos, t.pos) <= (t.attackRange || 280));
+                      if (nearEnemyTower && enemyHpPct > this.playStyle.diveThreshold) {
+                          score -= 28000; // Cíl pod věží má příliš mnoho HP na náš diveThreshold
                       }
                   }
               } else {
@@ -3817,7 +3908,18 @@ export class BotPlayer extends Player {
                  spawnParticles(this.pos.x, this.pos.y, 10, '#f80');
                  this.dashEndExplosion = null;
               }
-              if (this.dashTimer <= 0) this.dashOmnislashData = null;
+              if (this.dashTimer <= 0 && this.dashOmnislashData) {
+              let nearTarget = null;
+              for (let p of game.players) { if (p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 90) { nearTarget = p; break; } }
+              if (!nearTarget) { for (let m of game.minions) { if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 90) { nearTarget = m; break; } } }
+              if (nearTarget) {
+                  this.omnislashCount = this.dashOmnislashData.count;
+                  this.omnislashTick = 0;
+                  this.omnislashData = { damage: this.dashOmnislashData.damage, dmgType: this.dashOmnislashData.dmgType, tickRate: this.dashOmnislashData.tickRate, jumpRange: this.dashOmnislashData.jumpRange || 200 };
+                  spawnParticles(this.pos.x, this.pos.y, 15, '#fff', {speed: 120});
+              }
+              this.dashOmnislashData = null;
+          }
               return;
           }
 
@@ -3924,11 +4026,12 @@ export class BotPlayer extends Player {
           if (this.omnislashTick <= 0) {
               this.omnislashTick = this.omnislashData ? (this.omnislashData.tickRate || 0.2) : 0.2;
               this.omnislashCount--;
+              let jumpR = (this.omnislashData && this.omnislashData.jumpRange) ? this.omnislashData.jumpRange : 200;
               let allTargets = [];
-              for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= 80) allTargets.push(p);
-              for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= 80) allTargets.push(m);
+              for(let p of game.players) if (p.team !== this.team && p.alive && dist(this.pos, p.pos) <= jumpR) allTargets.push(p);
+              for(let m of game.minions) if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= jumpR) allTargets.push(m);
 
-              let closeTargets = allTargets.filter(t => dist(this.pos, t.pos) <= 80);
+              let closeTargets = allTargets.filter(t => dist(this.pos, t.pos) <= jumpR);
               if (this.omniLastTargetId && this.omniConsecutiveHits >= 2) {
                   let hasOther = closeTargets.some(t => t.id !== this.omniLastTargetId);
                   if (!hasOther) closeTargets = [];
@@ -4058,11 +4161,11 @@ export class BotPlayer extends Player {
           
           if (this.dashOmnislashData) {
               let hitTarget = null;
-              for (let p of game.players) { if (p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= this.radius + p.radius + 15) { hitTarget = p; break; } }
-              if (!hitTarget) { for (let m of game.minions) { if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= this.radius + m.radius + 15) { hitTarget = m; break; } } }
+              for (let p of game.players) { if (p !== this && p.team !== this.team && p.alive && dist(this.pos, p.pos) <= this.radius + p.radius + 30) { hitTarget = p; break; } }
+              if (!hitTarget) { for (let m of game.minions) { if (m.team !== this.team && !m.dead && dist(this.pos, m.pos) <= this.radius + m.radius + 30) { hitTarget = m; break; } } }
               if (hitTarget) {
                   this.dashTimer = 0; this.omnislashCount = this.dashOmnislashData.count; this.omnislashTick = 0;
-                  this.omnislashData = { damage: this.dashOmnislashData.damage, dmgType: this.dashOmnislashData.dmgType, tickRate: this.dashOmnislashData.tickRate };
+                  this.omnislashData = { damage: this.dashOmnislashData.damage, dmgType: this.dashOmnislashData.dmgType, tickRate: this.dashOmnislashData.tickRate, jumpRange: this.dashOmnislashData.jumpRange || 200 };
                   this.invulnerableTimer = this.dashOmnislashData.count * this.dashOmnislashData.tickRate + 0.1;
                   this.dashOmnislashData = null; spawnParticles(this.pos.x, this.pos.y, 15, '#fff', {speed: 120});
               }
@@ -4300,53 +4403,52 @@ export class BotPlayer extends Player {
               const _enemyCastAgo = this.target._lastSpellCastAt ? (_now - this.target._lastSpellCastAt) / 1000 : 99;
               const _inSafeWindow = _enemyCastAgo < 1.8;
 
+              // --- PLAYSTYLE COMBAT MOVEMENT ---
+              const ps = this.playStyle || {};
+              const prefDist = ps.preferredCombatDist || (this.range ? atkRange - 40 : 45);
+              const backoffAgg = ps.backoffAggression !== undefined ? ps.backoffAggression : (this.range ? 0.3 : 0.7);
+              const strafeInt = ps.strafeIntensity !== undefined ? ps.strafeIntensity : 0.6;
+              const engRange = ps.engageRange !== undefined ? ps.engageRange : 30;
+
               // --- BOD 1: BAD TRADE KITING / GOOD TRADE AGGRESSION ---
               const _aaReady = this.attackCooldown <= 0;
               const _anySpellReady = (this.spells.Q && this.spells.Q.cd <= 0) || (this.spells.E && this.spells.E.cd <= 0);
               const _allOnCd = !_aaReady && !_anySpellReady;
-              const _doBackoff = this._badTrade && !_inSafeWindow && (this.hp / this.effectiveMaxHp > 0.25)
-                  && (this.range ? true : _allOnCd);
-              // Dobrý trade: ratio < 0.8 a způsobili jsme aspoň něco — jdi na ně agresivněji
               const _tradeRatioCur = (this._tradeDealt > 0 && this._tradeLost >= 0)
                   ? (this._tradeLost / this._tradeDealt) : 1.0;
               const _goodTrade = _tradeRatioCur < 0.8 && this._tradeDealt > 30;
+              const _wantsBackoff = this._badTrade || (this.range && !_goodTrade && backoffAgg < 0.5);
+              const _doBackoff = _wantsBackoff && !_inSafeWindow && (this.hp / this.effectiveMaxHp > 0.25)
+                  && (this.range ? true : _allOnCd);
 
-              if (d > atkRange + 20) {
+              if (d > atkRange + engRange) {
                   this.chaseTimer = (this.chaseTimer || 0) + dt;
               } else {
                   this.chaseTimer = 0;
               }
 
               // Movement Logic
+              const strafeDir = (parseInt(this.id.split('_')[1] || '0') % 2 === 0) ? 1 : -1;
               if (_doBackoff) {
                   if (this.range) {
-                      // Ranged kiting: drž se na hraně attack range — ne plný útěk, ale max distance
-                      const kitDist = atkRange - 20;
-                      if (d < kitDist) {
-                          // Jsme blíž než chceme — ustup + strafe
-                          const strafeDir = (parseInt(this.id.split('_')[1] || '0') % 2 === 0) ? 1 : -1;
-                          dx = (this.pos.x - tx) + (-(ty - this.pos.y) * strafeDir * 0.5);
-                          dy = (this.pos.y - ty) + ((tx - this.pos.x) * strafeDir * 0.5);
+                      // Ranged kiting: drž se na preferredCombatDist
+                      if (d < prefDist) {
+                          dx = (this.pos.x - tx) + (-(ty - this.pos.y) * strafeDir * strafeInt);
+                          dy = (this.pos.y - ty) + ((tx - this.pos.x) * strafeDir * strafeInt);
                       } else {
-                          // Jsme na dobré vzdálenosti — jen strafe
-                          const strafeDir = (parseInt(this.id.split('_')[1] || '0') % 2 === 0) ? 1 : -1;
-                          dx = -(ty - this.pos.y) * strafeDir; dy = (tx - this.pos.x) * strafeDir;
+                          dx = -(ty - this.pos.y) * strafeDir * strafeInt; dy = (tx - this.pos.x) * strafeDir * strafeInt;
                       }
                   } else {
                       // Melee: krátký krok zpět, čeká na AA reset — pak se vrátí
                       dx = this.pos.x - tx; dy = this.pos.y - ty;
                   }
-              } else if (d > atkRange) {
-                  // Good trade nebo safe window: agresivnější chase, ignoruj kiting vzdálenost
-                  const chaseRange = (_inSafeWindow || _goodTrade) ? atkRange * 1.25 : atkRange;
-                  if (d > chaseRange) { dx = tx - this.pos.x; dy = ty - this.pos.y; }
-              } else if (this.range && d < atkRange - 150 && !_goodTrade) {
-                  // Ranged kiting — ale při dobrém tradu netlačí brake, zůstane blíž
+              } else if (d > prefDist + 25) {
+                  const chaseDist = (_inSafeWindow || _goodTrade) ? prefDist : prefDist + 15;
+                  if (d > chaseDist) { dx = tx - this.pos.x; dy = ty - this.pos.y; }
+              } else if (this.range && d < prefDist - 25 && !_goodTrade) {
                   dx = this.pos.x - tx; dy = this.pos.y - ty;
               } else {
-                  const strafeDir = (parseInt(this.id.split('_')[1] || '0') % 2 === 0) ? 1 : -1;
-                  // Good trade nebo safe window: agresivnější strafe (tlačí blíž)
-                  const strafeMult = (_inSafeWindow || _goodTrade) ? 1.4 : 1.0;
+                  const strafeMult = ((_inSafeWindow || _goodTrade) ? 1.3 : 1.0) * strafeInt;
                   dx = -(ty - this.pos.y) * strafeDir * strafeMult; dy = (tx - this.pos.x) * strafeDir * strafeMult;
               }
               
@@ -4608,6 +4710,20 @@ export class BotPlayer extends Player {
           else {
           let dToObj = dist(this.pos, this.objective.pos);
           let stopRadius = this.objective.captureRadius !== undefined ? this.objective.captureRadius - 10 : 80;
+          if (activeGameMode && activeGameMode.name === 'aram' && this.objective && this.objective.maxHp !== null && this.objective.owner !== this.team && !this.objective.dead) {
+              const t = this.objective;
+              const dToT = dist(this.pos, t.pos);
+              const atkRange = this.range ? this.attackRange : (this.attackRange + 15);
+              if (dToT <= atkRange + t.radius + 15) {
+                  dx = 0; dy = 0;
+                  this.aimAngle = Math.atan2(t.pos.y - this.pos.y, t.pos.x - this.pos.x);
+                  if (this.attackCooldown <= 0 && this.canBasicAttack() && this.castingTimeRemaining <= 0) {
+                      this.shoot(t.pos.x, t.pos.y);
+                      const effAS = this.attackSpeed * (this.adAsBuffTimer > 0 ? 1 + this.adAsBuffAmount : 1.0);
+                      this.attackCooldown = this.attackDelay / effAS;
+                  }
+              }
+          }
           if (dToObj > stopRadius) { // Zastavíme u cíle (u věže nebo u minionů)
               dx = this.objective.pos.x - this.pos.x;
               dy = this.objective.pos.y - this.pos.y;
@@ -4736,6 +4852,7 @@ export class BotPlayer extends Player {
 
       const l = Math.hypot(dx, dy);
        let moveSpeed = this.speed * (this.hasPowerup ? 1.2 : 1.0) * (this.msBuffTimer > 0 ? (1 + this.msBuffAmount) : 1.0) * (this.slowTimer > 0 ? (this.slowMod || 0.6) : 1.0);
+      if (this.terrified && this.playStyle && this.playStyle.retreatSpeedMod) moveSpeed *= this.playStyle.retreatSpeedMod;
       if (this.volstrovQTimer > 0 && this.volstrovQData) moveSpeed *= (1.0 - (this.volstrovQData.msSlow || 0.5));
       if (this.attackPenaltyTimer > 0) moveSpeed *= (this.range ? 0.6 : 0.85);
       if (l > 0) { 

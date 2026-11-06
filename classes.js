@@ -321,7 +321,7 @@ export const CLASSES = {
       baseCooldown: 10.0, castTime: 0.15,
       baseDamage: 20, scaleAP: 0.50, scaleAD: 0,
       type: 'reaper_q', charges: 3, bonusRange: 70, scaleLevel: 6,
-      desc: '4s: next 3 attacks gain range, bonus damage + slow target (40%, 1s).'
+      desc: '4s: next 3 attacks gain range, heavy bonus damage + slow (100% to primary, reduced to secondary targets).'
     },
     E: {
       baseCooldown: 14.0, castTime: 0.05,
@@ -346,10 +346,10 @@ export const CLASSES = {
       desc: 'Spin 2s — repeatedly damage nearby enemies. Move while spinning.'
     },
     E: {
-      baseCooldown: 16.0, castTime: 0.35,
-      baseDamage: 40, scaleAP: 0, scaleAD: 0.4, scaleLevel: 8,
-      type: 'omnislash', count: 5, tickRate: 0.2, distance: 250, dashTime: 0.2,
-      desc: 'Dash — on hit: blink 5× to nearby enemies, strike each.'
+      baseCooldown: 15.0, castTime: 0.15,
+      baseDamage: 75, scaleAP: 0, scaleAD: 0.55, scaleLevel: 10,
+      type: 'omnislash', count: 3, jumpRange: 200, tickRate: 0.22, distance: 280, dashTime: 0.2,
+      desc: 'Dash toward cursor — on hit: strike 3× jumping between nearby enemies with heavy damage.'
     }
   },
 

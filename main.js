@@ -11,12 +11,14 @@ import { GameMode_Classic } from './gamemodes/GameMode_Classic.js';
 import { GameMode_Speed } from './gamemodes/GameMode_Speed.js';
 import { GameMode_ARAM } from './gamemodes/GameMode_ARAM.js';
 import { GameMode_Arena } from './gamemodes/GameMode_Arena.js';
+import { GameMode_Horde } from './gamemodes/GameMode_Horde.js';
 
 export const GAME_MODES = {
   classic: GameMode_Classic,
   speed:   GameMode_Speed,
   aram:    GameMode_ARAM,
   arena:   GameMode_Arena,
+  horde:   GameMode_Horde,
 };
 
 // Registrace nového game modu za běhu — stačí zavolat z libovolného GameMode_*.js souboru.
@@ -25,6 +27,11 @@ export function registerGameMode(name, modeObj) {
   GAME_MODES[name] = modeObj;
 }
 
+if (typeof window !== 'undefined') {
+  window.playSound = playSound;
+  window.flashMessage = flashMessage;
+  window.showEnd = showEnd;
+}
 export let activeGameMode = GameMode_Classic;
 
 export function setActiveMode(modeName) {
@@ -257,6 +264,9 @@ import { initAudio, playSound } from './client/Audio.js';
             tower.control = tData.c; tower.owner = tData.o; 
             if (tData.l !== undefined) tower.isLocked = tData.l;
             if (tData.u !== undefined) tower.unlockTimer = tData.u;
+            if (tData.hp !== undefined && tData.hp !== null) tower.hp = tData.hp;
+            if (tData.maxHp !== undefined && tData.maxHp !== null) tower.maxHp = tData.maxHp;
+            if (tData.d !== undefined) tower.dead = tData.d;
         }
       });
       // Sdílení lékárniček, powerupů a životů základen z Hosta na Klienty
@@ -554,7 +564,7 @@ import { initAudio, playSound } from './client/Audio.js';
   // Per-hero exp % when N allies are nearby at minion death: 1→100%, 2→75%, 3→50%, 4→33%, 5→25%
   const _MINION_EXP_PCT = [1.0, 0.75, 0.50, 0.33, 0.25];
 
-  export function grantMinionKillRewards(killer, minionPos) {
+  export function grantMinionKillRewards(killer, minionPos, minion = null) {
     if (!killer) return;
     let totalLevel = 0, pCount = 0;
     for (const p of game.players) { if (p.team >= 0) { totalLevel += p.level; pCount++; } }
@@ -567,18 +577,20 @@ import { initAudio, playSound } from './client/Audio.js';
     const pct = _MINION_EXP_PCT[Math.min(recipients.length - 1, _MINION_EXP_PCT.length - 1)];
     const modeMult = ((activeGameMode && activeGameMode.name === 'arena') ? 1.5 : 1.0)
       * ((activeGameMode && activeGameMode.rewardMultiplier) || 1);
+    const baseGold = (minion && minion.goldReward) ? minion.goldReward : 8;
+    const baseExp  = (minion && minion.expReward)  ? minion.expReward  : 11;
     for (const p of recipients) {
       const m = snowMult(p) * modeMult;
       const prevGold = p.gold;
-      const goldReward = Math.round(8 * pct * m);
+      const goldReward = Math.round(baseGold * pct * m);
       p.gold      += goldReward;
       p.totalGold += goldReward;
       showGoldGain(p, goldReward);
       if (socket && game.isHost && !simMode) {
         socket.emit('host_event', { type: 'gold_gain', playerId: p.id, amount: goldReward });
       }
-      p.exp       += Math.round(11 * pct * m);
-      p.totalExp   = (p.totalExp || 0) + Math.round(11 * pct * m);
+      p.exp       += Math.round(baseExp * pct * m);
+      p.totalExp   = (p.totalExp || 0) + Math.round(baseExp * pct * m);
       // Bot nakupuje jakmile překoná práh pro basic item (throttled)
       if (p instanceof BotPlayer && (!socket || game.isHost) && prevGold < 250 && p.gold >= 250) {
         const botEnemies = game.players.filter(e => e.team !== p.team);
@@ -689,14 +701,14 @@ import { initAudio, playSound } from './client/Audio.js';
             game.damageNumbers.push(new DamageNumber(target.pos.x, target.pos.y + 14, sigilBonus, '#e0e0ff'));
         }
 
-        // Strike Burn
+        // Blade Strike: direct bonus true damage based on target's max HP %
         if ((sourceEntity?.strikeBurnPct || 0) > 0 && type !== 'true' && type !== 'dot' && target.maxHp && !(target instanceof Tower)) {
             let burnMult = (isSpell && isAoE) ? 0.5 : 1.0;
-            let totalBurnDmg = target.maxHp * sourceEntity.strikeBurnPct * burnMult;
-            target.burnDotTimer = 2.0;
-            target.burnDotTickDmg = totalBurnDmg / 4.0;
-            target.burnDotSource = sourceId;
-            if (!target.burnDotTick || target.burnDotTick <= 0) target.burnDotTick = 0.5;
+            let bladeTrueDmg = Math.round(target.maxHp * sourceEntity.strikeBurnPct * burnMult);
+            if (bladeTrueDmg > 0) {
+                applyDamage(target, bladeTrueDmg, 'true', sourceId);
+                spawnParticles(target.pos.x, target.pos.y, 3, '#fff', { life: 0.25, size: 5, speed: 60 });
+            }
         }
     }
     target.flashTimer = 0.1;
@@ -1007,7 +1019,9 @@ import { initAudio, playSound } from './client/Audio.js';
         }
     }
     spawnOfflineBotsForTeam(0, 'blue', humansBlue, bluePicked, redPicked);
-    spawnOfflineBotsForTeam(1, 'red',  humansRed,  redPicked,  bluePicked);
+    if (activeGameMode.name !== 'horde') {
+      spawnOfflineBotsForTeam(1, 'red',  humansRed,  redPicked,  bluePicked);
+    }
 
     game.started = true;
     updateSpellLabels();
@@ -1109,7 +1123,9 @@ import { initAudio, playSound } from './client/Audio.js';
     }
 
     spawnBotsForTeam(0, 'blue', humansBlue, bluePicked, redPicked);
-    spawnBotsForTeam(1, 'red',  humansRed,  redPicked,  bluePicked);
+    if (activeGameMode.name !== 'horde') {
+      spawnBotsForTeam(1, 'red',  humansRed,  redPicked,  bluePicked);
+    }
 
     game.started = true; updateSpellLabels();
     const mc = document.getElementById('mobileControls'); if (mc) mc.style.display = 'block';
@@ -1691,10 +1707,10 @@ import { initAudio, playSound } from './client/Audio.js';
                     if (tier === 2 && t._towerSkip % 3 !== 0) continue; // ~1 Hz
                     if (tier === 3 && t._towerSkip % 6 !== 0) continue; // ~0.5 Hz
                     // Dirty check: posílej jen věže kde se něco změnilo
-                    const cc = t.control, co = t.owner, cl = t.isLocked;
-                    if (t._lastC === cc && t._lastO === co && t._lastL === cl && tier > 0) continue;
-                    t._lastC = cc; t._lastO = co; t._lastL = cl;
-                    towerOut.push({i: t.index, c: cc, o: co, l: cl, u: t.unlockTimer});
+                    const cc = t.control, co = t.owner, cl = t.isLocked, chp = t.hp !== null && t.hp !== undefined ? Math.round(t.hp) : null, cd = t.dead;
+                    if (t._lastC === cc && t._lastO === co && t._lastL === cl && t._lastHp === chp && t._lastD === cd && tier > 0) continue;
+                    t._lastC = cc; t._lastO = co; t._lastL = cl; t._lastHp = chp; t._lastD = cd;
+                    towerOut.push({i: t.index, c: cc, o: co, l: cl, u: t.unlockTimer, hp: chp, maxHp: t.maxHp, d: cd});
                 }
                 if (towerOut.length > 0) {
                     try { socket.emit('host_state', { bots: [], minions: [], towers: towerOut });

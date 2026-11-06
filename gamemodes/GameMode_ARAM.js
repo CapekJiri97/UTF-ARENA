@@ -28,6 +28,7 @@ export const GameMode_ARAM = {
       t.maxHp = towerHPs[i];
       t.hp = t.maxHp;
       t.attackDamage = 150;
+      t.attackRange = 420;
     });
   },
 
@@ -38,15 +39,13 @@ export const GameMode_ARAM = {
       const spBlue = AramMap.aramMinionSpawns[0];
       const spRed  = AramMap.aramMinionSpawns[1];
 
-      // Modří útočí na červené věže (index 3, 4, 5)
-      let blueTargetIndex = 3;
-      if (game.towers[3] && game.towers[3].dead) blueTargetIndex = 4;
-      if (game.towers[4] && game.towers[4].dead) blueTargetIndex = 5;
+      // Modří útočí na první živou červenou věž v řadě (3 Outer -> 4 Inner -> 5 Base)
+      const blueAlive = [3, 4, 5].find(i => game.towers[i] && !game.towers[i].dead);
+      const blueTargetIndex = blueAlive !== undefined ? blueAlive : 5;
 
-      // Červení útočí na modré věže (index 0, 1, 2)
-      let redTargetIndex = 0;
-      if (game.towers[0] && game.towers[0].dead) redTargetIndex = 1;
-      if (game.towers[1] && game.towers[1].dead) redTargetIndex = 2;
+      // Červení útočí na první živou modrou věž v řadě (0 Outer -> 1 Inner -> 2 Base)
+      const redAlive = [0, 1, 2].find(i => game.towers[i] && !game.towers[i].dead);
+      const redTargetIndex = redAlive !== undefined ? redAlive : 2;
 
       if (spBlue) {
         for (let k = 0; k < 3; k++) game.minions.push(new Minion(spBlue.x + (Math.random()-0.5)*40, spBlue.y + (Math.random()-0.5)*40, 0, blueTargetIndex));
@@ -77,7 +76,9 @@ export const GameMode_ARAM = {
   _triggerGameOver(winner, socket) {
     game.gameOver = true;
     game.winner = winner;
-    showEnd(winner);
+    if (typeof showEnd === 'function') {
+      try { showEnd(winner); } catch (e) {}
+    }
     if (socket) {
       socket.emit('host_event', {
         type: 'game_over',
@@ -98,14 +99,30 @@ export const GameMode_ARAM = {
     ctx.fillStyle = '#ffcc44';
     ctx.fillText('ARAM', cw / 2, 2);
 
-    // Zobrazení zdraví Base věží v HUDu pro přehlednost
-    if (game.towers[2] && game.towers[5]) {
-        const blueHp = Math.max(0, Math.floor(game.towers[2].hp));
-        const redHp = Math.max(0, Math.floor(game.towers[5].hp));
-        ctx.font = isMobile ? 'bold 18px monospace' : 'bold 24px monospace';
-        ctx.fillStyle = '#fff'; ctx.fillText(' : ', cw/2, isMobile ? 12 : 18);
-        ctx.textAlign = 'right'; ctx.fillStyle = '#486FED'; ctx.fillText(blueHp, cw/2 - 15, isMobile ? 12 : 18);
-        ctx.textAlign = 'left'; ctx.fillStyle = '#FF4E4E'; ctx.fillText(redHp, cw/2 + 15, isMobile ? 12 : 18);
+    // Kills display
+    const blueKills = game.players ? game.players.filter(p => p.team === 0).reduce((s, p) => s + (p.kills || 0), 0) : 0;
+    const redKills  = game.players ? game.players.filter(p => p.team === 1).reduce((s, p) => s + (p.kills || 0), 0) : 0;
+    
+    ctx.font = isMobile ? 'bold 18px monospace' : 'bold 22px monospace';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(' : ', cw / 2, isMobile ? 14 : 18);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#486FED'; ctx.fillText(blueKills, cw / 2 - 18, isMobile ? 14 : 18);
+    ctx.textAlign = 'left';  ctx.fillStyle = '#FF4E4E'; ctx.fillText(redKills,  cw / 2 + 18, isMobile ? 14 : 18);
+
+    // Status aktivních front-line věží
+    if (game.towers && game.towers.length >= 6) {
+      const blueFront = [0, 1, 2].map(i => game.towers[i]).find(t => t && !t.dead) || game.towers[2];
+      const redFront  = [3, 4, 5].map(i => game.towers[i]).find(t => t && !t.dead) || game.towers[5];
+      const bHp = Math.max(0, Math.floor(blueFront.hp));
+      const rHp = Math.max(0, Math.floor(redFront.hp));
+      const bName = blueFront.index === 2 ? 'Base' : (blueFront.index === 1 ? 'Inner' : 'Outer');
+      const rName = redFront.index === 5 ? 'Base' : (redFront.index === 4 ? 'Inner' : 'Outer');
+
+      ctx.font = isMobile ? '10px monospace' : '12px monospace';
+      ctx.textAlign = 'right'; ctx.fillStyle = '#7af';
+      ctx.fillText(`T[${bName}]: ${bHp}`, cw / 2 - 25, isMobile ? 36 : 42);
+      ctx.textAlign = 'left'; ctx.fillStyle = '#f87';
+      ctx.fillText(`T[${rName}]: ${rHp}`, cw / 2 + 25, isMobile ? 36 : 42);
     }
   },
 
@@ -113,7 +130,7 @@ export const GameMode_ARAM = {
     return 'mid';
   },
 
-  homeTowerIndexes: { 0: [0], 1: [1] },
+  homeTowerIndexes: { 0: [0, 1, 2], 1: [3, 4, 5] },
 
   // Strategická AI pro boty — ARAM: push linka, bráň svou věž
   botBrain: AramBrain,

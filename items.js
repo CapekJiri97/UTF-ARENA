@@ -80,59 +80,59 @@ export const shopItems = [
     apply: (pl) => { pl.attackSpeed += 0.12; }
   },
 
-  // ── SPECIAL EFFECTS (500g, +40g per same item) ───────────────────────
+  // ── SPECIAL EFFECTS (500g, +50g per same item, max 2 special items) ───
   {
     id: 'special_lifesteal', name: 'Special Lifesteal', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { lifestealPct: 0.05 }, caps: { lifestealPct: 0.25 },
-    apply: (pl) => { pl.lifesteal = capAdd(pl.lifesteal || 0, 0.05, 0.25); }
+    stats: { lifestealPct: 0.10 }, caps: { lifestealPct: 0.20, maxStacks: 2 },
+    apply: (pl) => { pl.lifesteal = capAdd(pl.lifesteal || 0, 0.10, 0.20); }
   },
   {
     id: 'special_heal_power', name: 'Special Heal Power', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { healPower: 0.15 }, caps: { healPower: 0.45 },
-    apply: (pl) => { pl.healPower = capAdd(pl.healPower || 0, 0.15, 0.45); }
+    stats: { healPower: 0.25 }, caps: { healPower: 0.50, maxStacks: 2 },
+    apply: (pl) => { pl.healPower = capAdd(pl.healPower || 0, 0.25, 0.50); }
   },
   {
     id: 'special_movespeed', name: 'Special Move Speed', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { msPct: 0.04 }, caps: { msPct: 0.20 },
-    apply: (pl) => { applyMoveSpeedPct(pl, 0.04, 0.20); }
+    stats: { msPct: 0.07 }, caps: { msPct: 0.14, maxStacks: 2 },
+    apply: (pl) => { applyMoveSpeedPct(pl, 0.07, 0.14); }
   },
   {
     id: 'special_pen', name: 'Special Penetration', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { penPct: 0.18}, caps: { penPct: 0.60 },
-    apply: (pl) => { pl.adaptivePen = capAdd(pl.adaptivePen || 0, 0.18, 0.60); }
+    stats: { penPct: 0.20 }, caps: { penPct: 0.40, maxStacks: 2 },
+    apply: (pl) => { pl.adaptivePen = capAdd(pl.adaptivePen || 0, 0.20, 0.40); }
   },
   {
     id: 'special_burn', name: 'Special Burn Aura', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { maxHpDmgPct: 0.015 }, caps: { maxHpDmgPct: 0.045 },
+    stats: { maxHpDmgPct: 0.012 }, caps: { maxHpDmgPct: 0.024, maxStacks: 2 },
     apply: (pl) => {
-      pl.aoeBurnPct = capAdd(pl.aoeBurnPct || 0, 0.015, 0.045);
+      pl.aoeBurnPct = capAdd(pl.aoeBurnPct || 0, 0.012, 0.024);
     }
   },
   {
-    id: 'special_strike_burn', name: 'Special Strike Burn', group: 'special',
+    id: 'special_strike_burn', name: 'Special Blade Strike', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { strikeBurnPct: 0.015 }, caps: { strikeBurnPct: 0.045 },
-    apply: (pl) => { pl.strikeBurnPct = capAdd(pl.strikeBurnPct || 0, 0.015, 0.045); }
+    stats: { strikeBurnPct: 0.025 }, caps: { strikeBurnPct: 0.05, maxStacks: 2 },
+    apply: (pl) => { pl.strikeBurnPct = capAdd(pl.strikeBurnPct || 0, 0.025, 0.05); }
   },
   {
     id: 'special_slow', name: 'Special Slow', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { slowOnHit: 0.06 }, caps: { slowOnHit: 0.30 },
+    stats: { slowOnHit: 0.15 }, caps: { slowOnHit: 0.30, maxStacks: 2 },
     apply: (pl) => { 
-      pl.onHitSlow = capAdd(pl.onHitSlow || 0, 0.06, 0.30); 
+      pl.onHitSlow = capAdd(pl.onHitSlow || 0, 0.15, 0.30); 
       pl.onSpellHitSlow = pl.onHitSlow;
     }
   },
   {
     id: 'special_gw', name: 'Special Grievous Wounds', group: 'special',
     costBase: SPECIAL_COST, costStep: SPECIAL_STEP,
-    stats: { grievousWounds: 0.20 }, caps: { grievousWounds: 0.60 },
-    apply: (pl) => { pl.antiHeal = capAdd(pl.antiHeal || 0, 0.20, 0.60); }
+    stats: { grievousWounds: 0.35 }, caps: { grievousWounds: 0.60, maxStacks: 2 },
+    apply: (pl) => { pl.antiHeal = capAdd(pl.antiHeal || 0, 0.35, 0.60); }
   }
 ];
 
@@ -181,10 +181,23 @@ export function canBuyShopItem(player, item) {
   const total = getTotalItemCount(player);
   if (total >= 20) return { ok: false, reason: 'Max total items reached (20)' };
 
-  const uniqueCount = getUniqueItemCount(player);
+  const items = player.items || [];
+  const basicUnique = new Set(items.filter(id => getShopItem(id)?.group === 'basic'));
+  const specialItems = items.filter(id => getShopItem(id)?.group === 'special');
   const ownsThis = getItemCount(player, item.id) > 0;
-  if (!ownsThis && uniqueCount >= 6) {
-    return { ok: false, reason: 'Max different items reached (6)' };
+
+  if (item.group === 'basic') {
+    if (!ownsThis && basicUnique.size >= 4) {
+      return { ok: false, reason: 'Max 4 basic item slots full' };
+    }
+  } else if (item.group === 'special') {
+    if (specialItems.length >= 2) {
+      return { ok: false, reason: 'Max 2 special items equipped' };
+    }
+    const maxStacks = item.caps?.maxStacks || 2;
+    if (getItemCount(player, item.id) >= maxStacks) {
+      return { ok: false, reason: `Max ${maxStacks} of this special item` };
+    }
   }
 
   return { ok: true, reason: '' };
